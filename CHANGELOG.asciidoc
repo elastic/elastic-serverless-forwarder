@@ -1,0 +1,30 @@
+////
+[[release-notes-x.x.x]]
+==== x.x.x - YYYY/MM/DD
+
+[float]
+===== Breaking changes
+
+[float]
+===== Features
+* Cool new feature: {pull}2526[#2526]
+
+[float]
+===== Bug fixes
+////
+
+//=== Unreleased
+
+// Unreleased changes go here
+// When the next release happens, nest these changes under the "Python Agent version 6.x" heading
+//[float]
+//===== Features
+//
+//
+//[float]
+//===== Bug fixes
+//
+[[release-notes-0.0.1-dev0]]
+==== v0.0.1-dev0 - 2021/09/07
+
+Bootstrapping the project for Elastic Serverless  Agent
