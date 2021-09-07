@@ -6,7 +6,7 @@ _d = zlib.decompressobj(16 + zlib.MAX_WBITS)
 
 
 def by_line(func):
-    def wrapper(*args) -> Generator[bytes, None, None]:
+    def wrapper(*args) -> Generator[(bytes, int), None, None]:
         offset = 0
         unfinished_line = ''
         for data, length in func(*args):
@@ -23,7 +23,7 @@ def by_line(func):
 
 
 def deflate(func):
-    def wrapper(*args) -> Generator[bytes, None, None]:
+    def wrapper(*args) -> Generator[(bytes, int), None, None]:
         for data, length in func(*args):
             if args[1] == "application/x-gzip":
                 decoded = _d.decompress(data)
