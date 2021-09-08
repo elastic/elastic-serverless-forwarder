@@ -14,6 +14,7 @@ pip-log.txt
 /cover
 /dist
 /packages/*
+!/packages/.keepdir
 /example_project/local_settings.py
 /docs/html
 /docs/doctrees
