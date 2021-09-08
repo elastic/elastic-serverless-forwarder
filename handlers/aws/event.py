@@ -1,8 +1,5 @@
-import datetime
-
-
 _default_event: dict[str, any] = {
-    "timestamp": datetime.date.today(),
+    "@timestamp": "",
     "fields": {
         "message": "",
         "log": {

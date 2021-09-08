@@ -1,5 +1,5 @@
-from shippers.common.commonshipper import CommonShipper
 from elasticsearch import Elasticsearch
+from shippers.shipper import CommonShipper
 
 
 class ElasticsearchShipper(CommonShipper):
@@ -12,5 +12,5 @@ class ElasticsearchShipper(CommonShipper):
 
         self._es_index: str = index
 
-    def send(self, event: dict[str, any]):
-        self._es_client.index(index=self._es_index, body=event)
+    def send(self, event: dict[str, any]) -> any:
+        return self._es_client.index(index=self._es_index, body=event)
