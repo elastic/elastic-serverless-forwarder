@@ -1,8 +1,9 @@
-import boto3
 from typing import Generator
-from botocore.response import StreamingBody
-from share import by_line, deflate
 
+import boto3
+from botocore.response import StreamingBody
+
+from share import by_line, deflate
 from storage.storage import CommonStorage
 
 
@@ -14,12 +15,12 @@ class S3Storage(CommonStorage):
         self._object_key: str = object_key
 
         # Get the service resource
-        self._s3_client = boto3.client('s3')
+        self._s3_client = boto3.client("s3")
 
     @by_line
     @deflate
     def _generate(self, body: StreamingBody, content_type: str) -> Generator[tuple[bytes, int], None, None]:
-        for chunk in iter(lambda: body.read(self._chunk_size), b''):
+        for chunk in iter(lambda: body.read(self._chunk_size), b""):
             yield chunk, len(chunk)
 
     def get(self) -> Generator[tuple[bytes, int], None, None]:

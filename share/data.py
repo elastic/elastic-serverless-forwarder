@@ -1,4 +1,3 @@
-import re
 import zlib
 from typing import Generator
 
@@ -8,10 +7,10 @@ _d = zlib.decompressobj(16 + zlib.MAX_WBITS)
 def by_line(func):
     def wrapper(*args) -> Generator[tuple[bytes, int], None, None]:
         offset = 0
-        unfinished_line: bytes = b''
+        unfinished_line: bytes = b""
         for data, length in func(*args):
             buffer = unfinished_line + data
-            lines = buffer.decode('UTF-8').splitlines()
+            lines = buffer.decode("UTF-8").splitlines()
             if len(lines) > 0:
                 unfinished_line = lines.pop().encode()
 

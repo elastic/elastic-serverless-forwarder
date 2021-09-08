@@ -1,6 +1,4 @@
-_available_triggers: dict[str, str] = {
-    "aws:sqs": "sqs"
-}
+_available_triggers: dict[str, str] = {"aws:sqs": "sqs"}
 
 
 def _enrich_event(event: dict[str, any], event_type: str, dataset: str, namespace: str):
@@ -10,10 +8,7 @@ def _enrich_event(event: dict[str, any], event_type: str, dataset: str, namespac
         "namespace": namespace,
     }
 
-    event["event"] = {
-        "dataset": dataset,
-        "original": event["fields"]["message"]
-    }
+    event["event"] = {"dataset": dataset, "original": event["fields"]["message"]}
 
     event["tags"] = ["preserve_original_event", "forwarded", dataset.replace(".", "-")]
 
@@ -30,4 +25,3 @@ def _get_trigger_type(event: dict[str, any]) -> str:
                 return _available_triggers[event_source]
 
     raise Exception("not supported trigger")
-

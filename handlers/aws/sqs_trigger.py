@@ -1,8 +1,10 @@
 import datetime
 from typing import Generator
-from storage import StorageFactory
-from utils import _get_bucket_name_from_arn
+
 from event import _default_event
+from utils import _get_bucket_name_from_arn
+
+from storage import StorageFactory
 
 
 def _handle_sqs_event(event) -> Generator[tuple[dict[str, any], int], None, None]:
@@ -26,8 +28,7 @@ def _handle_sqs_event(event) -> Generator[tuple[dict[str, any], int], None, None
             es_event["fields"]["log"]["offset"] = offset
 
             es_event["fields"]["log"]["file"]["path"] = "https://{0}.s3.{1}.amazonaws.com/{1}".format(
-                bucket_name,
-                object_key
+                bucket_name, object_key
             )
 
             es_event["fields"]["aws"]["s3"] = {

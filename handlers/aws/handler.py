@@ -1,19 +1,21 @@
 import os
 
-from shippers import ShipperFactory
 from sqs_trigger import _handle_sqs_event
-from utils import _get_trigger_type, _enrich_event
+from utils import _enrich_event, _get_trigger_type
+
+from shippers import ShipperFactory
 
 
 def handler_name(event, context):
     index: str = os.getenv("INDEX")
-    shipper: ShipperFactory = ShipperFactory(target="elasticsearch",
-                                             hosts=os.getenv("HOSTS").split(","),
-                                             username=os.getenv("USERNAME"),
-                                             password=os.getenv("PASSWORD"),
-                                             scheme=os.getenv("SCHEME"),
-                                             index=index,
-                                             )
+    shipper: ShipperFactory = ShipperFactory(
+        target="elasticsearch",
+        hosts=os.getenv("HOSTS").split(","),
+        username=os.getenv("USERNAME"),
+        password=os.getenv("PASSWORD"),
+        scheme=os.getenv("SCHEME"),
+        index=index,
+    )
 
     try:
         trigger_type: str = _get_trigger_type(event)
