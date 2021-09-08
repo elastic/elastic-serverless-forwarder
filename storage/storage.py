@@ -26,7 +26,7 @@ class Storage:
             ''')
 
         if storage_type == "s3":
-            self._storage: CommonStorage = S3Storage(bucket_arn=kwargs["bucker_arn"], object_key=kwargs["object_keu"])
+            self._storage: CommonStorage = S3Storage(bucket_arn=kwargs["bucket_arn"], object_key=kwargs["object_key"])
 
     def get(self) -> Generator[(bytes, int), None, None]:
         return self._storage.get()
