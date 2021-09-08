@@ -1,7 +1,7 @@
-from shippers.es.es import CommonShipper, ElasticsearchShipper
+from shippers import CommonShipper, ElasticsearchShipper
 
 
-class Shipper:
+class ShipperFactory:
     _available_targets: list[str] = ["elasticsearch"]
     _init_kwargs_by_target: dict[str, list[str]] = {
         "elasticsearch": ["hosts", "scheme", "username", "password", "index"]

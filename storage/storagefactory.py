@@ -1,10 +1,9 @@
 from typing import Generator
 
-from storage.common.commonstorage import CommonStorage
-from storage.aws.s3 import S3Storage
+from storage import CommonStorage, S3Storage
 
 
-class Storage:
+class StorageFactory:
     _available_types: list[str] = ["s3"]
     _init_kwargs_by_type: dict[str, list[str]] = {
         "s3": ["bucket_arn", "object_key"]
