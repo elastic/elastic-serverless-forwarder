@@ -13,6 +13,7 @@ pip-log.txt
 /build
 /cover
 /dist
+!/dist/.keepdir
 /packages/*
 !/packages/.keepdir
 /example_project/local_settings.py
