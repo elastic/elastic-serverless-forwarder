@@ -10,8 +10,8 @@ from storage.storage import CommonStorage
 class S3Storage(CommonStorage):
     _chunk_size: int = 1024 * 1024
 
-    def __init__(self, bucket_arn: str, object_key: str):
-        self._bucket_arn: str = bucket_arn
+    def __init__(self, bucket_name: str, object_key: str):
+        self._bucket_name: str = bucket_name
         self._object_key: str = object_key
 
         # Get the service resource
@@ -24,9 +24,8 @@ class S3Storage(CommonStorage):
             yield chunk, len(chunk)
 
     def get(self) -> Generator[tuple[bytes, int], None, None]:
-        print(self._bucket_arn, self._object_key)
         s3_object = self._s3_client.get_object(
-            Bucket=self._bucket_arn,
+            Bucket=self._bucket_name,
             Key=self._object_key,
         )
 

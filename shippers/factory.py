@@ -1,3 +1,5 @@
+import json
+
 from shippers.es import ElasticsearchShipper
 from shippers.shipper import CommonShipper
 
@@ -24,7 +26,7 @@ class ShipperFactory:
                 f"""
                 you must provide the following not empty init kwargs for {target}:
                     {", ".join(self._init_definition_by_target[target]["kwargs"])}.
-                (provided: {", ".join(kwargs.keys())})
+                (provided: {json.dumps(kwargs)})
             """
             )
 

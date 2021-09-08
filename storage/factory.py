@@ -1,3 +1,4 @@
+import json
 from typing import Generator
 
 from storage.s3 import S3Storage
@@ -6,7 +7,7 @@ from storage.storage import CommonStorage
 
 class StorageFactory:
     _init_definition_by_storage_type: dict[str, dict[str, any]] = {
-        "s3": {"class": S3Storage, "kwargs": ["bucket_arn", "object_key"]}
+        "s3": {"class": S3Storage, "kwargs": ["bucket_name", "object_key"]}
     }
 
     def __init__(self, storage_type: str, **kwargs: any):
@@ -28,7 +29,7 @@ class StorageFactory:
                 f"""
                 you must provide the following not empty init kwargs for {storage_type}:
                     {", ".join(self._init_definition_by_storage_type[storage_type]["kwargs"])}.
-                (provided: {", ".join(kwargs.keys())})
+                (provided: {json.dumps(kwargs)})
             """
             )
 

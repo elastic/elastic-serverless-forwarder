@@ -25,12 +25,20 @@ Resources:
           Action:
           - s3:GetObject
           Resource: arn:aws:s3:::*/*
+      - Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - sqs:ReceiveMessage
+          - sqs:DeleteMessage
+          - sqs:GetQueueAttributes
+          Resource: arn:aws:sqs:*:*:*
 Metadata:
   AWS::ServerlessRepo::Application:
     Name: elastic-serverless-agent
     Description: elastic-serverless-agent
     Author: elastic
-    SemanticVersion: '0.0.6'
+    SemanticVersion: '0.0.14'
 Outputs:
   ElasticServerlessAgentFunction:
     Description: Elastic Serverless Agent
