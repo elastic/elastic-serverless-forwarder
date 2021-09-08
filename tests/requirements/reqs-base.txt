@@ -1,0 +1,2 @@
+elastic-apm
+ecs_logging
