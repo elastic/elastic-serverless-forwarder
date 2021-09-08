@@ -1,0 +1,40 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'elastic-serverless-agent
+
+  SAM Template for elastic-serverless-agent
+
+  '
+Resources:
+  ElasticServerlessAgentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Timeout: 900
+      MemorySize: 128
+      PackageType: Zip
+      CodeUri:
+        Bucket: elastic-serverless-agent
+        Key: lambda.zip
+      Runtime: python3.9
+      Handler: handler.lambda_handler
+      Policies:
+      - AWSLambdaExecute
+      - Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - s3:GetObject
+          Resource: arn:aws:s3:::*/*
+Metadata:
+  AWS::ServerlessRepo::Application:
+    Name: elastic-serverless-agent
+    Description: elastic-serverless-agent
+    Author: elastic
+    SemanticVersion: '0.0.6'
+Outputs:
+  ElasticServerlessAgentFunction:
+    Description: Elastic Serverless Agent
+    Value:
+      Fn::GetAtt:
+      - ElasticServerlessAgentFunction
+      - Arn
