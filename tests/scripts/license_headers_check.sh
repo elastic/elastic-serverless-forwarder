@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 if [[ $# -eq 0 ]]
 then
-    FILES=$(find . -iname "*.py" -not -path "./venv/*" -not -path "./tests/*")
+    FILES=$(find . -iname "*.py" -not -path "./packages/*" -not -path "./tests/*" -not -path "./venv/*" -not -path "./dist/*")
 else
     FILES=$@
 fi

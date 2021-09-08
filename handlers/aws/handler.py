@@ -6,14 +6,14 @@ from utils import _enrich_event, _get_trigger_type
 from shippers import ShipperFactory
 
 
-def handler_name(event, context):
-    index: str = os.getenv("INDEX")
+def lambda_handler(event, context):
+    index: str = os.getenv("ES_INDEX")
     shipper: ShipperFactory = ShipperFactory(
         target="elasticsearch",
-        hosts=os.getenv("HOSTS").split(","),
-        username=os.getenv("USERNAME"),
-        password=os.getenv("PASSWORD"),
-        scheme=os.getenv("SCHEME"),
+        hosts=os.getenv("ES_HOSTS").split(","),
+        username=os.getenv("ES_USERNAME"),
+        password=os.getenv("ES_PASSWORD"),
+        scheme=os.getenv("ES_SCHEME"),
         index=index,
     )
 
