@@ -12,10 +12,11 @@ BUCKET="$1"
 ACCOUNT_ID="$2"
 REGION="$3"
 
+rm dist/lambda.zip || true
+rm -f packages/* || true
+
 pip3 install --upgrade --target ./packages -r tests/requirements/reqs-boto3-newest.txt
 pip3 install --upgrade --target ./packages -r tests/requirements/reqs-elasticsearch-7.txt
-
-rm dist/lambda.zip || true
 
 cd packages
 zip -r ../dist/lambda.zip .
@@ -61,3 +62,5 @@ sam package --template-file "infra/aws/cloudformation/template-${BUCKET}.yaml" -
 sam publish --template infra/aws/cloudformation/packaged.yaml --region "${REGION}"
 
 rm infra/aws/cloudformation/policy.json "infra/aws/cloudformation/template-${BUCKET}.yaml"
+rm dist/lambda.zip
+rm -rf packages/*
