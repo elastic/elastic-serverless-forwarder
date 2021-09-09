@@ -9,10 +9,10 @@ fi
 
 if [[ "$1" = "diff" ]]
 then
-    OPTIONS="--diff --check"
+    OPTIONS="--diff --check --skip-glob 'packages/*'"
 elif [[ "$1" = "fix" ]]
 then
-    OPTIONS=""
+    OPTIONS="--skip-glob 'packages/*'"
 fi
 
 
