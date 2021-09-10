@@ -5,7 +5,7 @@ from typing import Generator
 from event import _default_event
 from utils import _get_bucket_name_from_arn
 
-from storage import StorageFactory
+from storage import CommonStorage, StorageFactory
 
 
 def _handle_sqs_event(event) -> Generator[tuple[dict[str, any], int], None, None]:
@@ -20,7 +20,9 @@ def _handle_sqs_event(event) -> Generator[tuple[dict[str, any], int], None, None
                 raise Exception("cannot find bucket_arn or object_key for s3")
 
             bucket_name: str = _get_bucket_name_from_arn(bucket_arn)
-            storage: StorageFactory = StorageFactory(storage_type="s3", bucket_name=bucket_name, object_key=object_key)
+            storage: CommonStorage = StorageFactory.create(
+                storage_type="s3", bucket_name=bucket_name, object_key=object_key
+            )
 
             for log_event, offset in storage.get():
                 es_event = _default_event.copy()

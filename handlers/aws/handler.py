@@ -3,12 +3,12 @@ import os
 from sqs_trigger import _handle_sqs_event
 from utils import _enrich_event, _get_trigger_type
 
-from shippers import ShipperFactory
+from shippers import CommonShipper, ShipperFactory
 
 
-def lambda_handler(event, context):
+def lambda_handler(lambda_event, lambda_context):
     index: str = os.getenv("ES_INDEX")
-    shipper: ShipperFactory = ShipperFactory(
+    shipper: CommonShipper = ShipperFactory.create(
         target="elasticsearch",
         hosts=os.getenv("ES_HOSTS").split(","),
         username=os.getenv("ES_USERNAME"),
@@ -18,7 +18,7 @@ def lambda_handler(event, context):
     )
 
     try:
-        trigger_type: str = _get_trigger_type(event)
+        trigger_type: str = _get_trigger_type(lambda_event)
 
     except Exception as e:
         return str(e)
@@ -27,7 +27,7 @@ def lambda_handler(event, context):
 
     if trigger_type == "sqs":
         try:
-            for es_event, offset in _handle_sqs_event(event):
+            for es_event, offset in _handle_sqs_event(lambda_event):
                 _enrich_event(es_event, event_type, dataset, namespace)
                 shipper.send(es_event)
 

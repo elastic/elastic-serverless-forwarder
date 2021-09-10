@@ -1,2 +1,4 @@
 elastic-apm
 ecs_logging
+boto3>=1.7,<1.8
+elasticsearch>=7.0,<8.0

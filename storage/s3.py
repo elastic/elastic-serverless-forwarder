@@ -4,7 +4,8 @@ import boto3
 from botocore.response import StreamingBody
 
 from share import by_line, deflate
-from storage.storage import CommonStorage
+
+from .storage import CommonStorage
 
 
 class S3Storage(CommonStorage):

@@ -1,10 +1,10 @@
 from elasticsearch import Elasticsearch
 
-from shippers.shipper import CommonShipper
+from .shipper import CommonShipper
 
 
 class ElasticsearchShipper(CommonShipper):
-    def __init__(self, hosts: list[str], username: str, password: str, scheme: str, index: str) -> object:
+    def __init__(self, hosts: list[str], username: str, password: str, scheme: str, index: str):
         self._es_client = Elasticsearch(
             hosts,
             http_auth=(username, password),

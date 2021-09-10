@@ -1,1 +1,1 @@
-from .factory import StorageFactory
+from .factory import CommonStorage, StorageFactory

@@ -1,1 +1,1 @@
-from .factory import ShipperFactory
+from .factory import CommonShipper, ShipperFactory
