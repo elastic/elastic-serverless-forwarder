@@ -12,7 +12,7 @@ then
     OPTIONS="--diff --check"
 elif [[ "$1" = "fix" ]]
 then
-    OPTIONS="--skip-glob"
+    OPTIONS=""
 fi
 
 

@@ -5,7 +5,10 @@ from .es import ElasticsearchShipper
 from .shipper import CommonShipper
 
 _init_definition_by_target: dict[str, dict[str, any]] = {
-    "elasticsearch": {"class": ElasticsearchShipper, "kwargs": ["hosts", "scheme", "username", "password", "index"]}
+    "elasticsearch": {
+        "class": ElasticsearchShipper,
+        "kwargs": ["hosts", "scheme", "username", "password", "dataset", "namespace"],
+    }
 }
 
 

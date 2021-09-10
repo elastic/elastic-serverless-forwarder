@@ -24,10 +24,19 @@ class S3Storage(CommonStorage):
         for chunk in iter(lambda: body.read(self._chunk_size), b""):
             yield chunk, len(chunk)
 
-    def get(self) -> Generator[tuple[bytes, int], None, None]:
+    def get_by_lines(self) -> Generator[tuple[bytes, int], None, None]:
         s3_object = self._s3_client.get_object(
             Bucket=self._bucket_name,
             Key=self._object_key,
         )
 
         return self._generate(s3_object["Body"], s3_object["ContentType"])
+
+    def get_as_string(self) -> str:
+        s3_object = self._s3_client.get_object(
+            Bucket=self._bucket_name,
+            Key=self._object_key,
+        )
+
+        body: StreamingBody = s3_object["Body"]
+        return body.read(s3_object["ContentLength"]).decode("UTF-8")
