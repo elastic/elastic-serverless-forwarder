@@ -12,10 +12,6 @@ pip-log.txt
 /*.egg-info
 /build
 /cover
-/dist
-!/dist/.keepdir
-/packages/*
-!/packages/.keepdir
 /example_project/local_settings.py
 /docs/html
 /docs/doctrees
