@@ -12,28 +12,27 @@ BUCKET="$1"
 ACCOUNT_ID="$2"
 REGION="$3"
 
-rm dist/lambda.zip || true
-rm -f packages/* || true
+TMPDIR=$(mktemp -d /tmp/dist.XXXXXXXXXX)
 
-pip3 install --upgrade --target ./packages -r tests/requirements/reqs-boto3-newest.txt
-pip3 install --upgrade --target ./packages -r tests/requirements/reqs-elasticsearch-7.txt
+mkdir "${TMPDIR}/packages"
+pip3 install --upgrade --target "${TMPDIR}/packages" -r tests/requirements/requirements.txt
 
-cd packages
-zip -r ../dist/lambda.zip .
+pushd "${TMPDIR}/packages"
+zip -r "${TMPDIR}/lambda.zip" .
 
-cd ../
-zip -r -g dist/lambda.zip share
-zip -r -g dist/lambda.zip shippers
-zip -r -g dist/lambda.zip storage
+popd
+zip -r -g "${TMPDIR}/lambda.zip" share
+zip -r -g "${TMPDIR}/lambda.zip" shippers
+zip -r -g "${TMPDIR}/lambda.zip" storage
 
-cd handlers/aws
-zip -g ../../dist/lambda.zip *.py
+pushd handlers/aws
+zip -g "${TMPDIR}/lambda.zip" *.py
 
 aws s3api get-bucket-location --bucket "${BUCKET}" || aws s3api create-bucket --acl private --bucket "${BUCKET}" --region "${REGION}" --create-bucket-configuration LocationConstraint="${REGION}"
-aws s3 cp ../../dist/lambda.zip "s3://${BUCKET}/lambda.zip"
+aws s3 cp "${TMPDIR}/lambda.zip" "s3://${BUCKET}/lambda.zip"
 
-cd ../..
-cat <<EOF > infra/aws/cloudformation/policy.json
+popd
+cat <<EOF > "${TMPDIR}/policy.json"
 {
     "Version": "2012-10-17",
     "Statement": [
@@ -54,13 +53,11 @@ cat <<EOF > infra/aws/cloudformation/policy.json
 }
 EOF
 
-aws s3api put-bucket-policy --bucket "${BUCKET}" --policy file://infra/aws/cloudformation/policy.json
+aws s3api put-bucket-policy --bucket "${BUCKET}" --policy "file://${TMPDIR}/policy.json"
 
-sed -e "s/%codeUriBucket%/${BUCKET}/g" infra/aws/cloudformation/template.yaml > "infra/aws/cloudformation/template-${BUCKET}.yaml"
+sed -e "s/%codeUriBucket%/${BUCKET}/g" infra/aws/cloudformation/template.yaml > "${TMPDIR}/template.yaml"
 
-sam package --template-file "infra/aws/cloudformation/template-${BUCKET}.yaml" --output-template-file infra/aws/cloudformation/packaged.yaml --s3-bucket "${BUCKET}"
-sam publish --template infra/aws/cloudformation/packaged.yaml --region "${REGION}"
+sam package --template-file "${TMPDIR}/template.yaml" --output-template-file "${TMPDIR}/packaged.yaml" --s3-bucket "${BUCKET}"
+sam publish --template "${TMPDIR}/packaged.yaml" --region "${REGION}"
 
-rm infra/aws/cloudformation/policy.json "infra/aws/cloudformation/template-${BUCKET}.yaml"
-rm dist/lambda.zip
-rm -rf packages/*
+rm -rf "${TMPDIR}"
