@@ -30,6 +30,7 @@ Resources:
           - Effect: Allow
             Action:
               - sqs:ReceiveMessage
+              - sqs:SendMessage
               - sqs:DeleteMessage
               - sqs:GetQueueAttributes
             Resource: 'arn:aws:sqs:*:*:*'
@@ -38,7 +39,7 @@ Metadata:
     Name: elastic-serverless-agent
     Description: elastic-serverless-agent
     Author: elastic
-    SemanticVersion: 0.0.15
+    SemanticVersion: 0.1.18
 
 Outputs:
   ElasticServerlessAgentFunction:

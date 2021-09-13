@@ -31,10 +31,24 @@ def _get_bucket_name_from_arn(bucket_arn: str) -> str:
 
 
 def _get_trigger_type(event: dict[str, any]) -> str:
-    if "Records" in event and len(event["Records"]) > 0:
-        if "eventSource" in event["Records"][0]:
-            event_source = event["Records"][0]["eventSource"]
-            if event_source in _available_triggers:
-                return _available_triggers[event_source]
+    if "Records" not in event and len(event["Records"]) < 1:
+        raise Exception("Not supported trigger")
 
-    raise Exception("not supported trigger")
+    if "eventSource" not in event["Records"][0]:
+        raise Exception("Not supported trigger")
+
+    event_source = event["Records"][0]["eventSource"]
+    if event_source not in _available_triggers:
+        raise Exception("Not supported trigger")
+
+    trigger_type = _available_triggers[event_source]
+    if trigger_type != "sqs":
+        return trigger_type
+
+    if "messageAttributes" not in event["Records"][0]:
+        return trigger_type
+
+    if "originalEventSource" not in event["Records"][0]["messageAttributes"]:
+        return trigger_type
+
+    return "self_sqs"

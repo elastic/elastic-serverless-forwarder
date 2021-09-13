@@ -1,6 +1,7 @@
 from typing import Generator
 
 import boto3
+import elasticapm  # noqa: F401
 from botocore.response import StreamingBody
 
 from share import by_line, deflate
@@ -22,6 +23,7 @@ class S3Storage(CommonStorage):
     @deflate
     def _generate(self, body: StreamingBody, content_type: str) -> Generator[tuple[bytes, int], None, None]:
         for chunk in iter(lambda: body.read(self._chunk_size), b""):
+            print("_generate", len(chunk))
             yield chunk, len(chunk)
 
     def get_by_lines(self) -> Generator[tuple[bytes, int], None, None]:

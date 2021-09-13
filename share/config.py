@@ -29,7 +29,7 @@ class Target:
         pass
 
     @property
-    def type(self) -> Optional[str]:
+    def type(self) -> str:
         return self._type
 
     @type.setter
@@ -46,12 +46,12 @@ class TargetElasticSearch(Target):
     _kwargs = ["hosts", "scheme", "username", "password", "dataset", "namespace"]
 
     def __init__(self, target_type: str, kwargs: dict[str, any]):
-        self._hosts: Optional[list[str]] = None
-        self._scheme: Optional[str] = None
-        self._username: Optional[str] = None
-        self._password: Optional[str] = None
-        self._dataset: Optional[str] = None
-        self._namespace: Optional[str] = None
+        self._hosts: list[str] = []
+        self._scheme: str = ""
+        self._username: str = ""
+        self._password: str = ""
+        self._dataset: str = ""
+        self._namespace: str = ""
 
         super().__init__(target_type, kwargs)
 
@@ -61,16 +61,14 @@ class TargetElasticSearch(Target):
 
     @kwargs.setter
     def kwargs(self, value: dict[str, any]):
-        [self.__setattr__(x, value[x]) for x in value.keys() if x in self._kwargs]
-
-        [
-            _raise(ValueError(f"Empty param {x} provided for Target Elasticsearch"))
-            for x in self._kwargs
-            if self.__getattribute__(x) is None
-        ]
+        for x in value.keys():
+            if x in self._kwargs:
+                self.__setattr__(x, value[x])
+                if self.__getattribute__(x) is None:
+                    raise ValueError(f"Empty param {x} provided for Target Elasticsearch")
 
     @property
-    def hosts(self) -> Optional[list[str]]:
+    def hosts(self) -> list[str]:
         return self._hosts
 
     @hosts.setter
@@ -81,7 +79,7 @@ class TargetElasticSearch(Target):
         self._hosts = value
 
     @property
-    def scheme(self) -> Optional[str]:
+    def scheme(self) -> str:
         return self._scheme
 
     @scheme.setter
@@ -92,7 +90,7 @@ class TargetElasticSearch(Target):
         self._scheme = value
 
     @property
-    def username(self) -> Optional[str]:
+    def username(self) -> str:
         return self._username
 
     @username.setter
@@ -103,7 +101,7 @@ class TargetElasticSearch(Target):
         self._username = value
 
     @property
-    def password(self) -> Optional[str]:
+    def password(self) -> str:
         return self._password
 
     @password.setter
@@ -114,7 +112,7 @@ class TargetElasticSearch(Target):
         self._password = value
 
     @property
-    def dataset(self) -> Optional[str]:
+    def dataset(self) -> str:
         return self._dataset
 
     @dataset.setter
@@ -125,7 +123,7 @@ class TargetElasticSearch(Target):
         self._dataset = value
 
     @property
-    def namespace(self) -> Optional[str]:
+    def namespace(self) -> str:
         return self._namespace
 
     @namespace.setter
@@ -169,7 +167,7 @@ class Source:
         return self._targets[target_type] if target_type in self._targets else None
 
     def get_target_types(self) -> list[str]:
-        return self._targets.keys()
+        return list(self._targets.keys())
 
     def add_target(self, target_type: str, target_kwargs: dict[str, any]):
         if not isinstance(target_type, str):
@@ -179,7 +177,7 @@ class Source:
             raise ValueError("Target arguments must by of type dict[str,any]")
 
         if target_type in self._targets:
-            raise ValueError("duplicated target {target_type}")
+            raise ValueError(f"Duplicated target {target_type}")
 
         target: Optional[Target] = None
         if target_type == "elasticsearch":
@@ -216,7 +214,7 @@ def parse_config(config_yaml: str) -> Config:
     conf: Config = Config()
 
     if "sources" not in yaml_config or not isinstance(yaml_config["sources"], list):
-        raise ValueError("no sources provided")
+        raise ValueError("No sources provided")
 
     for source_config in yaml_config["sources"]:
         if "type" not in source_config:

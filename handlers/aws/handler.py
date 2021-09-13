@@ -1,5 +1,9 @@
+import json
 import os
 
+import boto3
+import elasticapm  # noqa: F401
+from elasticapm.contrib.serverless.aws import capture_serverless
 from sqs_trigger import _handle_sqs_event
 from utils import (_enrich_event, _from_s3_uri_to_bucket_name_and_object_key,
                    _get_trigger_type)
@@ -8,34 +12,46 @@ from share import Config, Target, TargetElasticSearch, parse_config
 from shippers import CommonShipper, ShipperFactory
 from storage import CommonStorage, StorageFactory
 
-_event_type = "logs"
+_event_type: str = "logs"
+_completion_grace_period: int = 9000000000
 
 
+@capture_serverless
 def lambda_handler(lambda_event, lambda_context):
-    try:
-        config_file: str = os.getenv("S3_CONFIG_FILE")
-        if config_file is None:
-            return "empty S3_CONFIG_FILE env variable"
-
-        bucket_name, object_key = _from_s3_uri_to_bucket_name_and_object_key(config_file)
-
-        config_storage: CommonStorage = StorageFactory.create(
-            storage_type="s3", bucket_name=bucket_name, object_key=object_key
-        )
-
-        c = config_storage.get_as_string()
-
-        config: Config = parse_config(c)
-    except Exception as e:
-        raise e
-
     try:
         trigger_type: str = _get_trigger_type(lambda_event)
 
     except Exception as e:
         raise e
+        return str(e)
 
-    if trigger_type == "sqs":
+    try:
+        if trigger_type == "self_sqs":
+            payload = lambda_event["Records"][0]["messageAttributes"]
+            config_yaml = payload["config"]["stringValue"]
+            config: Config = parse_config(config_yaml)
+            lambda_event["Records"][0]["eventSourceARN"] = payload["originalEventSource"]["stringValue"]
+
+        else:
+            config_file: str = os.getenv("S3_CONFIG_FILE")
+            if config_file is None:
+                return "empty S3_CONFIG_FILE env variable"
+
+            bucket_name, object_key = _from_s3_uri_to_bucket_name_and_object_key(config_file)
+
+            config_storage: CommonStorage = StorageFactory.create(
+                storage_type="s3", bucket_name=bucket_name, object_key=object_key
+            )
+
+            config_yaml = config_storage.get_as_string()
+
+            config: Config = parse_config(config_yaml)
+
+    except Exception as e:
+        raise e
+        return str(e)
+
+    if trigger_type == "sqs" or trigger_type == "self_sqs":
         source = config.get_source_by_type_and_name("sqs", lambda_event["Records"][0]["eventSourceARN"])
         if not source:
             return "not source set"
@@ -43,6 +59,7 @@ def lambda_handler(lambda_event, lambda_context):
         try:
             shippers: list[CommonShipper] = []
             targets: list[Target] = []
+
             for target_type in source.get_target_types():
                 if target_type == "elasticsearch":
                     target: TargetElasticSearch = source.get_target_by_type("elasticsearch")
@@ -59,12 +76,43 @@ def lambda_handler(lambda_event, lambda_context):
                     shippers.append(shipper)
                     targets.append(target)
 
-            for es_event, offset in _handle_sqs_event(config, lambda_event):
+            for es_event, offset, sqs_record_n, s3_record_n in _handle_sqs_event(config, lambda_event):
                 for (i, shipper) in enumerate(shippers):
+                    print("offset", offset, "i", i, "sqs_record_n", sqs_record_n, "s3_record_n", s3_record_n)
+
                     target = targets[i]
                     _enrich_event(es_event, _event_type, target.dataset, target.namespace)
-
+                    print("es_event", es_event)
                     shipper.send(es_event)
+
+                    if (
+                        lambda_context is not None
+                        and lambda_context.get_remaining_time_in_millis() < _completion_grace_period
+                    ):
+                        # Cleaner rewrite needed
+                        sqs_records = lambda_event["Records"][sqs_record_n:]
+                        body = json.loads(sqs_records[0]["body"])
+                        body["Records"] = body["Records"][s3_record_n:]
+                        # move offset forward so that we will start
+                        # from the next after the current one
+                        body["Records"][0]["starting_offset"] = offset + 1
+                        sqs_records[0]["body"] = json.dumps(body)
+
+                        sqs_client = boto3.client("sqs")
+                        for sqs_record in sqs_records:
+                            sqs_client.send_message(
+                                QueueUrl=os.environ["SQS_CONTINUE_URL"],
+                                MessageBody=sqs_record["body"],
+                                MessageAttributes={
+                                    "config": {"StringValue": config_yaml, "DataType": "String"},
+                                    "originalEventSource": {"StringValue": source.name, "DataType": "String"},
+                                },
+                            )
+
+                            print(os.environ["SQS_CONTINUE_URL"], body)
+
+                        return
 
         except Exception as e:
             raise e
+            return str(e)

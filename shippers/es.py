@@ -1,3 +1,4 @@
+import elasticapm  # noqa: F401
 from elasticsearch import Elasticsearch
 
 from .shipper import CommonShipper
