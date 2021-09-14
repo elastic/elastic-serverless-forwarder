@@ -60,4 +60,4 @@ sed -e "s/%codeUriBucket%/${BUCKET}/g" infra/aws/cloudformation/template.yaml > 
 sam package --template-file "${TMPDIR}/template.yaml" --output-template-file "${TMPDIR}/packaged.yaml" --s3-bucket "${BUCKET}"
 sam publish --template "${TMPDIR}/packaged.yaml" --region "${REGION}"
 
-rm -rf "${TMPDIR}"
+#rm -rf "${TMPDIR}"

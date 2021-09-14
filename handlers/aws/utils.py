@@ -1,3 +1,5 @@
+from typing import Any
+
 _available_triggers: dict[str, str] = {"aws:sqs": "sqs"}
 
 
@@ -14,7 +16,7 @@ def _from_s3_uri_to_bucket_name_and_object_key(s3_uri: str) -> tuple[str, str]:
     return bucket_name_and_object_key[0], bucket_name_and_object_key[1]
 
 
-def _enrich_event(event: dict[str, any], event_type: str, dataset: str, namespace: str):
+def _enrich_event(event: dict[str, Any], event_type: str, dataset: str, namespace: str):
     event["data_stream"] = {
         "type": event_type,
         "dataset": dataset,
@@ -30,7 +32,7 @@ def _get_bucket_name_from_arn(bucket_arn: str) -> str:
     return bucket_arn.split(":")[-1]
 
 
-def _get_trigger_type(event: dict[str, any]) -> str:
+def _get_trigger_type(event: dict[str, Any]) -> str:
     if "Records" not in event and len(event["Records"]) < 1:
         raise Exception("Not supported trigger")
 

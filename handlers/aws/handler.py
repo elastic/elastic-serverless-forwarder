@@ -3,12 +3,12 @@ import os
 
 import boto3
 import elasticapm  # noqa: F401
-from elasticapm.contrib.serverless.aws import capture_serverless
+from elasticapm.contrib.serverless.aws import capture_serverless  # noqa: F401
 from sqs_trigger import _handle_sqs_event
 from utils import (_enrich_event, _from_s3_uri_to_bucket_name_and_object_key,
                    _get_trigger_type)
 
-from share import Config, Target, TargetElasticSearch, parse_config
+from share import Config, ElasticSearchOutput, Output, parse_config
 from shippers import CommonShipper, ShipperFactory
 from storage import CommonStorage, StorageFactory
 
@@ -16,7 +16,7 @@ _event_type: str = "logs"
 _completion_grace_period: int = 9000000000
 
 
-@capture_serverless
+#  @capture_serverless
 def lambda_handler(lambda_event, lambda_context):
     try:
         trigger_type: str = _get_trigger_type(lambda_event)
@@ -52,36 +52,36 @@ def lambda_handler(lambda_event, lambda_context):
         return str(e)
 
     if trigger_type == "sqs" or trigger_type == "self_sqs":
-        source = config.get_source_by_type_and_name("sqs", lambda_event["Records"][0]["eventSourceARN"])
-        if not source:
-            return "not source set"
+        event_input = config.get_input_by_type_and_id("sqs", lambda_event["Records"][0]["eventSourceARN"])
+        if not event_input:
+            return "not input set"
 
         try:
             shippers: list[CommonShipper] = []
-            targets: list[Target] = []
+            outputs: list[Output] = []
 
-            for target_type in source.get_target_types():
-                if target_type == "elasticsearch":
-                    target: TargetElasticSearch = source.get_target_by_type("elasticsearch")
+            for output_type in event_input.get_output_types():
+                if output_type == "elasticsearch":
+                    output: ElasticSearchOutput = event_input.get_output_by_type("elasticsearch")
                     shipper: CommonShipper = ShipperFactory.create(
-                        target="elasticsearch",
-                        hosts=target.hosts,
-                        scheme=target.scheme,
-                        username=target.username,
-                        password=target.password,
-                        dataset=target.dataset,
-                        namespace=target.namespace,
+                        output="elasticsearch",
+                        hosts=output.hosts,
+                        scheme=output.scheme,
+                        username=output.username,
+                        password=output.password,
+                        dataset=output.dataset,
+                        namespace=output.namespace,
                     )
 
                     shippers.append(shipper)
-                    targets.append(target)
+                    outputs.append(output)
 
             for es_event, offset, sqs_record_n, s3_record_n in _handle_sqs_event(config, lambda_event):
                 for (i, shipper) in enumerate(shippers):
                     print("offset", offset, "i", i, "sqs_record_n", sqs_record_n, "s3_record_n", s3_record_n)
 
-                    target = targets[i]
-                    _enrich_event(es_event, _event_type, target.dataset, target.namespace)
+                    output = outputs[i]
+                    _enrich_event(es_event, _event_type, output.dataset, output.namespace)
                     print("es_event", es_event)
                     shipper.send(es_event)
 
@@ -105,7 +105,7 @@ def lambda_handler(lambda_event, lambda_context):
                                 MessageBody=sqs_record["body"],
                                 MessageAttributes={
                                     "config": {"StringValue": config_yaml, "DataType": "String"},
-                                    "originalEventSource": {"StringValue": source.name, "DataType": "String"},
+                                    "originalEventSource": {"StringValue": event_input.id, "DataType": "String"},
                                 },
                             )
 

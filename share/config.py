@@ -1,22 +1,22 @@
 from abc import ABCMeta, abstractmethod
-from typing import Optional
+from typing import Any, Optional
 
 import yaml
 
-_available_source_type: list[str] = ["sqs"]
-_available_target_type: list[str] = ["elasticsearch"]
+_available_input_types: list[str] = ["sqs"]
+_available_output_types: list[str] = ["elasticsearch"]
 
 
 def _raise(e: Exception):
     raise e
 
 
-class Target:
+class Output:
     __metaclass__ = ABCMeta
 
-    def __init__(self, target_type: str, kwargs: dict[str, any]):
-        self.type: str = target_type
-        self.kwargs: dict[str, any] = kwargs
+    def __init__(self, output_type: str, kwargs: dict[str, Any]):
+        self.type: str = output_type
+        self.kwargs: dict[str, Any] = kwargs
 
     @property
     @abstractmethod
@@ -25,7 +25,7 @@ class Target:
 
     @kwargs.setter
     @abstractmethod
-    def kwargs(self, value: dict[str, any]):
+    def kwargs(self, value: dict[str, Any]):
         pass
 
     @property
@@ -35,17 +35,17 @@ class Target:
     @type.setter
     def type(self, value):
         if not isinstance(value, str):
-            raise ValueError("Target type must by of type str")
+            raise ValueError("Output type must by of type str")
 
-        if value not in _available_target_type:
-            raise ValueError(f"Type must be one of {','.join(_available_target_type)}")
+        if value not in _available_output_types:
+            raise ValueError(f"Type must be one of {','.join(_available_output_types)}")
         self._type = value
 
 
-class TargetElasticSearch(Target):
+class ElasticSearchOutput(Output):
     _kwargs = ["hosts", "scheme", "username", "password", "dataset", "namespace"]
 
-    def __init__(self, target_type: str, kwargs: dict[str, any]):
+    def __init__(self, output_type: str, kwargs: dict[str, Any]):
         self._hosts: list[str] = []
         self._scheme: str = ""
         self._username: str = ""
@@ -53,19 +53,19 @@ class TargetElasticSearch(Target):
         self._dataset: str = ""
         self._namespace: str = ""
 
-        super().__init__(target_type, kwargs)
+        super().__init__(output_type, kwargs)
 
     @property
     def kwargs(self) -> None:
         return None
 
     @kwargs.setter
-    def kwargs(self, value: dict[str, any]):
+    def kwargs(self, value: dict[str, Any]):
         for x in value.keys():
             if x in self._kwargs:
                 self.__setattr__(x, value[x])
                 if self.__getattribute__(x) is None:
-                    raise ValueError(f"Empty param {x} provided for Target Elasticsearch")
+                    raise ValueError(f"Empty param {x} provided for Elasticsearch Output")
 
     @property
     def hosts(self) -> list[str]:
@@ -74,7 +74,7 @@ class TargetElasticSearch(Target):
     @hosts.setter
     def hosts(self, value):
         if not isinstance(value, list):
-            raise ValueError("Elasticsearch Target hosts must by of type list[str]")
+            raise ValueError("Elasticsearch Output hosts must by of type list[str]")
 
         self._hosts = value
 
@@ -85,7 +85,7 @@ class TargetElasticSearch(Target):
     @scheme.setter
     def scheme(self, value):
         if not isinstance(value, str):
-            raise ValueError("Elasticsearch Target scheme must by of type str")
+            raise ValueError("Elasticsearch Output scheme must by of type str")
 
         self._scheme = value
 
@@ -96,7 +96,7 @@ class TargetElasticSearch(Target):
     @username.setter
     def username(self, value):
         if not isinstance(value, str):
-            raise ValueError("Elasticsearch Target username must by of type str")
+            raise ValueError("Elasticsearch Output username must by of type str")
 
         self._username = value
 
@@ -107,7 +107,7 @@ class TargetElasticSearch(Target):
     @password.setter
     def password(self, value):
         if not isinstance(value, str):
-            raise ValueError("Elasticsearch Target password must by of type str")
+            raise ValueError("Elasticsearch Output password must by of type str")
 
         self._password = value
 
@@ -118,7 +118,7 @@ class TargetElasticSearch(Target):
     @dataset.setter
     def dataset(self, value):
         if not isinstance(value, str):
-            raise ValueError("Elasticsearch Target dataset must by of type str")
+            raise ValueError("Elasticsearch Output dataset must by of type str")
 
         self._dataset = value
 
@@ -129,16 +129,16 @@ class TargetElasticSearch(Target):
     @namespace.setter
     def namespace(self, value):
         if not isinstance(value, str):
-            raise ValueError("Elasticsearch Target namespace must by of type str")
+            raise ValueError("Elasticsearch Output namespace must by of type str")
 
         self._namespace = value
 
 
-class Source:
-    def __init__(self, source_type: str, source_name: str):
-        self.type = source_type
-        self.name = source_name
-        self._targets: dict[str, Target] = {}
+class Input:
+    def __init__(self, input_type: str, input_id: str):
+        self.type = input_type
+        self.id = input_id
+        self._outputs: dict[str, Output] = {}
 
     @property
     def type(self):
@@ -147,65 +147,65 @@ class Source:
     @type.setter
     def type(self, value):
         if not isinstance(value, str):
-            raise ValueError("Source type must by of type str")
+            raise ValueError("Input type must by of type str")
 
-        if value not in _available_source_type:
-            raise ValueError(f"Type must be one of {','.join(_available_source_type)}")
+        if value not in _available_input_types:
+            raise ValueError(f"Input type must be one of {','.join(_available_input_types)}")
         self._type = value
 
     @property
-    def name(self):
-        return self._name
+    def id(self):
+        return self._id
 
-    @name.setter
-    def name(self, value):
+    @id.setter
+    def id(self, value):
         if not isinstance(value, str):
-            raise ValueError("Source type must by of type str")
-        self._name = value
+            raise ValueError("Input id must by of type str")
+        self._id = value
 
-    def get_target_by_type(self, target_type: str) -> Optional[Target]:
-        return self._targets[target_type] if target_type in self._targets else None
+    def get_output_by_type(self, output_type: str) -> Optional[Output]:
+        return self._outputs[output_type] if output_type in self._outputs else None
 
-    def get_target_types(self) -> list[str]:
-        return list(self._targets.keys())
+    def get_output_types(self) -> list[str]:
+        return list(self._outputs.keys())
 
-    def add_target(self, target_type: str, target_kwargs: dict[str, any]):
-        if not isinstance(target_type, str):
-            raise ValueError("Target type must by of type str")
+    def add_output(self, output_type: str, output_kwargs: dict[str, Any]):
+        if not isinstance(output_type, str):
+            raise ValueError("Output type must by of type str")
 
-        if not isinstance(target_kwargs, dict):
-            raise ValueError("Target arguments must by of type dict[str,any]")
+        if not isinstance(output_kwargs, dict):
+            raise ValueError("Output arguments must by of type dict[str, Any]")
 
-        if target_type in self._targets:
-            raise ValueError(f"Duplicated target {target_type}")
+        if output_type in self._outputs:
+            raise ValueError(f"Duplicated Output {output_type}")
 
-        target: Optional[Target] = None
-        if target_type == "elasticsearch":
-            target = TargetElasticSearch(target_type=target_type, kwargs=target_kwargs)
+        output: Optional[Output] = None
+        if output_type == "elasticsearch":
+            output = ElasticSearchOutput(output_type=output_type, kwargs=output_kwargs)
 
-        self._targets[target.type] = target
+        self._outputs[output.type] = output
 
 
 class Config:
     def __init__(self):
-        self._sources = {}
+        self._inputs = {}
 
-    def get_source_by_type_and_name(self, source_type: str, source_name: str) -> Optional[Source]:
-        if source_type not in self._sources:
+    def get_input_by_type_and_id(self, input_type: str, input_id: str) -> Optional[Input]:
+        if input_type not in self._inputs:
             return None
 
-        return self._sources[source_type][source_name] if source_name in self._sources[source_type] else None
+        return self._inputs[input_type][input_id] if input_id in self._inputs[input_type] else None
 
-    def add_source(self, source: Source):
-        if source.type not in self._sources:
-            self._sources[source.type] = {source.name: source}
+    def add_input(self, new_input: Input):
+        if new_input.type not in self._inputs:
+            self._inputs[new_input.type] = {new_input.id: new_input}
 
             return
 
-        if source.name in self._sources[source.type]:
-            raise ValueError(f"duplicated source {source.type}/{source.name}")
+        if new_input.id in self._inputs[new_input.type]:
+            raise ValueError(f"duplicated input {new_input.type}/{new_input.id}")
 
-        self._sources[source.type][source.name] = source
+        self._inputs[new_input.type][new_input.id] = new_input
 
 
 def parse_config(config_yaml: str) -> Config:
@@ -213,30 +213,30 @@ def parse_config(config_yaml: str) -> Config:
 
     conf: Config = Config()
 
-    if "sources" not in yaml_config or not isinstance(yaml_config["sources"], list):
-        raise ValueError("No sources provided")
+    if "inputs" not in yaml_config or not isinstance(yaml_config["inputs"], list):
+        raise ValueError("No inputs provided")
 
-    for source_config in yaml_config["sources"]:
-        if "type" not in source_config:
-            raise ValueError("Must by provided type for target")
+    for input_config in yaml_config["inputs"]:
+        if "type" not in input_config:
+            raise ValueError("Must be provided type for input")
 
-        if "name" not in source_config:
-            raise ValueError("Must by provided type for name")
+        if "name" not in input_config:
+            raise ValueError("Must be provided type for input")
 
-        source: Source = Source(source_type=source_config["type"], source_name=source_config["name"])
+        current_input: Input = Input(input_type=input_config["type"], input_id=input_config["id"])
 
-        if "targets" not in source_config or not isinstance(source_config["targets"], list):
-            raise ValueError("No valid targets for source")
+        if "outputs" not in input_config or not isinstance(input_config["outputs"], list):
+            raise ValueError("No valid outputs for input")
 
-        for target_config in source_config["targets"]:
-            if "type" not in target_config:
-                raise ValueError("Must by provided type for target")
+        for output_config in input_config["outputs"]:
+            if "type" not in output_config:
+                raise ValueError("Must be provided type for output")
 
-            if "args" not in target_config:
-                raise ValueError("Must by provided args for target")
+            if "args" not in output_config:
+                raise ValueError("Must be provided args for output")
 
-            source.add_target(target_type=target_config["type"], target_kwargs=target_config["args"])
+            current_input.add_output(output_type=output_config["type"], output_kwargs=output_config["args"])
 
-        conf.add_source(source)
+        conf.add_input(current_input)
 
     return conf

@@ -1,17 +1,17 @@
 import json
-from typing import Type
+from typing import Any, Type
 
 from .s3 import S3Storage
 from .storage import CommonStorage
 
-_init_definition_by_storage_type: dict[str, dict[str, any]] = {
+_init_definition_by_storage_type: dict[str, dict[str, Any]] = {
     "s3": {"class": S3Storage, "kwargs": ["bucket_name", "object_key"]}
 }
 
 
 class StorageFactory:
     @staticmethod
-    def create(storage_type: str, **kwargs: any) -> CommonStorage:
+    def create(storage_type: str, **kwargs: Any) -> CommonStorage:
         if storage_type not in _init_definition_by_storage_type:
             raise ValueError(
                 "You must provide one of the following storage types: "

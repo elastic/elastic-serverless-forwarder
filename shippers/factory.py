@@ -1,10 +1,10 @@
 import json
-from typing import Type
+from typing import Any, Type
 
 from .es import ElasticsearchShipper
 from .shipper import CommonShipper
 
-_init_definition_by_target: dict[str, dict[str, any]] = {
+_init_definition_by_output: dict[str, dict[str, Any]] = {
     "elasticsearch": {
         "class": ElasticsearchShipper,
         "kwargs": ["hosts", "scheme", "username", "password", "dataset", "namespace"],
@@ -14,28 +14,22 @@ _init_definition_by_target: dict[str, dict[str, any]] = {
 
 class ShipperFactory:
     @staticmethod
-    def create(target: str, **kwargs: any) -> CommonShipper:
-        if target not in _init_definition_by_target:
+    def create(output: str, **kwargs: Any) -> CommonShipper:
+        if output not in _init_definition_by_output:
             raise ValueError(
-                f"""
-                you must provide one of the following targets:
-                    {", ".join(_init_definition_by_target.keys())}
-            """
+                f"You must provide one of the following targets: " f"{', '.join(_init_definition_by_output.keys())}"
             )
 
-        target_definition = _init_definition_by_target[target]
+        output_definition = _init_definition_by_output[output]
 
-        target_kwargs = target_definition["kwargs"]
-        target_builder: Type[CommonShipper] = target_definition["class"]
+        output_kwargs = output_definition["kwargs"]
+        output_builder: Type[CommonShipper] = output_definition["class"]
 
-        init_kwargs: list[str] = [key for key in kwargs.keys() if key in target_kwargs and kwargs[key]]
-        if len(init_kwargs) is not len(target_kwargs):
+        init_kwargs: list[str] = [key for key in kwargs.keys() if key in output_kwargs and kwargs[key]]
+        if len(init_kwargs) is not len(output_kwargs):
             raise ValueError(
-                f"""
-                you must provide the following not empty init kwargs for {target}:
-                    {", ".join(target_kwargs)}.
-                (provided: {json.dumps(kwargs)})
-            """
+                f"you must provide the following not empty init kwargs for {output}:"
+                f" {', '.join(output_kwargs)}. (provided: {json.dumps(kwargs)})"
             )
 
-        return target_builder(**kwargs)
+        return output_builder(**kwargs)

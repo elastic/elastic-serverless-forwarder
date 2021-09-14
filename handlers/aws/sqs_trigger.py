@@ -1,6 +1,6 @@
 import datetime
 import json
-from typing import Generator
+from typing import Any, Generator
 
 import elasticapm  # noqa: F401
 from event import _default_event
@@ -10,10 +10,10 @@ from share import Config
 from storage import CommonStorage, StorageFactory
 
 
-def _handle_sqs_event(config: Config, event) -> Generator[tuple[dict[str, any], int, int, int], None, None]:
+def _handle_sqs_event(config: Config, event) -> Generator[tuple[dict[str, Any], int, int, int], None, None]:
     for sqs_record_n, sqs_record in enumerate(event["Records"]):
-        source = config.get_source_by_type_and_name("sqs", sqs_record["eventSourceARN"])
-        if not source:
+        event_input = config.get_input_by_type_and_id("sqs", sqs_record["eventSourceARN"])
+        if not event_input:
             return None
 
         body = json.loads(sqs_record["body"])

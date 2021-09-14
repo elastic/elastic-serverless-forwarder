@@ -1,3 +1,5 @@
+from typing import Any
+
 import elasticapm  # noqa: F401
 from elasticsearch import Elasticsearch
 
@@ -14,5 +16,5 @@ class ElasticsearchShipper(CommonShipper):
 
         self._es_index = f"logs-{dataset}-{namespace}"
 
-    def send(self, event: dict[str, any]) -> any:
+    def send(self, event: dict[str, Any]) -> Any:
         return self._es_client.index(index=self._es_index, body=event)

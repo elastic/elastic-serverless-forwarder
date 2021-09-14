@@ -1,4 +1,5 @@
 from abc import ABCMeta, abstractmethod
+from typing import Any
 
 
 class CommonShipper:
@@ -9,5 +10,5 @@ class CommonShipper:
         pass
 
     @abstractmethod
-    def send(self, event: dict[str, any]) -> any:
+    def send(self, event: dict[str, Any]) -> Any:
         pass

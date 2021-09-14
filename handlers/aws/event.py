@@ -1,4 +1,6 @@
-_default_event: dict[str, any] = {
+from typing import Any
+
+_default_event: dict[str, Any] = {
     "@timestamp": "",
     "fields": {
         "message": "",
