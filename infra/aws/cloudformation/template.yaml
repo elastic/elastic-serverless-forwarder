@@ -39,7 +39,7 @@ Metadata:
     Name: elastic-serverless-agent
     Description: elastic-serverless-agent
     Author: elastic
-    SemanticVersion: 0.1.19
+    SemanticVersion: 0.1.23
 
 Outputs:
   ElasticServerlessAgentFunction:

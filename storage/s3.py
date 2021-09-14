@@ -4,9 +4,11 @@ import boto3
 import elasticapm  # noqa: F401
 from botocore.response import StreamingBody
 
-from share import by_line, deflate
+from share import by_line, deflate, get_logger
 
 from .storage import CommonStorage
+
+logger = get_logger("storage.s3")
 
 
 class S3Storage(CommonStorage):
@@ -23,7 +25,7 @@ class S3Storage(CommonStorage):
     @deflate
     def _generate(self, body: StreamingBody, content_type: str) -> Generator[tuple[bytes, int], None, None]:
         for chunk in iter(lambda: body.read(self._chunk_size), b""):
-            print("_generate", len(chunk))
+            logger.debug("_generate", extra={"offset": len(chunk)})
             yield chunk, len(chunk)
 
     def get_by_lines(self) -> Generator[tuple[bytes, int], None, None]:

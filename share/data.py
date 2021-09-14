@@ -1,6 +1,10 @@
 import zlib
 from typing import Generator
 
+from .logger import get_logger
+
+logger = get_logger("share.data")
+
 
 def by_line(func):
     def wrapper(*args) -> Generator[tuple[bytes, int], None, None]:
@@ -13,11 +17,11 @@ def by_line(func):
                 unfinished_line = lines.pop().encode()
 
             for line in lines:
-                print("by_line lines", offset)
+                logger.debug("by_line lines", extra={"offset": offset})
                 yield line.encode(), offset
                 offset += len(line)
 
-        print("by_line unfinished_line", offset)
+        logger.debug("by_line unfinished_line", extra={"offset": offset})
         yield unfinished_line, offset
 
     return wrapper
@@ -29,10 +33,10 @@ def deflate(func):
             if args[2] == "application/x-gzip":
                 _d = zlib.decompressobj(16 + zlib.MAX_WBITS)
                 decoded = _d.decompress(data)
-                print("deflate decompress", len(decoded))
+                logger.debug("deflate decompress", extra={"offset": len(decoded)})
                 yield decoded, len(decoded)
             else:
-                print("deflate plan", length)
+                logger.debug("deflate plan", extra={"offset": length})
                 yield data, length
 
     return wrapper

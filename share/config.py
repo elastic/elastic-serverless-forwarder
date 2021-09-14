@@ -18,6 +18,10 @@ class Output:
         self.type: str = output_type
         self.kwargs: dict[str, Any] = kwargs
 
+    @abstractmethod
+    def enrich_event(self, event_payload: dict[str, any], event_type: str) -> None:
+        pass
+
     @property
     @abstractmethod
     def kwargs(self) -> None:
@@ -54,6 +58,17 @@ class ElasticSearchOutput(Output):
         self._namespace: str = ""
 
         super().__init__(output_type, kwargs)
+
+    def enrich_event(self, event_payload: dict[str, any], event_type: str) -> None:
+        event_payload["data_stream"] = {
+            "type": event_type,
+            "dataset": self._dataset,
+            "namespace": self._namespace,
+        }
+
+        event_payload["event"] = {"dataset": self._dataset, "original": event_payload["fields"]["message"]}
+
+        event_payload["tags"] = ["preserve_original_event", "forwarded", self._dataset.replace(".", "-")]
 
     @property
     def kwargs(self) -> None:
@@ -169,6 +184,9 @@ class Input:
     def get_output_types(self) -> list[str]:
         return list(self._outputs.keys())
 
+    def delete_output_by_type(self, output_type: str):
+        del self._outputs[output_type]
+
     def add_output(self, output_type: str, output_kwargs: dict[str, Any]):
         if not isinstance(output_type, str):
             raise ValueError("Output type must by of type str")
@@ -220,8 +238,8 @@ def parse_config(config_yaml: str) -> Config:
         if "type" not in input_config:
             raise ValueError("Must be provided type for input")
 
-        if "name" not in input_config:
-            raise ValueError("Must be provided type for input")
+        if "id" not in input_config:
+            raise ValueError("Must be provided id for input")
 
         current_input: Input = Input(input_type=input_config["type"], input_id=input_config["id"])
 

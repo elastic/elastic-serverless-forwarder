@@ -4,10 +4,12 @@ from typing import Any, Generator
 
 import elasticapm  # noqa: F401
 from event import _default_event
-from utils import _get_bucket_name_from_arn
+from utils import get_bucket_name_from_arn
 
-from share import Config
+from share import Config, get_logger
 from storage import CommonStorage, StorageFactory
+
+logger = get_logger("aws.sqs_trigger")
 
 
 def _handle_sqs_event(config: Config, event) -> Generator[tuple[dict[str, Any], int, int, int], None, None]:
@@ -26,7 +28,7 @@ def _handle_sqs_event(config: Config, event) -> Generator[tuple[dict[str, Any], 
             if len(bucket_arn) == 0 or len(object_key) == 0:
                 raise Exception("Cannot find bucket_arn or object_key for s3")
 
-            bucket_name: str = _get_bucket_name_from_arn(bucket_arn)
+            bucket_name: str = get_bucket_name_from_arn(bucket_arn)
             storage: CommonStorage = StorageFactory.create(
                 storage_type="s3", bucket_name=bucket_name, object_key=object_key
             )
@@ -38,9 +40,8 @@ def _handle_sqs_event(config: Config, event) -> Generator[tuple[dict[str, Any], 
                 # contains deflated offset: instead of hiding
                 # offset skipping in some decorators better
                 # explicitly skip here
-                print("offset", offset, "starting_offset", starting_offset)
                 if offset < starting_offset:
-                    print("continue")
+                    logger.debug("skipping event", extra={"offset": offset, "starting_offset": starting_offset})
                     continue
 
                 es_event = _default_event.copy()
@@ -59,5 +60,4 @@ def _handle_sqs_event(config: Config, event) -> Generator[tuple[dict[str, Any], 
 
                 es_event["fields"]["cloud"]["region"] = aws_region
 
-                print("es_event", es_event, "offset", offset, "sqs_record_n", sqs_record_n, "s3_record_n", s3_record_n)
                 yield es_event, offset, sqs_record_n, s3_record_n
