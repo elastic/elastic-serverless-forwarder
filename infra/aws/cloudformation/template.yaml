@@ -37,7 +37,7 @@ Resources:
             Queue: !GetAtt ElasticServerlessAgentContinuingQueue.Arn
             BatchSize: 1
             Enabled: true
-    Policies:
+      Policies:
       - AWSLambdaExecute # Managed Policy
       - Version: '2012-10-17' # Policy Document
         Statement:
@@ -64,7 +64,7 @@ Metadata:
     Name: elastic-serverless-agent
     Description: elastic-serverless-agent
     Author: elastic
-    SemanticVersion: 0.2.1
+    SemanticVersion: 0.2.3
 
 Outputs:
   ElasticServerlessAgentFunction:

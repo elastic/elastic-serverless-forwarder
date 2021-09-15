@@ -1,9 +1,7 @@
 import zlib
 from typing import Generator
 
-from .logger import get_logger
-
-logger = get_logger("share.data")
+from .logger import logger
 
 
 def by_line(func):

@@ -7,14 +7,12 @@ from elasticapm.contrib.serverless.aws import capture_serverless  # noqa: F401
 from sqs_trigger import _handle_sqs_event
 from utils import from_s3_uri_to_bucket_name_and_object_key, get_trigger_type
 
-from share import Config, ElasticSearchOutput, Output, get_logger, parse_config
+from share import Config, ElasticSearchOutput, Output, logger, parse_config
 from shippers import CommonShipper, ShipperFactory
 from storage import CommonStorage, StorageFactory
 
 _event_type: str = "logs"
 _completion_grace_period: int = 9000000000
-
-logger = get_logger("aws.handler")
 
 
 @capture_serverless()

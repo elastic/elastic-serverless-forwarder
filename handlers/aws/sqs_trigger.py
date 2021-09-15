@@ -6,10 +6,8 @@ import elasticapm  # noqa: F401
 from event import _default_event
 from utils import get_bucket_name_from_arn
 
-from share import Config, get_logger
+from share import Config, logger
 from storage import CommonStorage, StorageFactory
-
-logger = get_logger("aws.sqs_trigger")
 
 
 def _handle_sqs_event(config: Config, event) -> Generator[tuple[dict[str, Any], int, int, int], None, None]:

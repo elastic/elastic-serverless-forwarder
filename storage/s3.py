@@ -4,11 +4,9 @@ import boto3
 import elasticapm  # noqa: F401
 from botocore.response import StreamingBody
 
-from share import by_line, deflate, get_logger
+from share import by_line, deflate, logger
 
 from .storage import CommonStorage
-
-logger = get_logger("storage.s3")
 
 
 class S3Storage(CommonStorage):
