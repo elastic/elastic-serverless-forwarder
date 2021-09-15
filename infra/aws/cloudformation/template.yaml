@@ -6,6 +6,19 @@ Description: >
   SAM Template for elastic-serverless-agent
 
 Resources:
+  ElasticServerlessAgentContinuingDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      DelaySeconds: 900
+      QueueName: elastic-serverless-agent-continuing-dlq
+      VisibilityTimeout: 960
+  ElasticServerlessAgentContinuingQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      DelaySeconds: 900
+      QueueName: elastic-serverless-agent-continuing-queue
+      RedrivePolicy: { "deadLetterTargetArn" : !GetAtt ElasticServerlessAgentContinuingDLQ.Arn, "maxReceiveCount" : 1 }
+      VisibilityTimeout: 960
   ElasticServerlessAgentFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -13,11 +26,18 @@ Resources:
       MemorySize: 128
       PackageType: Zip
       CodeUri:
-        Bucket: %codeUriBucket%
+        Bucket: %codeURIBucket%
         Key: lambda.zip
       Runtime: python3.9
       Handler: handler.lambda_handler
-      Policies:
+      Events:
+        SQSEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt ElasticServerlessAgentContinuingQueue.Arn
+            BatchSize: 1
+            Enabled: true
+    Policies:
       - AWSLambdaExecute # Managed Policy
       - Version: '2012-10-17' # Policy Document
         Statement:
@@ -30,18 +50,29 @@ Resources:
           - Effect: Allow
             Action:
               - sqs:ReceiveMessage
-              - sqs:SendMessage
               - sqs:DeleteMessage
               - sqs:GetQueueAttributes
             Resource: 'arn:aws:sqs:*:*:*'
+      - Version: '2012-10-17' # Policy Document
+        Statement:
+          - Effect: Allow
+            Action:
+              - sqs:SendMessage
+            Resource: 'arn:aws:sqs:%awsRegion%:%accountID%:elastic-serverless-agent-continuing-queue'
 Metadata:
   AWS::ServerlessRepo::Application:
     Name: elastic-serverless-agent
     Description: elastic-serverless-agent
     Author: elastic
-    SemanticVersion: 0.1.23
+    SemanticVersion: 0.2.1
 
 Outputs:
   ElasticServerlessAgentFunction:
     Description: "Elastic Serverless Agent"
     Value: !GetAtt ElasticServerlessAgentFunction.Arn
+  ElasticServerlessAgentContinuingQueue:
+    Description: "Elastic Serverless Agent"
+    Value: !GetAtt ElasticServerlessAgentContinuingQueue.Arn
+  ElasticServerlessAgentContinuingDLQ:
+    Description: "Elastic Serverless Agent"
+    Value: !GetAtt ElasticServerlessAgentContinuingDLQ.Arn

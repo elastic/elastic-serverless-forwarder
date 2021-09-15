@@ -39,6 +39,7 @@ def lambda_handler(lambda_event, lambda_context):
                 return "empty S3_CONFIG_FILE env variable"
 
             bucket_name, object_key = from_s3_uri_to_bucket_name_and_object_key(config_file)
+            logger.info("config file", extra={"bucket_name": bucket_name, "object_key": object_key})
 
             config_storage: CommonStorage = StorageFactory.create(
                 storage_type="s3", bucket_name=bucket_name, object_key=object_key

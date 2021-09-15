@@ -29,6 +29,7 @@ class S3Storage(CommonStorage):
             yield chunk, len(chunk)
 
     def get_by_lines(self) -> Generator[tuple[bytes, int], None, None]:
+        logger.debug("get_by_lines", extra={"bucket_name": self._bucket_name, "object_key": self._object_key})
         s3_object = self._s3_client.get_object(
             Bucket=self._bucket_name,
             Key=self._object_key,
@@ -37,6 +38,7 @@ class S3Storage(CommonStorage):
         return self._generate(s3_object["Body"], s3_object["ContentType"])
 
     def get_as_string(self) -> str:
+        logger.debug("get_as_string", extra={"bucket_name": self._bucket_name, "object_key": self._object_key})
         s3_object = self._s3_client.get_object(
             Bucket=self._bucket_name,
             Key=self._object_key,

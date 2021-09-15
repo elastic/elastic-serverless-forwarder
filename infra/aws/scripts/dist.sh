@@ -55,7 +55,7 @@ EOF
 
 aws s3api put-bucket-policy --bucket "${BUCKET}" --policy "file://${TMPDIR}/policy.json"
 
-sed -e "s/%codeUriBucket%/${BUCKET}/g" infra/aws/cloudformation/template.yaml > "${TMPDIR}/template.yaml"
+sed -e "s/%codeURIBucket%/${BUCKET}/g" -e "s/%accountID%/${ACCOUNT_ID}/g" -e "s/%awsRegion%/${REGION}/g" infra/aws/cloudformation/template.yaml > "${TMPDIR}/template.yaml"
 
 sam package --template-file "${TMPDIR}/template.yaml" --output-template-file "${TMPDIR}/packaged.yaml" --s3-bucket "${BUCKET}"
 sam publish --template "${TMPDIR}/packaged.yaml" --region "${REGION}"
