@@ -14,4 +14,4 @@ handler.setFormatter(ecs_logging.StdlibFormatter())
 
 # Add an APM log correlation
 handler.addFilter(LoggingFilter())
-logger.addHandler(handler)
+logger.handlers = [handler]

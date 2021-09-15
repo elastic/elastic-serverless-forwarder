@@ -12,3 +12,7 @@ class CommonShipper:
     @abstractmethod
     def send(self, event: dict[str, Any]) -> Any:
         pass
+
+    @abstractmethod
+    def flush(self):
+        pass

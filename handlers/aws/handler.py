@@ -7,12 +7,11 @@ from elasticapm.contrib.serverless.aws import capture_serverless  # noqa: F401
 from sqs_trigger import _handle_sqs_event
 from utils import from_s3_uri_to_bucket_name_and_object_key, get_trigger_type
 
-from share import Config, ElasticSearchOutput, Output, logger, parse_config
-from shippers import CommonShipper, ShipperFactory
+from share import Config, ElasticSearchOutput, logger, parse_config
+from shippers import CommonShipper, CompositeShipper, ShipperFactory
 from storage import CommonStorage, StorageFactory
 
-_event_type: str = "logs"
-_completion_grace_period: int = 9000000000
+_completion_grace_period: int = 60000
 
 
 @capture_serverless()
@@ -61,10 +60,10 @@ def lambda_handler(lambda_event, lambda_context):
 
         logger.info("input", extra={"type": event_input.type, "id": event_input.id})
 
-        try:
-            shippers: list[CommonShipper] = []
-            outputs: list[Output] = []
+        sent_event: int = 0
+        composite_shipper: CompositeShipper = CompositeShipper()
 
+        try:
             for output_type in event_input.get_output_types():
                 if output_type == "elasticsearch":
                     logger.info("setting ElasticSearch shipper")
@@ -79,65 +78,55 @@ def lambda_handler(lambda_event, lambda_context):
                         namespace=output.namespace,
                     )
 
-                    shippers.append(shipper)
-                    outputs.append(output)
+                    composite_shipper.add_shipper(shipper=shipper)
 
             for es_event, offset, sqs_record_n, s3_record_n in _handle_sqs_event(config, lambda_event):
-                for (output_n, shipper) in enumerate(shippers):
-                    logger.debug(
-                        "processing",
-                        extra={
-                            "offset": offset,
-                            "output_n": output_n,
-                            "sqs_record_n": sqs_record_n,
-                            "s3_record_n": s3_record_n,
-                        },
+                logger.debug("es_event", extra={"es_event": es_event})
+
+                composite_shipper.send(es_event)
+                sent_event += 1
+
+                if (
+                    lambda_context is not None
+                    and lambda_context.get_remaining_time_in_millis() < _completion_grace_period
+                ):
+                    composite_shipper.flush()
+
+                    sqs_continuing_queue = os.environ["SQS_CONTINUE_URL"]
+
+                    logger.info(
+                        "lambda is going to shutdown, continuing on dedicated sqs queue",
+                        extra={"sqs_queue": sqs_continuing_queue, "sent_event": sent_event},
                     )
 
-                    current_output = outputs[output_n]
-                    current_output.enrich_event(es_event, _event_type)
-                    logger.debug("es_event", extra={"es_event": es_event})
+                    # Cleaner rewrite needed
+                    sqs_records = lambda_event["Records"][sqs_record_n:]
+                    body = json.loads(sqs_records[0]["body"])
+                    body["Records"] = body["Records"][s3_record_n:]
+                    # move offset forward so that we will start
+                    # from the next after the current one
+                    body["Records"][0]["starting_offset"] = offset + 1
+                    sqs_records[0]["body"] = json.dumps(body)
 
-                    shipper.send(es_event)
-                    logger.info("sent to output", extra={"type": current_output.type})
-
-                    if (
-                        lambda_context is not None
-                        and lambda_context.get_remaining_time_in_millis() < _completion_grace_period
-                    ):
-                        sqs_continuing_queue = os.environ["SQS_CONTINUE_URL"]
-
-                        logger.info(
-                            "lambda is going to shutdown, continuing on dedicated sqs queue",
-                            extra={"sqs_queue": sqs_continuing_queue},
+                    sqs_client = boto3.client("sqs")
+                    for sqs_record in sqs_records:
+                        sqs_client.send_message(
+                            QueueUrl=sqs_continuing_queue,
+                            MessageBody=sqs_record["body"],
+                            MessageAttributes={
+                                "config": {"StringValue": config_yaml, "DataType": "String"},
+                                "originalEventSource": {"StringValue": event_input.id, "DataType": "String"},
+                            },
                         )
 
-                        # Cleaner rewrite needed
-                        sqs_records = lambda_event["Records"][sqs_record_n:]
-                        body = json.loads(sqs_records[0]["body"])
-                        body["Records"] = body["Records"][s3_record_n:]
-                        # move offset forward so that we will start
-                        # from the next after the current one
-                        body["Records"][0]["starting_offset"] = offset + 1
-                        sqs_records[0]["body"] = json.dumps(body)
+                        logger.debug("continuing", extra={"sqs_continuing_queue": sqs_continuing_queue, "body": body})
 
-                        sqs_client = boto3.client("sqs")
-                        for sqs_record in sqs_records:
-                            sqs_client.send_message(
-                                QueueUrl=sqs_continuing_queue,
-                                MessageBody=sqs_record["body"],
-                                MessageAttributes={
-                                    "config": {"StringValue": config_yaml, "DataType": "String"},
-                                    "originalEventSource": {"StringValue": event_input.id, "DataType": "String"},
-                                },
-                            )
+                    return
 
-                            logger.debug(
-                                "continuing", extra={"sqs_continuing_queue": sqs_continuing_queue, "body": body}
-                            )
-
-                        return
+            composite_shipper.flush()
+            logger.info("lambda processed all the events", extra={"sent_event": sent_event})
 
         except Exception as e:
             logger.exception("exception raised", exc_info=e)
+            logger.error("lambda exited with an error", extra={"sent_event": sent_event})
             return str(e)

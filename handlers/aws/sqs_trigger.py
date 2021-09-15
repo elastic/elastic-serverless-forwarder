@@ -2,7 +2,7 @@ import datetime
 import json
 from typing import Any, Generator
 
-import elasticapm  # noqa: F401
+import elasticapm
 from event import _default_event
 from utils import get_bucket_name_from_arn
 
@@ -31,6 +31,8 @@ def _handle_sqs_event(config: Config, event) -> Generator[tuple[dict[str, Any], 
                 storage_type="s3", bucket_name=bucket_name, object_key=object_key
             )
 
+            span = elasticapm.capture_span(f"WAIT FOR OFFSET STARTING AT {starting_offset}")
+            span.__enter__()
             for log_event, offset in storage.get_by_lines():
                 # We cannot really download with range request
                 # starting from `starting_offset` since file
@@ -41,6 +43,10 @@ def _handle_sqs_event(config: Config, event) -> Generator[tuple[dict[str, Any], 
                 if offset < starting_offset:
                     logger.debug("skipping event", extra={"offset": offset, "starting_offset": starting_offset})
                     continue
+
+                if span:
+                    span.__exit__(None, None, None)
+                    span = None
 
                 es_event = _default_event.copy()
                 es_event["@timestamp"] = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")

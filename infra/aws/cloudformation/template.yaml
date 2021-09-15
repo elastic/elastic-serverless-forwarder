@@ -9,16 +9,16 @@ Resources:
   ElasticServerlessAgentContinuingDLQ:
     Type: AWS::SQS::Queue
     Properties:
-      DelaySeconds: 900
+      DelaySeconds: 0
       QueueName: elastic-serverless-agent-continuing-dlq
-      VisibilityTimeout: 960
+      VisibilityTimeout: 900
   ElasticServerlessAgentContinuingQueue:
     Type: AWS::SQS::Queue
     Properties:
-      DelaySeconds: 900
+      DelaySeconds: 0
       QueueName: elastic-serverless-agent-continuing-queue
       RedrivePolicy: { "deadLetterTargetArn" : !GetAtt ElasticServerlessAgentContinuingDLQ.Arn, "maxReceiveCount" : 1 }
-      VisibilityTimeout: 960
+      VisibilityTimeout: 900
   ElasticServerlessAgentFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -64,7 +64,7 @@ Metadata:
     Name: elastic-serverless-agent
     Description: elastic-serverless-agent
     Author: elastic
-    SemanticVersion: 0.2.3
+    SemanticVersion: 0.3.6
 
 Outputs:
   ElasticServerlessAgentFunction:

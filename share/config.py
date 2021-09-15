@@ -18,10 +18,6 @@ class Output:
         self.type: str = output_type
         self.kwargs: dict[str, Any] = kwargs
 
-    @abstractmethod
-    def enrich_event(self, event_payload: dict[str, any], event_type: str) -> None:
-        pass
-
     @property
     @abstractmethod
     def kwargs(self) -> None:
@@ -58,17 +54,6 @@ class ElasticSearchOutput(Output):
         self._namespace: str = ""
 
         super().__init__(output_type, kwargs)
-
-    def enrich_event(self, event_payload: dict[str, any], event_type: str) -> None:
-        event_payload["data_stream"] = {
-            "type": event_type,
-            "dataset": self._dataset,
-            "namespace": self._namespace,
-        }
-
-        event_payload["event"] = {"dataset": self._dataset, "original": event_payload["fields"]["message"]}
-
-        event_payload["tags"] = ["preserve_original_event", "forwarded", self._dataset.replace(".", "-")]
 
     @property
     def kwargs(self) -> None:
