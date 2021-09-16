@@ -1,4 +1,3 @@
-from collections import deque
 from typing import Any
 
 import elasticapm  # noqa: F401

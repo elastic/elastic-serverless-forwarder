@@ -10,7 +10,7 @@ from share import Config, logger
 from storage import CommonStorage, StorageFactory
 
 
-def _handle_sqs_event(config: Config, event) -> Generator[tuple[dict[str, Any], int, int, int], None, None]:
+def _handle_sqs_event(config: Config, event) -> Generator[tuple[dict[str, Any], int, int, int, int], None, None]:
     for sqs_record_n, sqs_record in enumerate(event["Records"]):
         event_input = config.get_input_by_type_and_id("sqs", sqs_record["eventSourceARN"])
         if not event_input:
@@ -21,7 +21,8 @@ def _handle_sqs_event(config: Config, event) -> Generator[tuple[dict[str, Any], 
             aws_region = s3_record["awsRegion"]
             bucket_arn = s3_record["s3"]["bucket"]["arn"]
             object_key = s3_record["s3"]["object"]["key"]
-            starting_offset = s3_record["starting_offset"] if "starting_offset" in s3_record else 0
+            starting_range_offset = s3_record["starting_range_offset"] if "starting_range_offset" in s3_record else 0
+            last_decorator_offset = s3_record["last_decorator_offset"] if "last_decorator_offset" in s3_record else 0
 
             if len(bucket_arn) == 0 or len(object_key) == 0:
                 raise Exception("Cannot find bucket_arn or object_key for s3")
@@ -31,17 +32,22 @@ def _handle_sqs_event(config: Config, event) -> Generator[tuple[dict[str, Any], 
                 storage_type="s3", bucket_name=bucket_name, object_key=object_key
             )
 
-            span = elasticapm.capture_span(f"WAIT FOR OFFSET STARTING AT {starting_offset}")
+            span = elasticapm.capture_span(f"WAIT FOR OFFSET STARTING AT {starting_range_offset}")
             span.__enter__()
-            for log_event, offset in storage.get_by_lines():
-                # We cannot really download with range request
-                # starting from `starting_offset` since file
-                # could be compressed, and `starting_offset`
-                # contains deflated offset: instead of hiding
-                # offset skipping in some decorators better
-                # explicitly skip here
-                if offset < starting_offset:
-                    logger.debug("skipping event", extra={"offset": offset, "starting_offset": starting_offset})
+            for log_event, range_offset, decorator_offset in storage.get_by_lines(
+                range_start=starting_range_offset, last_decorator_offset=last_decorator_offset
+            ):
+                # let's be sure that on the first yield `range_offset`
+                # doesn't overlap `starting_range_offset`: in case we
+                # skip in order to not ingest twice the same event
+                if range_offset < starting_range_offset:
+                    logger.debug(
+                        "skipping event",
+                        extra={
+                            "range_offset": range_offset,
+                            "starting_range_offset": starting_range_offset,
+                        },
+                    )
                     continue
 
                 if span:
@@ -51,7 +57,7 @@ def _handle_sqs_event(config: Config, event) -> Generator[tuple[dict[str, Any], 
                 es_event = _default_event.copy()
                 es_event["@timestamp"] = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
                 es_event["fields"]["message"] = log_event.decode("UTF-8")
-                es_event["fields"]["log"]["offset"] = offset
+                es_event["fields"]["log"]["offset"] = decorator_offset
 
                 es_event["fields"]["log"]["file"]["path"] = "https://{0}.s3.{1}.amazonaws.com/{1}".format(
                     bucket_name, object_key
@@ -64,4 +70,4 @@ def _handle_sqs_event(config: Config, event) -> Generator[tuple[dict[str, Any], 
 
                 es_event["fields"]["cloud"]["region"] = aws_region
 
-                yield es_event, offset, sqs_record_n, s3_record_n
+                yield es_event, range_offset, decorator_offset, sqs_record_n, s3_record_n
