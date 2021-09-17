@@ -10,7 +10,7 @@ from .storage import CommonStorage
 
 
 class S3Storage(CommonStorage):
-    _chunk_size: int = 1024 * 1024
+    _chunk_size: int = 1024 ** 2
 
     def __init__(self, bucket_name: str, object_key: str):
         self._bucket_name: str = bucket_name
@@ -22,34 +22,54 @@ class S3Storage(CommonStorage):
     @ByLines
     @Deflate
     def _generate(
-        self, range_start: int, last_decorator_offset: int, body: StreamingBody, content_type: str
+        self, range_start: int, last_beginning_offset: int, body: StreamingBody, content_type: str, content_length: int
     ) -> Generator[tuple[bytes, int, int], None, None]:
-        previous_length: int = last_decorator_offset
-        # `decorator_offset` starts from `range_start`
-        decorator_offset: int = range_start
-        for chunk in iter(lambda: body.read(self._chunk_size), b""):
-            chunk_length: int = len(chunk)
-            range_offset: int = range_start + chunk_length
-            # `decorator_offset` should be the beginning of
-            # the chunk position, not the length of it
-            decorator_offset += previous_length
+        if content_type == "application/x-gzip":
+            chunk = body.read(content_length)
+            logger.debug("_generate gzip", extra={"offset": 0})
+            yield chunk, range_start, last_beginning_offset
+        else:
+            previous_length: int = last_beginning_offset
+            # `beginning_offset` starts from `range_start`
+            beginning_offset: int = range_start
+            ending_offset: int = 0
+            for chunk in iter(lambda: body.read(self._chunk_size), b""):
+                chunk_length: int = len(chunk)
+                ending_offset += range_start + chunk_length
+                # `beginning_offset` should be the beginning of
+                # the chunk position, not the length of it
+                beginning_offset += previous_length
 
-            # `previous_length` can now be updated in order for the
-            # next iteration to be added to `decorator_offset`
-            previous_length += chunk_length
+                # `previous_length` can now be updated in order for the
+                # next iteration to be added to `beginning_offset`
+                previous_length += chunk_length
 
-            logger.debug("_generate", extra={"offset": decorator_offset})
-            yield chunk, range_offset, decorator_offset
+                logger.debug("_generate flat", extra={"offset": beginning_offset})
+                yield chunk, beginning_offset, ending_offset
 
     def get_by_lines(
-        self, range_start: int, last_decorator_offset: int
+        self, range_start: int, last_beginning_offset: int
     ) -> Generator[tuple[bytes, int, int], None, None]:
         logger.debug("get_by_lines", extra={"bucket_name": self._bucket_name, "object_key": self._object_key})
+
+        original_range_start: int = range_start
+        s3_object_header = self._s3_client.get_object(Bucket=self._bucket_name, Key=self._object_key, Range="bytes=0-4")
+
+        content_type: str = s3_object_header["ContentType"]
+        if content_type == "application/x-gzip":
+            range_start = 0
+
         s3_object = self._s3_client.get_object(
             Bucket=self._bucket_name, Key=self._object_key, Range=f"bytes={range_start}-"
         )
 
-        return self._generate(range_start, last_decorator_offset, s3_object["Body"], s3_object["ContentType"])
+        return self._generate(
+            original_range_start,
+            last_beginning_offset,
+            s3_object["Body"],
+            s3_object["ContentType"],
+            s3_object["ContentLength"],
+        )
 
     def get_as_string(self) -> str:
         logger.debug("get_as_string", extra={"bucket_name": self._bucket_name, "object_key": self._object_key})

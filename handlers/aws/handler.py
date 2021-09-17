@@ -80,7 +80,7 @@ def lambda_handler(lambda_event, lambda_context):
 
                     composite_shipper.add_shipper(shipper=shipper)
 
-            for es_event, range_offset, last_decorator_offset, sqs_record_n, s3_record_n in _handle_sqs_event(
+            for es_event, last_beginning_offset, last_ending_offset, sqs_record_n, s3_record_n in _handle_sqs_event(
                 config, lambda_event
             ):
                 logger.debug("es_event", extra={"es_event": es_event})
@@ -105,8 +105,8 @@ def lambda_handler(lambda_event, lambda_context):
                     sqs_records = lambda_event["Records"][sqs_record_n:]
                     body = json.loads(sqs_records[0]["body"])
                     body["Records"] = body["Records"][s3_record_n:]
-                    body["Records"][0]["starting_range_offset"] = range_offset
-                    body["Records"][0]["last_decorator_offset"] = last_decorator_offset
+                    body["Records"][0]["last_ending_offset"] = last_ending_offset
+                    body["Records"][0]["last_beginning_offset"] = last_beginning_offset
                     sqs_records[0]["body"] = json.dumps(body)
 
                     sqs_client = boto3.client("sqs")

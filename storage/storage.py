@@ -11,7 +11,7 @@ class CommonStorage:
 
     @abstractmethod
     def get_by_lines(
-        self, range_start: int, last_decorator_offset: int
+        self, range_start: int, last_beginning_offset: int
     ) -> Generator[tuple[bytes, int, int], None, None]:
         pass
 

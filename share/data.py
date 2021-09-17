@@ -10,20 +10,20 @@ class ByLines:
         self._function = function
 
         self._offset: int = 0
-        self._last_range_offset: int = 0
-        self._last_decorator_offset: int = 0
+        self._last_ending_offset: int = 0
+        self._last_beginning_offset: int = 0
 
     def __call__(self, instance, *args) -> Generator[tuple[bytes, int, int], None, None]:
         unfinished_line: bytes = b""
-        self._last_decorator_offset: int = args[1]
-        for data, range_offset, decorator_offset in self._function(instance, *args):
+        self._last_beginning_offset: int = args[1]
+        for data, beginning_offset, ending_offset in self._function(instance, *args):
             # `self._offset` will contains this decorator offset and should be
             # the beginning of the line position, not the length of it
-            # we assume that `decorator_offset` is correct and we don't
-            # rely on `last_decorator_offset`
-            self._offset: int = decorator_offset
+            # we assume that `beginning_offset` is correct and we don't
+            # rely on `last_beginning_offset`
+            self._offset: int = beginning_offset
 
-            self._last_range_offset = range_offset
+            self._last_ending_offset = ending_offset
 
             unfinished_line = unfinished_line + data
             lines = unfinished_line.decode("UTF-8").splitlines()
@@ -37,11 +37,11 @@ class ByLines:
                 # we increase `self._offset` with the latest length for the next iteration
                 self._offset += len(line)
 
-                yield line.encode(), range_offset, offset
+                yield line.encode(), offset, ending_offset
 
         logger.debug("by_line unfinished_line", extra={"offset": self._offset})
         if len(unfinished_line) > 0:
-            yield unfinished_line, self._last_range_offset, self._offset
+            yield unfinished_line, self._offset, self._last_ending_offset
 
     def __get__(self, instance, owner):
         return partial(self, instance)
@@ -50,26 +50,18 @@ class ByLines:
 class Deflate:
     def __init__(self, function):
         self._function = function
-        self._previous_length: int = 0
 
     def __call__(self, instance, *args) -> Generator[tuple[bytes, int, int], None, None]:
-        for data, range_offset, decorator_offset in self._function(instance, *args):
-            last_decorator_offset = args[1]
+        for data, beginning_offset, ending_offset in self._function(instance, *args):
             if args[3] == "application/x-gzip":
-                _d = zlib.decompressobj(16 + zlib.MAX_WBITS)
-                decoded: bytes = _d.decompress(data)
-                length_decode: int = len(decoded)
-                # `offset` will contains this decorator offset and should be
-                # the beginning of the chunk position, not the length of it.
-                # since here the content is compressed we cannot rely on
-                # `decorator_offset` but rather on `last_decorator_offset`
-                offset: int = last_decorator_offset + self._previous_length
-                self._previous_length += length_decode
-                logger.debug("deflate decompress", extra={"offset": offset})
-                yield decoded, range_offset, offset
+                last_beginning_offset: int = args[1]
+                d = zlib.decompressobj(wbits=zlib.MAX_WBITS + 16)
+                decoded: bytes = d.decompress(data)
+                chunk = decoded[last_beginning_offset:]
+                yield chunk, beginning_offset, ending_offset
             else:
-                logger.debug("deflate plan", extra={"offset": decorator_offset})
-                yield data, range_offset, decorator_offset
+                logger.debug("deflate plan", extra={"offset": beginning_offset})
+                yield data, beginning_offset, ending_offset
 
     def __get__(self, instance, owner):
         return partial(self, instance)
