@@ -1,0 +1,5 @@
+---
+- job:
+    name: Library
+    description: Library related Jobs
+    project-type: folder
