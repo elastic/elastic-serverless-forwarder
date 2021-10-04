@@ -34,14 +34,18 @@ pipeline {
     stage('Lint'){
       steps {
         withGithubNotify(context: "Lint") {
-          sh(label: 'lint', script: 'make lint')
+          dir("${BASE_DIR}"){
+            sh(label: 'lint', script: 'make lint')
+          }
         }
       }
     }
     stage('License'){
       steps {
         withGithubNotify(context: "License") {
-          sh(label: 'license', script: 'make license')
+          dir("${BASE_DIR}"){
+            sh(label: 'license', script: 'make license')
+          }
         }
       }
     }
