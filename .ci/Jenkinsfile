@@ -34,7 +34,14 @@ pipeline {
     stage('Lint'){
       steps {
         withGithubNotify(context: "Lint") {
-          echo 'TBD'
+          sh(label: 'lint', script: 'make lint')
+        }
+      }
+    }
+    stage('License'){
+      steps {
+        withGithubNotify(context: "License") {
+          sh(label: 'license', script: 'make license')
         }
       }
     }
@@ -46,7 +53,7 @@ pipeline {
         axes {
           axis {
             name 'PLATFORM'
-            values 'macosx && x86_64', 'ubuntu-20 && immutable', 'windows-2019 && windows-immutable'
+            values 'ubuntu-20 && immutable' // , 'macosx && x86_64', 'windows-2019 && windows-immutable'
           }
         }
         stages {
