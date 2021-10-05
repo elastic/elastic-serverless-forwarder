@@ -26,14 +26,14 @@ class S3Storage(CommonStorage):
     @ByLines
     @Deflate
     def _generate(
-        self, range_start: int, last_beginning_offset: int, body: StreamingBody, content_type: str, content_length: int
+        self, range_start: int, last_ending_offset: int, body: StreamingBody, content_type: str, content_length: int
     ) -> Generator[tuple[bytes, int, int], None, None]:
         if content_type == "application/x-gzip":
             chunk = body.read(content_length)
             logger.debug("_generate gzip", extra={"offset": 0})
-            yield chunk, range_start, last_beginning_offset
+            yield chunk, range_start, last_ending_offset
         else:
-            previous_length: int = last_beginning_offset
+            previous_length: int = last_ending_offset
             # `beginning_offset` starts from `range_start`
             beginning_offset: int = range_start
             ending_offset: int = 0
@@ -51,9 +51,7 @@ class S3Storage(CommonStorage):
                 logger.debug("_generate flat", extra={"offset": beginning_offset})
                 yield chunk, beginning_offset, ending_offset
 
-    def get_by_lines(
-        self, range_start: int, last_beginning_offset: int
-    ) -> Generator[tuple[bytes, int, int], None, None]:
+    def get_by_lines(self, range_start: int, last_ending_offset: int) -> Generator[tuple[bytes, int, int], None, None]:
         logger.debug("get_by_lines", extra={"bucket_name": self._bucket_name, "object_key": self._object_key})
 
         original_range_start: int = range_start
@@ -69,7 +67,7 @@ class S3Storage(CommonStorage):
 
         return self._generate(
             original_range_start,
-            last_beginning_offset,
+            last_ending_offset,
             s3_object["Body"],
             s3_object["ContentType"],
             s3_object["ContentLength"],

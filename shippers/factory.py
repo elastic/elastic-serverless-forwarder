@@ -5,6 +5,8 @@
 import json
 from typing import Any, Type
 
+from share.config import Output
+
 from .es import ElasticsearchShipper
 from .shipper import CommonShipper
 
@@ -18,10 +20,27 @@ _init_definition_by_output: dict[str, dict[str, Any]] = {
 
 class ShipperFactory:
     @staticmethod
+    def create_from_output(output_type: str, output: Output) -> CommonShipper:
+        if output_type == "elasticsearch":
+            return ShipperFactory.create(
+                output="elasticsearch",
+                hosts=output.hosts,
+                scheme=output.scheme,
+                username=output.username,
+                password=output.password,
+                dataset=output.dataset,
+                namespace=output.namespace,
+            )
+
+        raise ValueError(
+            f"You must provide one of the following outputs: " f"{', '.join(_init_definition_by_output.keys())}"
+        )
+
+    @staticmethod
     def create(output: str, **kwargs: Any) -> CommonShipper:
         if output not in _init_definition_by_output:
             raise ValueError(
-                f"You must provide one of the following targets: " f"{', '.join(_init_definition_by_output.keys())}"
+                f"You must provide one of the following outputs: " f"{', '.join(_init_definition_by_output.keys())}"
             )
 
         output_definition = _init_definition_by_output[output]

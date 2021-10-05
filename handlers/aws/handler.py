@@ -2,13 +2,11 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
-import json
 import os
 
-import boto3
 import elasticapm  # noqa: F401
 from elasticapm.contrib.serverless.aws import capture_serverless  # noqa: F401
-from sqs_trigger import _handle_sqs_event
+from sqs_trigger import _handle_sqs_continuation, _handle_sqs_event
 from utils import from_s3_uri_to_bucket_name_and_object_key, get_trigger_type
 
 from share import Config, ElasticSearchOutput, logger, parse_config
@@ -72,19 +70,12 @@ def lambda_handler(lambda_event, lambda_context):
                 if output_type == "elasticsearch":
                     logger.info("setting ElasticSearch shipper")
                     output: ElasticSearchOutput = event_input.get_output_by_type("elasticsearch")
-                    shipper: CommonShipper = ShipperFactory.create(
-                        output="elasticsearch",
-                        hosts=output.hosts,
-                        scheme=output.scheme,
-                        username=output.username,
-                        password=output.password,
-                        dataset=output.dataset,
-                        namespace=output.namespace,
+                    shipper: CommonShipper = ShipperFactory.create_from_output(
+                        output_type="elasticsearch", output=output
                     )
-
                     composite_shipper.add_shipper(shipper=shipper)
 
-            for es_event, last_beginning_offset, last_ending_offset, sqs_record_n, s3_record_n in _handle_sqs_event(
+            for es_event, last_ending_offset, current_sqs_record, current_s3_record in _handle_sqs_event(
                 config, lambda_event
             ):
                 logger.debug("es_event", extra={"es_event": es_event})
@@ -96,8 +87,6 @@ def lambda_handler(lambda_event, lambda_context):
                     lambda_context is not None
                     and lambda_context.get_remaining_time_in_millis() < _completion_grace_period
                 ):
-                    composite_shipper.flush()
-
                     sqs_continuing_queue = os.environ["SQS_CONTINUE_URL"]
 
                     logger.info(
@@ -105,26 +94,17 @@ def lambda_handler(lambda_event, lambda_context):
                         extra={"sqs_queue": sqs_continuing_queue, "sent_event": sent_event},
                     )
 
-                    # Cleaner rewrite needed
-                    sqs_records = lambda_event["Records"][sqs_record_n:]
-                    body = json.loads(sqs_records[0]["body"])
-                    body["Records"] = body["Records"][s3_record_n:]
-                    body["Records"][0]["last_ending_offset"] = last_ending_offset
-                    body["Records"][0]["last_beginning_offset"] = last_beginning_offset
-                    sqs_records[0]["body"] = json.dumps(body)
+                    composite_shipper.flush()
 
-                    sqs_client = boto3.client("sqs")
-                    for sqs_record in sqs_records:
-                        sqs_client.send_message(
-                            QueueUrl=sqs_continuing_queue,
-                            MessageBody=sqs_record["body"],
-                            MessageAttributes={
-                                "config": {"StringValue": config_yaml, "DataType": "String"},
-                                "originalEventSource": {"StringValue": event_input.id, "DataType": "String"},
-                            },
-                        )
-
-                        logger.debug("continuing", extra={"sqs_continuing_queue": sqs_continuing_queue, "body": body})
+                    _handle_sqs_continuation(
+                        sqs_continuing_queue=sqs_continuing_queue,
+                        lambda_event=lambda_event,
+                        event_input_id=event_input.id,
+                        last_ending_offset=last_ending_offset,
+                        current_sqs_record=current_sqs_record,
+                        current_s3_record=current_s3_record,
+                        config_yaml=config_yaml,
+                    )
 
                     return
 

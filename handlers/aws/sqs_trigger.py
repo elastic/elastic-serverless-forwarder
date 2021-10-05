@@ -6,12 +6,43 @@ import datetime
 import json
 from typing import Any, Generator
 
+import boto3
 import elasticapm
 from event import _default_event
 from utils import get_bucket_name_from_arn
 
 from share import Config, logger
 from storage import CommonStorage, StorageFactory
+
+
+def _handle_sqs_continuation(
+    sqs_continuing_queue: str,
+    lambda_event: dict[str, Any],
+    event_input_id: str,
+    last_ending_offset: int,
+    current_sqs_record: int,
+    current_s3_record: int,
+    config_yaml: str,
+):
+
+    sqs_records = lambda_event["Records"][current_sqs_record:]
+    body = json.loads(sqs_records[0]["body"])
+    body["Records"] = body["Records"][current_s3_record:]
+    body["Records"][0]["last_ending_offset"] = last_ending_offset + 1
+    sqs_records[0]["body"] = json.dumps(body)
+
+    sqs_client = boto3.client("sqs")
+    for sqs_record in sqs_records:
+        sqs_client.send_message(
+            QueueUrl=sqs_continuing_queue,
+            MessageBody=sqs_record["body"],
+            MessageAttributes={
+                "config": {"StringValue": config_yaml, "DataType": "String"},
+                "originalEventSource": {"StringValue": event_input_id, "DataType": "String"},
+            },
+        )
+
+        logger.debug("continuing", extra={"sqs_continuing_queue": sqs_continuing_queue, "body": body})
 
 
 def _handle_sqs_event(config: Config, event) -> Generator[tuple[dict[str, Any], int, int, int, int], None, None]:
@@ -26,7 +57,6 @@ def _handle_sqs_event(config: Config, event) -> Generator[tuple[dict[str, Any], 
             bucket_arn = s3_record["s3"]["bucket"]["arn"]
             object_key = s3_record["s3"]["object"]["key"]
             last_ending_offset = s3_record["last_ending_offset"] if "last_ending_offset" in s3_record else 0
-            last_beginning_offset = s3_record["last_beginning_offset"] if "last_beginning_offset" in s3_record else 0
 
             if len(bucket_arn) == 0 or len(object_key) == 0:
                 raise Exception("Cannot find bucket_arn or object_key for s3")
@@ -39,7 +69,7 @@ def _handle_sqs_event(config: Config, event) -> Generator[tuple[dict[str, Any], 
             span = elasticapm.capture_span(f"WAIT FOR OFFSET STARTING AT {last_ending_offset}")
             span.__enter__()
             for log_event, beginning_offset, ending_offset in storage.get_by_lines(
-                range_start=last_ending_offset, last_beginning_offset=last_beginning_offset
+                range_start=last_ending_offset, last_ending_offset=last_ending_offset
             ):
                 # let's be sure that on the first yield `ending_offset`
                 # doesn't overlap `last_ending_offset`: in case we
@@ -74,4 +104,4 @@ def _handle_sqs_event(config: Config, event) -> Generator[tuple[dict[str, Any], 
 
                 es_event["fields"]["cloud"]["region"] = aws_region
 
-                yield es_event, beginning_offset, ending_offset, sqs_record_n, s3_record_n
+                yield es_event, ending_offset, sqs_record_n, s3_record_n

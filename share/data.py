@@ -15,16 +15,16 @@ class ByLines:
 
         self._offset: int = 0
         self._last_ending_offset: int = 0
-        self._last_beginning_offset: int = 0
+        self._last_ending_offset: int = 0
 
     def __call__(self, instance, *args) -> Generator[tuple[bytes, int, int], None, None]:
         unfinished_line: bytes = b""
-        self._last_beginning_offset: int = args[1]
+        self._last_ending_offset: int = args[1]
         for data, beginning_offset, ending_offset in self._function(instance, *args):
             # `self._offset` will contains this decorator offset and should be
             # the beginning of the line position, not the length of it
             # we assume that `beginning_offset` is correct and we don't
-            # rely on `last_beginning_offset`
+            # rely on `last_ending_offset`
             self._offset: int = beginning_offset
 
             self._last_ending_offset = ending_offset
@@ -58,10 +58,10 @@ class Deflate:
     def __call__(self, instance, *args) -> Generator[tuple[bytes, int, int], None, None]:
         for data, beginning_offset, ending_offset in self._function(instance, *args):
             if args[3] == "application/x-gzip":
-                last_beginning_offset: int = args[1]
+                last_ending_offset: int = args[1]
                 d = zlib.decompressobj(wbits=zlib.MAX_WBITS + 16)
                 decoded: bytes = d.decompress(data)
-                chunk = decoded[last_beginning_offset:]
+                chunk = decoded[last_ending_offset:]
                 yield chunk, beginning_offset, ending_offset
             else:
                 logger.debug("deflate plan", extra={"offset": beginning_offset})
