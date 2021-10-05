@@ -16,5 +16,5 @@ isort:  ## Run isort in the project
 	tests/scripts/docker/isort.sh diff
 
 license:  ## Run license validation in the project
-	tests/scripts/license_headers_check.sh
+	tests/scripts/license_headers_check.sh check
 
