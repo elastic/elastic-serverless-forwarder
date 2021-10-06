@@ -30,6 +30,9 @@ Resources:
         Key: lambda.zip
       Runtime: python3.9
       Handler: handler.lambda_handler
+      Environment:
+          Variables:
+              SQS_CONTINUE_URL: !Ref ElasticServerlessAgentContinuingQueue
       Events:
         SQSEvent:
           Type: SQS
@@ -64,7 +67,7 @@ Metadata:
     Name: elastic-serverless-agent
     Description: elastic-serverless-agent
     Author: elastic
-    SemanticVersion: 0.3.14
+    SemanticVersion: 0.4.1
 
 Outputs:
   ElasticServerlessAgentFunction:

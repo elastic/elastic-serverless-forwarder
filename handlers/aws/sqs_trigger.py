@@ -68,9 +68,11 @@ def _handle_sqs_event(config: Config, event) -> Generator[tuple[dict[str, Any], 
 
             span = elasticapm.capture_span(f"WAIT FOR OFFSET STARTING AT {last_ending_offset}")
             span.__enter__()
-            for log_event, beginning_offset, ending_offset in storage.get_by_lines(
-                range_start=last_ending_offset, last_ending_offset=last_ending_offset
-            ):
+            events = storage.get_by_lines(
+                range_start=last_ending_offset,
+                last_ending_offset=last_ending_offset,
+            )
+            for log_event, beginning_offset, ending_offset in events:
                 # let's be sure that on the first yield `ending_offset`
                 # doesn't overlap `last_ending_offset`: in case we
                 # skip in order to not ingest twice the same event

@@ -2,9 +2,38 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
+import os
 from typing import Any
 
+from share import logger
+from storage import CommonStorage, StorageFactory
+
 _available_triggers: dict[str, str] = {"aws:sqs": "sqs"}
+
+
+def config_yaml_from_payload(lambda_event: dict[str, Any]) -> str:
+    payload = lambda_event["Records"][0]["messageAttributes"]
+    config_yaml = payload["config"]["stringValue"]
+    lambda_event["Records"][0]["eventSourceARN"] = payload["originalEventSource"]["stringValue"]
+
+    return config_yaml
+
+
+def config_yaml_from_s3() -> str:
+    config_file: str = os.getenv("S3_CONFIG_FILE")
+    if config_file is None:
+        logger.error("empty S3_CONFIG_FILE env variable")
+        return "empty S3_CONFIG_FILE env variable"
+
+    bucket_name, object_key = from_s3_uri_to_bucket_name_and_object_key(config_file)
+    logger.info("config file", extra={"bucket_name": bucket_name, "object_key": object_key})
+
+    config_storage: CommonStorage = StorageFactory.create(
+        storage_type="s3", bucket_name=bucket_name, object_key=object_key
+    )
+
+    config_yaml = config_storage.get_as_string()
+    return config_yaml
 
 
 def from_s3_uri_to_bucket_name_and_object_key(s3_uri: str) -> tuple[str, str]:
