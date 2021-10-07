@@ -7,8 +7,10 @@ import os
 import elasticapm  # noqa: F401
 from elasticapm.contrib.serverless.aws import capture_serverless  # noqa: F401
 from sqs_trigger import _handle_sqs_continuation, _handle_sqs_event
-from utils import config_yaml_from_payload, config_yaml_from_s3, get_trigger_type
-from share import Config, ElasticSearchOutput, logger, parse_config, wrap_try_except
+from utils import (config_yaml_from_payload, config_yaml_from_s3,
+                   get_trigger_type)
+from share import (Config, ElasticSearchOutput, logger, parse_config,
+                   wrap_try_except)
 from shippers import CommonShipper, CompositeShipper, ShipperFactory
 
 _completion_grace_period: int = 60000
