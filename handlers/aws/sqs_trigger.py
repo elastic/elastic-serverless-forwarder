@@ -4,14 +4,14 @@
 
 import datetime
 import json
-from typing import Any, Generator
+from typing import Any, Iterator
 
 import boto3
 import elasticapm
 from event import _default_event
 from utils import get_bucket_name_from_arn
 
-from share import Config, logger
+from share import Config, shared_logger
 from storage import CommonStorage, StorageFactory
 
 
@@ -23,7 +23,7 @@ def _handle_sqs_continuation(
     current_sqs_record: int,
     current_s3_record: int,
     config_yaml: str,
-):
+) -> None:
 
     sqs_records = lambda_event["Records"][current_sqs_record:]
     body = json.loads(sqs_records[0]["body"])
@@ -42,10 +42,10 @@ def _handle_sqs_continuation(
             },
         )
 
-        logger.debug("continuing", extra={"sqs_continuing_queue": sqs_continuing_queue, "body": body})
+        shared_logger.debug("continuing", extra={"sqs_continuing_queue": sqs_continuing_queue, "body": body})
 
 
-def _handle_sqs_event(config: Config, event) -> Generator[tuple[dict[str, Any], int, int, int, int], None, None]:
+def _handle_sqs_event(config: Config, event: dict[str, Any]) -> Iterator[tuple[dict[str, Any], int, int, int]]:
     for sqs_record_n, sqs_record in enumerate(event["Records"]):
         event_input = config.get_input_by_type_and_id("sqs", sqs_record["eventSourceARN"])
         if not event_input:
@@ -77,7 +77,7 @@ def _handle_sqs_event(config: Config, event) -> Generator[tuple[dict[str, Any], 
                 # doesn't overlap `last_ending_offset`: in case we
                 # skip in order to not ingest twice the same event
                 if ending_offset < last_ending_offset:
-                    logger.debug(
+                    shared_logger.debug(
                         "skipping event",
                         extra={
                             "ending_offset": ending_offset,

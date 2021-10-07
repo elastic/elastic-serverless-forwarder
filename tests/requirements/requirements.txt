@@ -3,3 +3,4 @@ ecs_logging>=1,<2
 boto3>=1.7,<1.8
 elasticsearch>=7.0,<8.0
 PyYAML>=5.3,<5.4
+aws_lambda_typing>=2,<2.1

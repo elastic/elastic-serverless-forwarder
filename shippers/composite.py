@@ -8,16 +8,16 @@ from .shipper import CommonShipper
 
 
 class CompositeShipper(CommonShipper):
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any):
         self._shippers: list[CommonShipper] = []
 
-    def add_shipper(self, shipper: CommonShipper):
+    def add_shipper(self, shipper: CommonShipper) -> None:
         self._shippers.append(shipper)
 
     def send(self, event: dict[str, Any]) -> Any:
         for shipper in self._shippers:
             shipper.send(event)
 
-    def flush(self):
+    def flush(self) -> None:
         for shipper in self._shippers:
             shipper.flush()

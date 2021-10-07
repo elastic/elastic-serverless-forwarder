@@ -12,8 +12,8 @@ from .shipper import CommonShipper
 
 
 class ElasticsearchShipper(CommonShipper):
-    _bulk_actions: list[dict, Any] = []
-    _bulk_batch_size: int = 1000
+    _bulk_actions: list[dict[str, Any]] = []
+    _bulk_batch_size: int = 10000
 
     def __init__(self, hosts: list[str], username: str, password: str, scheme: str, dataset: str, namespace: str):
         self._es_client = Elasticsearch(
@@ -27,7 +27,7 @@ class ElasticsearchShipper(CommonShipper):
 
         self._es_index = f"logs-{dataset}-{namespace}"
 
-    def _enrich_event(self, event_payload: dict[str, any]) -> None:
+    def _enrich_event(self, event_payload: dict[str, Any]) -> None:
         event_payload["data_stream"] = {
             "type": "logs",
             "dataset": self._dataset,
@@ -51,7 +51,7 @@ class ElasticsearchShipper(CommonShipper):
         es_bulk(self._es_client, self._bulk_actions)
         self._bulk_actions = []
 
-    def flush(self):
+    def flush(self) -> None:
         if len(self._bulk_actions) > 1:
             es_bulk(self._es_client, self._bulk_actions)
 

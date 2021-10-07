@@ -9,10 +9,10 @@ fi
 
 if [[ "$1" = "diff" ]]
 then
-    OPTIONS="--diff --check"
+    OPTIONS="--diff --check --profile black --line-length=120"
 elif [[ "$1" = "fix" ]]
 then
-    OPTIONS=""
+    OPTIONS="--profile black --line-length=120"
 fi
 
 

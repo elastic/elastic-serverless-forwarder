@@ -2,13 +2,13 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
-from typing import Generator
+from typing import Any, Iterator
 
 import boto3
 import elasticapm  # noqa: F401
 from botocore.response import StreamingBody
 
-from share import ByLines, Deflate, logger
+from share import ByLines, Deflate, shared_logger
 
 from .storage import CommonStorage
 
@@ -27,17 +27,21 @@ class S3Storage(CommonStorage):
     @Deflate
     def _generate(
         self, range_start: int, last_ending_offset: int, body: StreamingBody, content_type: str, content_length: int
-    ) -> Generator[tuple[bytes, int, int], None, None]:
+    ) -> Iterator[tuple[bytes, int, int]]:
         if content_type == "application/x-gzip":
             chunk = body.read(content_length)
-            logger.debug("_generate gzip", extra={"offset": 0})
+            shared_logger.debug("_generate gzip", extra={"offset": 0})
             yield chunk, range_start, last_ending_offset
         else:
             previous_length: int = last_ending_offset
             # `beginning_offset` starts from `range_start`
             beginning_offset: int = range_start
             ending_offset: int = 0
-            for chunk in iter(lambda: body.read(self._chunk_size), b""):
+
+            def chunk_lambda() -> Any:
+                return body.read(self._chunk_size)
+
+            for chunk in iter(chunk_lambda, b""):
                 chunk_length: int = len(chunk)
                 ending_offset += range_start + chunk_length
                 # `beginning_offset` should be the beginning of
@@ -48,11 +52,11 @@ class S3Storage(CommonStorage):
                 # next iteration to be added to `beginning_offset`
                 previous_length += chunk_length
 
-                logger.debug("_generate flat", extra={"offset": beginning_offset})
+                shared_logger.debug("_generate flat", extra={"offset": beginning_offset})
                 yield chunk, beginning_offset, ending_offset
 
-    def get_by_lines(self, range_start: int, last_ending_offset: int) -> Generator[tuple[bytes, int, int], None, None]:
-        logger.debug("get_by_lines", extra={"bucket_name": self._bucket_name, "object_key": self._object_key})
+    def get_by_lines(self, range_start: int, last_ending_offset: int) -> Iterator[tuple[bytes, int, int]]:
+        shared_logger.debug("get_by_lines", extra={"bucket_name": self._bucket_name, "object_key": self._object_key})
 
         original_range_start: int = range_start
         s3_object_header = self._s3_client.get_object(Bucket=self._bucket_name, Key=self._object_key, Range="bytes=0-4")
@@ -65,20 +69,21 @@ class S3Storage(CommonStorage):
             Bucket=self._bucket_name, Key=self._object_key, Range=f"bytes={range_start}-"
         )
 
-        return self._generate(
+        for log_event, beginning_offset, ending_offset in self._generate(
             original_range_start,
             last_ending_offset,
             s3_object["Body"],
             s3_object["ContentType"],
             s3_object["ContentLength"],
-        )
+        ):
+            yield log_event, beginning_offset, ending_offset
 
     def get_as_string(self) -> str:
-        logger.debug("get_as_string", extra={"bucket_name": self._bucket_name, "object_key": self._object_key})
+        shared_logger.debug("get_as_string", extra={"bucket_name": self._bucket_name, "object_key": self._object_key})
         s3_object = self._s3_client.get_object(
             Bucket=self._bucket_name,
             Key=self._object_key,
         )
 
         body: StreamingBody = s3_object["Body"]
-        return body.read(s3_object["ContentLength"]).decode("UTF-8")
+        return str(body.read(s3_object["ContentLength"]).decode("UTF-8"))
