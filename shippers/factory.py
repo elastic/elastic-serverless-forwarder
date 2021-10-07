@@ -3,40 +3,56 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 import json
-from typing import Type
+from typing import Any, Type
+
+from share.config import Output
 
 from .es import ElasticsearchShipper
 from .shipper import CommonShipper
 
-_init_definition_by_target: dict[str, dict[str, any]] = {
-    "elasticsearch": {"class": ElasticsearchShipper, "kwargs": ["hosts", "scheme", "username", "password", "index"]}
+_init_definition_by_output: dict[str, dict[str, Any]] = {
+    "elasticsearch": {
+        "class": ElasticsearchShipper,
+        "kwargs": ["hosts", "scheme", "username", "password", "dataset", "namespace"],
+    }
 }
 
 
 class ShipperFactory:
     @staticmethod
-    def create(target: str, **kwargs: any) -> CommonShipper:
-        if target not in _init_definition_by_target:
-            raise ValueError(
-                f"""
-                you must provide one of the following targets:
-                    {", ".join(_init_definition_by_target.keys())}
-            """
+    def create_from_output(output_type: str, output: Output) -> CommonShipper:
+        if output_type == "elasticsearch":
+            return ShipperFactory.create(
+                output="elasticsearch",
+                hosts=output.hosts,
+                scheme=output.scheme,
+                username=output.username,
+                password=output.password,
+                dataset=output.dataset,
+                namespace=output.namespace,
             )
 
-        target_definition = _init_definition_by_target[target]
+        raise ValueError(
+            f"You must provide one of the following outputs: " f"{', '.join(_init_definition_by_output.keys())}"
+        )
 
-        target_kwargs = target_definition["kwargs"]
-        target_builder: Type[CommonShipper] = target_definition["class"]
-
-        init_kwargs: list[str] = [key for key in kwargs.keys() if key in target_kwargs and kwargs[key]]
-        if len(init_kwargs) is not len(target_kwargs):
+    @staticmethod
+    def create(output: str, **kwargs: Any) -> CommonShipper:
+        if output not in _init_definition_by_output:
             raise ValueError(
-                f"""
-                you must provide the following not empty init kwargs for {target}:
-                    {", ".join(target_kwargs)}.
-                (provided: {json.dumps(kwargs)})
-            """
+                f"You must provide one of the following outputs: " f"{', '.join(_init_definition_by_output.keys())}"
             )
 
-        return target_builder(**kwargs)
+        output_definition = _init_definition_by_output[output]
+
+        output_kwargs = output_definition["kwargs"]
+        output_builder: Type[CommonShipper] = output_definition["class"]
+
+        init_kwargs: list[str] = [key for key in kwargs.keys() if key in output_kwargs and kwargs[key]]
+        if len(init_kwargs) is not len(output_kwargs):
+            raise ValueError(
+                f"you must provide the following not empty init kwargs for {output}:"
+                f" {', '.join(output_kwargs)}. (provided: {json.dumps(kwargs)})"
+            )
+
+        return output_builder(**kwargs)

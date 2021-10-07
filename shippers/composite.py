@@ -2,21 +2,22 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
-from abc import ABCMeta, abstractmethod
 from typing import Any
 
+from .shipper import CommonShipper
 
-class CommonShipper:
-    __metaclass__ = ABCMeta
 
-    @abstractmethod
+class CompositeShipper(CommonShipper):
     def __init__(self, **kwargs):
-        pass
+        self._shippers: list[CommonShipper] = []
 
-    @abstractmethod
+    def add_shipper(self, shipper: CommonShipper):
+        self._shippers.append(shipper)
+
     def send(self, event: dict[str, Any]) -> Any:
-        pass
+        for shipper in self._shippers:
+            shipper.send(event)
 
-    @abstractmethod
     def flush(self):
-        pass
+        for shipper in self._shippers:
+            shipper.flush()
