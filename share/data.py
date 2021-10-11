@@ -52,8 +52,8 @@ class ByLines:
         if len(unfinished_line) > 0:
             yield unfinished_line, self._offset, self._last_ending_offset
 
-    def __get__(self, instance: CommonStorageType, owner: Any) -> None:
-        partial(self, instance)
+    def __get__(self, instance: CommonStorageType, owner: Any) -> partial[Iterator[tuple[bytes, int, int]]]:
+        return partial(self, instance)
 
 
 class Deflate:
@@ -76,5 +76,5 @@ class Deflate:
                 shared_logger.debug("deflate plan", extra={"offset": beginning_offset})
                 yield data, beginning_offset, ending_offset
 
-    def __get__(self, instance: CommonStorageType, owner: Any) -> None:
-        partial(self, instance)
+    def __get__(self, instance: CommonStorageType, owner: Any) -> partial[Iterator[tuple[bytes, int, int]]]:
+        return partial(self, instance)
