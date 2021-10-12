@@ -67,7 +67,7 @@ Metadata:
     Name: elastic-serverless-agent
     Description: elastic-serverless-agent
     Author: elastic
-    SemanticVersion: 0.4.2
+    SemanticVersion: 0.5.1
 
 Outputs:
   ElasticServerlessAgentFunction:

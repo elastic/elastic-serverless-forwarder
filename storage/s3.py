@@ -8,8 +8,9 @@ import boto3
 import elasticapm  # noqa: F401
 from botocore.response import StreamingBody
 
-from share import ByLines, Deflate, shared_logger
+from share import shared_logger
 
+from .decorator import ByLines, Deflate
 from .storage import CommonStorage
 
 

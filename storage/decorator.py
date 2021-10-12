@@ -6,9 +6,9 @@ import zlib
 from functools import partial
 from typing import Any, Callable, Iterator
 
-from storage import CommonStorageType
+from share import shared_logger
 
-from .logger import logger as shared_logger
+from .storage import CommonStorageType
 
 
 class ByLines:
