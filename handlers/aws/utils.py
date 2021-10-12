@@ -13,10 +13,12 @@ from storage import CommonStorage, StorageFactory
 _available_triggers: dict[str, str] = {"aws:sqs": "sqs"}
 
 
-def wrap_try_except(func: Callable[[dict[str, Any], context_.Context], str]) -> Callable[[Any], str]:
-    def wrapper(*args: Any) -> str:
+def wrap_try_except(
+    func: Callable[[dict[str, Any], context_.Context], str]
+) -> Callable[[dict[str, Any], context_.Context], str]:
+    def wrapper(lambda_event: dict[str, Any], lambda_context: context_.Context) -> str:
         try:
-            return func(*args)
+            return func(lambda_event, lambda_context)
         except Exception as e:
             shared_logger.exception("exception raised", exc_info=e)
             return str(e)
