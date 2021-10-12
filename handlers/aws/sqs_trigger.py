@@ -42,7 +42,9 @@ def _handle_sqs_continuation(
             },
         )
 
-        shared_logger.debug("continuing", extra={"sqs_continuing_queue": sqs_continuing_queue, "body": body})
+        shared_logger.debug(
+            "continuing", extra={"sqs_continuing_queue": sqs_continuing_queue, "body": sqs_record["body"]}
+        )
 
 
 def _handle_sqs_event(config: Config, event: dict[str, Any]) -> Iterator[tuple[dict[str, Any], int, int, int]]:
