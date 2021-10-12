@@ -54,8 +54,15 @@ class ElasticSearchOutput(Output):
         super().__init__(output_type, kwargs)
 
     @property
-    def kwargs(self) -> Any:
-        return {}
+    def kwargs(self) -> dict[str, Any]:
+        kwargs: dict[str, Any] = {}
+
+        for k in self._kwargs:
+            v: Any = self.__getattribute__(k)
+            if v is not None:
+                kwargs[k] = v
+
+        return kwargs
 
     @kwargs.setter
     def kwargs(self, value: dict[str, Any]) -> None:
