@@ -3,20 +3,21 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 from abc import ABCMeta, abstractmethod
-from typing import Generator
+from typing import Any, Iterator, TypeVar
 
 
-class CommonStorage:
-    __metaclass__ = ABCMeta
-
+class CommonStorage(metaclass=ABCMeta):
     @abstractmethod
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any):
         pass
 
     @abstractmethod
-    def get_by_lines(self, range_start: int, last_ending_offset: int) -> Generator[tuple[bytes, int, int], None, None]:
+    def get_by_lines(self, range_start: int, last_ending_offset: int) -> Iterator[tuple[bytes, int, int]]:
         pass
 
     @abstractmethod
     def get_as_string(self) -> str:
         pass
+
+
+CommonStorageType = TypeVar("CommonStorageType", bound=CommonStorage)

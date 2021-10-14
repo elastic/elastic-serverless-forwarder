@@ -11,25 +11,19 @@ _available_input_types: list[str] = ["sqs"]
 _available_output_types: list[str] = ["elasticsearch"]
 
 
-def _raise(e: Exception):
-    raise e
-
-
-class Output:
-    __metaclass__ = ABCMeta
-
+class Output(metaclass=ABCMeta):
     def __init__(self, output_type: str, kwargs: dict[str, Any]):
         self.type: str = output_type
-        self.kwargs: dict[str, Any] = kwargs
+        self.kwargs: dict[str, Any] = kwargs  # type: ignore # (https://github.com/python/mypy/issues/10692)
 
-    @property
+    @property  # type:ignore # (https://github.com/python/mypy/issues/4165)
     @abstractmethod
-    def kwargs(self) -> None:
+    def kwargs(self) -> dict[str, Any]:
         pass
 
-    @kwargs.setter
+    @kwargs.setter  # type: ignore # (https://github.com/python/mypy/issues/10692)
     @abstractmethod
-    def kwargs(self, value: dict[str, Any]):
+    def kwargs(self, value: dict[str, Any]) -> None:
         pass
 
     @property
@@ -37,7 +31,7 @@ class Output:
         return self._type
 
     @type.setter
-    def type(self, value):
+    def type(self, value: str) -> None:
         if not isinstance(value, str):
             raise ValueError("Output type must by of type str")
 
@@ -60,11 +54,18 @@ class ElasticSearchOutput(Output):
         super().__init__(output_type, kwargs)
 
     @property
-    def kwargs(self) -> None:
-        return None
+    def kwargs(self) -> dict[str, Any]:
+        kwargs: dict[str, Any] = {}
+
+        for k in self._kwargs:
+            v: Any = self.__getattribute__(k)
+            if v is not None:
+                kwargs[k] = v
+
+        return kwargs
 
     @kwargs.setter
-    def kwargs(self, value: dict[str, Any]):
+    def kwargs(self, value: dict[str, Any]) -> None:
         for x in value.keys():
             if x in self._kwargs:
                 self.__setattr__(x, value[x])
@@ -76,7 +77,7 @@ class ElasticSearchOutput(Output):
         return self._hosts
 
     @hosts.setter
-    def hosts(self, value):
+    def hosts(self, value: list[str]) -> None:
         if not isinstance(value, list):
             raise ValueError("Elasticsearch Output hosts must by of type list[str]")
 
@@ -87,7 +88,7 @@ class ElasticSearchOutput(Output):
         return self._scheme
 
     @scheme.setter
-    def scheme(self, value):
+    def scheme(self, value: str) -> None:
         if not isinstance(value, str):
             raise ValueError("Elasticsearch Output scheme must by of type str")
 
@@ -98,7 +99,7 @@ class ElasticSearchOutput(Output):
         return self._username
 
     @username.setter
-    def username(self, value):
+    def username(self, value: str) -> None:
         if not isinstance(value, str):
             raise ValueError("Elasticsearch Output username must by of type str")
 
@@ -109,7 +110,7 @@ class ElasticSearchOutput(Output):
         return self._password
 
     @password.setter
-    def password(self, value):
+    def password(self, value: str) -> None:
         if not isinstance(value, str):
             raise ValueError("Elasticsearch Output password must by of type str")
 
@@ -120,7 +121,7 @@ class ElasticSearchOutput(Output):
         return self._dataset
 
     @dataset.setter
-    def dataset(self, value):
+    def dataset(self, value: str) -> None:
         if not isinstance(value, str):
             raise ValueError("Elasticsearch Output dataset must by of type str")
 
@@ -131,7 +132,7 @@ class ElasticSearchOutput(Output):
         return self._namespace
 
     @namespace.setter
-    def namespace(self, value):
+    def namespace(self, value: str) -> None:
         if not isinstance(value, str):
             raise ValueError("Elasticsearch Output namespace must by of type str")
 
@@ -145,11 +146,11 @@ class Input:
         self._outputs: dict[str, Output] = {}
 
     @property
-    def type(self):
+    def type(self) -> str:
         return self._type
 
     @type.setter
-    def type(self, value):
+    def type(self, value: str) -> None:
         if not isinstance(value, str):
             raise ValueError("Input type must by of type str")
 
@@ -158,11 +159,11 @@ class Input:
         self._type = value
 
     @property
-    def id(self):
+    def id(self) -> str:
         return self._id
 
     @id.setter
-    def id(self, value):
+    def id(self, value: str) -> None:
         if not isinstance(value, str):
             raise ValueError("Input id must by of type str")
         self._id = value
@@ -173,10 +174,10 @@ class Input:
     def get_output_types(self) -> list[str]:
         return list(self._outputs.keys())
 
-    def delete_output_by_type(self, output_type: str):
+    def delete_output_by_type(self, output_type: str) -> None:
         del self._outputs[output_type]
 
-    def add_output(self, output_type: str, output_kwargs: dict[str, Any]):
+    def add_output(self, output_type: str, output_kwargs: dict[str, Any]) -> None:
         if not isinstance(output_type, str):
             raise ValueError("Output type must by of type str")
 
@@ -190,12 +191,13 @@ class Input:
         if output_type == "elasticsearch":
             output = ElasticSearchOutput(output_type=output_type, kwargs=output_kwargs)
 
+        assert output is not None
         self._outputs[output.type] = output
 
 
 class Config:
-    def __init__(self):
-        self._inputs = {}
+    def __init__(self) -> None:
+        self._inputs: dict[str, dict[str, Input]] = {}
 
     def get_input_by_type_and_id(self, input_type: str, input_id: str) -> Optional[Input]:
         if input_type not in self._inputs:
@@ -203,7 +205,7 @@ class Config:
 
         return self._inputs[input_type][input_id] if input_id in self._inputs[input_type] else None
 
-    def add_input(self, new_input: Input):
+    def add_input(self, new_input: Input) -> None:
         if new_input.type not in self._inputs:
             self._inputs[new_input.type] = {new_input.id: new_input}
 

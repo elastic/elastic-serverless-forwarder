@@ -6,11 +6,9 @@ from abc import ABCMeta, abstractmethod
 from typing import Any
 
 
-class CommonShipper:
-    __metaclass__ = ABCMeta
-
+class CommonShipper(metaclass=ABCMeta):
     @abstractmethod
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any):
         pass
 
     @abstractmethod
@@ -18,5 +16,5 @@ class CommonShipper:
         pass
 
     @abstractmethod
-    def flush(self):
+    def flush(self) -> None:
         pass
