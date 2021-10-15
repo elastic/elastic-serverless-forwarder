@@ -15,6 +15,13 @@ coverage: PYTEST_ARGS=--cov --cov-context=test --cov-config=.coveragerc --cov-br
 coverage: export COVERAGE_FILE=.coverage
 coverage: test
 
+test-ci:  ## Run test in the project
+	tests/scripts/docker/run_tests.sh
+
+coverage-ci: PYTEST_ARGS=--cov --cov-context=test --cov-config=.coveragerc --cov-branch
+coverage-ci: export COVERAGE_FILE=.coverage
+coverage-ci: test-ci
+
 black:  ## Run black in the project
 	tests/scripts/docker/black.sh diff
 
