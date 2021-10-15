@@ -17,7 +17,6 @@ pip-log.txt
 /docs/doctrees
 /example_project/*.db
 tests/.schemacache
-elasticapm/utils/wrapt/_wrappers*.so
 coverage
 .tox
 .eggs
@@ -26,7 +25,7 @@ coverage
 venv
 benchmarks/result*
 coverage.xml
-tests/python-agent-junit.xml
+tests/elastic-serverless-agent-junit.xml
 *.code-workspace
 .pytest_cache/
 .python-version

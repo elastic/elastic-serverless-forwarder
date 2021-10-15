@@ -6,6 +6,7 @@ import os
 from typing import Any, Callable
 
 from aws_lambda_typing import context as context_
+from elasticapm import Client, get_client
 
 from share import shared_logger
 from storage import CommonStorage, StorageFactory
@@ -20,6 +21,8 @@ def wrap_try_except(
         try:
             return func(lambda_event, lambda_context)
         except Exception as e:
+            apm_client: Client = get_client()
+            apm_client.capture_exception()
             shared_logger.exception("exception raised", exc_info=e)
             return str(e)
 

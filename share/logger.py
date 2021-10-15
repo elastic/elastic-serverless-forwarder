@@ -3,13 +3,16 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 import logging
+import os
 
 import ecs_logging
 from elasticapm.handlers.logging import LoggingFilter
 
+log_level = logging.getLevelName(os.getenv("LOG_LEVEL", logging.INFO))
+
 # Get the Logger
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+logger.setLevel(log_level)
 logger.propagate = False
 
 # Add an ECS formatter to the Handler

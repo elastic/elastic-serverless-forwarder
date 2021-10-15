@@ -78,13 +78,13 @@ pipeline {
                 deleteDir()
                 unstash 'source'
                 dir("${BASE_DIR}"){
-                  echo 'TBD'
+                  sh(label: 'coverage', script: 'make coverage')
                 }
               }
             }
             post {
               always {
-                junit(allowEmptyResults: true, keepLongStdio: true, testResults: '**/junit-report.xml')
+                junit(allowEmptyResults: true, keepLongStdio: true, testResults: '**/elastic-serverless-agent-junit.xml')
               }
             }
           }

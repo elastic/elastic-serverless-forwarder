@@ -12,7 +12,7 @@ class CommonStorage(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def get_by_lines(self, range_start: int, last_ending_offset: int) -> Iterator[tuple[bytes, int, int]]:
+    def get_by_lines(self, range_start: int) -> Iterator[tuple[bytes, int]]:
         pass
 
     @abstractmethod
