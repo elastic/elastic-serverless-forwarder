@@ -51,43 +51,16 @@ pipeline {
     }
     stage('Test') {
       failFast false
-      matrix {
-        agent {label "${PLATFORM}"}
-        options { skipDefaultCheckout() }
-        axes {
-          axis {
-            name 'PLATFORM'
-            values 'ubuntu-20 && immutable' // , 'macosx && x86_64', 'windows-2019 && windows-immutable'
+      steps {
+        withGithubNotify(context: "Test") {
+          dir("${BASE_DIR}"){
+            sh(label: 'coverage', script: 'make coverage')
           }
         }
-        stages {
-          stage('build'){
-            steps {
-              withGithubNotify(context: "Build-${PLATFORM}") {
-                deleteDir()
-                unstash 'source'
-                dir("${BASE_DIR}"){
-                  echo 'TBD'
-                }
-              }
-            }
-          }
-          stage('Test') {
-            steps {
-              withGithubNotify(context: "Test-${PLATFORM}") {
-                deleteDir()
-                unstash 'source'
-                dir("${BASE_DIR}"){
-                  sh(label: 'coverage', script: 'make coverage')
-                }
-              }
-            }
-            post {
-              always {
-                junit(allowEmptyResults: true, keepLongStdio: true, testResults: '**/elastic-serverless-agent-junit.xml')
-              }
-            }
-          }
+      }
+      post {
+        always {
+          junit(allowEmptyResults: true, keepLongStdio: true, testResults: '**/elastic-serverless-agent-junit.xml')
         }
       }
     }
