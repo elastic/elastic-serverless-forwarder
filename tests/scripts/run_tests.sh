@@ -2,9 +2,6 @@
 
 set -e
 
-if [[ "$WITH_COVERAGE" == "true" ]]
-then
-    make coverage
-else
-    make test
-fi
+# delete any __pycache__ folders to avoid hard-to-debug caching issues
+find . -name __pycache__ -type d -exec rm -r {} +
+py.test -v "${PYTEST_ARGS}" "${PYTEST_JUNIT}" tests

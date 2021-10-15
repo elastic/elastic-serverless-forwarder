@@ -54,7 +54,7 @@ pipeline {
       steps {
         withGithubNotify(context: "Test") {
           dir("${BASE_DIR}"){
-            sh(label: 'coverage', script: 'make coverage-ci')
+            sh(label: 'coverage', script: 'make coverage')
           }
         }
       }

@@ -7,16 +7,11 @@ help: ## Display this help text
 lint: black flake8 isort mypy ## Lint the project
 
 test:
-	# delete any __pycache__ folders to avoid hard-to-debug caching issues
-	find . -name __pycache__ -type d -exec rm -r {} +
-	py.test -v $(PYTEST_ARGS) $(PYTEST_JUNIT) tests
+	tests/scripts/docker/run_tests.sh
 
 coverage: PYTEST_ARGS=--cov --cov-context=test --cov-config=.coveragerc --cov-branch
 coverage: export COVERAGE_FILE=.coverage
 coverage: test
-
-test-ci:  ## Run test in the project
-	tests/scripts/docker/run_tests.sh
 
 coverage-ci: PYTEST_ARGS=--cov --cov-context=test --cov-config=.coveragerc --cov-branch
 coverage-ci: export COVERAGE_FILE=.coverage
