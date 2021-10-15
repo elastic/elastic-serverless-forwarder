@@ -10,7 +10,6 @@ docker build --build-arg PYTHON_IMAGE=python:3.9 -t run_tests .
 docker run \
   -e LOCAL_USER_ID=$UID \
   -e PIP_CACHE=${docker_pip_cache} \
-  -e WITH_COVERAGE=true \
   -e PYTEST_JUNIT="--junitxml=/app/tests/elastic-serverless-agent-junit.xml" \
   -v ${pip_cache}:$(dirname ${docker_pip_cache}) \
   -v "$(dirname $(pwd))":/app \
