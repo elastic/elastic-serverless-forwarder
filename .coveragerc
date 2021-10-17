@@ -1,0 +1,9 @@
+[coverage:run]
+include =
+    tests/*
+
+[coverage:paths]
+source =
+    ./
+    /app/
+    C:\Users\jenkins\workspace\*\src\github.com\elastic\elastic-serverless-agent
