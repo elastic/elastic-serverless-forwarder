@@ -61,6 +61,7 @@ pipeline {
       post {
         always {
           junit(allowEmptyResults: true, keepLongStdio: true, testResults: '**/elastic-serverless-agent-junit.xml')
+          cobertura(coberturaReportFile: "${BASE_DIR}/coverage.xml")
         }
       }
     }
