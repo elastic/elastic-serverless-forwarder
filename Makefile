@@ -7,7 +7,7 @@ help: ## Display this help text
 lint: black flake8 isort mypy ## Lint the project
 
 test:
-	tests/scripts/docker/run_tests.sh
+	PYTEST_ARGS="${PYTEST_ARGS}" tests/scripts/docker/run_tests.sh
 
 coverage: PYTEST_ARGS=--cov --cov-context=test --cov-config=.coveragerc --cov-branch
 coverage: export COVERAGE_FILE=.coverage
