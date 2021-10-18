@@ -102,9 +102,7 @@ class TestS3Storage(TestCase):
                 assert not diff
                 assert plain_full == gzip_full
                 assert plain_full[-1][1] == MockContent.f_size_plain
-                assert (
-                    newline.join([x[0].decode("UTF-8") for x in plain_full]).encode("UTF-8") == MockContent.f_content
-                )
+                assert newline.join([x[0].decode("UTF-8") for x in plain_full]).encode("UTF-8") == MockContent.f_content
 
                 MockContent.rewind()
 
