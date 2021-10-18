@@ -4,4 +4,4 @@
 
 from .factory import StorageFactory
 from .s3 import CHUNK_SIZE, S3Storage
-from .storage import CommonStorage, CommonStorageType
+from .storage import CommonStorage

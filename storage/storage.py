@@ -3,7 +3,7 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 from abc import ABCMeta, abstractmethod
-from typing import Any, Iterator, TypeVar
+from typing import Any, Callable, Iterator, TypeVar
 
 
 class CommonStorage(metaclass=ABCMeta):
@@ -21,3 +21,4 @@ class CommonStorage(metaclass=ABCMeta):
 
 
 CommonStorageType = TypeVar("CommonStorageType", bound=CommonStorage)
+GetByLinesCallable = Callable[[CommonStorageType, int, Any, str, int], Iterator[tuple[bytes, int, int]]]

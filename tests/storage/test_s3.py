@@ -129,7 +129,8 @@ class TestS3Storage(TestCase):
                 diff = set(gzip_full_02) ^ set(plain_full_02)
                 assert not diff
                 assert plain_full_02 == gzip_full_02
-                assert plain_full_01[-1][1] + plain_full_02[-1][1] == mock_content.f_size_plain
+                assert plain_full_01 + plain_full_02 == plain_full
+                assert plain_full_02[-1][1] == mock_content.f_size_plain
                 assert (
                     newline.join([x[0].decode("UTF-8") for x in plain_full_01]).encode("UTF-8")
                     + newline.encode("UTF-8")

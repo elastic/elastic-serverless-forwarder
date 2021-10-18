@@ -3,75 +3,63 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 import zlib
-from typing import Any, Callable, Iterator
+from typing import Any, Iterator
 
 from share import shared_logger
 
-from .storage import CommonStorageType
+from .storage import CommonStorageType, GetByLinesCallable
 
 
-def by_lines(
-    func: Callable[[CommonStorageType, int, Any, str, int], Iterator[tuple[bytes, int, int]]]
-) -> Callable[[CommonStorageType, int, Any, str, int], Iterator[tuple[bytes, int, int]]]:
+def by_lines(func: GetByLinesCallable[CommonStorageType]) -> GetByLinesCallable[CommonStorageType]:
     def wrapper(
         storage: CommonStorageType, range_start: int, body: Any, content_type: str, content_length: int
     ) -> Iterator[tuple[bytes, int, int]]:
+        offset: int = range_start
         unfinished_line: bytes = b""
-        _offset: int = 0
-        _range_start: int = 0
 
-        _newline: bytes = b""
-        _newline_length: int = 0
+        newline: bytes = b""
+        newline_length: int = 0
         iterator = func(storage, range_start, body, content_type, content_length)
-        while True:
-            try:
-                data, range_start, newline_length = next(iterator)
-                if _offset == 0:
-                    _offset = _range_start
+        for data, range_start, _newline_length in iterator:
+            unfinished_line = unfinished_line + data
+            lines = unfinished_line.decode("UTF-8").splitlines()
 
-                unfinished_line = unfinished_line + data
-                lines = unfinished_line.decode("UTF-8").splitlines()
-
-                if len(lines) > 0:
-                    if _newline_length == 0:
-                        if unfinished_line.find(b"\r\n") > 0:
-                            _newline = b"\r\n"
-                            _newline_length = len(_newline)
-                        else:
-                            _newline = b"\n"
-                            _newline_length = len(_newline)
-
-                    if unfinished_line.endswith(_newline):
-                        unfinished_line = lines.pop().encode() + _newline
+            if len(lines) > 0:
+                if newline_length == 0:
+                    if unfinished_line.find(b"\r\n") > 0:
+                        newline = b"\r\n"
+                        newline_length = len(newline)
                     else:
-                        unfinished_line = lines.pop().encode()
+                        newline = b"\n"
+                        newline_length = len(newline)
 
-                for line in lines:
-                    line_encoded = line.encode("UTF-8")
-                    _offset = _offset + len(line_encoded) + _newline_length
-                    shared_logger.debug("by_line lines", extra={"offset": _offset})
+                if unfinished_line.endswith(newline):
+                    unfinished_line = lines.pop().encode() + newline
+                else:
+                    unfinished_line = lines.pop().encode()
 
-                    yield line_encoded, _offset, _newline_length
+            for line in lines:
+                line_encoded = line.encode("UTF-8")
+                offset += len(line_encoded) + newline_length
+                shared_logger.debug("by_line lines", extra={"offset": offset})
 
-            except StopIteration:
-                if len(unfinished_line) > 0:
-                    _offset = _offset + len(unfinished_line)
-                    shared_logger.debug("by_line unfinished_line", extra={"offset": _offset})
+                yield line_encoded, offset, newline_length
 
-                    yield unfinished_line, _offset, _newline_length
+        if len(unfinished_line) > 0:
+            offset += len(unfinished_line)
+            shared_logger.debug("by_line unfinished_line", extra={"offset": offset})
 
-                break
+            yield unfinished_line, offset, newline_length
 
     return wrapper
 
 
-def inflate(
-    func: Callable[[CommonStorageType, int, Any, str, int], Iterator[tuple[bytes, int, int]]]
-) -> Callable[[CommonStorageType, int, Any, str, int], Iterator[tuple[bytes, int, int]]]:
+def inflate(func: GetByLinesCallable[CommonStorageType]) -> GetByLinesCallable[CommonStorageType]:
     def wrapper(
         storage: CommonStorageType, range_start: int, body: Any, content_type: str, content_length: int
     ) -> Iterator[tuple[bytes, int, int]]:
-        for data, range_start, newline_length in func(storage, range_start, body, content_type, content_length):
+        iterator = func(storage, range_start, body, content_type, content_length)
+        for data, range_start, newline_length in iterator:
             if content_type == "application/x-gzip":
                 d = zlib.decompressobj(wbits=zlib.MAX_WBITS + 16)
                 decoded: bytes = d.decompress(data)
