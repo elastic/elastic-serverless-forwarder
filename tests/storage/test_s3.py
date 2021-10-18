@@ -76,21 +76,19 @@ class TestS3Storage(TestCase):
     @mock.patch("storage.S3Storage._s3_client.get_object", new=MockContent.s3_client_get_object)
     def test_get_as_string(self) -> None:
         newline: str = "\n"
-        mock_content = MockContent()
-        mock_content.init_content(newline)
+        MockContent.init_content(newline)
 
         s3_storage = S3Storage(bucket_name="dummy_bucket", object_key="dummy.key")
         content: bytes = s3_storage.get_as_string().encode("UTF-8")
-        assert content == mock_content.f_content
-        assert len(content) == len(mock_content.f_content)
+        assert content == MockContent.f_content
+        assert len(content) == len(MockContent.f_content)
 
     @mock.patch("storage.S3Storage._s3_client.head_object", new=MockContent.s3_client_head_object)
     @mock.patch("storage.S3Storage._s3_client.get_object", new=MockContent.s3_client_get_object)
     def test_get_by_lines(self) -> None:
         for newline in ["\r\n", "\n"]:
             with self.subTest(f"testing with newline length {len(newline)}", newline=newline):
-                mock_content = MockContent()
-                mock_content.init_content(newline)
+                MockContent.init_content(newline)
 
                 bucket_name: str = "dummy_bucket"
 
@@ -103,17 +101,17 @@ class TestS3Storage(TestCase):
                 diff = set(gzip_full) ^ set(plain_full)
                 assert not diff
                 assert plain_full == gzip_full
-                assert plain_full[-1][1] == mock_content.f_size_plain
+                assert plain_full[-1][1] == MockContent.f_size_plain
                 assert (
-                    newline.join([x[0].decode("UTF-8") for x in plain_full]).encode("UTF-8") == mock_content.f_content
+                    newline.join([x[0].decode("UTF-8") for x in plain_full]).encode("UTF-8") == MockContent.f_content
                 )
 
-                mock_content.rewind()
+                MockContent.rewind()
 
                 gzip_full_01 = gzip_full[: int(len(gzip_full) / 2)]
                 plain_full_01 = plain_full[: int(len(plain_full) / 2)]
 
-                mock_content.rewind()
+                MockContent.rewind()
 
                 range_start = plain_full_01[-1][1]
                 s3_storage = S3Storage(bucket_name=bucket_name, object_key="dummy.key.gz")
@@ -130,15 +128,15 @@ class TestS3Storage(TestCase):
                 assert not diff
                 assert plain_full_02 == gzip_full_02
                 assert plain_full_01 + plain_full_02 == plain_full
-                assert plain_full_02[-1][1] == mock_content.f_size_plain
+                assert plain_full_02[-1][1] == MockContent.f_size_plain
                 assert (
                     newline.join([x[0].decode("UTF-8") for x in plain_full_01]).encode("UTF-8")
                     + newline.encode("UTF-8")
                     + newline.join([x[0].decode("UTF-8") for x in plain_full_02]).encode("UTF-8")
-                    == mock_content.f_content
+                    == MockContent.f_content
                 )
 
-                mock_content.rewind()
+                MockContent.rewind()
 
                 range_start = plain_full[-1][1] + random.randint(1, 100)
 
