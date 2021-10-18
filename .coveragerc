@@ -1,5 +1,5 @@
 [coverage:run]
-include =
+omit =
     tests/*
 
 [coverage:paths]

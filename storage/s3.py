@@ -10,7 +10,7 @@ from botocore.response import StreamingBody
 
 from share import shared_logger
 
-from .decorator import ByLines, Inflate
+from .decorator import by_lines, inflate
 from .storage import CommonStorage
 
 CHUNK_SIZE: int = 1024 ** 2
@@ -23,15 +23,15 @@ class S3Storage(CommonStorage):
         self._bucket_name: str = bucket_name
         self._object_key: str = object_key
 
-    @ByLines
-    @Inflate
+    @by_lines
+    @inflate
     def _generate(
         self, range_start: int, body: StreamingBody, content_type: str, content_length: int
-    ) -> Iterator[tuple[bytes, int]]:
+    ) -> Iterator[tuple[bytes, int, int]]:
         if content_type == "application/x-gzip":
             chunk = body.read(content_length)
             shared_logger.debug("_generate gzip", extra={"offset": range_start})
-            yield chunk, range_start
+            yield chunk, range_start, 0
         else:
             previous_length: int = range_start
 
@@ -42,9 +42,9 @@ class S3Storage(CommonStorage):
                 previous_length += len(chunk)
 
                 shared_logger.debug("_generate flat", extra={"offset": previous_length})
-                yield chunk, previous_length
+                yield chunk, previous_length, 0
 
-    def get_by_lines(self, range_start: int) -> Iterator[tuple[bytes, int]]:
+    def get_by_lines(self, range_start: int) -> Iterator[tuple[bytes, int, int]]:
         original_range_start: int = range_start
         s3_object_head = self._s3_client.head_object(Bucket=self._bucket_name, Key=self._object_key)
 
@@ -68,13 +68,13 @@ class S3Storage(CommonStorage):
                 Bucket=self._bucket_name, Key=self._object_key, Range=f"bytes={range_start}-"
             )
 
-            for log_event, ending_offset in self._generate(
+            for log_event, ending_offset, newline_length in self._generate(
                 original_range_start,
                 s3_object["Body"],
                 content_type,
                 content_length,
             ):
-                yield log_event, ending_offset
+                yield log_event, ending_offset, newline_length
         else:
             shared_logger.info(f"requested file content from {range_start}, file size {content_length}: skip it")
 

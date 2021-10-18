@@ -9,13 +9,9 @@ lint: black flake8 isort mypy ## Lint the project
 test:
 	PYTEST_ARGS="${PYTEST_ARGS}" tests/scripts/docker/run_tests.sh
 
-coverage: PYTEST_ARGS=--cov --cov-context=test --cov-config=.coveragerc --cov-branch
+coverage: PYTEST_ARGS=--cov=. --cov-context=test --cov-config=.coveragerc --cov-branch
 coverage: export COVERAGE_FILE=.coverage
 coverage: test
-
-coverage-ci: PYTEST_ARGS=--cov --cov-context=test --cov-config=.coveragerc --cov-branch
-coverage-ci: export COVERAGE_FILE=.coverage
-coverage-ci: test-ci
 
 black:  ## Run black in the project
 	tests/scripts/docker/black.sh diff

@@ -9,15 +9,15 @@ from typing import Any, Iterator, TypeVar
 class CommonStorage(metaclass=ABCMeta):
     @abstractmethod
     def __init__(self, **kwargs: Any):
-        pass
+        raise NotImplementedError
 
     @abstractmethod
-    def get_by_lines(self, range_start: int) -> Iterator[tuple[bytes, int]]:
-        pass
+    def get_by_lines(self, range_start: int) -> Iterator[tuple[bytes, int, int]]:
+        raise NotImplementedError
 
     @abstractmethod
     def get_as_string(self) -> str:
-        pass
+        raise NotImplementedError
 
 
 CommonStorageType = TypeVar("CommonStorageType", bound=CommonStorage)
