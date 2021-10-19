@@ -31,6 +31,11 @@ class ElasticsearchShipper(CommonShipper):
 
     @staticmethod
     def _s3_object_id(event_payload: dict[str, Any]) -> str:
+		"""
+		Port of
+		https://github.com/elastic/beats/blob/21dca31b6296736fa90fae39bff71f063522420f/x-pack/filebeat/input/awss3/s3_objects.go#L364-L371
+		https://github.com/elastic/beats/blob/21dca31b6296736fa90fae39bff71f063522420f/x-pack/filebeat/input/awss3/s3_objects.go#L356-L358
+		"""
         offset: int = event_payload["fields"]["log"]["offset"]
         bucket_arn: str = event_payload["fields"]["aws"]["s3"]["bucket"]["arn"]
         object_key: str = event_payload["fields"]["aws"]["s3"]["object"]["key"]
