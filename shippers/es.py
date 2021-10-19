@@ -38,7 +38,7 @@ class ElasticsearchShipper(CommonShipper):
         src: str = f"{bucket_arn}{object_key}"
         hex_prefix = hashlib.sha256(src.encode("UTF-8")).hexdigest()[:10]
 
-        return f"{hex_prefix}-{offset}"
+        return f"{hex_prefix}-{offset:012d}"
 
     def _enrich_event(self, event_payload: dict[str, Any]) -> None:
         event_payload["data_stream"] = {
