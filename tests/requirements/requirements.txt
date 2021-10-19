@@ -1,4 +1,4 @@
-git+git://github.com/basepi/apm-agent-python.git@lambda
+elastic-apm>=6.6.0,<6.7
 ecs_logging>=1,<2
 boto3>=1.18,<1.19
 elasticsearch>=7.0,<8.0
