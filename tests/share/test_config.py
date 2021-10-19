@@ -3,12 +3,13 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 from __future__ import annotations
-from typing import Any, Optional
+
+import re
+from typing import Any
 from unittest import TestCase
-from unittest.mock import patch, Mock
+from unittest.mock import Mock, patch
 
 import mock
-import re
 
 from share import Config, ElasticSearchOutput, Input, Output, parse_config
 
