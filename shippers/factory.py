@@ -50,7 +50,7 @@ class ShipperFactory:
         output_builder: Callable[..., CommonShipper] = output_definition["class"]
 
         init_kwargs: list[str] = [key for key in kwargs.keys() if key in output_kwargs and kwargs[key]]
-        if len(init_kwargs) is not len(output_kwargs):
+        if len(init_kwargs) != len(output_kwargs):
             raise ValueError(
                 f"you must provide the following not empty init kwargs for {output}:"
                 f" {', '.join(output_kwargs)}. (provided: {json.dumps(kwargs)})"

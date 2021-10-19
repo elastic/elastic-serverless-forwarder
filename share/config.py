@@ -5,6 +5,7 @@
 from abc import ABCMeta, abstractmethod
 from typing import Any, Optional
 
+import json
 import yaml
 
 _available_input_types: list[str] = ["sqs"]
@@ -19,12 +20,12 @@ class Output(metaclass=ABCMeta):
     @property  # type:ignore # (https://github.com/python/mypy/issues/4165)
     @abstractmethod
     def kwargs(self) -> dict[str, Any]:
-        pass
+        raise NotImplementedError
 
     @kwargs.setter  # type: ignore # (https://github.com/python/mypy/issues/10692)
     @abstractmethod
     def kwargs(self, value: dict[str, Any]) -> None:
-        pass
+        raise NotImplementedError
 
     @property
     def type(self) -> str:
@@ -51,6 +52,9 @@ class ElasticSearchOutput(Output):
         self._dataset: str = ""
         self._namespace: str = ""
 
+        if output_type != "elasticsearch":
+            raise ValueError("output_type for ElasticSearchOutput must be elasticsearch")
+
         super().__init__(output_type, kwargs)
 
     @property
@@ -66,10 +70,17 @@ class ElasticSearchOutput(Output):
 
     @kwargs.setter
     def kwargs(self, value: dict[str, Any]) -> None:
+        init_kwargs: list[str] = [key for key in value if key in self._kwargs]
+        if len(init_kwargs) != len(self._kwargs):
+            raise ValueError(
+                f"you must provide the following not empty init kwargs for elasticsearch:"
+                f" {', '.join(self._kwargs)}. (provided: {json.dumps(value)})"
+            )
+
         for x in value.keys():
             if x in self._kwargs:
                 self.__setattr__(x, value[x])
-                if self.__getattribute__(x) is None:
+                if not self.__getattribute__(x):
                     raise ValueError(f"Empty param {x} provided for Elasticsearch Output")
 
     @property
@@ -219,6 +230,7 @@ class Config:
 
 def parse_config(config_yaml: str) -> Config:
     yaml_config = yaml.safe_load(config_yaml)
+    assert isinstance(yaml_config, dict)
 
     conf: Config = Config()
 
@@ -226,11 +238,11 @@ def parse_config(config_yaml: str) -> Config:
         raise ValueError("No inputs provided")
 
     for input_config in yaml_config["inputs"]:
-        if "type" not in input_config:
-            raise ValueError("Must be provided type for input")
+        if "type" not in input_config or not isinstance(input_config["type"], str):
+            raise ValueError("Must be provided str type for input")
 
-        if "id" not in input_config:
-            raise ValueError("Must be provided id for input")
+        if "id" not in input_config or not isinstance(input_config["id"], str):
+            raise ValueError("Must be provided str id for input")
 
         current_input: Input = Input(input_type=input_config["type"], input_id=input_config["id"])
 
@@ -238,11 +250,11 @@ def parse_config(config_yaml: str) -> Config:
             raise ValueError("No valid outputs for input")
 
         for output_config in input_config["outputs"]:
-            if "type" not in output_config:
-                raise ValueError("Must be provided type for output")
+            if "type" not in output_config or not isinstance(output_config["type"], str):
+                raise ValueError("Must be provided str type for output")
 
-            if "args" not in output_config:
-                raise ValueError("Must be provided args for output")
+            if "args" not in output_config or not isinstance(output_config["args"], dict):
+                raise ValueError("Must be provided dict args for output")
 
             current_input.add_output(output_type=output_config["type"], output_kwargs=output_config["args"])
 

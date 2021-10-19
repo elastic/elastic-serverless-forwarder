@@ -28,7 +28,7 @@ class StorageFactory:
         storage_builder: Callable[..., CommonStorage] = storage_definition["class"]
 
         init_kwargs: list[str] = [key for key in kwargs.keys() if key in storage_kwargs and kwargs[key]]
-        if len(init_kwargs) is not len(storage_kwargs):
+        if len(init_kwargs) != len(storage_kwargs):
             raise ValueError(
                 f"You must provide the following not empty init kwargs for {storage_type}: "
                 + f"{', '.join(storage_kwargs)}. (provided: {json.dumps(kwargs)})"
