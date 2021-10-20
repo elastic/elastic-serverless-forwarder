@@ -90,7 +90,7 @@ class TestS3Storage(TestCase):
     @mock.patch("storage.S3Storage._s3_client.head_object", new=MockContent.s3_client_head_object)
     @mock.patch("storage.S3Storage._s3_client.get_object", new=MockContent.s3_client_get_object)
     def test_get_by_lines(self) -> None:
-        for newline in ["\r\n"]:
+        for newline in ["\n", "\r\n"]:
             with self.subTest(f"testing with newline length {len(newline)}", newline=newline):
                 MockContent.init_content(newline)
 
