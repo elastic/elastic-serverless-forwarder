@@ -84,11 +84,13 @@ def _handle_sqs_event(config: Config, event: dict[str, Any]) -> Iterator[tuple[d
                 range_start=last_ending_offset,
             )
             for log_event, ending_offset, newline_length in events:
+                assert isinstance(log_event, bytes)
+
                 # let's be sure that on the first yield `ending_offset`
                 # doesn't overlap `last_ending_offset`: in case we
                 # skip in order to not ingest twice the same event
                 if ending_offset < last_ending_offset:
-                    shared_logger.debug(
+                    shared_logger.warn(
                         "skipping event",
                         extra={
                             "ending_offset": ending_offset,
