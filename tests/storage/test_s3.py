@@ -14,6 +14,8 @@ from botocore.response import StreamingBody
 
 from storage import S3Storage, StorageReader
 
+_1M: int = 1024 ** 2
+
 
 class MockContent:
     f_size_gzip: int = 0
@@ -32,10 +34,11 @@ class MockContent:
 
     @staticmethod
     def init_content(newline: str) -> None:
+        # every line is from 0 to 20 chars, repeated for 1M: a few megabytes of content
         MockContent.f_content_plain = newline.join(
             [
                 "".join(random.choices(string.ascii_letters + string.digits, k=random.randint(0, 20)))
-                for _ in range(0, 1024 ** 2)
+                for _ in range(0, _1M)
             ]
         ).encode("UTF-8")
 
