@@ -9,12 +9,12 @@ from typing import Any
 class CommonShipper(metaclass=ABCMeta):
     @abstractmethod
     def __init__(self, **kwargs: Any):
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     def send(self, event: dict[str, Any]) -> Any:
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     def flush(self) -> None:
-        pass
+        raise NotImplementedError

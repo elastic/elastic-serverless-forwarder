@@ -31,8 +31,8 @@ class TestStorageFactory(TestCase):
             with self.assertRaisesRegex(
                 ValueError,
                 re.escape(
-                    "You must provide the following not empty init kwargs for s3: bucket_name, object_key."""
-                    + " (provided: {\"bucket_name\": \"\", \"object_key\": \"\"})"
+                    "You must provide the following not empty init kwargs for s3: bucket_name, object_key."
+                    + ' (provided: {"bucket_name": "", "object_key": ""})'
                 ),
             ):
                 StorageFactory.create(storage_type="s3", bucket_name="", object_key="")

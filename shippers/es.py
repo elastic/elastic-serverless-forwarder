@@ -13,10 +13,10 @@ from .shipper import CommonShipper
 
 
 class ElasticsearchShipper(CommonShipper):
-    _bulk_actions: list[dict[str, Any]] = []
     _bulk_batch_size: int = 10000
 
     def __init__(self, hosts: list[str], username: str, password: str, scheme: str, dataset: str, namespace: str):
+        self._bulk_actions: list[dict[str, Any]] = []
 
         self._es_client = Elasticsearch(
             hosts,
@@ -71,7 +71,7 @@ class ElasticsearchShipper(CommonShipper):
         self._bulk_actions = []
 
     def flush(self) -> None:
-        if len(self._bulk_actions) > 1:
+        if len(self._bulk_actions) > 0:
             es_bulk(self._es_client, self._bulk_actions)
 
         self._bulk_actions = []
