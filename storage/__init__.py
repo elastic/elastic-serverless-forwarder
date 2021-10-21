@@ -3,5 +3,5 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 from .factory import StorageFactory
-from .s3 import CHUNK_SIZE, S3Storage
-from .storage import CommonStorage
+from .s3 import S3Storage
+from .storage import CHUNK_SIZE, CommonStorage, StorageReader

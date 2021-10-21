@@ -2,7 +2,7 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
-from typing import Any, Iterator
+from typing import Any, Iterator, Union
 
 import boto3
 import elasticapm  # noqa: F401
@@ -11,9 +11,7 @@ from botocore.response import StreamingBody
 from share import shared_logger
 
 from .decorator import by_lines, inflate
-from .storage import CommonStorage
-
-CHUNK_SIZE: int = 1024 ** 2
+from .storage import CHUNK_SIZE, CommonStorage, StorageReader
 
 
 class S3Storage(CommonStorage):
@@ -27,25 +25,25 @@ class S3Storage(CommonStorage):
     @inflate
     def _generate(
         self, range_start: int, body: StreamingBody, content_type: str, content_length: int
-    ) -> Iterator[tuple[bytes, int, int]]:
+    ) -> Iterator[tuple[Union[StorageReader, bytes], int, int]]:
+        file_ending_offset: int = range_start
+
+        def chunk_lambda() -> Any:
+            return body.read(CHUNK_SIZE)
+
         if content_type == "application/x-gzip":
-            chunk = body.read(content_length)
-            shared_logger.debug("_generate gzip", extra={"offset": range_start})
-            yield chunk, range_start, 0
+            reader: StorageReader = StorageReader(raw=body)
+            yield reader, 0, 0
         else:
-            previous_length: int = range_start
-
-            def chunk_lambda() -> Any:
-                return body.read(CHUNK_SIZE)
-
             for chunk in iter(chunk_lambda, b""):
-                previous_length += len(chunk)
+                file_ending_offset += len(chunk)
 
-                shared_logger.debug("_generate flat", extra={"offset": previous_length})
-                yield chunk, previous_length, 0
+                shared_logger.debug("_generate flat", extra={"offset": file_ending_offset})
+                yield chunk, file_ending_offset, 0
 
-    def get_by_lines(self, range_start: int) -> Iterator[tuple[bytes, int, int]]:
+    def get_by_lines(self, range_start: int) -> Iterator[tuple[Union[StorageReader, bytes], int, int]]:
         original_range_start: int = range_start
+
         s3_object_head = self._s3_client.head_object(Bucket=self._bucket_name, Key=self._object_key)
 
         content_type: str = s3_object_head["ContentType"]
@@ -68,13 +66,13 @@ class S3Storage(CommonStorage):
                 Bucket=self._bucket_name, Key=self._object_key, Range=f"bytes={range_start}-"
             )
 
-            for log_event, ending_offset, newline_length in self._generate(
+            for log_event, line_ending_offset, newline_length in self._generate(
                 original_range_start,
                 s3_object["Body"],
                 content_type,
                 content_length,
             ):
-                yield log_event, ending_offset, newline_length
+                yield log_event, line_ending_offset, newline_length
         else:
             shared_logger.info(f"requested file content from {range_start}, file size {content_length}: skip it")
 
