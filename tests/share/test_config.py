@@ -80,6 +80,7 @@ class TestElasticSearchOutput(TestCase):
                     "password": "password",
                     "dataset": "dataset",
                     "namespace": "namespace",
+                    "ignored": "ignored",
                 },
             )
 
@@ -280,6 +281,30 @@ class TestElasticSearchOutput(TestCase):
                         "namespace": 0,
                     },
                 )
+
+    def test_get_kwargs(self) -> None:
+        with self.subTest("valid init"):
+            elasticsearch = ElasticSearchOutput(
+                output_type="elasticsearch",
+                kwargs={
+                    "hosts": ["hosts"],
+                    "scheme": "scheme",
+                    "username": "username",
+                    "password": "password",
+                    "dataset": "dataset",
+                    "namespace": "namespace",
+                    "ignored": "ignored",
+                },
+            )
+
+            elasticsearch.scheme = ""
+            assert elasticsearch.kwargs == {
+                "hosts": ["hosts"],
+                "username": "username",
+                "password": "password",
+                "dataset": "dataset",
+                "namespace": "namespace",
+            }
 
 
 class TestInput(TestCase):

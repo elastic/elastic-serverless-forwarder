@@ -137,3 +137,5 @@ class TestElasticsearchShipper(TestCase):
         shipper.flush()
 
         assert shipper._bulk_actions == []
+
+        shipper.flush()

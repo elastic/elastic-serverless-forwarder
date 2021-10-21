@@ -12,9 +12,6 @@ class StorageReader:
     def __init__(self, raw: Any):
         self._raw = raw
 
-    def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        return self._raw.__call_(*args, **kwargs)
-
     def __getattr__(self, item: str) -> Any:
         return getattr(self._raw, item)
 
