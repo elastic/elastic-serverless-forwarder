@@ -111,9 +111,6 @@ class TestS3Storage(TestCase):
                     s3_storage.get_by_lines(range_start=0)
                 )
 
-                if len(newline) == 0:
-                    continue
-
                 diff = set(gzip_full) ^ set(plain_full)
                 assert not diff
                 assert plain_full == gzip_full
@@ -123,6 +120,9 @@ class TestS3Storage(TestCase):
                     newline.join([x[0].decode("UTF-8") for x in plain_full]).encode("UTF-8")
                     == MockContent.f_content_plain
                 )
+
+                if len(newline) == 0:
+                    continue
 
                 gzip_full_01 = gzip_full[: int(len(gzip_full) / 2)]
                 plain_full_01 = plain_full[: int(len(plain_full) / 2)]
