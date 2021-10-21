@@ -21,7 +21,7 @@ class DummyShipper(CommonShipper):
         self._flushed = False
 
 
-class TestCommonShipper(TestCase):
+class TestCompositeShipper(TestCase):
     def test_add_shipper(self) -> None:
         dummy_shipper = DummyShipper()
         composite_shipper = CompositeShipper()
