@@ -63,7 +63,7 @@ class ElasticSearchOutput(Output):
 
         for k in self._kwargs:
             v: Any = self.__getattribute__(k)
-            if v is not None:
+            if v:
                 kwargs[k] = v
 
         return kwargs

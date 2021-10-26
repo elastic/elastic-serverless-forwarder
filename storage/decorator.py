@@ -28,14 +28,11 @@ def by_lines(func: GetByLinesCallable[CommonStorageType]) -> GetByLinesCallable[
             unfinished_line += data
             lines = unfinished_line.decode("UTF-8").splitlines()
 
-            if len(lines) == 0:
-                continue
-
             if newline_length == 0:
                 if unfinished_line.find(b"\r\n") > 0:
                     newline = b"\r\n"
                     newline_length = len(newline)
-                else:
+                elif unfinished_line.find(b"\n") > 0:
                     newline = b"\n"
                     newline_length = len(newline)
 
@@ -43,6 +40,9 @@ def by_lines(func: GetByLinesCallable[CommonStorageType]) -> GetByLinesCallable[
                 unfinished_line = lines.pop().encode() + newline
             else:
                 unfinished_line = lines.pop().encode()
+
+            if len(lines) == 0:
+                continue
 
             for line in lines:
                 line_encoded = line.encode("UTF-8")

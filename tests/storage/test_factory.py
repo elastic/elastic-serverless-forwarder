@@ -27,6 +27,16 @@ class TestStorageFactory(TestCase):
             ):
                 StorageFactory.create(storage_type="s3")
 
+        with self.subTest("create s3 storage empty kwargs"):
+            with self.assertRaisesRegex(
+                ValueError,
+                re.escape(
+                    "You must provide the following not empty init kwargs for s3: bucket_name, object_key."
+                    + ' (provided: {"bucket_name": "", "object_key": ""})'
+                ),
+            ):
+                StorageFactory.create(storage_type="s3", bucket_name="", object_key="")
+
         with self.subTest("create invalid type"):
             with self.assertRaisesRegex(
                 ValueError, re.escape("You must provide one of the following " + "storage types: s3")

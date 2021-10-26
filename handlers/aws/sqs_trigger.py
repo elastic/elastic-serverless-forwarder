@@ -108,8 +108,8 @@ def _handle_sqs_event(config: Config, event: dict[str, Any]) -> Iterator[tuple[d
                 es_event["fields"]["message"] = log_event.decode("UTF-8")
                 es_event["fields"]["log"]["offset"] = ending_offset - (len(log_event) + newline_length)
 
-                es_event["fields"]["log"]["file"]["path"] = "https://{0}.s3.{1}.amazonaws.com/{1}".format(
-                    bucket_name, object_key
+                es_event["fields"]["log"]["file"]["path"] = "https://{0}.s3.{1}.amazonaws.com/{2}".format(
+                    bucket_name, aws_region, object_key
                 )
 
                 es_event["fields"]["aws"]["s3"] = {
