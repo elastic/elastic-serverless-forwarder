@@ -76,7 +76,7 @@ class MockContent:
             assert MockContent.f_stream_gzip is not None
             MockContent.f_stream_gzip.seek(range_int)
             content_body = MockContent.f_stream_gzip
-            content_length = len(MockContent.f_content_gzip[range_int:])
+            content_length = MockContent.f_size_gzip
 
         return {"Body": StreamingBody(content_body, content_length), "ContentLength": content_length}
 

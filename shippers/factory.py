@@ -13,7 +13,6 @@ from .shipper import CommonShipper
 _init_definition_by_output: dict[str, dict[str, Any]] = {
     "elasticsearch": {
         "class": ElasticsearchShipper,
-        "kwargs": ["hosts", "scheme", "username", "password", "dataset", "namespace"],
     }
 }
 
@@ -29,6 +28,8 @@ class ShipperFactory:
                 scheme=elasticsearch_output.scheme,
                 username=elasticsearch_output.username,
                 password=elasticsearch_output.password,
+                cloud_id=elasticsearch_output.cloud_id,
+                api_key=elasticsearch_output.api_key,
                 dataset=elasticsearch_output.dataset,
                 namespace=elasticsearch_output.namespace,
             )
@@ -46,14 +47,6 @@ class ShipperFactory:
 
         output_definition = _init_definition_by_output[output]
 
-        output_kwargs = output_definition["kwargs"]
         output_builder: Callable[..., CommonShipper] = output_definition["class"]
-
-        init_kwargs: list[str] = [key for key in kwargs.keys() if key in output_kwargs and kwargs[key]]
-        if len(init_kwargs) != len(output_kwargs):
-            raise ValueError(
-                f"you must provide the following not empty init kwargs for {output}:"
-                f" {', '.join(output_kwargs)}. (provided: {json.dumps(kwargs)})"
-            )
 
         return output_builder(**kwargs)

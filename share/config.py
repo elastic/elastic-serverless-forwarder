@@ -34,7 +34,7 @@ class Output(metaclass=ABCMeta):
     @type.setter
     def type(self, value: str) -> None:
         if not isinstance(value, str):
-            raise ValueError("Output type must by of type str")
+            raise ValueError("Output type must be of type str")
 
         if value not in _available_output_types:
             raise ValueError(f"Type must be one of {','.join(_available_output_types)}")
@@ -42,13 +42,15 @@ class Output(metaclass=ABCMeta):
 
 
 class ElasticSearchOutput(Output):
-    _kwargs = ["hosts", "scheme", "username", "password", "dataset", "namespace"]
+    _kwargs = ["hosts", "scheme", "username", "password", "cloud_id", "api_key", "dataset", "namespace"]
 
     def __init__(self, output_type: str, kwargs: dict[str, Any]):
         self._hosts: list[str] = []
         self._scheme: str = ""
         self._username: str = ""
         self._password: str = ""
+        self._cloud_id: str = ""
+        self._api_key: str = ""
         self._dataset: str = ""
         self._namespace: str = ""
 
@@ -70,18 +72,33 @@ class ElasticSearchOutput(Output):
 
     @kwargs.setter
     def kwargs(self, value: dict[str, Any]) -> None:
-        init_kwargs: list[str] = [key for key in value if key in self._kwargs]
-        if len(init_kwargs) != len(self._kwargs):
-            raise ValueError(
-                f"you must provide the following not empty init kwargs for elasticsearch:"
-                f" {', '.join(self._kwargs)}. (provided: {json.dumps(value)})"
-            )
-
         for x in value.keys():
             if x in self._kwargs:
                 self.__setattr__(x, value[x])
-                if not self.__getattribute__(x):
-                    raise ValueError(f"Empty param {x} provided for Elasticsearch Output")
+
+        if not self.cloud_id and not self.hosts:
+            raise ValueError("Elasticsearch Output hosts or cloud_id must be set")
+
+        if self.cloud_id and self.hosts:
+            raise ValueError("Elasticsearch Output only one between hosts and scheme or cloud_id must be set")
+
+        if self.hosts and not self.scheme:
+            raise ValueError("Elasticsearch Output scheme must be set when using hosts")
+
+        if not self.username and not self.api_key:
+            raise ValueError("Elasticsearch Output username and password or api_key must be set")
+
+        if self.username and self.api_key:
+            raise ValueError("Elasticsearch Output only one between username and password or api_key must be set")
+
+        if self.username and not self.password:
+            raise ValueError("Elasticsearch Output password must be set when using username")
+
+        if not self.dataset:
+            raise ValueError("Empty param dataset provided for Elasticsearch Output")
+
+        if not self.namespace:
+            raise ValueError("Empty param namespace provided for Elasticsearch Output")
 
     @property
     def hosts(self) -> list[str]:
@@ -90,7 +107,7 @@ class ElasticSearchOutput(Output):
     @hosts.setter
     def hosts(self, value: list[str]) -> None:
         if not isinstance(value, list):
-            raise ValueError("Elasticsearch Output hosts must by of type list[str]")
+            raise ValueError("Elasticsearch Output hosts must be of type list[str]")
 
         self._hosts = value
 
@@ -101,7 +118,7 @@ class ElasticSearchOutput(Output):
     @scheme.setter
     def scheme(self, value: str) -> None:
         if not isinstance(value, str):
-            raise ValueError("Elasticsearch Output scheme must by of type str")
+            raise ValueError("Elasticsearch Output scheme must be of type str")
 
         self._scheme = value
 
@@ -112,7 +129,7 @@ class ElasticSearchOutput(Output):
     @username.setter
     def username(self, value: str) -> None:
         if not isinstance(value, str):
-            raise ValueError("Elasticsearch Output username must by of type str")
+            raise ValueError("Elasticsearch Output username must be of type str")
 
         self._username = value
 
@@ -123,9 +140,31 @@ class ElasticSearchOutput(Output):
     @password.setter
     def password(self, value: str) -> None:
         if not isinstance(value, str):
-            raise ValueError("Elasticsearch Output password must by of type str")
+            raise ValueError("Elasticsearch Output password must be of type str")
 
         self._password = value
+
+    @property
+    def cloud_id(self) -> str:
+        return self._cloud_id
+
+    @cloud_id.setter
+    def cloud_id(self, value: str) -> None:
+        if not isinstance(value, str):
+            raise ValueError("Elasticsearch Output cloud_id must be of type str")
+
+        self._cloud_id = value
+
+    @property
+    def api_key(self) -> str:
+        return self._api_key
+
+    @api_key.setter
+    def api_key(self, value: str) -> None:
+        if not isinstance(value, str):
+            raise ValueError("Elasticsearch Output api_key must be of type str")
+
+        self._api_key = value
 
     @property
     def dataset(self) -> str:
@@ -134,7 +173,7 @@ class ElasticSearchOutput(Output):
     @dataset.setter
     def dataset(self, value: str) -> None:
         if not isinstance(value, str):
-            raise ValueError("Elasticsearch Output dataset must by of type str")
+            raise ValueError("Elasticsearch Output dataset must be of type str")
 
         self._dataset = value
 
@@ -145,7 +184,7 @@ class ElasticSearchOutput(Output):
     @namespace.setter
     def namespace(self, value: str) -> None:
         if not isinstance(value, str):
-            raise ValueError("Elasticsearch Output namespace must by of type str")
+            raise ValueError("Elasticsearch Output namespace must be of type str")
 
         self._namespace = value
 
@@ -163,7 +202,7 @@ class Input:
     @type.setter
     def type(self, value: str) -> None:
         if not isinstance(value, str):
-            raise ValueError("Input type must by of type str")
+            raise ValueError("Input type must be of type str")
 
         if value not in _available_input_types:
             raise ValueError(f"Input type must be one of {','.join(_available_input_types)}")
@@ -176,7 +215,7 @@ class Input:
     @id.setter
     def id(self, value: str) -> None:
         if not isinstance(value, str):
-            raise ValueError("Input id must by of type str")
+            raise ValueError("Input id must be of type str")
         self._id = value
 
     def get_output_by_type(self, output_type: str) -> Optional[Output]:
@@ -190,10 +229,10 @@ class Input:
 
     def add_output(self, output_type: str, output_kwargs: dict[str, Any]) -> None:
         if not isinstance(output_type, str):
-            raise ValueError("Output type must by of type str")
+            raise ValueError("Output type must be of type str")
 
         if not isinstance(output_kwargs, dict):
-            raise ValueError("Output arguments must by of type dict[str, Any]")
+            raise ValueError("Output arguments must be of type dict[str, Any]")
 
         if output_type in self._outputs:
             raise ValueError(f"Duplicated Output {output_type}")
