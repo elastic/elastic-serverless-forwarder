@@ -25,7 +25,7 @@ class TestShipperFactory(TestCase):
             assert isinstance(shipper, ElasticsearchShipper)
 
         with self.subTest("create elasticsearch shipper success hosts and api key"):
-            shipper: CommonShipper = ShipperFactory.create(
+            shipper = ShipperFactory.create(
                 output="elasticsearch",
                 hosts=["hosts"],
                 scheme="scheme",
@@ -37,7 +37,7 @@ class TestShipperFactory(TestCase):
             assert isinstance(shipper, ElasticsearchShipper)
 
         with self.subTest("create elasticsearch shipper success cloud id and http auth"):
-            shipper: CommonShipper = ShipperFactory.create(
+            shipper = ShipperFactory.create(
                 output="elasticsearch",
                 cloud_id="cloud_id:bG9jYWxob3N0OjkyMDAkMA==",
                 username="username",
@@ -49,7 +49,7 @@ class TestShipperFactory(TestCase):
             assert isinstance(shipper, ElasticsearchShipper)
 
         with self.subTest("create elasticsearch shipper success cloud id and api key"):
-            shipper: CommonShipper = ShipperFactory.create(
+            shipper = ShipperFactory.create(
                 output="elasticsearch",
                 cloud_id="cloud_id:bG9jYWxob3N0OjkyMDAkMA==",
                 api_key="api_key",
@@ -59,35 +59,24 @@ class TestShipperFactory(TestCase):
 
             assert isinstance(shipper, ElasticsearchShipper)
         with self.subTest("create elasticsearch shipper no kwargs error"):
-            with self.assertRaisesRegex(
-                ValueError, "You must provide one between hosts and scheme or cloud_id"
-            ):
+            with self.assertRaisesRegex(ValueError, "You must provide one between hosts and scheme or cloud_id"):
                 ShipperFactory.create(output="elasticsearch")
 
         with self.subTest("create elasticsearch shipper empty hosts and no cloud_id"):
-            with self.assertRaisesRegex(
-                ValueError, "You must provide one between hosts and scheme or cloud_id"
-            ):
+            with self.assertRaisesRegex(ValueError, "You must provide one between hosts and scheme or cloud_id"):
                 ShipperFactory.create(output="elasticsearch", hosts=[])
 
         with self.subTest("create elasticsearch shipper empty cloud_id and no hosts"):
-            with self.assertRaisesRegex(
-                ValueError, "You must provide one between hosts and scheme or cloud_id"
-            ):
+            with self.assertRaisesRegex(ValueError, "You must provide one between hosts and scheme or cloud_id"):
                 ShipperFactory.create(output="elasticsearch", cloud_id="")
 
         with self.subTest("create elasticsearch shipper empty username and no api_key"):
-            with self.assertRaisesRegex(
-                ValueError, "You must provide one between username and password or api_key"
-            ):
+            with self.assertRaisesRegex(ValueError, "You must provide one between username and password or api_key"):
                 ShipperFactory.create(output="elasticsearch", hosts=["hosts"], username="")
 
         with self.subTest("create elasticsearch shipper empty api_key and no username"):
-            with self.assertRaisesRegex(
-                ValueError, "You must provide one between username and password or api_key"
-            ):
+            with self.assertRaisesRegex(ValueError, "You must provide one between username and password or api_key"):
                 ShipperFactory.create(output="elasticsearch", hosts=["hosts"], api_key="")
-
 
         with self.subTest("create invalid type"):
             with self.assertRaisesRegex(

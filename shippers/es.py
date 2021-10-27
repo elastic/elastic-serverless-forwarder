@@ -15,10 +15,17 @@ from .shipper import CommonShipper
 class ElasticsearchShipper(CommonShipper):
     _bulk_batch_size: int = 10000
 
-    def __init__(self, hosts: list[str] = [], scheme: str = "",
-                 username: str = "", password: str = "",
-                 cloud_id: str = "", api_key: str = "",
-                 dataset: str = "", namespace: str = ""):
+    def __init__(
+        self,
+        hosts: list[str] = [],
+        scheme: str = "",
+        username: str = "",
+        password: str = "",
+        cloud_id: str = "",
+        api_key: str = "",
+        dataset: str = "",
+        namespace: str = "",
+    ):
 
         self._bulk_actions: list[dict[str, Any]] = []
 

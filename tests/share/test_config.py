@@ -195,9 +195,7 @@ class TestElasticSearchOutput(TestCase):
                 ElasticSearchOutput(output_type="type", kwargs={})
 
         with self.subTest("neither hosts or cloud_id"):
-            with self.assertRaisesRegex(
-                ValueError, "Elasticsearch Output hosts or cloud_id must be set"
-            ):
+            with self.assertRaisesRegex(ValueError, "Elasticsearch Output hosts or cloud_id must be set"):
                 ElasticSearchOutput(output_type="elasticsearch", kwargs={})
 
         with self.subTest("both hosts and cloud_id"):
@@ -207,7 +205,9 @@ class TestElasticSearchOutput(TestCase):
                 ElasticSearchOutput(output_type="elasticsearch", kwargs={"hosts": ["hosts"], "cloud_id": "cloud_id"})
 
         with self.subTest("no username or api_key"):
-            with self.assertRaisesRegex(ValueError, "Elasticsearch Output username and password or api_key must be set"):
+            with self.assertRaisesRegex(
+                ValueError, "Elasticsearch Output username and password or api_key must be set"
+            ):
                 ElasticSearchOutput(
                     output_type="elasticsearch",
                     kwargs={
@@ -219,7 +219,9 @@ class TestElasticSearchOutput(TestCase):
                 )
 
         with self.subTest("both username and api_key"):
-            with self.assertRaisesRegex(ValueError, "Elasticsearch Output only one between username and password or api_key must be set"):
+            with self.assertRaisesRegex(
+                ValueError, "Elasticsearch Output only one between username and password or api_key must be set"
+            ):
                 ElasticSearchOutput(
                     output_type="elasticsearch",
                     kwargs={
@@ -755,9 +757,7 @@ class TestParseConfig(TestCase):
             """
                 )
 
-            with self.assertRaisesRegex(
-                ValueError, "Elasticsearch Output hosts or cloud_id must be set"
-            ):
+            with self.assertRaisesRegex(ValueError, "Elasticsearch Output hosts or cloud_id must be set"):
                 parse_config(
                     config_yaml="""
             inputs:
@@ -838,7 +838,6 @@ class TestParseConfig(TestCase):
             assert elasticsearch.api_key == "api_key"
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
-
 
         with self.subTest("valid input valid elasticsearch output with cloud id and http auth"):
             config = parse_config(
