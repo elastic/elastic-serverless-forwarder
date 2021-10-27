@@ -27,4 +27,4 @@
 [[release-notes-0.0.1-dev0]]
 ==== v0.0.1-dev0 - 2021/09/07
 
-Bootstrapping the project for Elastic Serverless  Agent
+Bootstrapping the project for Elastic Serverless Forwarder

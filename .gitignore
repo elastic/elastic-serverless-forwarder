@@ -25,7 +25,7 @@ coverage
 venv
 benchmarks/result*
 coverage.xml
-tests/elastic-serverless-agent-junit.xml
+tests/elastic-serverless-forwarder-junit.xml
 *.code-workspace
 .pytest_cache/
 .python-version
