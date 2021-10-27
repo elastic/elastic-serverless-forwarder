@@ -1,25 +1,25 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: >
-  elastic-serverless-agent
+  elastic-serverless-forwarder
 
-  SAM Template for elastic-serverless-agent
+  SAM Template for elastic-serverless-forwarder
 
 Resources:
-  ElasticServerlessAgentContinuingDLQ:
+  ElasticServerlessForwarderContinuingDLQ:
     Type: AWS::SQS::Queue
     Properties:
       DelaySeconds: 0
-      QueueName: elastic-serverless-agent-continuing-dlq
+      QueueName: !Join [ "-", ["elastic-serverless-forwarder-continuing-dlq", !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
       VisibilityTimeout: 900
-  ElasticServerlessAgentContinuingQueue:
+  ElasticServerlessForwarderContinuingQueue:
     Type: AWS::SQS::Queue
     Properties:
       DelaySeconds: 0
-      QueueName: elastic-serverless-agent-continuing-queue
-      RedrivePolicy: { "deadLetterTargetArn" : !GetAtt ElasticServerlessAgentContinuingDLQ.Arn, "maxReceiveCount" : 1 }
+      QueueName: !Join [ "-", ["elastic-serverless-forwarder-continuing-queue", !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
+      RedrivePolicy: { "deadLetterTargetArn" : !GetAtt ElasticServerlessForwarderContinuingDLQ.Arn, "maxReceiveCount" : 1 }
       VisibilityTimeout: 900
-  ElasticServerlessAgentFunction:
+  ElasticServerlessForwarderFunction:
     Type: AWS::Serverless::Function
     Properties:
       Timeout: 900
@@ -32,12 +32,12 @@ Resources:
       Handler: handler.lambda_handler
       Environment:
           Variables:
-              SQS_CONTINUE_URL: !Ref ElasticServerlessAgentContinuingQueue
+              SQS_CONTINUE_URL: !Ref ElasticServerlessForwarderContinuingQueue
       Events:
         SQSEvent:
           Type: SQS
           Properties:
-            Queue: !GetAtt ElasticServerlessAgentContinuingQueue.Arn
+            Queue: !GetAtt ElasticServerlessForwarderContinuingQueue.Arn
             BatchSize: 1
             Enabled: true
       Policies:
@@ -56,26 +56,20 @@ Resources:
               - sqs:DeleteMessage
               - sqs:GetQueueAttributes
             Resource: 'arn:aws:sqs:*:*:*'
-      - Version: '2012-10-17' # Policy Document
-        Statement:
-          - Effect: Allow
-            Action:
-              - sqs:SendMessage
-            Resource: 'arn:aws:sqs:%awsRegion%:%accountID%:elastic-serverless-agent-continuing-queue'
 Metadata:
   AWS::ServerlessRepo::Application:
-    Name: elastic-serverless-agent
-    Description: elastic-serverless-agent
+    Name: elastic-serverless-forwarder
+    Description: Elastic Forwared for Serverless
     Author: elastic
-    SemanticVersion: 0.9.0
+    SemanticVersion: 0.9.3
 
 Outputs:
-  ElasticServerlessAgentFunction:
-    Description: "Elastic Serverless Agent"
-    Value: !GetAtt ElasticServerlessAgentFunction.Arn
-  ElasticServerlessAgentContinuingQueue:
-    Description: "Elastic Serverless Agent"
-    Value: !GetAtt ElasticServerlessAgentContinuingQueue.Arn
-  ElasticServerlessAgentContinuingDLQ:
-    Description: "Elastic Serverless Agent"
-    Value: !GetAtt ElasticServerlessAgentContinuingDLQ.Arn
+  ElasticServerlessForwarderFunction:
+    Description: "Elastic Serverless Forwarder"
+    Value: !GetAtt ElasticServerlessForwarderFunction.Arn
+  ElasticServerlessForwarderContinuingQueue:
+    Description: "Elastic Serverless Forwarder"
+    Value: !GetAtt ElasticServerlessForwarderContinuingQueue.Arn
+  ElasticServerlessForwarderContinuingDLQ:
+    Description: "Elastic Serverless Forwarder"
+    Value: !GetAtt ElasticServerlessForwarderContinuingDLQ.Arn

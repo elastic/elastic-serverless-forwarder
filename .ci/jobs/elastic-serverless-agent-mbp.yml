@@ -1,8 +1,8 @@
 ---
 - job:
-    name: Library/elastic-serverless-agent-mbp
-    display-name: Elastic Serverless agent
-    description: Elastic Log Shipper Agent for Serverless
+    name: Library/elastic-serverless-forwarder-mbp
+    display-name: Elastic Serverless Forwarder
+    description: Elastic Forwarder for Serverless
     view: BEATS-CI
     project-type: multibranch
     concurrent: true
@@ -16,7 +16,7 @@
         discover-pr-origin: merge-current
         discover-tags: true
         notification-context: 'beats-ci'
-        repo: elastic-serverless-agent
+        repo: elastic-serverless-forwarder
         repo-owner: elastic
         credentials-id: 2a9602aa-ab9f-4e52-baf3-b71ca88469c7-UserAndToken
         ssh-checkout:
