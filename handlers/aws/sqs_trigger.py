@@ -9,11 +9,17 @@ from typing import Any, Iterator
 
 import boto3
 import elasticapm
-from event import _default_event
-from utils import get_bucket_name_from_arn
+from botocore.client import BaseClient as BotoBaseClient
 
 from share import Config, shared_logger
 from storage import CommonStorage, StorageFactory
+
+from .event import _default_event
+from .utils import get_bucket_name_from_arn
+
+
+def _get_sqs_client() -> BotoBaseClient:
+    return boto3.client("sqs")
 
 
 def _handle_sqs_continuation(
@@ -32,7 +38,8 @@ def _handle_sqs_continuation(
     body["Records"][0]["last_ending_offset"] = last_ending_offset
     sqs_records[0]["body"] = json.dumps(body)
 
-    sqs_client = boto3.client("sqs")
+    sqs_client = _get_sqs_client()
+
     for sqs_record in sqs_records:
         sqs_client.send_message(
             QueueUrl=sqs_continuing_queue,

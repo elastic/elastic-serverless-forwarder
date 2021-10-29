@@ -7,11 +7,25 @@ from typing import Any, Callable
 
 from aws_lambda_typing import context as context_
 from elasticapm import Client, get_client
+from elasticapm.contrib.serverless.aws import capture_serverless as apm_capture_serverless  # noqa: F401
 
 from share import shared_logger
 from storage import CommonStorage, StorageFactory
 
 _available_triggers: dict[str, str] = {"aws:sqs": "sqs"}
+
+
+def capture_serverless(
+    func: Callable[[dict[str, Any], context_.Context], str]
+) -> Callable[[dict[str, Any], context_.Context], str]:
+    if "AWS_LAMBDA_FUNCTION_NAME" not in os.environ:
+
+        def wrapper(lambda_event: dict[str, Any], lambda_context: context_.Context) -> str:
+            return func(lambda_event, lambda_context)
+
+        return wrapper
+
+    return apm_capture_serverless()(func)  # type:ignore
 
 
 def wrap_try_except(
@@ -22,9 +36,11 @@ def wrap_try_except(
             return func(lambda_event, lambda_context)
         except Exception as e:
             apm_client: Client = get_client()
-            apm_client.capture_exception()
+            if apm_client:
+                apm_client.capture_exception()
+
             shared_logger.exception("exception raised", exc_info=e)
-            return str(e)
+            return f"exception raised: {e.__repr__()}"
 
     return wrapper
 
@@ -70,7 +86,7 @@ def get_bucket_name_from_arn(bucket_arn: str) -> str:
 
 
 def get_trigger_type(event: dict[str, Any]) -> str:
-    if "Records" not in event and len(event["Records"]) < 1:
+    if "Records" not in event or len(event["Records"]) < 1:
         raise Exception("Not supported trigger")
 
     if "eventSource" not in event["Records"][0]:
