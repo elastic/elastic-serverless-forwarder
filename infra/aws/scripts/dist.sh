@@ -21,17 +21,15 @@ pushd "${TMPDIR}/packages"
 zip -r "${TMPDIR}/lambda.zip" .
 
 popd
-zip -r -g "${TMPDIR}/lambda.zip" share
-zip -r -g "${TMPDIR}/lambda.zip" shippers
-zip -r -g "${TMPDIR}/lambda.zip" storage
-
-pushd handlers/aws
-zip -g "${TMPDIR}/lambda.zip" *.py
+zip -g "${TMPDIR}/lambda.zip" main_aws.py
+zip -r -g "${TMPDIR}/lambda.zip" handlers/aws -i "*.py"
+zip -r -g "${TMPDIR}/lambda.zip" share -i "*.py"
+zip -r -g "${TMPDIR}/lambda.zip" shippers -i "*.py"
+zip -r -g "${TMPDIR}/lambda.zip" storage -i "*.py"
 
 aws s3api get-bucket-location --bucket "${BUCKET}" || aws s3api create-bucket --acl private --bucket "${BUCKET}" --region "${REGION}" --create-bucket-configuration LocationConstraint="${REGION}"
 aws s3 cp "${TMPDIR}/lambda.zip" "s3://${BUCKET}/lambda.zip"
 
-popd
 cat <<EOF > "${TMPDIR}/policy.json"
 {
     "Version": "2012-10-17",
