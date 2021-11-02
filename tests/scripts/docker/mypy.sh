@@ -18,4 +18,4 @@ docker run \
   /bin/bash \
   -c "pip install --user -U pip
       pip install --user -r tests/requirements/lint-mypy.txt --cache-dir ${docker_pip_cache}
-      /home/user/.local/bin/mypy --install-types --non-interactive ."
+      \${HOME}/.local/bin/mypy --install-types --non-interactive ."

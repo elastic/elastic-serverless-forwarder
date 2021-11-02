@@ -18,4 +18,4 @@ docker run \
   /bin/bash \
   -c "pip install --user -U pip
       pip install --user -r tests/requirements/lint-flake8.txt --cache-dir ${docker_pip_cache}
-      /home/user/.local/bin/flake8 ."
+      \${HOME}/.local/bin/flake8 ."

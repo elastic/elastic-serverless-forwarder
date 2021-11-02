@@ -31,4 +31,4 @@ docker run \
   /bin/bash \
   -c "pip install --user -U pip
       pip install --user -r tests/requirements/lint-black.txt --cache-dir ${docker_pip_cache}
-      /home/user/.local/bin/black -t py39 ${OPTIONS} /app"
+      \${HOME}/.local/bin/black -t py39 ${OPTIONS} /app"
