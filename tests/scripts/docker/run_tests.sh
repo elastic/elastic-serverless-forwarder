@@ -6,7 +6,6 @@ docker_pip_cache="/tmp/cache/pip"
 
 cd tests
 
-docker network create run_tests || true
 docker build --build-arg UID=$UID --build-arg PYTHON_IMAGE=python:3.9 -t run_tests .
 docker run \
   --privileged \
@@ -24,5 +23,3 @@ docker run \
       pip install --user -U pip
       pip install --user -r tests/requirements/test-reqs.txt --cache-dir ${docker_pip_cache}
       timeout 5m /bin/bash ./tests/scripts/run_tests.sh"
-
-docker network rm run_tests || true

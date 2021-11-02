@@ -11,12 +11,16 @@ from unittest import TestCase
 from unittest.mock import patch
 
 import docker
+import mock
 from elasticsearch import Elasticsearch
+from localstack.services.s3.s3_starter import check_s3
+from localstack.services.sqs.sqs_starter import check_sqs
 from localstack.utils import testutil
 from localstack.utils.aws import aws_stack
 
 from handlers.aws import lambda_handler, sqs_trigger
 from storage import S3Storage
+
 
 class ContextMock:
     aws_request_id = "aws_request_id"
@@ -62,52 +66,59 @@ class TestLambdaHandler(TestCase):
 
     def setUp(self) -> None:
         docker_client = docker.from_env()
-        try:
-            self._docket_network = docker_client.networks.get("run_tests")
-        except Exception:
-            self._docket_network = docker_client.networks.create("run_tests")
 
         self._localstack_container = docker_client.containers.run(
             "localstack/localstack",
             detach=True,
             environment=["SERVICES=s3,sqs"],
-            network="run_tests",
             ports={"4566/tcp": None},
         )
 
         while len(self._localstack_container.ports) == 0:
             self._localstack_container = docker_client.containers.get(self._localstack_container.id)
 
-        for log_entry in self._localstack_container.logs(stream=True, follow=True):
-            assert isinstance(log_entry, bytes)
-            if b"Execution of \"preload_services\" took" in log_entry:
-                break
+        localstack_port: str = self._localstack_container.ports["4566/tcp"][0]["HostPort"]
+        os.environ["TEST_S3_URL"] = f"http://localhost:{localstack_port}"
+        os.environ["TEST_SQS_URL"] = f"http://localhost:{localstack_port}"
+
+        with mock.patch("localstack.services.s3.s3_starter.s3_listener.PORT_S3_BACKEND", localstack_port):
+            while True:
+                try:
+                    check_s3()
+                finally:
+                    break
+
+        with mock.patch("localstack.services.sqs.sqs_starter.PORT_SQS_BACKEND", localstack_port):
+            while True:
+                try:
+                    check_sqs()
+                finally:
+                    break
 
         self._elastic_container = docker_client.containers.run(
             "docker.elastic.co/elasticsearch/elasticsearch:7.15.1",
             detach=True,
             environment=["ELASTIC_PASSWORD=password", "discovery.type=single-node"],
-            network="run_tests",
             ports={"9200/tcp": None},
         )
 
         while len(self._elastic_container.ports) == 0:
             self._elastic_container = docker_client.containers.get(self._elastic_container.id)
 
-        for log_entry in self._elastic_container.logs(stream=True, follow=True):
-            assert isinstance(log_entry, bytes)
-            if b"Cluster health status changed from [YELLOW] to [GREEN]" in log_entry:
-                break
+        es_host_ip: str = self._elastic_container.ports["9200/tcp"][0]["HostIp"]
+        es_host_port: str = self._elastic_container.ports["9200/tcp"][0]["HostPort"]
 
-        localstack_port: str = self._localstack_container.ports["4566/tcp"][0]["HostPort"]
-        os.environ["TEST_S3_URL"] = f"http://localhost:{localstack_port}"
-        os.environ["TEST_SQS_URL"] = f"http://localhost:{localstack_port}"
+        while True:
+            self._es_client = Elasticsearch(
+                hosts=[f"{es_host_ip}:{es_host_port}"], scheme="http", http_auth=("elastic", "password")
+            )
+
+            if self._es_client.ping():
+                break
 
         self._source_queue_info = testutil.create_sqs_queue("source-queue")
         self._continuing_queue_info = testutil.create_sqs_queue("continuing-queue")
 
-        es_host_ip: str = self._elastic_container.ports["9200/tcp"][0]["HostIp"]
-        es_host_port: str = self._elastic_container.ports["9200/tcp"][0]["HostPort"]
         config_yaml: str = f"""
         inputs:
           - type: "sqs"
@@ -148,10 +159,6 @@ class TestLambdaHandler(TestCase):
             key_name="redis.log.gz",
         )
 
-        self._es_client = Elasticsearch(
-            hosts=[f"{es_host_ip}:{es_host_port}"], scheme="http", http_auth=("elastic", "password")
-        )
-
         os.environ["S3_CONFIG_FILE"] = "s3://config-bucket/config.yaml"
         os.environ["SQS_CONTINUE_URL"] = self._continuing_queue_info["QueueUrl"]
 
@@ -161,11 +168,6 @@ class TestLambdaHandler(TestCase):
 
         self._localstack_container.stop()
         self._localstack_container.remove()
-
-        try:
-            self._docket_network.remove()
-        except Exception:
-            pass
 
     def test_lambda_handler(self) -> None:
         filename: str = "redis.log.gz"
@@ -229,7 +231,10 @@ class TestLambdaHandler(TestCase):
                         "object": {"key": f"{filename}"},
                     }
                 }
-                assert res["hits"]["hits"][0]["_source"]["fields"]["cloud"] == {"provider": "aws", "region": "eu-central-1"}
+                assert res["hits"]["hits"][0]["_source"]["fields"]["cloud"] == {
+                    "provider": "aws",
+                    "region": "eu-central-1",
+                }
 
                 event = self._event_from_sqs_message()
                 second_call = lambda_handler(event, ctx)  # type:ignore
@@ -257,7 +262,10 @@ class TestLambdaHandler(TestCase):
                         "object": {"key": f"{filename}"},
                     }
                 }
-                assert res["hits"]["hits"][1]["_source"]["fields"]["cloud"] == {"provider": "aws", "region": "eu-central-1"}
+                assert res["hits"]["hits"][1]["_source"]["fields"]["cloud"] == {
+                    "provider": "aws",
+                    "region": "eu-central-1",
+                }
 
                 event = self._event_from_sqs_message()
                 third_call = lambda_handler(event, ctx)  # type:ignore

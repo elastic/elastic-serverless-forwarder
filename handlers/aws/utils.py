@@ -18,8 +18,7 @@ _available_triggers: dict[str, str] = {"aws:sqs": "sqs"}
 def capture_serverless(
     func: Callable[[dict[str, Any], context_.Context], str]
 ) -> Callable[[dict[str, Any], context_.Context], str]:
-    if "AWS_LAMBDA_FUNCTION_NAME" not in os.environ:
-
+    if "ELASTIC_APM_ACTIVE" not in os.environ or "AWS_LAMBDA_FUNCTION_NAME" not in os.environ:
         def wrapper(lambda_event: dict[str, Any], lambda_context: context_.Context) -> str:
             return func(lambda_event, lambda_context)
 
