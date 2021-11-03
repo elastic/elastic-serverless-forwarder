@@ -111,12 +111,11 @@ class TestLambdaHandler(TestCase):
         while len(self._elastic_container.ports) == 0:
             self._elastic_container = docker_client.containers.get(self._elastic_container.id)
 
-        es_host_ip: str = self._elastic_container.ports["9200/tcp"][0]["HostIp"]
         es_host_port: str = self._elastic_container.ports["9200/tcp"][0]["HostPort"]
 
         while True:
             self._es_client = Elasticsearch(
-                hosts=[f"{es_host_ip}:{es_host_port}"], scheme="http", http_auth=("elastic", "password")
+                hosts=[f"127.0.0.1:{es_host_port}"], scheme="http", http_auth=("elastic", "password")
             )
 
             if self._es_client.ping():
@@ -133,7 +132,7 @@ class TestLambdaHandler(TestCase):
               - type: "elasticsearch"
                 args:
                   hosts:
-                    - "{es_host_ip}:{es_host_port}"
+                    - "127.0.0.1:{es_host_port}"
                   scheme: "http"
                   username: "elastic"
                   password: "password"
