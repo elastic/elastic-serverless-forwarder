@@ -83,16 +83,24 @@ class TestLambdaHandler(TestCase):
 
         with mock.patch("localstack.services.s3.s3_starter.s3_listener.PORT_S3_BACKEND", localstack_port):
             while True:
+                ready = True
                 try:
                     check_s3()
-                finally:
+                except AssertionError:
+                    ready = False
+
+                if ready:
                     break
 
         with mock.patch("localstack.services.sqs.sqs_starter.PORT_SQS_BACKEND", localstack_port):
             while True:
+                ready = True
                 try:
                     check_sqs()
-                finally:
+                except AssertionError:
+                    ready = False
+
+                if ready:
                     break
 
         self._elastic_container = docker_client.containers.run(
