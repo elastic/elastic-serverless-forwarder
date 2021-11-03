@@ -8,7 +8,6 @@ import os
 from copy import deepcopy
 from typing import Any, Union
 from unittest import TestCase
-from unittest.mock import patch
 
 import docker
 import mock
@@ -18,8 +17,7 @@ from localstack.services.sqs.sqs_starter import check_sqs
 from localstack.utils import testutil
 from localstack.utils.aws import aws_stack
 
-from handlers.aws import lambda_handler, sqs_trigger
-from storage import S3Storage
+from handlers.aws import lambda_handler
 
 
 class ContextMock:
@@ -154,13 +152,6 @@ class TestLambdaHandler(TestCase):
         ).encode("UTF-8")
 
         self._upload_content_to_bucket(
-            content=redis_log,
-            content_type="text/plain",
-            bucket_name="test-bucket",
-            key_name="redis.log",
-        )
-
-        self._upload_content_to_bucket(
             content=gzip.compress(redis_log),
             content_type="application/x-gzip",
             bucket_name="test-bucket",
@@ -171,6 +162,9 @@ class TestLambdaHandler(TestCase):
         os.environ["SQS_CONTINUE_URL"] = self._continuing_queue_info["QueueUrl"]
 
     def tearDown(self) -> None:
+        del os.environ["TEST_S3_URL"]
+        del os.environ["TEST_SQS_URL"]
+
         self._elastic_container.stop()
         self._elastic_container.remove()
 
@@ -182,8 +176,8 @@ class TestLambdaHandler(TestCase):
         self._perform_test_lambda_handler(filename=filename)
 
     def _perform_test_lambda_handler(self, filename: str) -> None:
-        with patch.object(S3Storage, "_s3_client", aws_stack.connect_to_service("s3")):
-            with patch.object(sqs_trigger, "_get_sqs_client", lambda: aws_stack.connect_to_service("sqs")):
+        with mock.patch("storage.S3Storage._s3_client", aws_stack.connect_to_service("s3")):
+            with mock.patch("handlers.aws.sqs_trigger._get_sqs_client", lambda: aws_stack.connect_to_service("sqs")):
                 ctx = ContextMock()
                 event = {
                     "Records": [
