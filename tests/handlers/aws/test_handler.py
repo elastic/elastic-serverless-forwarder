@@ -212,8 +212,8 @@ class TestLambdaHandler(TestCase):
 
                 assert first_call == "continuing"
 
-                while self._es_client.count(index="logs-redis.log-default")["count"] < 1:
-                    pass
+                self._es_client.indices.refresh(index="logs-redis.log-default")
+                assert self._es_client.count(index="logs-redis.log-default")["count"] == 1
 
                 res = self._es_client.search(index="logs-redis.log-default")
                 assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
@@ -241,8 +241,8 @@ class TestLambdaHandler(TestCase):
 
                 assert second_call == "continuing"
 
-                while self._es_client.count(index="logs-redis.log-default")["count"] < 2:
-                    pass
+                self._es_client.indices.refresh(index="logs-redis.log-default")
+                assert self._es_client.count(index="logs-redis.log-default")["count"] == 2
 
                 res = self._es_client.search(index="logs-redis.log-default")
                 assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
