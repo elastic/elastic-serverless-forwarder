@@ -70,12 +70,11 @@ class TestOutput(TestCase):
 
 class TestElasticSearchOutput(TestCase):
     def test_init(self) -> None:
-        with self.subTest("valid init with hosts and http_auth"):
+        with self.subTest("valid init with elasticsearch_url and http_auth"):
             elasticsearch = ElasticSearchOutput(
                 output_type="elasticsearch",
                 kwargs={
-                    "hosts": ["hosts"],
-                    "scheme": "scheme",
+                    "elasticsearch_url": "elasticsearch_url",
                     "username": "username",
                     "password": "password",
                     "dataset": "dataset",
@@ -85,8 +84,7 @@ class TestElasticSearchOutput(TestCase):
             )
 
             assert elasticsearch.type == "elasticsearch"
-            assert elasticsearch.hosts == ["hosts"]
-            assert elasticsearch.scheme == "scheme"
+            assert elasticsearch.elasticsearch_url == "elasticsearch_url"
             assert elasticsearch.username == "username"
             assert elasticsearch.password == "password"
             assert not elasticsearch.cloud_id
@@ -94,8 +92,7 @@ class TestElasticSearchOutput(TestCase):
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
             assert elasticsearch.kwargs == {
-                "hosts": ["hosts"],
-                "scheme": "scheme",
+                "elasticsearch_url": "elasticsearch_url",
                 "username": "username",
                 "password": "password",
                 "dataset": "dataset",
@@ -119,8 +116,7 @@ class TestElasticSearchOutput(TestCase):
             assert elasticsearch.cloud_id == "cloud_id"
             assert elasticsearch.username == "username"
             assert elasticsearch.password == "password"
-            assert not elasticsearch.hosts
-            assert not elasticsearch.scheme
+            assert not elasticsearch.elasticsearch_url
             assert not elasticsearch.api_key
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
@@ -132,12 +128,11 @@ class TestElasticSearchOutput(TestCase):
                 "namespace": "namespace",
             }
 
-        with self.subTest("valid init with hosts and api key"):
+        with self.subTest("valid init with elasticsearch_url and api key"):
             elasticsearch = ElasticSearchOutput(
                 output_type="elasticsearch",
                 kwargs={
-                    "hosts": ["hosts"],
-                    "scheme": "scheme",
+                    "elasticsearch_url": "elasticsearch_url",
                     "api_key": "api_key",
                     "dataset": "dataset",
                     "namespace": "namespace",
@@ -146,8 +141,7 @@ class TestElasticSearchOutput(TestCase):
             )
 
             assert elasticsearch.type == "elasticsearch"
-            assert elasticsearch.hosts == ["hosts"]
-            assert elasticsearch.scheme == "scheme"
+            assert elasticsearch.elasticsearch_url == "elasticsearch_url"
             assert elasticsearch.api_key == "api_key"
             assert not elasticsearch.cloud_id
             assert not elasticsearch.username
@@ -155,8 +149,7 @@ class TestElasticSearchOutput(TestCase):
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
             assert elasticsearch.kwargs == {
-                "hosts": ["hosts"],
-                "scheme": "scheme",
+                "elasticsearch_url": "elasticsearch_url",
                 "api_key": "api_key",
                 "dataset": "dataset",
                 "namespace": "namespace",
@@ -177,8 +170,7 @@ class TestElasticSearchOutput(TestCase):
             assert elasticsearch.type == "elasticsearch"
             assert elasticsearch.cloud_id == "cloud_id"
             assert elasticsearch.api_key == "api_key"
-            assert not elasticsearch.hosts
-            assert not elasticsearch.scheme
+            assert not elasticsearch.elasticsearch_url
             assert not elasticsearch.username
             assert not elasticsearch.password
             assert elasticsearch.dataset == "dataset"
@@ -194,15 +186,18 @@ class TestElasticSearchOutput(TestCase):
             with self.assertRaisesRegex(ValueError, "output_type for ElasticSearchOutput must be elasticsearch"):
                 ElasticSearchOutput(output_type="type", kwargs={})
 
-        with self.subTest("neither hosts or cloud_id"):
-            with self.assertRaisesRegex(ValueError, "Elasticsearch Output hosts or cloud_id must be set"):
+        with self.subTest("neither elasticsearch_url or cloud_id"):
+            with self.assertRaisesRegex(ValueError, "Elasticsearch Output elasticsearch_url or cloud_id must be set"):
                 ElasticSearchOutput(output_type="elasticsearch", kwargs={})
 
-        with self.subTest("both hosts and cloud_id"):
+        with self.subTest("both elasticsearch_url and cloud_id"):
             with self.assertRaisesRegex(
-                ValueError, "Elasticsearch Output only one between hosts and scheme or cloud_id must be set"
+                ValueError, "Elasticsearch Output only one between elasticsearch_url or cloud_id must be set"
             ):
-                ElasticSearchOutput(output_type="elasticsearch", kwargs={"hosts": ["hosts"], "cloud_id": "cloud_id"})
+                ElasticSearchOutput(
+                    output_type="elasticsearch",
+                    kwargs={"elasticsearch_url": "elasticsearch_url", "cloud_id": "cloud_id"},
+                )
 
         with self.subTest("no username or api_key"):
             with self.assertRaisesRegex(
@@ -211,8 +206,7 @@ class TestElasticSearchOutput(TestCase):
                 ElasticSearchOutput(
                     output_type="elasticsearch",
                     kwargs={
-                        "hosts": ["hosts"],
-                        "scheme": "scheme",
+                        "elasticsearch_url": "elasticsearch_url",
                         "dataset": "dataset",
                         "namespace": "namespace",
                     },
@@ -225,8 +219,7 @@ class TestElasticSearchOutput(TestCase):
                 ElasticSearchOutput(
                     output_type="elasticsearch",
                     kwargs={
-                        "hosts": ["hosts"],
-                        "scheme": "scheme",
+                        "elasticsearch_url": "elasticsearch_url",
                         "username": "username",
                         "api_key": "api_key",
                         "dataset": "dataset",
@@ -239,8 +232,7 @@ class TestElasticSearchOutput(TestCase):
                 ElasticSearchOutput(
                     output_type="elasticsearch",
                     kwargs={
-                        "hosts": ["hosts"],
-                        "scheme": "scheme",
+                        "elasticsearch_url": "elasticsearch_url",
                         "username": "username",
                         "password": "",
                         "dataset": "dataset",
@@ -253,8 +245,7 @@ class TestElasticSearchOutput(TestCase):
                 ElasticSearchOutput(
                     output_type="elasticsearch",
                     kwargs={
-                        "hosts": ["hosts"],
-                        "scheme": "scheme",
+                        "elasticsearch_url": "elasticsearch_url",
                         "username": "username",
                         "password": "password",
                         "dataset": "",
@@ -267,8 +258,7 @@ class TestElasticSearchOutput(TestCase):
                 ElasticSearchOutput(
                     output_type="elasticsearch",
                     kwargs={
-                        "hosts": ["hosts"],
-                        "scheme": "scheme",
+                        "elasticsearch_url": "elasticsearch_url",
                         "username": "username",
                         "password": "password",
                         "dataset": "dataset",
@@ -276,41 +266,14 @@ class TestElasticSearchOutput(TestCase):
                     },
                 )
 
-        with self.subTest("empty scheme"):
-            with self.assertRaisesRegex(ValueError, "Elasticsearch Output scheme must be set when using hosts"):
+        with self.subTest("elasticsearch_url not str"):
+            with self.assertRaisesRegex(
+                ValueError, re.escape("Elasticsearch Output elasticsearch_url must be of type str")
+            ):
                 ElasticSearchOutput(
                     output_type="elasticsearch",
                     kwargs={
-                        "hosts": ["hosts"],
-                        "scheme": "",
-                        "username": "username",
-                        "password": "password",
-                        "dataset": "dataset",
-                        "namespace": "namespace",
-                    },
-                )
-
-        with self.subTest("hosts not list"):
-            with self.assertRaisesRegex(ValueError, re.escape("Elasticsearch Output hosts must be of type list[str]")):
-                ElasticSearchOutput(
-                    output_type="elasticsearch",
-                    kwargs={
-                        "hosts": "",
-                        "scheme": "scheme",
-                        "username": "username",
-                        "password": "password",
-                        "dataset": "dataset",
-                        "namespace": "namespace",
-                    },
-                )
-
-        with self.subTest("scheme not str"):
-            with self.assertRaisesRegex(ValueError, "Elasticsearch Output scheme must be of type str"):
-                ElasticSearchOutput(
-                    output_type="elasticsearch",
-                    kwargs={
-                        "hosts": ["hosts"],
-                        "scheme": 0,
+                        "elasticsearch_url": 0,
                         "username": "username",
                         "password": "password",
                         "dataset": "dataset",
@@ -323,8 +286,7 @@ class TestElasticSearchOutput(TestCase):
                 ElasticSearchOutput(
                     output_type="elasticsearch",
                     kwargs={
-                        "hosts": ["hosts"],
-                        "scheme": "scheme",
+                        "elasticsearch_url": "",
                         "username": 0,
                         "password": "password",
                         "dataset": "dataset",
@@ -337,8 +299,7 @@ class TestElasticSearchOutput(TestCase):
                 ElasticSearchOutput(
                     output_type="elasticsearch",
                     kwargs={
-                        "hosts": ["hosts"],
-                        "scheme": "scheme",
+                        "elasticsearch_url": "",
                         "username": "username",
                         "password": 0,
                         "dataset": "dataset",
@@ -376,8 +337,7 @@ class TestElasticSearchOutput(TestCase):
                 ElasticSearchOutput(
                     output_type="elasticsearch",
                     kwargs={
-                        "hosts": ["hosts"],
-                        "scheme": "scheme",
+                        "elasticsearch_url": "",
                         "username": "username",
                         "password": "password",
                         "dataset": 0,
@@ -390,8 +350,7 @@ class TestElasticSearchOutput(TestCase):
                 ElasticSearchOutput(
                     output_type="elasticsearch",
                     kwargs={
-                        "hosts": ["hosts"],
-                        "scheme": "scheme",
+                        "elasticsearch_url": "",
                         "username": "username",
                         "password": "password",
                         "dataset": "dataset",
@@ -404,8 +363,7 @@ class TestElasticSearchOutput(TestCase):
             elasticsearch = ElasticSearchOutput(
                 output_type="elasticsearch",
                 kwargs={
-                    "hosts": ["hosts"],
-                    "scheme": "scheme",
+                    "elasticsearch_url": "elasticsearch_url",
                     "username": "username",
                     "password": "password",
                     "dataset": "dataset",
@@ -414,9 +372,8 @@ class TestElasticSearchOutput(TestCase):
                 },
             )
 
-            elasticsearch.scheme = ""
             assert elasticsearch.kwargs == {
-                "hosts": ["hosts"],
+                "elasticsearch_url": "elasticsearch_url",
                 "username": "username",
                 "password": "password",
                 "dataset": "dataset",
@@ -457,8 +414,7 @@ class TestInput(TestCase):
             input_sqs.add_output(
                 output_type="elasticsearch",
                 output_kwargs={
-                    "hosts": ["hosts"],
-                    "scheme": "scheme",
+                    "elasticsearch_url": "elasticsearch_url",
                     "username": "username",
                     "password": "password",
                     "dataset": "dataset",
@@ -474,8 +430,7 @@ class TestInput(TestCase):
             input_sqs.add_output(
                 output_type="elasticsearch",
                 output_kwargs={
-                    "hosts": ["hosts"],
-                    "scheme": "scheme",
+                    "elasticsearch_url": "elasticsearch_url",
                     "username": "username",
                     "password": "password",
                     "dataset": "dataset",
@@ -505,8 +460,7 @@ class TestInput(TestCase):
             input_sqs.add_output(
                 output_type="elasticsearch",
                 output_kwargs={
-                    "hosts": ["hosts"],
-                    "scheme": "scheme",
+                    "elasticsearch_url": "elasticsearch_url",
                     "username": "username",
                     "password": "password",
                     "dataset": "dataset",
@@ -518,8 +472,7 @@ class TestInput(TestCase):
                 input_sqs.add_output(
                     output_type="elasticsearch",
                     output_kwargs={
-                        "hosts": ["hosts"],
-                        "scheme": "scheme",
+                        "elasticsearch_url": "elasticsearch_url",
                         "username": "username",
                         "password": "password",
                         "dataset": "dataset",
@@ -537,8 +490,7 @@ class TestInput(TestCase):
             input_sqs.add_output(
                 output_type="elasticsearch",
                 output_kwargs={
-                    "hosts": ["hosts"],
-                    "scheme": "scheme",
+                    "elasticsearch_url": "elasticsearch_url",
                     "username": "username",
                     "password": "password",
                     "dataset": "dataset",
@@ -554,8 +506,7 @@ class TestInput(TestCase):
             input_sqs.add_output(
                 output_type="elasticsearch",
                 output_kwargs={
-                    "hosts": ["hosts"],
-                    "scheme": "scheme",
+                    "elasticsearch_url": "elasticsearch_url",
                     "username": "username",
                     "password": "password",
                     "dataset": "dataset",
@@ -757,7 +708,7 @@ class TestParseConfig(TestCase):
             """
                 )
 
-            with self.assertRaisesRegex(ValueError, "Elasticsearch Output hosts or cloud_id must be set"):
+            with self.assertRaisesRegex(ValueError, "Elasticsearch Output elasticsearch_url or cloud_id must be set"):
                 parse_config(
                     config_yaml="""
             inputs:
@@ -769,7 +720,7 @@ class TestParseConfig(TestCase):
             """
                 )
 
-        with self.subTest("valid input valid elasticsearch output with hosts and http auth"):
+        with self.subTest("valid input valid elasticsearch output with elasticsearch_url and http auth"):
             config = parse_config(
                 config_yaml="""
             inputs:
@@ -778,9 +729,7 @@ class TestParseConfig(TestCase):
                 outputs:
                   - type: elasticsearch
                     args:
-                      hosts:
-                        - "hosts"
-                      scheme: "scheme"
+                      elasticsearch_url: "elasticsearch_url"
                       username: "username"
                       password: "password"
                       dataset: "dataset"
@@ -798,14 +747,13 @@ class TestParseConfig(TestCase):
             assert elasticsearch is not None
             assert isinstance(elasticsearch, ElasticSearchOutput)
             assert elasticsearch.type == "elasticsearch"
-            assert elasticsearch.hosts == ["hosts"]
-            assert elasticsearch.scheme == "scheme"
+            assert elasticsearch.elasticsearch_url == "elasticsearch_url"
             assert elasticsearch.username == "username"
             assert elasticsearch.password == "password"
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
 
-        with self.subTest("valid input valid elasticsearch output with hosts and api key"):
+        with self.subTest("valid input valid elasticsearch output with elasticsearch_url and api key"):
             config = parse_config(
                 config_yaml="""
             inputs:
@@ -814,9 +762,7 @@ class TestParseConfig(TestCase):
                 outputs:
                   - type: elasticsearch
                     args:
-                      hosts:
-                        - "hosts"
-                      scheme: "scheme"
+                      elasticsearch_url: "elasticsearch_url"
                       api_key: "api_key"
                       dataset: "dataset"
                       namespace: "namespace"
@@ -833,8 +779,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch is not None
             assert isinstance(elasticsearch, ElasticSearchOutput)
             assert elasticsearch.type == "elasticsearch"
-            assert elasticsearch.hosts == ["hosts"]
-            assert elasticsearch.scheme == "scheme"
+            assert elasticsearch.elasticsearch_url == "elasticsearch_url"
             assert elasticsearch.api_key == "api_key"
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
@@ -872,7 +817,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
 
-        with self.subTest("valid input valid elasticsearch output cloud_id hosts and api key"):
+        with self.subTest("valid input valid elasticsearch output cloud_id and api key"):
             config = parse_config(
                 config_yaml="""
             inputs:
@@ -882,7 +827,6 @@ class TestParseConfig(TestCase):
                   - type: elasticsearch
                     args:
                       cloud_id: "cloud_id"
-                      scheme: "scheme"
                       api_key: "api_key"
                       dataset: "dataset"
                       namespace: "namespace"

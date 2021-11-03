@@ -41,11 +41,10 @@ class Output(metaclass=ABCMeta):
 
 
 class ElasticSearchOutput(Output):
-    _kwargs = ["hosts", "scheme", "username", "password", "cloud_id", "api_key", "dataset", "namespace"]
+    _kwargs = ["elasticsearch_url", "cloud_id", "username", "password", "api_key", "dataset", "namespace"]
 
     def __init__(self, output_type: str, kwargs: dict[str, Any]):
-        self._hosts: list[str] = []
-        self._scheme: str = ""
+        self._elasticsearch_url: str = ""
         self._username: str = ""
         self._password: str = ""
         self._cloud_id: str = ""
@@ -75,14 +74,11 @@ class ElasticSearchOutput(Output):
             if x in self._kwargs:
                 self.__setattr__(x, value[x])
 
-        if not self.cloud_id and not self.hosts:
-            raise ValueError("Elasticsearch Output hosts or cloud_id must be set")
+        if not self.cloud_id and not self.elasticsearch_url:
+            raise ValueError("Elasticsearch Output elasticsearch_url or cloud_id must be set")
 
-        if self.cloud_id and self.hosts:
-            raise ValueError("Elasticsearch Output only one between hosts and scheme or cloud_id must be set")
-
-        if self.hosts and not self.scheme:
-            raise ValueError("Elasticsearch Output scheme must be set when using hosts")
+        if self.cloud_id and self.elasticsearch_url:
+            raise ValueError("Elasticsearch Output only one between elasticsearch_url or cloud_id must be set")
 
         if not self.username and not self.api_key:
             raise ValueError("Elasticsearch Output username and password or api_key must be set")
@@ -100,26 +96,15 @@ class ElasticSearchOutput(Output):
             raise ValueError("Empty param namespace provided for Elasticsearch Output")
 
     @property
-    def hosts(self) -> list[str]:
-        return self._hosts
+    def elasticsearch_url(self) -> str:
+        return self._elasticsearch_url
 
-    @hosts.setter
-    def hosts(self, value: list[str]) -> None:
-        if not isinstance(value, list):
-            raise ValueError("Elasticsearch Output hosts must be of type list[str]")
-
-        self._hosts = value
-
-    @property
-    def scheme(self) -> str:
-        return self._scheme
-
-    @scheme.setter
-    def scheme(self, value: str) -> None:
+    @elasticsearch_url.setter
+    def elasticsearch_url(self, value: str) -> None:
         if not isinstance(value, str):
-            raise ValueError("Elasticsearch Output scheme must be of type str")
+            raise ValueError("Elasticsearch Output elasticsearch_url must be of type str")
 
-        self._scheme = value
+        self._elasticsearch_url = value
 
     @property
     def username(self) -> str:

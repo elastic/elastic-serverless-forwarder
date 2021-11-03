@@ -23,8 +23,7 @@ class ShipperFactory:
             elasticsearch_output = ElasticSearchOutput(output.type, output.kwargs)
             return ShipperFactory.create(
                 output="elasticsearch",
-                hosts=elasticsearch_output.hosts,
-                scheme=elasticsearch_output.scheme,
+                elasticsearch_url=elasticsearch_output.elasticsearch_url,
                 username=elasticsearch_output.username,
                 password=elasticsearch_output.password,
                 cloud_id=elasticsearch_output.cloud_id,

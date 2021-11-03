@@ -17,8 +17,7 @@ class ElasticsearchShipper(CommonShipper):
 
     def __init__(
         self,
-        hosts: list[str] = [],
-        scheme: str = "",
+        elasticsearch_url: str = "",
         username: str = "",
         password: str = "",
         cloud_id: str = "",
@@ -30,13 +29,12 @@ class ElasticsearchShipper(CommonShipper):
         self._bulk_actions: list[dict[str, Any]] = []
 
         es_client_kwargs: dict[str, Any] = {}
-        if hosts:
-            es_client_kwargs["hosts"] = hosts
-            es_client_kwargs["scheme"] = scheme
+        if elasticsearch_url:
+            es_client_kwargs["hosts"] = [elasticsearch_url]
         elif cloud_id:
             es_client_kwargs["cloud_id"] = cloud_id
         else:
-            raise ValueError("You must provide one between hosts and scheme or cloud_id")
+            raise ValueError("You must provide one between elasticsearch_url or cloud_id")
 
         if username:
             es_client_kwargs["http_auth"] = (username, password)
