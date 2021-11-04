@@ -204,16 +204,16 @@ class TestElasticSearchOutput(TestCase):
             )
 
             assert elasticsearch.type == "elasticsearch"
-            assert elasticsearch.cloud_id == "cloud_id"
+            assert elasticsearch.elasticsearch_url == "elasticsearch_url"
             assert elasticsearch.api_key == "api_key"
-            assert not elasticsearch.elasticsearch_url
+            assert not elasticsearch.cloud_id
             assert not elasticsearch.username
             assert not elasticsearch.password
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
             assert elasticsearch.kwargs == {
+                "elasticsearch_url": "elasticsearch_url",
                 "api_key": "api_key",
-                "cloud_id": "cloud_id",
                 "dataset": "dataset",
                 "namespace": "namespace",
             }
