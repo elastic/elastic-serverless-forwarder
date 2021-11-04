@@ -80,8 +80,8 @@ class ElasticSearchOutput(Output):
             raise ValueError("Elasticsearch Output elasticsearch_url or cloud_id must be set")
 
         if self.cloud_id and self.elasticsearch_url:
-            shared_logger.warn("both elasticsearch_url and cloud_id set in config: using cloud_id")
-            self.elasticsearch_url = ""
+            shared_logger.warn("both elasticsearch_url and cloud_id set in config: using elasticsearch_url")
+            self.cloud_id = ""
 
         if not self.username and not self.api_key:
             raise ValueError("Elasticsearch Output username and password or api_key must be set")
