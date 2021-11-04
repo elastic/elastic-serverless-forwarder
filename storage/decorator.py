@@ -29,10 +29,10 @@ def by_lines(func: GetByLinesCallable[CommonStorageType]) -> GetByLinesCallable[
             lines = unfinished_line.decode("UTF-8").splitlines()
 
             if newline_length == 0:
-                if unfinished_line.find(b"\r\n") > 0:
+                if unfinished_line.find(b"\r\n") > -1:
                     newline = b"\r\n"
                     newline_length = len(newline)
-                elif unfinished_line.find(b"\n") > 0:
+                elif unfinished_line.find(b"\n") > -1:
                     newline = b"\n"
                     newline_length = len(newline)
 
