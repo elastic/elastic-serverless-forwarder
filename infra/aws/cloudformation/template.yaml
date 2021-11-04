@@ -61,7 +61,7 @@ Metadata:
     Name: elastic-serverless-forwarder
     Description: Elastic Forwared for Serverless
     Author: elastic
-    SemanticVersion: 0.9.3
+    SemanticVersion: 0.10.0
 
 Outputs:
   ElasticServerlessForwarderFunction:

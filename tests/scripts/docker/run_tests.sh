@@ -19,4 +19,4 @@ docker run \
   /bin/bash \
   -c "pip install --user -U pip
       pip install --user -r tests/requirements/requirements.txt --cache-dir ${docker_pip_cache}
-      timeout 5m /bin/bash ./tests/scripts/run_tests.sh"
+      timeout 15m /bin/bash ./tests/scripts/run_tests.sh"

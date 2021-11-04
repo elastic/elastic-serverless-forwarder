@@ -40,7 +40,7 @@ class TestOutput(TestCase):
                 DummyOutput(output_type="type", kwargs={})
 
         with self.subTest("type not str"):
-            with self.assertRaisesRegex(ValueError, "Output type must by of type str"):
+            with self.assertRaisesRegex(ValueError, "Output type must be of type str"):
                 DummyOutput(output_type=1, kwargs={})  # type:ignore
 
         with self.subTest("kwargs rises"):
@@ -70,12 +70,11 @@ class TestOutput(TestCase):
 
 class TestElasticSearchOutput(TestCase):
     def test_init(self) -> None:
-        with self.subTest("valid init"):
+        with self.subTest("valid init with elasticsearch_url and http_auth"):
             elasticsearch = ElasticSearchOutput(
                 output_type="elasticsearch",
                 kwargs={
-                    "hosts": ["hosts"],
-                    "scheme": "scheme",
+                    "elasticsearch_url": "elasticsearch_url",
                     "username": "username",
                     "password": "password",
                     "dataset": "dataset",
@@ -85,17 +84,100 @@ class TestElasticSearchOutput(TestCase):
             )
 
             assert elasticsearch.type == "elasticsearch"
-            assert elasticsearch.hosts == ["hosts"]
-            assert elasticsearch.scheme == "scheme"
+            assert elasticsearch.elasticsearch_url == "elasticsearch_url"
             assert elasticsearch.username == "username"
             assert elasticsearch.password == "password"
+            assert not elasticsearch.cloud_id
+            assert not elasticsearch.api_key
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
             assert elasticsearch.kwargs == {
-                "hosts": ["hosts"],
-                "scheme": "scheme",
+                "elasticsearch_url": "elasticsearch_url",
                 "username": "username",
                 "password": "password",
+                "dataset": "dataset",
+                "namespace": "namespace",
+            }
+
+        with self.subTest("valid init with cloud_id and http_auth"):
+            elasticsearch = ElasticSearchOutput(
+                output_type="elasticsearch",
+                kwargs={
+                    "cloud_id": "cloud_id",
+                    "username": "username",
+                    "password": "password",
+                    "dataset": "dataset",
+                    "namespace": "namespace",
+                    "ignored": "ignored",
+                },
+            )
+
+            assert elasticsearch.type == "elasticsearch"
+            assert elasticsearch.cloud_id == "cloud_id"
+            assert elasticsearch.username == "username"
+            assert elasticsearch.password == "password"
+            assert not elasticsearch.elasticsearch_url
+            assert not elasticsearch.api_key
+            assert elasticsearch.dataset == "dataset"
+            assert elasticsearch.namespace == "namespace"
+            assert elasticsearch.kwargs == {
+                "cloud_id": "cloud_id",
+                "username": "username",
+                "password": "password",
+                "dataset": "dataset",
+                "namespace": "namespace",
+            }
+
+        with self.subTest("valid init with elasticsearch_url and api key"):
+            elasticsearch = ElasticSearchOutput(
+                output_type="elasticsearch",
+                kwargs={
+                    "elasticsearch_url": "elasticsearch_url",
+                    "api_key": "api_key",
+                    "dataset": "dataset",
+                    "namespace": "namespace",
+                    "ignored": "ignored",
+                },
+            )
+
+            assert elasticsearch.type == "elasticsearch"
+            assert elasticsearch.elasticsearch_url == "elasticsearch_url"
+            assert elasticsearch.api_key == "api_key"
+            assert not elasticsearch.cloud_id
+            assert not elasticsearch.username
+            assert not elasticsearch.password
+            assert elasticsearch.dataset == "dataset"
+            assert elasticsearch.namespace == "namespace"
+            assert elasticsearch.kwargs == {
+                "elasticsearch_url": "elasticsearch_url",
+                "api_key": "api_key",
+                "dataset": "dataset",
+                "namespace": "namespace",
+            }
+
+        with self.subTest("valid init with cloud_id and api key"):
+            elasticsearch = ElasticSearchOutput(
+                output_type="elasticsearch",
+                kwargs={
+                    "cloud_id": "cloud_id",
+                    "api_key": "api_key",
+                    "dataset": "dataset",
+                    "namespace": "namespace",
+                    "ignored": "ignored",
+                },
+            )
+
+            assert elasticsearch.type == "elasticsearch"
+            assert elasticsearch.cloud_id == "cloud_id"
+            assert elasticsearch.api_key == "api_key"
+            assert not elasticsearch.elasticsearch_url
+            assert not elasticsearch.username
+            assert not elasticsearch.password
+            assert elasticsearch.dataset == "dataset"
+            assert elasticsearch.namespace == "namespace"
+            assert elasticsearch.kwargs == {
+                "cloud_id": "cloud_id",
+                "api_key": "api_key",
                 "dataset": "dataset",
                 "namespace": "namespace",
             }
@@ -104,37 +186,86 @@ class TestElasticSearchOutput(TestCase):
             with self.assertRaisesRegex(ValueError, "output_type for ElasticSearchOutput must be elasticsearch"):
                 ElasticSearchOutput(output_type="type", kwargs={})
 
-        with self.subTest("missing kwargs"):
-            with self.assertRaisesRegex(
-                ValueError,
-                re.escape(
-                    "you must provide the following not empty init kwargs for elasticsearch: hosts, scheme, username,"
-                    + " password, dataset, namespace. (provided: {})"
-                ),
-            ):
+        with self.subTest("neither elasticsearch_url or cloud_id"):
+            with self.assertRaisesRegex(ValueError, "Elasticsearch Output elasticsearch_url or cloud_id must be set"):
                 ElasticSearchOutput(output_type="elasticsearch", kwargs={})
 
-        with self.subTest("empty username"):
-            with self.assertRaisesRegex(ValueError, "Empty param username provided for Elasticsearch Output"):
+        with self.subTest("both elasticsearch_url and cloud_id"):
+            elasticsearch = ElasticSearchOutput(
+                output_type="elasticsearch",
+                kwargs={
+                    "elasticsearch_url": "elasticsearch_url",
+                    "cloud_id": "cloud_id",
+                    "api_key": "api_key",
+                    "dataset": "dataset",
+                    "namespace": "namespace",
+                    "ignored": "ignored",
+                },
+            )
+
+            assert elasticsearch.type == "elasticsearch"
+            assert elasticsearch.cloud_id == "cloud_id"
+            assert elasticsearch.api_key == "api_key"
+            assert not elasticsearch.elasticsearch_url
+            assert not elasticsearch.username
+            assert not elasticsearch.password
+            assert elasticsearch.dataset == "dataset"
+            assert elasticsearch.namespace == "namespace"
+            assert elasticsearch.kwargs == {
+                "api_key": "api_key",
+                "cloud_id": "cloud_id",
+                "dataset": "dataset",
+                "namespace": "namespace",
+            }
+
+        with self.subTest("no username or api_key"):
+            with self.assertRaisesRegex(
+                ValueError, "Elasticsearch Output username and password or api_key must be set"
+            ):
                 ElasticSearchOutput(
                     output_type="elasticsearch",
                     kwargs={
-                        "hosts": ["hosts"],
-                        "scheme": "scheme",
-                        "username": "",
-                        "password": "password",
+                        "elasticsearch_url": "elasticsearch_url",
                         "dataset": "dataset",
                         "namespace": "namespace",
                     },
                 )
 
+        with self.subTest("both username and api_key"):
+            elasticsearch = ElasticSearchOutput(
+                output_type="elasticsearch",
+                kwargs={
+                    "cloud_id": "cloud_id",
+                    "api_key": "api_key",
+                    "username": "username",
+                    "password": "password",
+                    "dataset": "dataset",
+                    "namespace": "namespace",
+                    "ignored": "ignored",
+                },
+            )
+
+            assert elasticsearch.type == "elasticsearch"
+            assert elasticsearch.cloud_id == "cloud_id"
+            assert elasticsearch.api_key == "api_key"
+            assert not elasticsearch.elasticsearch_url
+            assert not elasticsearch.username
+            assert not elasticsearch.password
+            assert elasticsearch.dataset == "dataset"
+            assert elasticsearch.namespace == "namespace"
+            assert elasticsearch.kwargs == {
+                "cloud_id": "cloud_id",
+                "api_key": "api_key",
+                "dataset": "dataset",
+                "namespace": "namespace",
+            }
+
         with self.subTest("empty password"):
-            with self.assertRaisesRegex(ValueError, "Empty param password provided for Elasticsearch Output"):
+            with self.assertRaisesRegex(ValueError, "Elasticsearch Output password must be set when using username"):
                 ElasticSearchOutput(
                     output_type="elasticsearch",
                     kwargs={
-                        "hosts": ["hosts"],
-                        "scheme": "scheme",
+                        "elasticsearch_url": "elasticsearch_url",
                         "username": "username",
                         "password": "",
                         "dataset": "dataset",
@@ -143,82 +274,69 @@ class TestElasticSearchOutput(TestCase):
                 )
 
         with self.subTest("empty dataset"):
-            with self.assertRaisesRegex(ValueError, "Empty param dataset provided for Elasticsearch Output"):
-                ElasticSearchOutput(
-                    output_type="elasticsearch",
-                    kwargs={
-                        "hosts": ["hosts"],
-                        "scheme": "scheme",
-                        "username": "username",
-                        "password": "password",
-                        "dataset": "",
-                        "namespace": "namespace",
-                    },
-                )
+            elasticsearch = ElasticSearchOutput(
+                output_type="elasticsearch",
+                kwargs={
+                    "cloud_id": "cloud_id",
+                    "api_key": "api_key",
+                    "username": "username",
+                    "password": "password",
+                    "namespace": "namespace",
+                    "ignored": "ignored",
+                },
+            )
+
+            assert elasticsearch.type == "elasticsearch"
+            assert elasticsearch.cloud_id == "cloud_id"
+            assert elasticsearch.api_key == "api_key"
+            assert not elasticsearch.elasticsearch_url
+            assert not elasticsearch.username
+            assert not elasticsearch.password
+            assert elasticsearch.dataset == "generic"
+            assert elasticsearch.namespace == "namespace"
+            assert elasticsearch.kwargs == {
+                "cloud_id": "cloud_id",
+                "api_key": "api_key",
+                "dataset": "generic",
+                "namespace": "namespace",
+            }
 
         with self.subTest("empty namespace"):
-            with self.assertRaisesRegex(ValueError, "Empty param namespace provided for Elasticsearch Output"):
-                ElasticSearchOutput(
-                    output_type="elasticsearch",
-                    kwargs={
-                        "hosts": ["hosts"],
-                        "scheme": "scheme",
-                        "username": "username",
-                        "password": "password",
-                        "dataset": "dataset",
-                        "namespace": "",
-                    },
-                )
+            elasticsearch = ElasticSearchOutput(
+                output_type="elasticsearch",
+                kwargs={
+                    "cloud_id": "cloud_id",
+                    "api_key": "api_key",
+                    "username": "username",
+                    "password": "password",
+                    "dataset": "dataset",
+                    "ignored": "ignored",
+                },
+            )
 
-        with self.subTest("empty scheme"):
-            with self.assertRaisesRegex(ValueError, "Empty param scheme provided for Elasticsearch Output"):
-                ElasticSearchOutput(
-                    output_type="elasticsearch",
-                    kwargs={
-                        "hosts": ["hosts"],
-                        "scheme": "",
-                        "username": "username",
-                        "password": "password",
-                        "dataset": "dataset",
-                        "namespace": "namespace",
-                    },
-                )
+            assert elasticsearch.type == "elasticsearch"
+            assert elasticsearch.cloud_id == "cloud_id"
+            assert elasticsearch.api_key == "api_key"
+            assert not elasticsearch.elasticsearch_url
+            assert not elasticsearch.username
+            assert not elasticsearch.password
+            assert elasticsearch.dataset == "dataset"
+            assert elasticsearch.namespace == "default"
+            assert elasticsearch.kwargs == {
+                "cloud_id": "cloud_id",
+                "api_key": "api_key",
+                "dataset": "dataset",
+                "namespace": "default",
+            }
 
-        with self.subTest("empty host"):
-            with self.assertRaisesRegex(ValueError, "Empty param hosts provided for Elasticsearch Output"):
+        with self.subTest("elasticsearch_url not str"):
+            with self.assertRaisesRegex(
+                ValueError, re.escape("Elasticsearch Output elasticsearch_url must be of type str")
+            ):
                 ElasticSearchOutput(
                     output_type="elasticsearch",
                     kwargs={
-                        "hosts": [],
-                        "scheme": "scheme",
-                        "username": "username",
-                        "password": "password",
-                        "dataset": "dataset",
-                        "namespace": "namespace",
-                    },
-                )
-
-        with self.subTest("hosts not list"):
-            with self.assertRaisesRegex(ValueError, re.escape("Elasticsearch Output hosts must by of type list[str]")):
-                ElasticSearchOutput(
-                    output_type="elasticsearch",
-                    kwargs={
-                        "hosts": "",
-                        "scheme": "scheme",
-                        "username": "username",
-                        "password": "password",
-                        "dataset": "dataset",
-                        "namespace": "namespace",
-                    },
-                )
-
-        with self.subTest("scheme not str"):
-            with self.assertRaisesRegex(ValueError, "Elasticsearch Output scheme must by of type str"):
-                ElasticSearchOutput(
-                    output_type="elasticsearch",
-                    kwargs={
-                        "hosts": ["hosts"],
-                        "scheme": 0,
+                        "elasticsearch_url": 0,
                         "username": "username",
                         "password": "password",
                         "dataset": "dataset",
@@ -227,12 +345,11 @@ class TestElasticSearchOutput(TestCase):
                 )
 
         with self.subTest("username not str"):
-            with self.assertRaisesRegex(ValueError, "Elasticsearch Output username must by of type str"):
+            with self.assertRaisesRegex(ValueError, "Elasticsearch Output username must be of type str"):
                 ElasticSearchOutput(
                     output_type="elasticsearch",
                     kwargs={
-                        "hosts": ["hosts"],
-                        "scheme": "scheme",
+                        "elasticsearch_url": "",
                         "username": 0,
                         "password": "password",
                         "dataset": "dataset",
@@ -241,12 +358,11 @@ class TestElasticSearchOutput(TestCase):
                 )
 
         with self.subTest("password not str"):
-            with self.assertRaisesRegex(ValueError, "Elasticsearch Output password must by of type str"):
+            with self.assertRaisesRegex(ValueError, "Elasticsearch Output password must be of type str"):
                 ElasticSearchOutput(
                     output_type="elasticsearch",
                     kwargs={
-                        "hosts": ["hosts"],
-                        "scheme": "scheme",
+                        "elasticsearch_url": "",
                         "username": "username",
                         "password": 0,
                         "dataset": "dataset",
@@ -254,13 +370,37 @@ class TestElasticSearchOutput(TestCase):
                     },
                 )
 
-        with self.subTest("dataset not str"):
-            with self.assertRaisesRegex(ValueError, "Elasticsearch Output dataset must by of type str"):
+        with self.subTest("cloud_id not str"):
+            with self.assertRaisesRegex(ValueError, "Elasticsearch Output cloud_id must be of type str"):
                 ElasticSearchOutput(
                     output_type="elasticsearch",
                     kwargs={
-                        "hosts": ["hosts"],
-                        "scheme": "scheme",
+                        "cloud_id": 0,
+                        "username": "username",
+                        "password": "password",
+                        "dataset": "dataset",
+                        "namespace": "namespace",
+                    },
+                )
+
+        with self.subTest("api_key not str"):
+            with self.assertRaisesRegex(ValueError, "Elasticsearch Output api_key must be of type str"):
+                ElasticSearchOutput(
+                    output_type="elasticsearch",
+                    kwargs={
+                        "cloud_id": "cloud_id",
+                        "api_key": 0,
+                        "dataset": "dataset",
+                        "namespace": "namespace",
+                    },
+                )
+
+        with self.subTest("dataset not str"):
+            with self.assertRaisesRegex(ValueError, "Elasticsearch Output dataset must be of type str"):
+                ElasticSearchOutput(
+                    output_type="elasticsearch",
+                    kwargs={
+                        "elasticsearch_url": "",
                         "username": "username",
                         "password": "password",
                         "dataset": 0,
@@ -269,12 +409,11 @@ class TestElasticSearchOutput(TestCase):
                 )
 
         with self.subTest("namespace not str"):
-            with self.assertRaisesRegex(ValueError, "Elasticsearch Output namespace must by of type str"):
+            with self.assertRaisesRegex(ValueError, "Elasticsearch Output namespace must be of type str"):
                 ElasticSearchOutput(
                     output_type="elasticsearch",
                     kwargs={
-                        "hosts": ["hosts"],
-                        "scheme": "scheme",
+                        "elasticsearch_url": "",
                         "username": "username",
                         "password": "password",
                         "dataset": "dataset",
@@ -287,8 +426,7 @@ class TestElasticSearchOutput(TestCase):
             elasticsearch = ElasticSearchOutput(
                 output_type="elasticsearch",
                 kwargs={
-                    "hosts": ["hosts"],
-                    "scheme": "scheme",
+                    "elasticsearch_url": "elasticsearch_url",
                     "username": "username",
                     "password": "password",
                     "dataset": "dataset",
@@ -297,9 +435,8 @@ class TestElasticSearchOutput(TestCase):
                 },
             )
 
-            elasticsearch.scheme = ""
             assert elasticsearch.kwargs == {
-                "hosts": ["hosts"],
+                "elasticsearch_url": "elasticsearch_url",
                 "username": "username",
                 "password": "password",
                 "dataset": "dataset",
@@ -319,15 +456,15 @@ class TestInput(TestCase):
                 Input(input_type="type", input_id="id")
 
         with self.subTest("type not str"):
-            with self.assertRaisesRegex(ValueError, "Input type must by of type str"):
+            with self.assertRaisesRegex(ValueError, "Input type must be of type str"):
                 Input(input_type=0, input_id="id")  # type:ignore
 
         with self.subTest("id not str"):
-            with self.assertRaisesRegex(ValueError, "Input id must by of type str"):
+            with self.assertRaisesRegex(ValueError, "Input id must be of type str"):
                 Input(input_type="sqs", input_id=0)  # type:ignore
 
         with self.subTest("id not str"):
-            with self.assertRaisesRegex(ValueError, "Input id must by of type str"):
+            with self.assertRaisesRegex(ValueError, "Input id must be of type str"):
                 Input(input_type="sqs", input_id=0)  # type:ignore
 
     def test_get_output_by_type(self) -> None:
@@ -340,8 +477,7 @@ class TestInput(TestCase):
             input_sqs.add_output(
                 output_type="elasticsearch",
                 output_kwargs={
-                    "hosts": ["hosts"],
-                    "scheme": "scheme",
+                    "elasticsearch_url": "elasticsearch_url",
                     "username": "username",
                     "password": "password",
                     "dataset": "dataset",
@@ -357,8 +493,7 @@ class TestInput(TestCase):
             input_sqs.add_output(
                 output_type="elasticsearch",
                 output_kwargs={
-                    "hosts": ["hosts"],
-                    "scheme": "scheme",
+                    "elasticsearch_url": "elasticsearch_url",
                     "username": "username",
                     "password": "password",
                     "dataset": "dataset",
@@ -375,12 +510,12 @@ class TestInput(TestCase):
 
         with self.subTest("type is not str"):
             input_sqs = Input(input_type="sqs", input_id="id")
-            with self.assertRaisesRegex(ValueError, "Output type must by of type str"):
+            with self.assertRaisesRegex(ValueError, "Output type must be of type str"):
                 input_sqs.add_output(output_type=0, output_kwargs={})  # type:ignore
 
         with self.subTest("kwargs is not dict"):
             input_sqs = Input(input_type="sqs", input_id="id")
-            with self.assertRaisesRegex(ValueError, re.escape("Output arguments must by of type dict[str, Any]")):
+            with self.assertRaisesRegex(ValueError, re.escape("Output arguments must be of type dict[str, Any]")):
                 input_sqs.add_output(output_type="sqs", output_kwargs="")  # type:ignore
 
         with self.subTest("type is duplicated"):
@@ -388,8 +523,7 @@ class TestInput(TestCase):
             input_sqs.add_output(
                 output_type="elasticsearch",
                 output_kwargs={
-                    "hosts": ["hosts"],
-                    "scheme": "scheme",
+                    "elasticsearch_url": "elasticsearch_url",
                     "username": "username",
                     "password": "password",
                     "dataset": "dataset",
@@ -401,8 +535,7 @@ class TestInput(TestCase):
                 input_sqs.add_output(
                     output_type="elasticsearch",
                     output_kwargs={
-                        "hosts": ["hosts"],
-                        "scheme": "scheme",
+                        "elasticsearch_url": "elasticsearch_url",
                         "username": "username",
                         "password": "password",
                         "dataset": "dataset",
@@ -420,8 +553,7 @@ class TestInput(TestCase):
             input_sqs.add_output(
                 output_type="elasticsearch",
                 output_kwargs={
-                    "hosts": ["hosts"],
-                    "scheme": "scheme",
+                    "elasticsearch_url": "elasticsearch_url",
                     "username": "username",
                     "password": "password",
                     "dataset": "dataset",
@@ -437,8 +569,7 @@ class TestInput(TestCase):
             input_sqs.add_output(
                 output_type="elasticsearch",
                 output_kwargs={
-                    "hosts": ["hosts"],
-                    "scheme": "scheme",
+                    "elasticsearch_url": "elasticsearch_url",
                     "username": "username",
                     "password": "password",
                     "dataset": "dataset",
@@ -640,13 +771,7 @@ class TestParseConfig(TestCase):
             """
                 )
 
-            with self.assertRaisesRegex(
-                ValueError,
-                re.escape(
-                    "you must provide the following not empty init kwargs for elasticsearch: hosts, scheme, username,"
-                    + " password, dataset, namespace. (provided: {})"
-                ),
-            ):
+            with self.assertRaisesRegex(ValueError, "Elasticsearch Output elasticsearch_url or cloud_id must be set"):
                 parse_config(
                     config_yaml="""
             inputs:
@@ -658,7 +783,7 @@ class TestParseConfig(TestCase):
             """
                 )
 
-        with self.subTest("valid input valid elasticsearch output"):
+        with self.subTest("valid input valid elasticsearch output with elasticsearch_url and http auth"):
             config = parse_config(
                 config_yaml="""
             inputs:
@@ -667,9 +792,7 @@ class TestParseConfig(TestCase):
                 outputs:
                   - type: elasticsearch
                     args:
-                      hosts:
-                        - "hosts"
-                      scheme: "scheme"
+                      elasticsearch_url: "elasticsearch_url"
                       username: "username"
                       password: "password"
                       dataset: "dataset"
@@ -687,9 +810,103 @@ class TestParseConfig(TestCase):
             assert elasticsearch is not None
             assert isinstance(elasticsearch, ElasticSearchOutput)
             assert elasticsearch.type == "elasticsearch"
-            assert elasticsearch.hosts == ["hosts"]
-            assert elasticsearch.scheme == "scheme"
+            assert elasticsearch.elasticsearch_url == "elasticsearch_url"
             assert elasticsearch.username == "username"
             assert elasticsearch.password == "password"
+            assert elasticsearch.dataset == "dataset"
+            assert elasticsearch.namespace == "namespace"
+
+        with self.subTest("valid input valid elasticsearch output with elasticsearch_url and api key"):
+            config = parse_config(
+                config_yaml="""
+            inputs:
+              - type: sqs
+                id: id
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      elasticsearch_url: "elasticsearch_url"
+                      api_key: "api_key"
+                      dataset: "dataset"
+                      namespace: "namespace"
+            """
+            )
+
+            input_sqs = config.get_input_by_type_and_id(input_type="sqs", input_id="id")
+            assert input_sqs is not None
+            assert input_sqs.type == "sqs"
+            assert input_sqs.id == "id"
+
+            elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
+
+            assert elasticsearch is not None
+            assert isinstance(elasticsearch, ElasticSearchOutput)
+            assert elasticsearch.type == "elasticsearch"
+            assert elasticsearch.elasticsearch_url == "elasticsearch_url"
+            assert elasticsearch.api_key == "api_key"
+            assert elasticsearch.dataset == "dataset"
+            assert elasticsearch.namespace == "namespace"
+
+        with self.subTest("valid input valid elasticsearch output with cloud id and http auth"):
+            config = parse_config(
+                config_yaml="""
+            inputs:
+              - type: sqs
+                id: id
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      username: "username"
+                      password: "password"
+                      dataset: "dataset"
+                      namespace: "namespace"
+            """
+            )
+
+            input_sqs = config.get_input_by_type_and_id(input_type="sqs", input_id="id")
+            assert input_sqs is not None
+            assert input_sqs.type == "sqs"
+            assert input_sqs.id == "id"
+
+            elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
+
+            assert elasticsearch is not None
+            assert isinstance(elasticsearch, ElasticSearchOutput)
+            assert elasticsearch.type == "elasticsearch"
+            assert elasticsearch.cloud_id == "cloud_id"
+            assert elasticsearch.username == "username"
+            assert elasticsearch.password == "password"
+            assert elasticsearch.dataset == "dataset"
+            assert elasticsearch.namespace == "namespace"
+
+        with self.subTest("valid input valid elasticsearch output cloud_id and api key"):
+            config = parse_config(
+                config_yaml="""
+            inputs:
+              - type: sqs
+                id: id
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      dataset: "dataset"
+                      namespace: "namespace"
+            """
+            )
+
+            input_sqs = config.get_input_by_type_and_id(input_type="sqs", input_id="id")
+            assert input_sqs is not None
+            assert input_sqs.type == "sqs"
+            assert input_sqs.id == "id"
+
+            elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
+
+            assert elasticsearch is not None
+            assert isinstance(elasticsearch, ElasticSearchOutput)
+            assert elasticsearch.type == "elasticsearch"
+            assert elasticsearch.cloud_id == "cloud_id"
+            assert elasticsearch.api_key == "api_key"
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"

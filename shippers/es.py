@@ -15,14 +15,36 @@ from .shipper import CommonShipper
 class ElasticsearchShipper(CommonShipper):
     _bulk_batch_size: int = 10000
 
-    def __init__(self, hosts: list[str], username: str, password: str, scheme: str, dataset: str, namespace: str):
+    def __init__(
+        self,
+        elasticsearch_url: str = "",
+        username: str = "",
+        password: str = "",
+        cloud_id: str = "",
+        api_key: str = "",
+        dataset: str = "",
+        namespace: str = "",
+    ):
+
         self._bulk_actions: list[dict[str, Any]] = []
 
-        self._es_client = Elasticsearch(
-            hosts,
-            http_auth=(username, password),
-            scheme=scheme,
-        )
+        es_client_kwargs: dict[str, Any] = {}
+        if elasticsearch_url:
+            es_client_kwargs["hosts"] = [elasticsearch_url]
+        elif cloud_id:
+            es_client_kwargs["cloud_id"] = cloud_id
+        else:
+            raise ValueError("You must provide one between elasticsearch_url or cloud_id")
+
+        if username:
+            es_client_kwargs["http_auth"] = (username, password)
+
+        elif api_key:
+            es_client_kwargs["api_key"] = api_key
+        else:
+            raise ValueError("You must provide one between username and password or api_key")
+
+        self._es_client = Elasticsearch(**es_client_kwargs)
 
         self._dataset = dataset
         self._namespace = namespace

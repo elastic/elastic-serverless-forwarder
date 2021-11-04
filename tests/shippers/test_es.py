@@ -67,7 +67,11 @@ class TestElasticsearchShipper(TestCase):
     def test_send(self) -> None:
         ElasticsearchShipper._bulk_batch_size = 0
         shipper = ElasticsearchShipper(
-            hosts=[""], username="", password="", scheme="", dataset="data.set", namespace="namespace"
+            elasticsearch_url="elasticsearch_url",
+            username="username",
+            password="",
+            dataset="data.set",
+            namespace="namespace",
         )
         es_event = deepcopy(_dummy_event)
         shipper.send(es_event)
@@ -106,7 +110,11 @@ class TestElasticsearchShipper(TestCase):
     def test_flush(self) -> None:
         ElasticsearchShipper._bulk_batch_size = 2
         shipper = ElasticsearchShipper(
-            hosts=[""], username="", password="", scheme="", dataset="data.set", namespace="namespace"
+            elasticsearch_url="elasticsearch_url",
+            username="username",
+            password="",
+            dataset="data.set",
+            namespace="namespace",
         )
         es_event = deepcopy(_dummy_event)
         shipper.send(es_event)
