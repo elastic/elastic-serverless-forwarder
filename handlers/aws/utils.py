@@ -70,15 +70,15 @@ def config_yaml_from_s3() -> str:
 
 def from_s3_uri_to_bucket_name_and_object_key(s3_uri: str) -> tuple[str, str]:
     if not s3_uri.startswith("s3://"):
-        raise ValueError(f"Invalid s3 uri provided: {s3_uri}")
+        raise ValueError(f"Invalid s3 uri provided: `{s3_uri}`")
 
-    s3_uri = s3_uri.strip("s3://")
+    stripped_s3_uri = s3_uri.strip("s3://")
 
-    bucket_name_and_object_key = s3_uri.split("/", 1)
-    if len(bucket_name_and_object_key) != 2:
-        raise ValueError(f"Invalid s3 uri provided: {s3_uri}")
+    bucket_name_and_object_key = stripped_s3_uri.split("/", 1)
+    if len(bucket_name_and_object_key) < 2:
+        raise ValueError(f"Invalid s3 uri provided: `{s3_uri}`")
 
-    return bucket_name_and_object_key[0], bucket_name_and_object_key[1]
+    return bucket_name_and_object_key[0], "/".join(bucket_name_and_object_key[1:])
 
 
 def get_bucket_name_from_arn(bucket_arn: str) -> str:

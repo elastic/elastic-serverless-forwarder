@@ -17,7 +17,7 @@ from localstack.services.sqs.sqs_starter import check_sqs
 from localstack.utils import testutil
 from localstack.utils.aws import aws_stack
 
-from handlers.aws import lambda_handler
+from main_aws import handler
 
 
 class ContextMock:
@@ -29,7 +29,66 @@ class ContextMock:
         return 0
 
 
-class TestLambdaHandler(TestCase):
+class TestLambdaHandlerFailure(TestCase):
+    def test_lambda_handler_failure(self) -> None:
+        dummy_event = {
+            "Records": [
+                {
+                    "eventSource": "aws:sqs",
+                },
+            ]
+        }
+
+        with self.subTest("Invalid s3 uri"):
+            os.environ["S3_CONFIG_FILE"] = ""
+            ctx = ContextMock()
+
+            call = handler(dummy_event, ctx)  # type:ignore
+
+            assert call == "exception raised: ValueError('Invalid s3 uri provided: ``')"
+
+        with self.subTest("Invalid s3 uri no bucket and key"):
+            os.environ["S3_CONFIG_FILE"] = "s3://"
+            ctx = ContextMock()
+
+            call = handler(dummy_event, ctx)  # type:ignore
+
+            assert call == "exception raised: ValueError('Invalid s3 uri provided: `s3://`')"
+
+        with self.subTest("no Records in event"):
+            ctx = ContextMock()
+            event: dict[str, Any] = {}
+
+            call = handler(event, ctx)  # type:ignore
+
+            assert call == "exception raised: Exception('Not supported trigger')"
+
+        with self.subTest("empty Records in event"):
+            ctx = ContextMock()
+            event = {"Records": []}
+
+            call = handler(event, ctx)  # type:ignore
+
+            assert call == "exception raised: Exception('Not supported trigger')"
+
+        with self.subTest("no eventSource in Records in event"):
+            ctx = ContextMock()
+            event = {"Records": [{}]}
+
+            call = handler(event, ctx)  # type:ignore
+
+            assert call == "exception raised: Exception('Not supported trigger')"
+
+        with self.subTest("no valid eventSource in Records in event"):
+            ctx = ContextMock()
+            event = {"Records": [{"eventSource": "invalid"}]}
+
+            call = handler(event, ctx)  # type:ignore
+
+            assert call == "exception raised: Exception('Not supported trigger')"
+
+
+class TestLambdaHandlerSuccess(TestCase):
     def _event_from_sqs_message(self) -> dict[str, Any]:
         sqs_client = aws_stack.connect_to_service("sqs")
         messages = sqs_client.receive_message(
@@ -121,9 +180,8 @@ class TestLambdaHandler(TestCase):
             hosts=[f"127.0.0.1:{es_host_port}"], scheme="http", http_auth=("elastic", "password")
         )
 
-        while True:
-            if self._es_client.ping():
-                break
+        while not self._es_client.ping():
+            pass
 
         self._source_queue_info = testutil.create_sqs_queue("source-queue")
         self._continuing_queue_info = testutil.create_sqs_queue("continuing-queue")
@@ -145,7 +203,7 @@ class TestLambdaHandler(TestCase):
                 """
 
         self._upload_content_to_bucket(
-            content=config_yaml, content_type="text/plain", bucket_name="config-bucket", key_name="config.yaml"
+            content=config_yaml, content_type="text/plain", bucket_name="config-bucket", key_name="folder/config.yaml"
         )
 
         redis_log: bytes = (
@@ -158,10 +216,10 @@ class TestLambdaHandler(TestCase):
             content=gzip.compress(redis_log),
             content_type="application/x-gzip",
             bucket_name="test-bucket",
-            key_name="redis.log.gz",
+            key_name="folder/redis.log.gz",
         )
 
-        os.environ["S3_CONFIG_FILE"] = "s3://config-bucket/config.yaml"
+        os.environ["S3_CONFIG_FILE"] = "s3://config-bucket/folder/config.yaml"
         os.environ["SQS_CONTINUE_URL"] = self._continuing_queue_info["QueueUrl"]
 
     def tearDown(self) -> None:
@@ -178,10 +236,7 @@ class TestLambdaHandler(TestCase):
         self._localstack_container.remove()
 
     def test_lambda_handler(self) -> None:
-        filename: str = "redis.log.gz"
-        self._perform_test_lambda_handler(filename=filename)
-
-    def _perform_test_lambda_handler(self, filename: str) -> None:
+        filename: str = "folder/redis.log.gz"
         with mock.patch("storage.S3Storage._s3_client", aws_stack.connect_to_service("s3")):
             with mock.patch("handlers.aws.sqs_trigger._get_sqs_client", lambda: aws_stack.connect_to_service("sqs")):
                 ctx = ContextMock()
@@ -216,7 +271,7 @@ class TestLambdaHandler(TestCase):
                     ]
                 }
 
-                first_call = lambda_handler(event, ctx)  # type:ignore
+                first_call = handler(event, ctx)  # type:ignore
 
                 assert first_call == "continuing"
 
@@ -245,7 +300,7 @@ class TestLambdaHandler(TestCase):
                 }
 
                 event = self._event_from_sqs_message()
-                second_call = lambda_handler(event, ctx)  # type:ignore
+                second_call = handler(event, ctx)  # type:ignore
 
                 assert second_call == "continuing"
 
@@ -276,6 +331,6 @@ class TestLambdaHandler(TestCase):
                 }
 
                 event = self._event_from_sqs_message()
-                third_call = lambda_handler(event, ctx)  # type:ignore
+                third_call = handler(event, ctx)  # type:ignore
 
                 assert third_call == "completed"
