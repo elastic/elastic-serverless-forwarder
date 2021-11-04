@@ -193,9 +193,7 @@ class TestLambdaHandlerSuccess(TestCase):
             outputs:
               - type: "elasticsearch"
                 args:
-                  hosts:
-                    - "127.0.0.1:{es_host_port}"
-                  scheme: "http"
+                  elasticsearch_url: "http://127.0.0.1:{es_host_port}"
                   username: "elastic"
                   password: "password"
                   dataset: "redis.log"

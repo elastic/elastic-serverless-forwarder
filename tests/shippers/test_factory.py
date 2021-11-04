@@ -11,11 +11,10 @@ from shippers import CommonShipper, ElasticsearchShipper, ShipperFactory
 
 class TestShipperFactory(TestCase):
     def test_create(self) -> None:
-        with self.subTest("create elasticsearch shipper success"):
+        with self.subTest("create elasticsearch shipper success elasticsearch_url and http auth"):
             shipper: CommonShipper = ShipperFactory.create(
                 output="elasticsearch",
-                hosts=["hosts"],
-                scheme="scheme",
+                elasticsearch_url="elasticsearch_url",
                 username="username",
                 password="password",
                 dataset="dataset",
@@ -24,25 +23,58 @@ class TestShipperFactory(TestCase):
 
             assert isinstance(shipper, ElasticsearchShipper)
 
-        with self.subTest("create elasticsearch shipper error"):
-            with self.assertRaisesRegex(
-                ValueError,
-                re.escape(
-                    "you must provide the following not empty init kwargs for elasticsearch: hosts, scheme, username,"
-                    + " password, dataset, namespace. (provided: {})"
-                ),
-            ):
+        with self.subTest("create elasticsearch shipper success elasticsearch_url and api key"):
+            shipper = ShipperFactory.create(
+                output="elasticsearch",
+                elasticsearch_url="elasticsearch_url",
+                api_key="api_key",
+                dataset="dataset",
+                namespace="namespace",
+            )
+
+            assert isinstance(shipper, ElasticsearchShipper)
+
+        with self.subTest("create elasticsearch shipper success cloud id and http auth"):
+            shipper = ShipperFactory.create(
+                output="elasticsearch",
+                cloud_id="cloud_id:bG9jYWxob3N0OjkyMDAkMA==",
+                username="username",
+                password="password",
+                dataset="dataset",
+                namespace="namespace",
+            )
+
+            assert isinstance(shipper, ElasticsearchShipper)
+
+        with self.subTest("create elasticsearch shipper success cloud id and api key"):
+            shipper = ShipperFactory.create(
+                output="elasticsearch",
+                cloud_id="cloud_id:bG9jYWxob3N0OjkyMDAkMA==",
+                api_key="api_key",
+                dataset="dataset",
+                namespace="namespace",
+            )
+
+            assert isinstance(shipper, ElasticsearchShipper)
+        with self.subTest("create elasticsearch shipper no kwargs error"):
+            with self.assertRaisesRegex(ValueError, "You must provide one between elasticsearch_url or cloud_id"):
                 ShipperFactory.create(output="elasticsearch")
 
-        with self.subTest("create elasticsearch shipper empty kwargs"):
-            with self.assertRaisesRegex(
-                ValueError,
-                re.escape(
-                    "you must provide the following not empty init kwargs for elasticsearch: hosts, scheme, username,"
-                    + ' password, dataset, namespace. (provided: {"hosts": []})'
-                ),
-            ):
-                ShipperFactory.create(output="elasticsearch", hosts=[])
+        with self.subTest("create elasticsearch shipper empty elasticsearch_url and no cloud_id"):
+            with self.assertRaisesRegex(ValueError, "You must provide one between elasticsearch_url or cloud_id"):
+                ShipperFactory.create(output="elasticsearch", elasticsearch_url="")
+
+        with self.subTest("create elasticsearch shipper empty cloud_id and no elasticsearch_url"):
+            with self.assertRaisesRegex(ValueError, "You must provide one between elasticsearch_url or cloud_id"):
+                ShipperFactory.create(output="elasticsearch", cloud_id="")
+
+        with self.subTest("create elasticsearch shipper empty username and no api_key"):
+            with self.assertRaisesRegex(ValueError, "You must provide one between username and password or api_key"):
+                ShipperFactory.create(output="elasticsearch", elasticsearch_url="elasticsearch_url", username="")
+
+        with self.subTest("create elasticsearch shipper empty api_key and no username"):
+            with self.assertRaisesRegex(ValueError, "You must provide one between username and password or api_key"):
+                ShipperFactory.create(output="elasticsearch", elasticsearch_url="elasticsearch_url", api_key="")
 
         with self.subTest("create invalid type"):
             with self.assertRaisesRegex(
@@ -54,8 +86,7 @@ class TestShipperFactory(TestCase):
         elasticsearch_output = ElasticSearchOutput(
             output_type="elasticsearch",
             kwargs={
-                "hosts": ["hosts"],
-                "scheme": "scheme",
+                "elasticsearch_url": "elasticsearch_url",
                 "username": "username",
                 "password": "password",
                 "dataset": "dataset",
