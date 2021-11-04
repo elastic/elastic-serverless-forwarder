@@ -75,7 +75,11 @@ class TestLambdaHandler(TestCase):
         while len(self._localstack_container.ports) == 0:
             self._localstack_container = docker_client.containers.get(self._localstack_container.id)
 
+        self._TEST_S3_URL = os.environ["TEST_S3_URL"]
+        self._TEST_SQS_URL = os.environ["TEST_SQS_URL"]
+
         localstack_port: str = self._localstack_container.ports["4566/tcp"][0]["HostPort"]
+
         os.environ["TEST_S3_URL"] = f"http://localhost:{localstack_port}"
         os.environ["TEST_SQS_URL"] = f"http://localhost:{localstack_port}"
 
@@ -113,11 +117,11 @@ class TestLambdaHandler(TestCase):
 
         es_host_port: str = self._elastic_container.ports["9200/tcp"][0]["HostPort"]
 
-        while True:
-            self._es_client = Elasticsearch(
-                hosts=[f"127.0.0.1:{es_host_port}"], scheme="http", http_auth=("elastic", "password")
-            )
+        self._es_client = Elasticsearch(
+            hosts=[f"127.0.0.1:{es_host_port}"], scheme="http", http_auth=("elastic", "password")
+        )
 
+        while True:
             if self._es_client.ping():
                 break
 
@@ -161,8 +165,11 @@ class TestLambdaHandler(TestCase):
         os.environ["SQS_CONTINUE_URL"] = self._continuing_queue_info["QueueUrl"]
 
     def tearDown(self) -> None:
-        del os.environ["TEST_S3_URL"]
-        del os.environ["TEST_SQS_URL"]
+        os.environ["TEST_S3_URL"] = self._TEST_S3_URL
+        os.environ["TEST_SQS_URL"] = self._TEST_SQS_URL
+
+        del os.environ["S3_CONFIG_FILE"]
+        del os.environ["SQS_CONTINUE_URL"]
 
         self._elastic_container.stop()
         self._elastic_container.remove()
