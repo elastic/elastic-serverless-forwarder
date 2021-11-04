@@ -21,7 +21,7 @@ docker_pip_cache="/tmp/cache/pip"
 
 cd tests
 
-docker build --build-arg PYTHON_IMAGE=python:3.9 -t python-linters .
+docker build --build-arg UID=$UID --build-arg PYTHON_IMAGE=python:3.9 -t python-linters .
 docker run \
   -e LOCAL_USER_ID=$UID \
   -e PIP_CACHE=${docker_pip_cache} \
@@ -32,4 +32,4 @@ docker run \
   /bin/bash \
   -c "pip install --user -U pip
       pip install --user -r tests/requirements/lint-isort.txt --cache-dir ${docker_pip_cache}
-      /home/user/.local/bin/isort ${OPTIONS} ."
+      \${HOME}/.local/bin/isort ${OPTIONS} ."

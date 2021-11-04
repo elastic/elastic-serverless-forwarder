@@ -29,7 +29,7 @@ Resources:
         Bucket: %codeURIBucket%
         Key: lambda.zip
       Runtime: python3.9
-      Handler: handler.lambda_handler
+      Handler: main_aws.handler
       Environment:
           Variables:
               SQS_CONTINUE_URL: !Ref ElasticServerlessForwarderContinuingQueue
@@ -61,7 +61,7 @@ Metadata:
     Name: elastic-serverless-forwarder
     Description: Elastic Forwared for Serverless
     Author: elastic
-    SemanticVersion: 0.10.0
+    SemanticVersion: 0.11.1
 
 Outputs:
   ElasticServerlessForwarderFunction:

@@ -4,7 +4,3 @@ boto3>=1.18,<1.19
 elasticsearch>=7.0,<8.0
 PyYAML>=6.0,<6.1
 aws_lambda_typing>=2,<2.1
-mock>=4.0,<4.1
-pytest>=6.2,<6.3
-pytest-cov>=3.0,<3.1
-coverage==6.0.2

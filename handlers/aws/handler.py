@@ -7,17 +7,17 @@ from typing import Any, Optional
 
 import elasticapm  # noqa: F401
 from aws_lambda_typing import context as context_
-from elasticapm.contrib.serverless.aws import capture_serverless  # noqa: F401
-from sqs_trigger import _handle_sqs_continuation, _handle_sqs_event
-from utils import config_yaml_from_payload, config_yaml_from_s3, get_trigger_type, wrap_try_except
 
 from share import Config, Output, parse_config, shared_logger
 from shippers import CommonShipper, CompositeShipper, ShipperFactory
 
+from .sqs_trigger import _handle_sqs_continuation, _handle_sqs_event
+from .utils import capture_serverless, config_yaml_from_payload, config_yaml_from_s3, get_trigger_type, wrap_try_except
+
 _completion_grace_period: int = 60000
 
 
-@capture_serverless()  # type: ignore
+@capture_serverless
 @wrap_try_except
 def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Context) -> str:
     trigger_type: str = get_trigger_type(lambda_event)
