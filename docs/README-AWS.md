@@ -42,11 +42,13 @@ inputs:
     outputs:
       - type: "elasticsearch"
         args:
+          # either elasticsearch_url or cloud_id, elasticsearch_url takes precedence
           elasticsearch_url: "http(s)://domain.tld:port"
           cloud_id: "cloud_id:bG9jYWxob3N0OjkyMDAkMA=="
+          # either api_key or username/password, apy_key takes precedence
+          api_key: "YXBpX2tleV9pZDphcGlfa2V5X3NlY3JldAo="
           username: "username"
           password: "password"
-          api_key: "YXBpX2tleV9pZDphcGlfa2V5X3NlY3JldAo="
           dataset: "aws.vpcflow"
           namespace: "default"
 ```
