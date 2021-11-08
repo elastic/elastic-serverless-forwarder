@@ -49,7 +49,7 @@ inputs:
           api_key: "YXBpX2tleV9pZDphcGlfa2V5X3NlY3JldAo="
           username: "username"
           password: "password"
-          dataset: "aws.vpcflow"
+          dataset: "generic"
           namespace: "default"
 ```
 
