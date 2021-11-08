@@ -42,7 +42,7 @@ inputs:
     outputs:
       - type: "elasticsearch"
         args:
-          elasticsearch_url: "sar.es.eastus2.staging.azure.foundit.no:9243"
+          elasticsearch_url: "http(s)://domain.tld:port"
           cloud_id: "cloud_id:bG9jYWxob3N0OjkyMDAkMA=="
           username: "username"
           password: "password"
