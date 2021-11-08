@@ -21,6 +21,10 @@ pushd "${TMPDIR}/packages"
 zip -r "${TMPDIR}/lambda.zip" .
 
 popd
+
+cp LICENSE.txt "${TMPDIR}/LICENSE.txt"
+cp docs/README-AWS.md "${TMPDIR}/README.md"
+
 zip -g "${TMPDIR}/lambda.zip" main_aws.py
 zip -r -g "${TMPDIR}/lambda.zip" handlers/aws -i "*.py"
 zip -r -g "${TMPDIR}/lambda.zip" share -i "*.py"
