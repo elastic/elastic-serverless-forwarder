@@ -15,7 +15,7 @@ docker-coverage: PYTEST_ARGS=--cov=. --cov-context=test --cov-config=.coveragerc
 docker-coverage: export COVERAGE_FILE=.coverage
 docker-coverage: docker-test
 
-local-test: requirements tests-reqs
+local-test: requirements test-reqs
 	PYTEST_ARGS="${PYTEST_ARGS}" tests/scripts/run_tests.sh
 
 local-coverage: PYTEST_ARGS=--cov=. --cov-context=test --cov-config=.coveragerc --cov-branch
@@ -49,7 +49,7 @@ local-isort: requirements lint-reqs  ## Run isort in the project on the host
 license:  ## Run license validation in the project
 	tests/scripts/license_headers_check.sh check
 
-all-reqs: requirements lint-reqs tests-reqs
+all-reqs: requirements lint-reqs test-reqs
 
 requirements:
 	pip3 install -r tests/requirements/requirements.txt
@@ -60,5 +60,5 @@ lint-reqs:
 	pip3 install -r tests/requirements/lint-isort.txt
 	pip3 install -r tests/requirements/lint-mypy.txt
 
-tests-reqs:
-	pip3 install -r tests/requirements/tests-reqs.txt
+test-reqs:
+	pip3 install -r tests/requirements/test-reqs.txt
