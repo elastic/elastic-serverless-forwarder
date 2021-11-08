@@ -32,4 +32,4 @@ docker run \
   /bin/bash \
   -c "pip install --user -U pip
       pip install --user -r tests/requirements/lint-isort.txt --cache-dir ${docker_pip_cache}
-      \${HOME}/.local/bin/isort ${OPTIONS} ."
+      PATH=\${PATH}:\${HOME}/.local/bin/ /bin/bash ./tests/scripts/isort.sh $*"
