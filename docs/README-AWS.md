@@ -82,7 +82,7 @@ Custom init arguments for the given forwarding target output
 
 
 ### S3 event notification to SQS
-In order to setup an S3 event notification to SQS please look at the official documentation: https://docs.aws.amazon.com/AmazonS3/latest/userguide/NotificationHowTo.html
+In order to set up an S3 event notification to SQS please look at the official documentation: https://docs.aws.amazon.com/AmazonS3/latest/userguide/NotificationHowTo.html
 
 The event type to setup in the notification should be `s3:ObjectCreated:*`
 
