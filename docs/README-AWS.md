@@ -61,7 +61,7 @@ A list of inputs (ie: triggers) for the Elastic Forwarder for Serverless Lambda
 The type of the trigger input (currently only `sqs` supported)
 
 `inputs.[].id`:
-The arn of the trigger input according to the type. Multiple unique id per type can be defined
+The arn of the trigger input according to the type. Multiple input entries can have different unique ids with the same type.
 
 `inputs.[].outputs`:
 A list of outputs (ie: forwarding targets) for the Elastic Forwarder for Serverless Lambda. Only one output per type can be defined
@@ -76,7 +76,7 @@ Custom init arguments for the given forwarding target output
   * `args.cloud_id`: Cloud ID of elasticsearch endpoint. Mandatory in case `args.elasticsearch_url` is not provided. Will be ignored if `args.elasticsearch_url` is defined as well.
   * `args.username`: Username of the elasticsearch instance to connect to. Mandatory in case `args.api_key` is not provided. Will be ignored if `args.api_key` is defined as well.
   * `args.password` Password of the elasticsearch instance to connect to. Mandatory in case `args.api_key` is not provided. Will be ignored if `args.api_key` is defined as well.
-  * `args.api_key`:  Api key of elasticsearch endpoint in the format username(api_key_id:api_key_secret). Mandatory in case `args.cloud_id` is not provided. Will take precedence over `args.username` if both defined.
+  * `args.api_key`:  Api key of elasticsearch endpoint in the format username(api_key_id:api_key_secret). Mandatory in case `args.userame`  and `args.password ` are not provided. Will take precedence over `args.username`/`args.username` if both defined.
   * `args.dataset`: Dataset for the data stream where to forward the logs to. Default value: "generic"
   * `args.namespace`: Namespace for the data stream where to forward the logs to. Default value: "default"
 
@@ -86,4 +86,4 @@ In order to setup an S3 event notification to SQS please look at the official do
 
 The event type to setup in the notification should be `s3:ObjectCreated:*`
 
-The Elastic Forwarder for Serverless Lambda doesn't need to be provided extra IAM policies in order to access S3 and SQS resources in your account: the policies to grant only the minimum required permission for the Lambda to run are already defined in the SAM template when creating the Lamda from the Serverless Application Repository.
+The Elastic Forwarder for Serverless Lambda doesn't need to be provided extra IAM policies in order to access S3 and SQS resources in your account: the policies to grant only the minimum required permissions for the Lambda to run are already defined in the SAM template when creating the Lamda from the Serverless Application Repository.
