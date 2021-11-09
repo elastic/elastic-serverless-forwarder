@@ -9,11 +9,10 @@ fi
 
 if [[ "$1" = "diff" ]]
 then
-    OPTIONS="--diff --check --profile black --line-length=120"
+    OPTIONS="--diff --check --py 39 --profile black --line-length=120"
 elif [[ "$1" = "fix" ]]
 then
-    OPTIONS="--profile black --line-length=120"
+    OPTIONS="-v --py 39 --profile black --line-length=120"
 fi
 
-
-isort "${OPTIONS}" .
+isort ${OPTIONS} .

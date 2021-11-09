@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-echo ""
 set -e
 if [[ $# -eq 0 ]]
 then
@@ -15,4 +14,4 @@ then
     OPTIONS="--line-length=120"
 fi
 
-black -t py39 ${OPTIONS} /app
+black -t py39 ${OPTIONS} .
