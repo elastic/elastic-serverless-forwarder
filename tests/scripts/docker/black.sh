@@ -1,20 +1,5 @@
 #!/usr/bin/env bash
 
-set -e
-if [[ $# -eq 0 ]]
-then
-    echo "Usage: $0 diff|fix"
-    exit 1
-fi
-
-if [[ "$1" = "diff" ]]
-then
-    OPTIONS="--diff --check --line-length=120"
-elif [[ "$1" = "fix" ]]
-then
-    OPTIONS="--line-length=120"
-fi
-
 pip_cache="$HOME/.cache"
 docker_pip_cache="/tmp/cache/pip"
 
@@ -31,4 +16,4 @@ docker run \
   /bin/bash \
   -c "pip install --user -U pip
       pip install --user -r tests/requirements/lint-black.txt --cache-dir ${docker_pip_cache}
-      \${HOME}/.local/bin/black -t py39 ${OPTIONS} /app"
+      PATH=\${PATH}:\${HOME}/.local/bin/ /bin/bash ./tests/scripts/black.sh $*"
