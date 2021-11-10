@@ -180,8 +180,7 @@ class TestLambdaHandlerSuccess(TestCase):
             hosts=[f"127.0.0.1:{es_host_port}"], scheme="http", http_auth=("elastic", "password")
         )
 
-        while not self._es_client.ping():
-            pass
+        self._es_client.cluster.health(wait_for_status="green")
 
         self._source_queue_info = testutil.create_sqs_queue("source-queue")
         self._continuing_queue_info = testutil.create_sqs_queue("continuing-queue")
