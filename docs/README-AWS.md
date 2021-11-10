@@ -1,3 +1,22 @@
+## Introduction:
+The Elastic Serverless Forwarder is an AWS Lambda function that ships logs from your AWS environment to Elastic. The function can forward logs to Elastic self-managed or Elastic cloud environments. It supports the following inputs:
+
+- S3
+
+The config yaml file (details described below) acts as an input where the user, based on input type, configures things like SQS queue ARN, Elasticsearch connection information and  dataset/namespace. The dataset and namespace helps map logs data to specific data streams for processing and storage. Multiple input sections can be created in the configuration file pointing to different queues that match specific log types, identified in the configuration by dataset and namespace.
+
+A continuing SQS queue is setup and permissions set up automatically by the Lambda deployment. It is used to make sure the next invocation of the function can continue from exactly where the last function left. By default a Lambda function runs for a max of 15 minutes. When processing large log files there’s a possibility that the function may be exited by AWS in the middle of processing a log file. The code handles this scenario gracefully by keeping track of the file and offset its processing.
+
+As a first step users should install appropriate integrations in the Kibana UI. This sets up appropriate pre-built dashboards, ingest node configurations, and other assets that help you get the most out of the data you ingest.
+
+**S3 input:**
+The Lambda function supports ingesting logs contained in the S3 bucket and send them to Elastic. The SQS queue serves as a trigger for the Lambda function. When a new log file gets written to an S3 bucket and meets the criteria (as configured including prefix/suffix), a notification is generated that triggers the Lambda function. Users will set up separate SQS queues for each type of logs (i.e. redis.log, ngnix.log and so on). A single configuration file can have many input sections, pointing to different queues that match specific log types identified in the configuration by dataset and namespace. The dataset and namespace helps the function send the logs to the corresponding data streams for further processing and storage in the Elasticsearch cluster.
+
+### Deployment:
+At a high level the deployment consists of the following steps:
+**Step1:** Install appropriate integration(s) from the Kibana UI. This sets up appropriate pre-built dashboards, ingest node configurations, and other assets that help you get the most out of the data you ingest. To see the full list of available integrations and install appropriate integrations, go to **Management** > **Integrations** in Kibana.
+**Step2:** Browse for elastic-serverless-forwarder in SAR repository in AWS Console. Review and deploy the application and provide appropriate configuration information. Below are the detailed steps.
+
 ## How to deploy Elastic Forwarder for Serverless Lambda application from the AWS Serverless Application Repository.
 
 
