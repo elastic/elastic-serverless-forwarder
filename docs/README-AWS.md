@@ -1,5 +1,7 @@
-### How to deploy Elastic Forwarder for Serverless Lambda application from the AWS Serverless Application Repository.
+## How to deploy Elastic Forwarder for Serverless Lambda application from the AWS Serverless Application Repository.
 
+
+### AWS Console
 * Login to the AWS console
 * Navigate to the Lambda service
   * Click on "Create a function"
@@ -31,7 +33,70 @@
     * Click on "Add"
 
 
-### S3_CONFIG_FILE
+### Cloudformation
+* Save the following yaml content as `sar-application.yaml`
+```yaml
+Transform: AWS::Serverless-2016-10-31
+Resources:
+  SarCloudformationDeployment:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location:
+        ApplicationId: 'arn:aws:serverlessrepo:%REGION%:%ELASTIC_ACCOUNT_ID%:applications/elastic-serverless-forwarder'
+        SemanticVersion: %VERSION%
+
+```
+
+* Deploy the Lambda from SAR running the following command:
+  * ```commandline
+    aws cloudformation deploy --template-file sar-application.yaml --stack-name sar-cloudformation-deployment --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND
+    ```
+
+* Import json template from deployed stack running the following commands:
+  * ```commandline
+    PARENT_STACK_ARN=$(aws cloudformation describe-stacks --stack-name sar-cloudformation-deployment --query Stacks[0].StackId --output text)
+    LAMBDA_STACK_ARN=$(aws cloudformation list-stacks --stack-status-filter CREATE_COMPLETE --query "StackSummaries[?ParentId==\`${PARENT_STACK_ARN}\`].StackId" --output text)
+    aws cloudformation get-template --stack-name "${LAMBDA_STACK_ARN}" --query TemplateBody > sar-lambda.json
+    ```
+
+  * Edit sar-lambda.json to customise your deployment of Elastic Forwarder for Serverless
+    * Examples:
+      * Adding environment variables: add entries in `Resources.ElasticServerlessForwarderFunction.Environment.Variables`
+        ```json
+        "Environment": {
+          "Variables": {
+            "SQS_CONTINUE_URL": { # Do not remove this
+              "Ref": "ElasticServerlessForwarderContinuingQueue"
+            },
+            "ELASTIC_APM_ACTIVE": "true",
+            "ELASTIC_APM_SECRET_TOKEN": "%ELASTIC_APM_SECRET_TOKEN%",
+            "ELASTIC_APM_SERVER_URL": "%ELASTIC_APM_SERVER_URL%",
+            "S3_CONFIG_FILE": "s3://bucket-name/config-file-name"
+          }
+        },
+        ```
+      * Adding an Event Source Mapping: add a new resource in the template
+        ```json
+        "CustomSQSEvent": {
+          "Type": "AWS::Lambda::EventSourceMapping",
+          "Properties": {
+            "BatchSize": 1,
+            "Enabled": true,
+            "FunctionName": { # You muste reference to `ElasticServerlessForwarderFunction` resource
+              "Ref": "ElasticServerlessForwarderFunction"
+            },
+            "EventSourceArn": "%SQS_ARN%"
+          }
+        }
+        ```
+
+* Update the stack running the following command:
+  * ```commandline
+    aws cloudformation update-stack --stack-name "${LAMBDA_STACK_ARN}" --template-body file://./sar-lambda.json
+    ```
+
+
+## S3_CONFIG_FILE
 The Elastic Forwarder for Serverless Lambda rely on a config yaml file to be uploaded to an S3 bucket and referenced by the `S3_CONFIG_FILE` environment variable.
 
 This is the format of the config yaml file
@@ -81,9 +146,10 @@ Custom init arguments for the given forwarding target output
   * `args.namespace`: Namespace for the data stream where to forward the logs to. Default value: "default"
 
 
-### S3 event notification to SQS
+## S3 event notification to SQS
 In order to set up an S3 event notification to SQS please look at the official documentation: https://docs.aws.amazon.com/AmazonS3/latest/userguide/NotificationHowTo.html
 
 The event type to setup in the notification should be `s3:ObjectCreated:*`
 
 The Elastic Forwarder for Serverless Lambda doesn't need to be provided extra IAM policies in order to access S3 and SQS resources in your account: the policies to grant only the minimum required permissions for the Lambda to run are already defined in the SAM template when creating the Lamda from the Serverless Application Repository.
+

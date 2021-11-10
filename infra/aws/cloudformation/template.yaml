@@ -65,14 +65,3 @@ Metadata:
     LicenseUrl: LICENSE.txt
     ReadmeUrl: README.md
     HomePageUrl: https://github.com/elastic/elastic-serverless-forwarder
-
-Outputs:
-  ElasticServerlessForwarderFunction:
-    Description: "Elastic Serverless Forwarder"
-    Value: !GetAtt ElasticServerlessForwarderFunction.Arn
-  ElasticServerlessForwarderContinuingQueue:
-    Description: "Elastic Serverless Forwarder"
-    Value: !GetAtt ElasticServerlessForwarderContinuingQueue.Arn
-  ElasticServerlessForwarderContinuingDLQ:
-    Description: "Elastic Serverless Forwarder"
-    Value: !GetAtt ElasticServerlessForwarderContinuingDLQ.Arn
