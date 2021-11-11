@@ -90,6 +90,15 @@ class TestLambdaHandlerFailure(TestCase):
 
 
 class TestLambdaHandlerSuccess(TestCase):
+    def _es_client_patch(self, **kwargs: Any) -> Elasticsearch:
+        return Elasticsearch(
+            hosts=[f"http://127.0.0.1:{self._es_host_port}"],
+            http_auth=("elastic", "password"),
+            timeout=30,
+            max_retries=10,
+            retry_on_timeout=True,
+        )
+
     def _event_from_sqs_message(self) -> dict[str, Any]:
         sqs_client = aws_stack.connect_to_service("sqs")
         messages = sqs_client.receive_message(
@@ -179,10 +188,10 @@ class TestLambdaHandlerSuccess(TestCase):
             self._elastic_container = docker_client.containers.get(self._elastic_container.id)
             time.sleep(1)
 
-        es_host_port: str = self._elastic_container.ports["9200/tcp"][0]["HostPort"]
+        self._es_host_port: str = self._elastic_container.ports["9200/tcp"][0]["HostPort"]
 
         self._es_client = Elasticsearch(
-            hosts=[f"127.0.0.1:{es_host_port}"], scheme="http", http_auth=("elastic", "password")
+            hosts=[f"127.0.0.1:{self._es_host_port}"], scheme="http", http_auth=("elastic", "password")
         )
 
         while not self._es_client.ping():
@@ -200,7 +209,7 @@ class TestLambdaHandlerSuccess(TestCase):
             outputs:
               - type: "elasticsearch"
                 args:
-                  elasticsearch_url: "http://127.0.0.1:{es_host_port}"
+                  elasticsearch_url: "http://127.0.0.1:{self._es_host_port}"
                   username: "elastic"
                   password: "password"
                   dataset: "redis.log"
@@ -244,98 +253,103 @@ class TestLambdaHandlerSuccess(TestCase):
         filename: str = "folder/redis.log.gz"
         with mock.patch("storage.S3Storage._s3_client", aws_stack.connect_to_service("s3")):
             with mock.patch("handlers.aws.sqs_trigger._get_sqs_client", lambda: aws_stack.connect_to_service("sqs")):
-                ctx = ContextMock()
-                event = {
-                    "Records": [
-                        {
-                            "messageId": "9b745861-1171-489c-9748-799ed2a3d9da",
-                            "body": json.dumps(
-                                {
-                                    "Records": [
-                                        {
-                                            "eventVersion": "2.1",
-                                            "eventSource": "aws:s3",
-                                            "awsRegion": "eu-central-1",
-                                            "eventTime": "2021-09-08T18:34:25.042Z",
-                                            "eventName": "ObjectCreated:Put",
-                                            "s3": {
-                                                "s3SchemaVersion": "1.0",
-                                                "configurationId": "test-bucket",
-                                                "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
-                                                "object": {
-                                                    "key": f"{filename}",
+                with mock.patch("shippers.ElasticsearchShipper._elasticsearch_client", self._es_client_patch):
+
+                    ctx = ContextMock()
+                    event = {
+                        "Records": [
+                            {
+                                "messageId": "9b745861-1171-489c-9748-799ed2a3d9da",
+                                "body": json.dumps(
+                                    {
+                                        "Records": [
+                                            {
+                                                "eventVersion": "2.1",
+                                                "eventSource": "aws:s3",
+                                                "awsRegion": "eu-central-1",
+                                                "eventTime": "2021-09-08T18:34:25.042Z",
+                                                "eventName": "ObjectCreated:Put",
+                                                "s3": {
+                                                    "s3SchemaVersion": "1.0",
+                                                    "configurationId": "test-bucket",
+                                                    "bucket": {
+                                                        "name": "test-bucket",
+                                                        "arn": "arn:aws:s3:::test-bucket",
+                                                    },
+                                                    "object": {
+                                                        "key": f"{filename}",
+                                                    },
                                                 },
-                                            },
-                                        }
-                                    ]
-                                }
-                            ),
-                            "eventSource": "aws:sqs",
-                            "eventSourceARN": self._source_queue_info["QueueArn"],
-                        },
-                    ]
-                }
-
-                first_call = handler(event, ctx)  # type:ignore
-
-                assert first_call == "continuing"
-
-                self._es_client.indices.refresh(index="logs-redis.log-default")
-                assert self._es_client.count(index="logs-redis.log-default")["count"] == 1
-
-                res = self._es_client.search(index="logs-redis.log-default")
-                assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
-                assert (
-                    res["hits"]["hits"][0]["_source"]["fields"]["message"]
-                    == "79191:C 08 Jul 2021 13:25:02.609 # oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo"
-                )
-                assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
-                    "offset": 0,
-                    "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
-                }
-                assert res["hits"]["hits"][0]["_source"]["fields"]["aws"] == {
-                    "s3": {
-                        "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
-                        "object": {"key": f"{filename}"},
+                                            }
+                                        ]
+                                    }
+                                ),
+                                "eventSource": "aws:sqs",
+                                "eventSourceARN": self._source_queue_info["QueueArn"],
+                            },
+                        ]
                     }
-                }
-                assert res["hits"]["hits"][0]["_source"]["fields"]["cloud"] == {
-                    "provider": "aws",
-                    "region": "eu-central-1",
-                }
 
-                event = self._event_from_sqs_message()
-                second_call = handler(event, ctx)  # type:ignore
+                    first_call = handler(event, ctx)  # type:ignore
 
-                assert second_call == "continuing"
+                    assert first_call == "continuing"
 
-                self._es_client.indices.refresh(index="logs-redis.log-default")
-                assert self._es_client.count(index="logs-redis.log-default")["count"] == 2
+                    self._es_client.indices.refresh(index="logs-redis.log-default")
+                    assert self._es_client.count(index="logs-redis.log-default")["count"] == 1
 
-                res = self._es_client.search(index="logs-redis.log-default")
-                assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
-                assert (
-                    res["hits"]["hits"][1]["_source"]["fields"]["message"]
-                    == "79191:C 08 Jul 2021 13:25:02.610 # Redis version=6.2.4, bits=64, commit=00000000, "
-                    + "modified=0, pid=79191, just started"
-                )
-
-                assert res["hits"]["hits"][1]["_source"]["fields"]["log"] == {
-                    "offset": 81,
-                    "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
-                }
-                assert res["hits"]["hits"][1]["_source"]["fields"]["aws"] == {
-                    "s3": {
-                        "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
-                        "object": {"key": f"{filename}"},
+                    res = self._es_client.search(index="logs-redis.log-default")
+                    assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
+                    assert (
+                        res["hits"]["hits"][0]["_source"]["fields"]["message"]
+                        == "79191:C 08 Jul 2021 13:25:02.609 # oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo"
+                    )
+                    assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
+                        "offset": 0,
+                        "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
                     }
-                }
-                assert res["hits"]["hits"][1]["_source"]["fields"]["cloud"] == {
-                    "provider": "aws",
-                    "region": "eu-central-1",
-                }
+                    assert res["hits"]["hits"][0]["_source"]["fields"]["aws"] == {
+                        "s3": {
+                            "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
+                            "object": {"key": f"{filename}"},
+                        }
+                    }
+                    assert res["hits"]["hits"][0]["_source"]["fields"]["cloud"] == {
+                        "provider": "aws",
+                        "region": "eu-central-1",
+                    }
 
-                event = self._event_from_sqs_message()
-                third_call = handler(event, ctx)  # type:ignore
+                    event = self._event_from_sqs_message()
+                    second_call = handler(event, ctx)  # type:ignore
 
-                assert third_call == "completed"
+                    assert second_call == "continuing"
+
+                    self._es_client.indices.refresh(index="logs-redis.log-default")
+                    assert self._es_client.count(index="logs-redis.log-default")["count"] == 2
+
+                    res = self._es_client.search(index="logs-redis.log-default")
+                    assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
+                    assert (
+                        res["hits"]["hits"][1]["_source"]["fields"]["message"]
+                        == "79191:C 08 Jul 2021 13:25:02.610 # Redis version=6.2.4, bits=64, commit=00000000, "
+                        + "modified=0, pid=79191, just started"
+                    )
+
+                    assert res["hits"]["hits"][1]["_source"]["fields"]["log"] == {
+                        "offset": 81,
+                        "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
+                    }
+                    assert res["hits"]["hits"][1]["_source"]["fields"]["aws"] == {
+                        "s3": {
+                            "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
+                            "object": {"key": f"{filename}"},
+                        }
+                    }
+                    assert res["hits"]["hits"][1]["_source"]["fields"]["cloud"] == {
+                        "provider": "aws",
+                        "region": "eu-central-1",
+                    }
+
+                    event = self._event_from_sqs_message()
+                    third_call = handler(event, ctx)  # type:ignore
+
+                    assert third_call == "completed"

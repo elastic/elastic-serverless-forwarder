@@ -80,14 +80,14 @@ class ElasticSearchOutput(Output):
             raise ValueError("Elasticsearch Output elasticsearch_url or cloud_id must be set")
 
         if self.cloud_id and self.elasticsearch_url:
-            shared_logger.warn("both elasticsearch_url and cloud_id set in config: using elasticsearch_url")
+            shared_logger.warning("both elasticsearch_url and cloud_id set in config: using elasticsearch_url")
             self.cloud_id = ""
 
         if not self.username and not self.api_key:
             raise ValueError("Elasticsearch Output username and password or api_key must be set")
 
         if self.username and self.api_key:
-            shared_logger.warn("both api_key and username and password set in config: using api_key")
+            shared_logger.warning("both api_key and username and password set in config: using api_key")
             self._username = ""
             self._password = ""
 
@@ -95,11 +95,11 @@ class ElasticSearchOutput(Output):
             raise ValueError("Elasticsearch Output password must be set when using username")
 
         if not self.dataset:
-            shared_logger.warn("no dataset set in config: using `generic`")
+            shared_logger.warning("no dataset set in config: using `generic`")
             self.dataset = "generic"
 
         if not self.namespace:
-            shared_logger.warn("no namespace set in config: using `default`")
+            shared_logger.warning("no namespace set in config: using `default`")
             self.namespace = "default"
 
     @property

@@ -44,12 +44,15 @@ class ElasticsearchShipper(CommonShipper):
         else:
             raise ValueError("You must provide one between username and password or api_key")
 
-        self._es_client = Elasticsearch(**es_client_kwargs)
+        self._es_client = self._elasticsearch_client(**es_client_kwargs)
 
         self._dataset = dataset
         self._namespace = namespace
 
         self._es_index = f"logs-{dataset}-{namespace}"
+
+    def _elasticsearch_client(self, **es_client_kwargs: Any) -> Elasticsearch:
+        return Elasticsearch(**es_client_kwargs)
 
     @staticmethod
     def _s3_object_id(event_payload: dict[str, Any]) -> str:
