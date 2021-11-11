@@ -101,7 +101,7 @@ Resources:
           "Properties": {
             "BatchSize": 1,
             "Enabled": true,
-            "FunctionName": { # You muste reference to `ElasticServerlessForwarderFunction` resource
+            "FunctionName": { # You must reference to `ElasticServerlessForwarderFunction` resource
               "Ref": "ElasticServerlessForwarderFunction"
             },
             "EventSourceArn": "%SQS_ARN%"
