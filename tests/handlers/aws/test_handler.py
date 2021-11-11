@@ -5,6 +5,7 @@
 import gzip
 import json
 import os
+import time
 from copy import deepcopy
 from typing import Any, Union
 from unittest import TestCase
@@ -133,6 +134,7 @@ class TestLambdaHandlerSuccess(TestCase):
 
         while len(self._localstack_container.ports) == 0:
             self._localstack_container = docker_client.containers.get(self._localstack_container.id)
+            time.sleep(1)
 
         self._TEST_S3_URL = os.environ["TEST_S3_URL"]
         self._TEST_SQS_URL = os.environ["TEST_SQS_URL"]
@@ -147,6 +149,7 @@ class TestLambdaHandlerSuccess(TestCase):
                 ready = True
                 try:
                     check_s3()
+                    time.sleep(1)
                 except AssertionError:
                     ready = False
 
@@ -158,6 +161,7 @@ class TestLambdaHandlerSuccess(TestCase):
                 ready = True
                 try:
                     check_sqs()
+                    time.sleep(1)
                 except AssertionError:
                     ready = False
 
@@ -173,6 +177,7 @@ class TestLambdaHandlerSuccess(TestCase):
 
         while len(self._elastic_container.ports) == 0:
             self._elastic_container = docker_client.containers.get(self._elastic_container.id)
+            time.sleep(1)
 
         es_host_port: str = self._elastic_container.ports["9200/tcp"][0]["HostPort"]
 
@@ -181,7 +186,7 @@ class TestLambdaHandlerSuccess(TestCase):
         )
 
         while not self._es_client.ping():
-            pass
+            time.sleep(1)
 
         self._es_client.cluster.health(wait_for_status="green")
 
