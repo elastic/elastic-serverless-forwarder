@@ -5,12 +5,12 @@ The Elastic Serverless Forwarder is an AWS Lambda function that ships logs from 
 
 The config yaml file (details described below) acts as an input where the user, based on input type, configures things like SQS queue ARN, Elasticsearch connection information and  dataset/namespace. The dataset and namespace helps map logs data to specific data streams for processing and storage. Multiple input sections can be created in the configuration file pointing to different queues that match specific log types, identified in the configuration by dataset and namespace.
 
-A continuing SQS queue is setup and permissions set up automatically by the Lambda deployment. It is used to make sure the next invocation of the function can continue from exactly where the last function left. By default a Lambda function runs for a max of 15 minutes. When processing large log files there’s a possibility that the function may be exited by AWS in the middle of processing a log file. The code handles this scenario gracefully by keeping track of the file and offset its processing.
+A continuing SQS queue is set up and permissions set up automatically by the Lambda deployment. It is used to make sure the next invocation of the function can continue from exactly where the last function left. By default a Lambda function runs for a max of 15 minutes. When processing large log files there’s a possibility that the function may be exited by AWS in the middle of processing a log file. The code handles this scenario gracefully by keeping track of the file and offset its processing.
 
 As a first step users should install appropriate integrations in the Kibana UI. This sets up appropriate pre-built dashboards, ingest node configurations, and other assets that help you get the most out of the data you ingest.
 
 **SQS S3 Notifications input:**
-The Lambda function supports ingesting logs contained in the S3 bucket through an SQS notification and send them to Elastic. The SQS queue serves as a trigger for the Lambda function. When a new log file gets written to an S3 bucket and meets the criteria (as configured including prefix/suffix), a notification to SQS is generated that triggers the Lambda function. Users will set up separate SQS queues for each type of logs (i.e. redis.log, ngnix.log and so on). A single configuration file can have many input sections, pointing to different queues that match specific log types identified in the configuration by dataset and namespace. The dataset and namespace helps the function send the logs to the corresponding data streams for further processing and storage in the Elasticsearch cluster.
+The Lambda function supports ingesting logs contained in the S3 bucket through an SQS notification and sending them to Elastic. The SQS queue serves as a trigger for the Lambda function. When a new log file gets written to an S3 bucket and meets the criteria (as configured including prefix/suffix), a notification to SQS is generated that triggers the Lambda function. Users will set up separate SQS queues for each type of logs (i.e. redis.log, ngnix.log and so on). A single configuration file can have many input sections, pointing to different queues that match specific log types identified in the configuration by dataset and namespace. The dataset and namespace helps the function send the logs to the corresponding data streams for further processing and storage in the Elasticsearch cluster.
 
 ### Deployment:
 At a high level the deployment consists of the following steps:
@@ -156,11 +156,11 @@ The type of the forwarding target output (currently only `elasticsearch` support
 `inputs.[].outputs.[].args`:
 Custom init arguments for the given forwarding target output
 * for `elasticsearch` type the following arguments are supported:
-  * `args.elasticsearch_url`: Url of elasticsearch endpoint in the format "http(s)://domain.tld:port". Mandatory in case `args.cloud_id` is not provided. Will take precedence over `args.cloud_id` if both defined.
+  * `args.elasticsearch_url`: Url of elasticsearch endpoint in the format "http(s)://domain.tld:port". Mandatory in case `args.cloud_id` is not provided. Will take precedence over `args.cloud_id` if both are defined.
   * `args.cloud_id`: Cloud ID of elasticsearch endpoint. Mandatory in case `args.elasticsearch_url` is not provided. Will be ignored if `args.elasticsearch_url` is defined as well.
   * `args.username`: Username of the elasticsearch instance to connect to. Mandatory in case `args.api_key` is not provided. Will be ignored if `args.api_key` is defined as well.
   * `args.password` Password of the elasticsearch instance to connect to. Mandatory in case `args.api_key` is not provided. Will be ignored if `args.api_key` is defined as well.
-  * `args.api_key`:  Api key of elasticsearch endpoint in the format username(api_key_id:api_key_secret). Mandatory in case `args.userame`  and `args.password ` are not provided. Will take precedence over `args.username`/`args.password` if both defined.
+  * `args.api_key`:  Api key of elasticsearch endpoint in the format username(api_key_id:api_key_secret). Mandatory in case `args.userame`  and `args.password ` are not provided. Will take precedence over `args.username`/`args.password` if both are defined.
   * `args.dataset`: Dataset for the data stream where to forward the logs to. Default value: "generic"
   * `args.namespace`: Namespace for the data stream where to forward the logs to. Default value: "default"
 
@@ -168,7 +168,7 @@ Custom init arguments for the given forwarding target output
 ## S3 event notification to SQS
 In order to set up an S3 event notification to SQS please look at the official documentation: https://docs.aws.amazon.com/AmazonS3/latest/userguide/NotificationHowTo.html
 
-The event type to setup in the notification should be `s3:ObjectCreated:*`
+The event type to set up in the notification should be `s3:ObjectCreated:*`
 
 The Elastic Forwarder for Serverless Lambda doesn't need to be provided extra IAM policies in order to access S3 and SQS resources in your account: the policies to grant only the minimum required permissions for the Lambda to run are already defined in the SAM template when creating the Lamda from the Serverless Application Repository.
 
