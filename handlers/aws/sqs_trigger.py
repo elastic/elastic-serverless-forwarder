@@ -97,7 +97,7 @@ def _handle_sqs_event(config: Config, event: dict[str, Any]) -> Iterator[tuple[d
                 # doesn't overlap `last_ending_offset`: in case we
                 # skip in order to not ingest twice the same event
                 if ending_offset < last_ending_offset:
-                    shared_logger.warn(
+                    shared_logger.warning(
                         "skipping event",
                         extra={
                             "ending_offset": ending_offset,
