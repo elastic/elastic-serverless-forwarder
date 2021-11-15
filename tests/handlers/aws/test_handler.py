@@ -91,13 +91,10 @@ class TestLambdaHandlerFailure(TestCase):
 
 class TestLambdaHandlerSuccess(TestCase):
     def _es_client_patch(self, **kwargs: Any) -> Elasticsearch:
-        return Elasticsearch(
-            hosts=[f"http://127.0.0.1:{self._es_host_port}"],
-            http_auth=("elastic", "password"),
-            timeout=30,
-            max_retries=10,
-            retry_on_timeout=True,
-        )
+        kwargs["timeout"] = 30
+        kwargs["max_retries"] = 10
+        kwargs["retry_on_timeout"] = True
+        return Elasticsearch(**kwargs)
 
     def _event_from_sqs_message(self) -> dict[str, Any]:
         sqs_client = aws_stack.connect_to_service("sqs")
@@ -188,10 +185,10 @@ class TestLambdaHandlerSuccess(TestCase):
             self._elastic_container = docker_client.containers.get(self._elastic_container.id)
             time.sleep(1)
 
-        self._es_host_port: str = self._elastic_container.ports["9200/tcp"][0]["HostPort"]
+        es_host_port: str = self._elastic_container.ports["9200/tcp"][0]["HostPort"]
 
         self._es_client = Elasticsearch(
-            hosts=[f"127.0.0.1:{self._es_host_port}"], scheme="http", http_auth=("elastic", "password")
+            hosts=[f"127.0.0.1:{es_host_port}"], scheme="http", http_auth=("elastic", "password")
         )
 
         while not self._es_client.ping():
@@ -209,7 +206,7 @@ class TestLambdaHandlerSuccess(TestCase):
             outputs:
               - type: "elasticsearch"
                 args:
-                  elasticsearch_url: "http://127.0.0.1:{self._es_host_port}"
+                  elasticsearch_url: "http://127.0.0.1:{es_host_port}"
                   username: "elastic"
                   password: "password"
                   dataset: "redis.log"
