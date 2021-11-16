@@ -21,5 +21,5 @@ docker run \
   /bin/bash \
   -c "sudo service docker start
       pip install --user -U pip
-      pip install --user -r tests/requirements/test-reqs.txt --cache-dir ${docker_pip_cache}
+      pip install --user -r requirements-tests.txt --cache-dir ${docker_pip_cache}
       PATH=\${PATH}:\${HOME}/.local/bin/ timeout 15m /bin/bash ./tests/scripts/run_tests.sh"

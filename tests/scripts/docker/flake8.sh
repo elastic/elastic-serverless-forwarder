@@ -17,5 +17,5 @@ docker run \
   --rm lint_flake8 \
   /bin/bash \
   -c "pip install --user -U pip
-      pip install --user -r tests/requirements/lint-flake8.txt --cache-dir ${docker_pip_cache}
+      pip install --user -r requirements-lint.txt --cache-dir ${docker_pip_cache}
       PATH=\${PATH}:\${HOME}/.local/bin/ /bin/bash ./tests/scripts/flake8.sh $*"

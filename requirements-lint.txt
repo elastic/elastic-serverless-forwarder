@@ -1,0 +1,7 @@
+black
+flake8
+flake8-per-file-ignores
+isort
+mypy
+types-PyYAML
+types-mock
