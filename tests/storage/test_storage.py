@@ -5,6 +5,8 @@
 from typing import Any, Iterator
 from unittest import TestCase
 
+import pytest
+
 from storage import CommonStorage
 
 
@@ -19,6 +21,7 @@ class DummyStorage(CommonStorage):
         pass
 
 
+@pytest.mark.unit
 class TestCommonStorage(TestCase):
     def test_init(self) -> None:
         with self.assertRaises(NotImplementedError):

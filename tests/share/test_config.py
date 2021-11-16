@@ -7,6 +7,8 @@ from __future__ import annotations
 import re
 from unittest import TestCase
 
+import pytest
+
 from share import Config, ElasticSearchOutput, Input, Output, parse_config
 
 
@@ -15,6 +17,7 @@ class DummyOutput(Output):
         super(DummyOutput, self).__init__(output_type=output_type)
 
 
+@pytest.mark.unit
 class TestOutput(TestCase):
     def test_init(self) -> None:
         with self.subTest("not valid type"):
@@ -30,6 +33,7 @@ class TestOutput(TestCase):
         assert output.type == "elasticsearch"
 
 
+@pytest.mark.unit
 class TestElasticSearchOutput(TestCase):
     def test_init(self) -> None:
         with self.subTest("valid init with elasticsearch_url and http_auth"):
@@ -271,6 +275,7 @@ class TestElasticSearchOutput(TestCase):
                 )
 
 
+@pytest.mark.unit
 class TestInput(TestCase):
     def test_init(self) -> None:
         with self.subTest("valid init"):
@@ -396,6 +401,7 @@ class TestInput(TestCase):
                 input_sqs.delete_output_by_type("type")
 
 
+@pytest.mark.unit
 class TestConfig(TestCase):
     def test_get_input_by_type_and_id(self) -> None:
         with self.subTest("none input"):
@@ -435,6 +441,7 @@ class TestConfig(TestCase):
                 config.add_input(Input(input_type="sqs", input_id="id"))
 
 
+@pytest.mark.unit
 class TestParseConfig(TestCase):
     def test_parse_config(self) -> None:
         with self.subTest("empty config"):

@@ -5,9 +5,12 @@
 import re
 from unittest import TestCase
 
+import pytest
+
 from storage import CommonStorage, S3Storage, StorageFactory
 
 
+@pytest.mark.unit
 class TestStorageFactory(TestCase):
     def test_create(self) -> None:
         with self.subTest("create s3 storage success"):

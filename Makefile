@@ -4,7 +4,13 @@ SHELL := /bin/bash
 help: ## Display this help text
 	@grep -E '^[a-zA-Z_-]+[%]?:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-test:  ## Run tests on the host
+unit-test: PYTEST_ARGS=-m unit ## Run unit tests on the host
+unit-test: test
+
+integration-test: PYTEST_ARGS=-m integration ## Run integration tests on the host
+integration-test: test
+
+test:  ## Run all tests on the host
 	PYTEST_ARGS="${PYTEST_ARGS}" tests/scripts/${BASE_DIR}run_tests.sh
 
 coverage: PYTEST_ARGS=--cov=. --cov-context=test --cov-config=.coveragerc --cov-branch  ## Run tests on the host with coverage
@@ -28,6 +34,15 @@ mypy: # # Run mypy in the project on the host
 docker-test:  ## Run tests on docker
 docker-test: BASE_DIR=docker/
 docker-test: test
+
+docker-unit-test:  ## Run tests on docker
+docker-unit-test: PYTEST_ARGS=-m unit
+docker-unit-test: docker-test
+
+docker-integration-test:  ## Run tests on docker
+docker-integration-test: PYTEST_ARGS=-m integration
+docker-integration-test: docker-test
+
 
 docker-coverage: PYTEST_ARGS=--cov=. --cov-context=test --cov-config=.coveragerc --cov-branch  ## Run tests on docker with coverage
 docker-coverage: export COVERAGE_FILE=.coverage

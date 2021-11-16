@@ -5,6 +5,8 @@
 from typing import Any
 from unittest import TestCase
 
+import pytest
+
 from shippers import CommonShipper
 
 
@@ -19,6 +21,7 @@ class DummyShipper(CommonShipper):
         pass
 
 
+@pytest.mark.unit
 class TestCommonShipper(TestCase):
     def test_init(self) -> None:
         with self.assertRaises(NotImplementedError):

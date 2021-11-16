@@ -10,6 +10,7 @@ from typing import Any, Optional, Union
 from unittest import TestCase
 
 import mock
+import pytest
 from botocore.response import StreamingBody
 
 from storage import S3Storage, StorageReader
@@ -81,6 +82,7 @@ class MockContent:
         return {"Body": StreamingBody(content_body, content_length), "ContentLength": content_length}
 
 
+@pytest.mark.unit
 class TestS3Storage(TestCase):
     @mock.patch("storage.S3Storage._s3_client.get_object", new=MockContent.s3_client_get_object)
     def test_get_as_string(self) -> None:

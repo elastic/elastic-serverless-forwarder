@@ -7,7 +7,7 @@ docker_pip_cache="/tmp/cache/pip"
 
 cd tests
 
-docker build --build-arg UID=$UID --build-arg PYTHON_IMAGE=python:3.9 -t lint_flake8 .
+docker build --build-arg UID=$UID --build-arg PYTHON_IMAGE=python:3.9 -t lint_flake8 --file Dockerfile ..
 docker run \
   -e LOCAL_USER_ID=$UID \
   -e PIP_CACHE=${docker_pip_cache} \
