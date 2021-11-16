@@ -2,7 +2,7 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta
 from typing import Any, Optional
 
 import yaml
@@ -14,19 +14,8 @@ _available_output_types: list[str] = ["elasticsearch"]
 
 
 class Output(metaclass=ABCMeta):
-    def __init__(self, output_type: str, kwargs: dict[str, Any]):
+    def __init__(self, output_type: str):
         self.type: str = output_type
-        self.kwargs: dict[str, Any] = kwargs  # type: ignore # (https://github.com/python/mypy/issues/10692)
-
-    @property  # type:ignore # (https://github.com/python/mypy/issues/4165)
-    @abstractmethod
-    def kwargs(self) -> dict[str, Any]:
-        raise NotImplementedError
-
-    @kwargs.setter  # type: ignore # (https://github.com/python/mypy/issues/10692)
-    @abstractmethod
-    def kwargs(self, value: dict[str, Any]) -> None:
-        raise NotImplementedError
 
     @property
     def type(self) -> str:
@@ -43,9 +32,19 @@ class Output(metaclass=ABCMeta):
 
 
 class ElasticSearchOutput(Output):
-    _kwargs = ["elasticsearch_url", "cloud_id", "username", "password", "api_key", "dataset", "namespace"]
+    def __init__(
+        self,
+        elasticsearch_url: str = "",
+        cloud_id: str = "",
+        username: str = "",
+        password: str = "",
+        api_key: str = "",
+        dataset: str = "",
+        namespace: str = "",
+    ):
 
-    def __init__(self, output_type: str, kwargs: dict[str, Any]):
+        super().__init__(output_type="elasticsearch")
+
         self._elasticsearch_url: str = ""
         self._username: str = ""
         self._password: str = ""
@@ -54,27 +53,13 @@ class ElasticSearchOutput(Output):
         self._dataset: str = ""
         self._namespace: str = ""
 
-        if output_type != "elasticsearch":
-            raise ValueError("output_type for ElasticSearchOutput must be elasticsearch")
-
-        super().__init__(output_type, kwargs)
-
-    @property
-    def kwargs(self) -> dict[str, Any]:
-        kwargs: dict[str, Any] = {}
-
-        for k in self._kwargs:
-            v: Any = self.__getattribute__(k)
-            if v:
-                kwargs[k] = v
-
-        return kwargs
-
-    @kwargs.setter
-    def kwargs(self, value: dict[str, Any]) -> None:
-        for x in value.keys():
-            if x in self._kwargs:
-                self.__setattr__(x, value[x])
+        self.elasticsearch_url = elasticsearch_url
+        self.cloud_id = cloud_id
+        self.username = username
+        self.password = password
+        self.api_key = api_key
+        self.dataset = dataset
+        self.namespace = namespace
 
         if not self.cloud_id and not self.elasticsearch_url:
             raise ValueError("Elasticsearch Output elasticsearch_url or cloud_id must be set")
@@ -218,19 +203,16 @@ class Input:
     def delete_output_by_type(self, output_type: str) -> None:
         del self._outputs[output_type]
 
-    def add_output(self, output_type: str, output_kwargs: dict[str, Any]) -> None:
+    def add_output(self, output_type: str, **kwargs: Any) -> None:
         if not isinstance(output_type, str):
             raise ValueError("Output type must be of type str")
-
-        if not isinstance(output_kwargs, dict):
-            raise ValueError("Output arguments must be of type dict[str, Any]")
 
         if output_type in self._outputs:
             raise ValueError(f"Duplicated Output {output_type}")
 
         output: Optional[Output] = None
         if output_type == "elasticsearch":
-            output = ElasticSearchOutput(output_type=output_type, kwargs=output_kwargs)
+            output = ElasticSearchOutput(**kwargs)
 
         assert output is not None
         self._outputs[output.type] = output
@@ -286,7 +268,7 @@ def parse_config(config_yaml: str) -> Config:
             if "args" not in output_config or not isinstance(output_config["args"], dict):
                 raise ValueError("Must be provided dict args for output")
 
-            current_input.add_output(output_type=output_config["type"], output_kwargs=output_config["args"])
+            current_input.add_output(output_type=output_config["type"], **output_config["args"])
 
         conf.add_input(current_input)
 
