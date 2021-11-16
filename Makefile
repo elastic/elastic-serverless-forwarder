@@ -62,8 +62,8 @@ lint-reqs: .makecache/lint-black.txt .makecache/lint-flake8.txt .makecache/lint-
 
 test-reqs: .makecache/test-reqs.txt  ## Install tests requirements on the host
 
-.makecache/requirements.txt: tests/requirements/requirements.txt
-	pip3 install -r tests/requirements/requirements.txt
+.makecache/requirements.txt: requirements.txt
+	pip3 install -r requirements.txt
 	touch .makecache/requirements.txt
 
 .makecache/lint-black.txt: tests/requirements/lint-black.txt
