@@ -44,15 +44,6 @@ class ElasticSearchOutput(Output):
     ):
 
         super().__init__(output_type="elasticsearch")
-
-        self._elasticsearch_url: str = ""
-        self._username: str = ""
-        self._password: str = ""
-        self._cloud_id: str = ""
-        self._api_key: str = ""
-        self._dataset: str = ""
-        self._namespace: str = ""
-
         self.elasticsearch_url = elasticsearch_url
         self.cloud_id = cloud_id
         self.username = username

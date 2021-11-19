@@ -5,7 +5,7 @@
 import re
 from unittest import TestCase
 
-from share import ElasticSearchOutput
+from share import ElasticSearchOutput, Output
 from shippers import CommonShipper, ElasticsearchShipper, ShipperFactory
 
 
@@ -90,6 +90,15 @@ class TestShipperFactory(TestCase):
             dataset="dataset",
             namespace="namespace",
         )
+
+        with self.subTest("create output type elasticsearch"):
+            with self.assertRaisesRegex(
+                ValueError,
+                re.escape("output expected to be ElasticSearchOutput type, given <class 'share.config.Output'>"),
+            ):
+                ShipperFactory.create_from_output(
+                    output_type="elasticsearch", output=Output(output_type="elasticsearch")
+                )
 
         with self.subTest("create from output elasticsearch shipper success"):
             shipper: CommonShipper = ShipperFactory.create_from_output(
