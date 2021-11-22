@@ -1,3 +1,6 @@
+## Note:
+This functionality is in beta and is subject to change. The design and code is less mature than official GA features and is being provided as-is with no warranties. Beta features are not subject to the support SLA of official GA features.
+
 ## Introduction:
 The Elastic Serverless Forwarder is an AWS Lambda function that ships logs from your AWS environment to Elastic. The function can forward logs to Elastic self-managed or Elastic cloud environments. It supports the following inputs:
 
