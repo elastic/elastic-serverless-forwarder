@@ -1,3 +1,5 @@
+.makecache
+!.makecache/.keepdir
 *.pyc
 *.log
 *.egg

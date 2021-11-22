@@ -35,9 +35,9 @@ RUN curl -o /usr/local/bin/gosu -sSL "https://github.com/tianon/gosu/releases/do
     && rm /usr/local/bin/gosu.asc \
     && chmod +x /usr/local/bin/gosu
 
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY tests/entrypoint.sh /usr/local/bin/entrypoint.sh
 
-COPY requirements/requirements.txt /
+COPY requirements.txt /
 
 # if we're in a pypy image, link pypy/pypy3 to /usr/local/bin/python
 RUN if command -v pypy3; then ln -s $(command -v pypy3) /usr/local/bin/python; elif command -v pypy; then ln -s $(command -v pypy) /usr/local/bin/python; fi

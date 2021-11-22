@@ -15,7 +15,7 @@ REGION="$3"
 TMPDIR=$(mktemp -d /tmp/dist.XXXXXXXXXX)
 
 mkdir "${TMPDIR}/packages"
-pip3 install --upgrade --target "${TMPDIR}/packages" -r tests/requirements/requirements.txt
+pip3 install --upgrade --target "${TMPDIR}/packages" -r requirements.txt
 
 pushd "${TMPDIR}/packages"
 zip -r "${TMPDIR}/lambda.zip" .

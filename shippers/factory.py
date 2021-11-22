@@ -20,16 +20,18 @@ class ShipperFactory:
     @staticmethod
     def create_from_output(output_type: str, output: Output) -> CommonShipper:
         if output_type == "elasticsearch":
-            elasticsearch_output = ElasticSearchOutput(output.type, output.kwargs)
+            if not isinstance(output, ElasticSearchOutput):
+                raise ValueError(f"output expected to be ElasticSearchOutput type, given {type(output)}")
+
             return ShipperFactory.create(
                 output="elasticsearch",
-                elasticsearch_url=elasticsearch_output.elasticsearch_url,
-                username=elasticsearch_output.username,
-                password=elasticsearch_output.password,
-                cloud_id=elasticsearch_output.cloud_id,
-                api_key=elasticsearch_output.api_key,
-                dataset=elasticsearch_output.dataset,
-                namespace=elasticsearch_output.namespace,
+                elasticsearch_url=output.elasticsearch_url,
+                username=output.username,
+                password=output.password,
+                cloud_id=output.cloud_id,
+                api_key=output.api_key,
+                dataset=output.dataset,
+                namespace=output.namespace,
             )
 
         raise ValueError(

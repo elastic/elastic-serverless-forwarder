@@ -9,6 +9,7 @@ from unittest import TestCase
 
 import elasticsearch
 import mock
+import pytest
 
 from shippers import ElasticsearchShipper
 
@@ -61,6 +62,7 @@ def mock_bulk(client: Any, actions: list[dict[str, Any]]) -> None:
     _documents = [actions]
 
 
+@pytest.mark.unit
 class TestElasticsearchShipper(TestCase):
     @mock.patch("shippers.es.es_bulk", mock_bulk)
     @mock.patch("shippers.es.Elasticsearch", new=MockClient)

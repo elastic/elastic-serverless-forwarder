@@ -5,6 +5,8 @@
 from typing import Any
 from unittest import TestCase
 
+import pytest
+
 from shippers import CommonShipper, CompositeShipper
 
 
@@ -21,6 +23,7 @@ class DummyShipper(CommonShipper):
         self._flushed = False
 
 
+@pytest.mark.unit
 class TestCompositeShipper(TestCase):
     def test_add_shipper(self) -> None:
         dummy_shipper = DummyShipper()

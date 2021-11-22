@@ -12,6 +12,7 @@ from unittest import TestCase
 
 import docker
 import mock
+import pytest
 from elasticsearch import Elasticsearch
 from localstack.services.s3.s3_starter import check_s3
 from localstack.services.sqs.sqs_starter import check_sqs
@@ -30,6 +31,7 @@ class ContextMock:
         return 0
 
 
+@pytest.mark.unit
 class TestLambdaHandlerFailure(TestCase):
     def test_lambda_handler_failure(self) -> None:
         dummy_event = {
@@ -89,6 +91,7 @@ class TestLambdaHandlerFailure(TestCase):
             assert call == "exception raised: Exception('Not supported trigger')"
 
 
+@pytest.mark.integration
 class TestLambdaHandlerSuccess(TestCase):
     def _es_client_patch(self, **kwargs: Any) -> Elasticsearch:
         kwargs["timeout"] = 30

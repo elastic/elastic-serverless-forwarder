@@ -6,7 +6,7 @@ docker_pip_cache="/tmp/cache/pip"
 
 cd tests
 
-docker build --build-arg UID=$UID --build-arg PYTHON_IMAGE=python:3.9 -t run_tests .
+docker build --build-arg UID=$UID --build-arg PYTHON_IMAGE=python:3.9 -t run_tests --file Dockerfile ..
 docker run \
   --privileged \
   -e LOCAL_USER_ID=$UID \
@@ -21,5 +21,5 @@ docker run \
   /bin/bash \
   -c "sudo service docker start
       pip install --user -U pip
-      pip install --user -r tests/requirements/test-reqs.txt --cache-dir ${docker_pip_cache}
+      pip install --user -r requirements-tests.txt --cache-dir ${docker_pip_cache}
       PATH=\${PATH}:\${HOME}/.local/bin/ timeout 15m /bin/bash ./tests/scripts/run_tests.sh"
