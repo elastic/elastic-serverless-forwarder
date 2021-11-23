@@ -58,10 +58,10 @@ Resources:
             Resource: 'arn:aws:sqs:*:*:*'
 Metadata:
   AWS::ServerlessRepo::Application:
-    Name: %sarAppName%
+    Name: elastic-serverless-forwarder
     Description: Elastic Forwared for Serverless
     Author: elastic
-    SemanticVersion: 0.12.2
+    SemanticVersion: 0.12.0
     LicenseUrl: LICENSE.txt
     ReadmeUrl: README.md
     HomePageUrl: https://github.com/elastic/elastic-serverless-forwarder

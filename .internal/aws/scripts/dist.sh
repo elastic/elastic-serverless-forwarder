@@ -2,16 +2,15 @@
 
 set -e
 
-if [[ $# -ne 4 ]]
+if [[ $# -ne 3 ]]
 then
-    echo "Usage: $0 sar-app-name bucket-name account-id region"
+    echo "Usage: $0 bucket-name account-id region"
     exit 1
 fi
 
-SAR_APP_NAME="$1"
-BUCKET="$2"
-ACCOUNT_ID="$3"
-REGION="$4"
+BUCKET="$1"
+ACCOUNT_ID="$2"
+REGION="$3"
 
 TMPDIR=$(mktemp -d /tmp/dist.XXXXXXXXXX)
 
@@ -58,7 +57,7 @@ EOF
 
 aws s3api put-bucket-policy --bucket "${BUCKET}" --policy "file://${TMPDIR}/policy.json"
 
-sed -e "s/%sarAppName%/${SAR_APP_NAME}/g" -e "s/%codeURIBucket%/${BUCKET}/g" -e "s/%accountID%/${ACCOUNT_ID}/g" -e "s/%awsRegion%/${REGION}/g" .internal/aws/cloudformation/template.yaml > "${TMPDIR}/template.yaml"
+sed -e "s/%codeURIBucket%/${BUCKET}/g" -e "s/%accountID%/${ACCOUNT_ID}/g" -e "s/%awsRegion%/${REGION}/g" infra/aws/cloudformation/template.yaml > "${TMPDIR}/template.yaml"
 
 sam package --template-file "${TMPDIR}/template.yaml" --output-template-file "${TMPDIR}/packaged.yaml" --s3-bucket "${BUCKET}"
 sam publish --template "${TMPDIR}/packaged.yaml" --region "${REGION}"
