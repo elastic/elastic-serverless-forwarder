@@ -61,7 +61,7 @@ Metadata:
     Name: %sarAppName%
     Description: Elastic Forwared for Serverless
     Author: elastic
-    SemanticVersion: 0.12.2
+    SemanticVersion: %semanticVersion%
     LicenseUrl: LICENSE.txt
     ReadmeUrl: README.md
     HomePageUrl: https://github.com/elastic/elastic-serverless-forwarder
