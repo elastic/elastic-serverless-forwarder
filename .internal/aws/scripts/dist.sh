@@ -2,14 +2,16 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
-#!/usr/bin/env bash
 
 set -e
+
+echo "    AWS CLI (https://aws.amazon.com/cli/) and Python3.9 with pip3 required"
+echo "    Please, execute from root folder of the repo"
 
 if [[ $# -ne 5 ]]
 then
     echo "Usage: $0 sar-app-name semantic-version bucket-name account-id region"
-    echo "    AWS CLI (https://aws.amazon.com/cli/) and Python3.9 with pip required"
+    echo "    Arguments:"
     echo "    sar-app-name: name of the app to be deployed in SAR"
     echo "    semantic-version: semantic version of the app to deploy in SAR"
     echo "    bucket-name: bucket name where to store the zip artifact for SAR code"
