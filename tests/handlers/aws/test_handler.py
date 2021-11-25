@@ -180,7 +180,12 @@ class TestLambdaHandlerSuccess(TestCase):
         self._elastic_container = docker_client.containers.run(
             "docker.elastic.co/elasticsearch/elasticsearch:7.15.1",
             detach=True,
-            environment=["ELASTIC_PASSWORD=password", "discovery.type=single-node", "network.bind_host=0.0.0.0"],
+            environment=[
+                "ES_JAVA_OPTS=-Xms1g -Xmx1g",
+                "ELASTIC_PASSWORD=password",
+                "discovery.type=single-node",
+                "network.bind_host=0.0.0.0",
+            ],
             ports={"9200/tcp": None},
         )
 
