@@ -77,6 +77,5 @@ aws s3api put-bucket-policy --bucket "${BUCKET}" --policy "file://${TMPDIR}/poli
 
 sed -e "s/%sarAppName%/${SAR_APP_NAME}/g" -e "s/%semanticVersion%/${SEMANTIC_VERSION}/g" -e "s/%codeURIBucket%/${BUCKET}/g" -e "s/%accountID%/${ACCOUNT_ID}/g" -e "s/%awsRegion%/${REGION}/g" .internal/aws/cloudformation/template.yaml > "${TMPDIR}/template.yaml"
 
-sam package --template-file "${TMPDIR}/template.yaml" --output-template-file "${TMPDIR}/packaged.yaml" --s3-bucket "${BUCKET}"
+sam package --template-file "${TMPDIR}/template.yaml" --output-template-file "${TMPDIR}/packaged.yaml" --s3-bucket "${BUCKET}" --region "${REGION}"
 sam publish --template "${TMPDIR}/packaged.yaml" --region "${REGION}"
-
