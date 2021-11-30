@@ -4,3 +4,4 @@
 
 from .config import Config, ElasticSearchOutput, Input, Output, parse_config
 from .logger import logger as shared_logger
+from .secretsmanager import aws_sm_expander
