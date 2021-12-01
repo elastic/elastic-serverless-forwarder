@@ -39,7 +39,7 @@ def _handle_sqs_continuation(
     Handler of the continuation queue for sqs inputs
     If a sqs message cannot be fully processed before the
     timeout of the lambda this handler will be called: it will
-    send new sqs messages for the unprocessed recordrs to the
+    send new sqs messages for the unprocessed records to the
     internal continuing sqs queue
     """
 
