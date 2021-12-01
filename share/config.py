@@ -195,7 +195,7 @@ class Input:
     def get_output_by_type(self, output_type: str) -> Optional[Output]:
         """
         Output getter.
-        Returns a specific output given its id
+        Returns a specific output given its type
         """
 
         return self._outputs[output_type] if output_type in self._outputs else None
