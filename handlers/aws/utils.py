@@ -18,6 +18,13 @@ _available_triggers: dict[str, str] = {"aws:sqs": "sqs"}
 def capture_serverless(
     func: Callable[[dict[str, Any], context_.Context], str]
 ) -> Callable[[dict[str, Any], context_.Context], str]:
+    """
+    Decorator with logic regarding when to inject apm_capture_serverless
+    decorator: apm_capture_serverless expects handler to be run in a lambda
+    and bew always active. We inject apm_capture_serverless decorator only if
+    env variable ELASTIC_APM_ACTIVE is set and we are running in a real lambda:
+    this allows us to run the handler locally or in different environment.
+    """
     if "ELASTIC_APM_ACTIVE" not in os.environ or "AWS_LAMBDA_FUNCTION_NAME" not in os.environ:
 
         def wrapper(lambda_event: dict[str, Any], lambda_context: context_.Context) -> str:
@@ -31,6 +38,10 @@ def capture_serverless(
 def wrap_try_except(
     func: Callable[[dict[str, Any], context_.Context], str]
 ) -> Callable[[dict[str, Any], context_.Context], str]:
+    """
+    Decorator to catch every exception and capture them by apm client if set
+    """
+
     def wrapper(lambda_event: dict[str, Any], lambda_context: context_.Context) -> str:
         try:
             return func(lambda_event, lambda_context)
@@ -46,6 +57,13 @@ def wrap_try_except(
 
 
 def config_yaml_from_payload(lambda_event: dict[str, Any]) -> str:
+    """
+    Extract the config yaml from sqs record message attributes.
+    In case we are in a sqs continuing handler scenario we use the config
+    we set when sending the sqs continuing message instead of the one defined
+    from env variable
+    """
+
     payload = lambda_event["Records"][0]["messageAttributes"]
     config_yaml: str = payload["config"]["stringValue"]
     lambda_event["Records"][0]["eventSourceARN"] = payload["originalEventSource"]["stringValue"]
@@ -54,6 +72,12 @@ def config_yaml_from_payload(lambda_event: dict[str, Any]) -> str:
 
 
 def config_yaml_from_s3() -> str:
+    """
+    Extract the config yaml downloading it from S3
+    It is the default behaviour: reference to the config file is given
+    by env variable S3_CONFIG_FILE
+    """
+
     config_file = os.getenv("S3_CONFIG_FILE")
     assert config_file is not None
 
@@ -69,6 +93,10 @@ def config_yaml_from_s3() -> str:
 
 
 def from_s3_uri_to_bucket_name_and_object_key(s3_uri: str) -> tuple[str, str]:
+    """
+    Helpers for extracting bucket name and object key given an S3 URI
+    """
+
     if not s3_uri.startswith("s3://"):
         raise ValueError(f"Invalid s3 uri provided: `{s3_uri}`")
 
@@ -82,10 +110,18 @@ def from_s3_uri_to_bucket_name_and_object_key(s3_uri: str) -> tuple[str, str]:
 
 
 def get_bucket_name_from_arn(bucket_arn: str) -> str:
+    """
+    Helpers for extracting bucket name from a bucket ARN
+    """
+
     return bucket_arn.split(":")[-1]
 
 
 def get_trigger_type(event: dict[str, Any]) -> str:
+    """
+    Determines the trigger type according to the payload of the trigger event
+    """
+
     if "Records" not in event or len(event["Records"]) < 1:
         raise Exception("Not supported trigger")
 

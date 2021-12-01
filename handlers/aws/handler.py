@@ -20,6 +20,10 @@ _completion_grace_period: int = 60000
 @capture_serverless
 @wrap_try_except
 def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Context) -> str:
+    """
+    AWS Lambda handler in handler.aws package
+    Parses the config and acts as front controller for inputs
+    """
     trigger_type: str = get_trigger_type(lambda_event)
     shared_logger.info("trigger", extra={"type": trigger_type})
 

@@ -15,6 +15,11 @@ from .storage import CHUNK_SIZE, CommonStorage, StorageReader
 
 
 class S3Storage(CommonStorage):
+    """
+    S3 Storage.
+    This class implements concrete S3 Storage
+    """
+
     _s3_client = boto3.client("s3")
 
     def __init__(self, bucket_name: str, object_key: str):
@@ -26,6 +31,10 @@ class S3Storage(CommonStorage):
     def _generate(
         self, range_start: int, body: StreamingBody, content_type: str, content_length: int
     ) -> Iterator[tuple[Union[StorageReader, bytes], int, int]]:
+        """
+        Concrete implementation of the iterator for get_by_lines
+        """
+
         file_ending_offset: int = range_start
 
         def chunk_lambda() -> Any:

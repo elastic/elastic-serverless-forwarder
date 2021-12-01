@@ -2,7 +2,6 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
-from abc import ABCMeta
 from typing import Any, Optional
 
 import yaml
@@ -13,7 +12,11 @@ _available_input_types: list[str] = ["sqs"]
 _available_output_types: list[str] = ["elasticsearch"]
 
 
-class Output(metaclass=ABCMeta):
+class Output:
+    """
+    Base class for Output component
+    """
+
     def __init__(self, output_type: str):
         self.type: str = output_type
 
@@ -157,6 +160,10 @@ class ElasticSearchOutput(Output):
 
 
 class Input:
+    """
+    Base class for Input component
+    """
+
     def __init__(self, input_type: str, input_id: str):
         self.type = input_type
         self.id = input_id
@@ -186,15 +193,34 @@ class Input:
         self._id = value
 
     def get_output_by_type(self, output_type: str) -> Optional[Output]:
+        """
+        Output getter.
+        Returns a specific output given its type
+        """
+
         return self._outputs[output_type] if output_type in self._outputs else None
 
     def get_output_types(self) -> list[str]:
+        """
+        Output types getter.
+        Returns all the defined output types
+        """
+
         return list(self._outputs.keys())
 
     def delete_output_by_type(self, output_type: str) -> None:
+        """
+        Output deleter.
+        Delete a defined output by its type
+        """
+
         del self._outputs[output_type]
 
     def add_output(self, output_type: str, **kwargs: Any) -> None:
+        """
+        Output setter.
+        Set an output given its type and init kwargs
+        """
         if not isinstance(output_type, str):
             raise ValueError("Output type must be of type str")
 
@@ -210,16 +236,30 @@ class Input:
 
 
 class Config:
+    """
+    Config component
+    """
+
     def __init__(self) -> None:
         self._inputs: dict[str, dict[str, Input]] = {}
 
     def get_input_by_type_and_id(self, input_type: str, input_id: str) -> Optional[Input]:
+        """
+        Input getter.
+        Returns a specific input given its type and id
+        """
+
         if input_type not in self._inputs:
             return None
 
         return self._inputs[input_type][input_id] if input_id in self._inputs[input_type] else None
 
     def add_input(self, new_input: Input) -> None:
+        """
+        Input setter.
+        Set an input.
+        """
+
         if new_input.type not in self._inputs:
             self._inputs[new_input.type] = {new_input.id: new_input}
 
@@ -232,6 +272,11 @@ class Config:
 
 
 def parse_config(config_yaml: str) -> Config:
+    """
+    Config component factory
+    Given a config yaml as string it return the Config instance as defined by the yaml
+    """
+
     yaml_config = yaml.safe_load(config_yaml)
     assert isinstance(yaml_config, dict)
 

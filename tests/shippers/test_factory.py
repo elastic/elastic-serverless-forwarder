@@ -13,7 +13,7 @@ class TestShipperFactory(TestCase):
     def test_create(self) -> None:
         with self.subTest("create elasticsearch shipper success elasticsearch_url and http auth"):
             shipper: CommonShipper = ShipperFactory.create(
-                output="elasticsearch",
+                output_type="elasticsearch",
                 elasticsearch_url="elasticsearch_url",
                 username="username",
                 password="password",
@@ -25,7 +25,7 @@ class TestShipperFactory(TestCase):
 
         with self.subTest("create elasticsearch shipper success elasticsearch_url and api key"):
             shipper = ShipperFactory.create(
-                output="elasticsearch",
+                output_type="elasticsearch",
                 elasticsearch_url="elasticsearch_url",
                 api_key="api_key",
                 dataset="dataset",
@@ -36,7 +36,7 @@ class TestShipperFactory(TestCase):
 
         with self.subTest("create elasticsearch shipper success cloud id and http auth"):
             shipper = ShipperFactory.create(
-                output="elasticsearch",
+                output_type="elasticsearch",
                 cloud_id="cloud_id:bG9jYWxob3N0OjkyMDAkMA==",
                 username="username",
                 password="password",
@@ -48,7 +48,7 @@ class TestShipperFactory(TestCase):
 
         with self.subTest("create elasticsearch shipper success cloud id and api key"):
             shipper = ShipperFactory.create(
-                output="elasticsearch",
+                output_type="elasticsearch",
                 cloud_id="cloud_id:bG9jYWxob3N0OjkyMDAkMA==",
                 api_key="api_key",
                 dataset="dataset",
@@ -58,29 +58,29 @@ class TestShipperFactory(TestCase):
             assert isinstance(shipper, ElasticsearchShipper)
         with self.subTest("create elasticsearch shipper no kwargs error"):
             with self.assertRaisesRegex(ValueError, "You must provide one between elasticsearch_url or cloud_id"):
-                ShipperFactory.create(output="elasticsearch")
+                ShipperFactory.create(output_type="elasticsearch")
 
         with self.subTest("create elasticsearch shipper empty elasticsearch_url and no cloud_id"):
             with self.assertRaisesRegex(ValueError, "You must provide one between elasticsearch_url or cloud_id"):
-                ShipperFactory.create(output="elasticsearch", elasticsearch_url="")
+                ShipperFactory.create(output_type="elasticsearch", elasticsearch_url="")
 
         with self.subTest("create elasticsearch shipper empty cloud_id and no elasticsearch_url"):
             with self.assertRaisesRegex(ValueError, "You must provide one between elasticsearch_url or cloud_id"):
-                ShipperFactory.create(output="elasticsearch", cloud_id="")
+                ShipperFactory.create(output_type="elasticsearch", cloud_id="")
 
         with self.subTest("create elasticsearch shipper empty username and no api_key"):
             with self.assertRaisesRegex(ValueError, "You must provide one between username and password or api_key"):
-                ShipperFactory.create(output="elasticsearch", elasticsearch_url="elasticsearch_url", username="")
+                ShipperFactory.create(output_type="elasticsearch", elasticsearch_url="elasticsearch_url", username="")
 
         with self.subTest("create elasticsearch shipper empty api_key and no username"):
             with self.assertRaisesRegex(ValueError, "You must provide one between username and password or api_key"):
-                ShipperFactory.create(output="elasticsearch", elasticsearch_url="elasticsearch_url", api_key="")
+                ShipperFactory.create(output_type="elasticsearch", elasticsearch_url="elasticsearch_url", api_key="")
 
         with self.subTest("create invalid type"):
             with self.assertRaisesRegex(
                 ValueError, re.escape("You must provide one of the following outputs: elasticsearch")
             ):
-                ShipperFactory.create(output="invalid type")
+                ShipperFactory.create(output_type="invalid type")
 
     def test_create_from_output(self) -> None:
         elasticsearch_output = ElasticSearchOutput(

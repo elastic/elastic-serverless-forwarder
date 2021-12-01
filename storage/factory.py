@@ -14,8 +14,17 @@ _init_definition_by_storage_type: dict[str, dict[str, Any]] = {
 
 
 class StorageFactory:
+    """
+    Storage factory.
+    Provides static methods to instantiate a Storage
+    """
+
     @staticmethod
     def create(storage_type: str, **kwargs: Any) -> CommonStorage:
+        """
+        Instantiates a concrete Storage given its type and the storage init kwargs
+        """
+
         if storage_type not in _init_definition_by_storage_type:
             raise ValueError(
                 "You must provide one of the following storage types: "

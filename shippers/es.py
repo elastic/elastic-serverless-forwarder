@@ -13,6 +13,11 @@ from .shipper import CommonShipper
 
 
 class ElasticsearchShipper(CommonShipper):
+    """
+    Elasticsearch Shipper.
+    This class implements concrete Elasticsearch Shipper
+    """
+
     _bulk_batch_size: int = 10000
 
     def __init__(
@@ -52,6 +57,11 @@ class ElasticsearchShipper(CommonShipper):
         self._es_index = f"logs-{dataset}-{namespace}"
 
     def _elasticsearch_client(self, **es_client_kwargs: Any) -> Elasticsearch:
+        """
+        Getter for elasticsearch client
+        Extracted for mocking
+        """
+
         return Elasticsearch(**es_client_kwargs)
 
     @staticmethod
@@ -71,6 +81,11 @@ class ElasticsearchShipper(CommonShipper):
         return f"{hex_prefix}-{offset:012d}"
 
     def _enrich_event(self, event_payload: dict[str, Any]) -> None:
+        """
+        This method enrich with default metadata the ES event payload.
+        Currently hardcoded for logs type
+        """
+
         event_payload["data_stream"] = {
             "type": "logs",
             "dataset": self._dataset,

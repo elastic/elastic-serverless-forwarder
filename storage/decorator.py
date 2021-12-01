@@ -12,6 +12,10 @@ from .storage import CHUNK_SIZE, CommonStorageType, GetByLinesCallable, StorageR
 
 
 def by_lines(func: GetByLinesCallable[CommonStorageType]) -> GetByLinesCallable[CommonStorageType]:
+    """
+    CommonStorageType decorator for returning content split by lines
+    """
+
     def wrapper(
         storage: CommonStorageType, range_start: int, body: Any, content_type: str, content_length: int
     ) -> Iterator[tuple[Union[StorageReader, bytes], int, int]]:
@@ -61,6 +65,10 @@ def by_lines(func: GetByLinesCallable[CommonStorageType]) -> GetByLinesCallable[
 
 
 def inflate(func: GetByLinesCallable[CommonStorageType]) -> GetByLinesCallable[CommonStorageType]:
+    """
+    CommonStorageType decorator for returning inflated content in case the original is gzipped
+    """
+
     def wrapper(
         storage: CommonStorageType, range_start: int, body: Any, content_type: str, content_length: int
     ) -> Iterator[tuple[Union[StorageReader, bytes], int, int]]:
