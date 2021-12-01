@@ -19,6 +19,10 @@ from .utils import get_bucket_name_from_arn
 
 
 def _get_sqs_client() -> BotoBaseClient:
+    """
+    Getter for sqs client
+    Extracted for mocking
+    """
     return boto3.client("sqs")
 
 
@@ -31,6 +35,13 @@ def _handle_sqs_continuation(
     current_s3_record: int,
     config_yaml: str,
 ) -> None:
+    """
+    Handler of the continuation queue for sqs inputs
+    If a sqs message cannot be fully processed before the
+    timeout of the lambda this handler will be called: it will
+    send new sqs messages for the unprocessed recordrs to the
+    internal continuing sqs queue
+    """
 
     sqs_records = lambda_event["Records"][current_sqs_record:]
     body = json.loads(sqs_records[0]["body"])
@@ -56,6 +67,13 @@ def _handle_sqs_continuation(
 
 
 def _handle_sqs_event(config: Config, event: dict[str, Any]) -> Iterator[tuple[dict[str, Any], int, int, int]]:
+    """
+    Handler for sqs inputs.
+    It iterates through sqs records in the sqs trigger and process
+    corresponding object in S3 buckets sending to the defined outputs.
+    If a sqs message cannot be fully processed before the
+    timeout of the lambda it will call the sqs continuing handler
+    """
     for sqs_record_n, sqs_record in enumerate(event["Records"]):
         event_input = config.get_input_by_type_and_id("sqs", sqs_record["eventSourceARN"])
         if not event_input:

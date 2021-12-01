@@ -7,14 +7,26 @@ from typing import Any
 
 
 class CommonShipper(metaclass=ABCMeta):
+    """
+    Abstract class for Shipper components
+    """
+
     @abstractmethod
     def __init__(self, **kwargs: Any):
         raise NotImplementedError
 
     @abstractmethod
     def send(self, event: dict[str, Any]) -> Any:
+        """
+        Interface for sending the event by the shipper
+        """
+
         raise NotImplementedError
 
     @abstractmethod
     def flush(self) -> None:
+        """
+        Interface for flushing the shipper
+        """
+
         raise NotImplementedError

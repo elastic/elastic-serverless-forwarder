@@ -17,14 +17,23 @@ _init_definition_by_output: dict[str, dict[str, Any]] = {
 
 
 class ShipperFactory:
+    """
+    Shipper factory.
+    Provides static methods to instantiate a shipper
+    """
+
     @staticmethod
     def create_from_output(output_type: str, output: Output) -> CommonShipper:
+        """
+        Instantiates a concrete Shipper given an output type and an Output instance
+        """
+
         if output_type == "elasticsearch":
             if not isinstance(output, ElasticSearchOutput):
                 raise ValueError(f"output expected to be ElasticSearchOutput type, given {type(output)}")
 
             return ShipperFactory.create(
-                output="elasticsearch",
+                output_type="elasticsearch",
                 elasticsearch_url=output.elasticsearch_url,
                 username=output.username,
                 password=output.password,
@@ -39,13 +48,17 @@ class ShipperFactory:
         )
 
     @staticmethod
-    def create(output: str, **kwargs: Any) -> CommonShipper:
-        if output not in _init_definition_by_output:
+    def create(output_type: str, **kwargs: Any) -> CommonShipper:
+        """
+        Instantiates a concrete Shipper given an output type and the shipper init kwargs
+        """
+
+        if output_type not in _init_definition_by_output:
             raise ValueError(
                 f"You must provide one of the following outputs: " f"{', '.join(_init_definition_by_output.keys())}"
             )
 
-        output_definition = _init_definition_by_output[output]
+        output_definition = _init_definition_by_output[output_type]
 
         output_builder: Callable[..., CommonShipper] = output_definition["class"]
 

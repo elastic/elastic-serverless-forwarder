@@ -8,10 +8,19 @@ from .shipper import CommonShipper
 
 
 class CompositeShipper(CommonShipper):
+    """
+    Composite Shipper.
+    This class implements composite pattern for shippers
+    """
+
     def __init__(self, **kwargs: Any):
         self._shippers: list[CommonShipper] = []
 
     def add_shipper(self, shipper: CommonShipper) -> None:
+        """
+        Shipper setter.
+        Add a shipper to the composite
+        """
         self._shippers.append(shipper)
 
     def send(self, event: dict[str, Any]) -> Any:

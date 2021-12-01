@@ -10,4 +10,8 @@ from handlers.aws import lambda_handler
 
 
 def handler(lambda_event: dict[str, Any], lambda_context: context_.Context) -> str:
+    """
+    AWS Lambda handler as main entrypoint
+    This is just a wrapper to handlers.aws.lambda_handler
+    """
     return lambda_handler(lambda_event, lambda_context)
