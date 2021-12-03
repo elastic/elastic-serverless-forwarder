@@ -97,7 +97,7 @@ def aws_sm_expander(config_yaml: str) -> str:
         ):
             fetched_secret_entry_value = secret_key_values_cache[region][secrets_manager_name][wanted_key]
             if fetched_secret_entry_value == "":
-                raise ValueError("Value for key: {} must not be empty".format(config_secret_entry))
+                raise ValueError("Value for secret: {} must not be empty".format(config_secret_entry))
             config_secret_entry_values[config_secret_entry] = fetched_secret_entry_value
         elif (
             isinstance(secret_key_values_cache[region][secrets_manager_name], dict)
@@ -105,6 +105,8 @@ def aws_sm_expander(config_yaml: str) -> str:
         ):
             raise KeyError("Key: {} not found in: {}".format(wanted_key, secrets_manager_name))
         else:
+            if secret_key_values_cache[region][secrets_manager_name] == "":
+                raise ValueError("Value for secret: {} must not be empty".format(config_secret_entry))
             config_secret_entry_values[config_secret_entry] = secret_key_values_cache[region][secrets_manager_name]
 
         config_yaml = config_yaml.replace(config_secret_entry, config_secret_entry_values[config_secret_entry])
