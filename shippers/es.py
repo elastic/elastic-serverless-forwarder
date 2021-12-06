@@ -62,6 +62,9 @@ class ElasticsearchShipper(CommonShipper):
         Extracted for mocking
         """
 
+        es_client_kwargs["timeout"] = 30
+        es_client_kwargs["max_retries"] = 10
+        es_client_kwargs["retry_on_timeout"] = True
         return Elasticsearch(**es_client_kwargs)
 
     @staticmethod
