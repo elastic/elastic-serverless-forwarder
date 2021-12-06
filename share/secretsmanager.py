@@ -14,13 +14,13 @@ from botocore.exceptions import ClientError
 from .logger import logger as shared_logger
 
 
-def _get_aws_sm_client() -> BotoBaseClient:
+def _get_aws_sm_client(region_name: str) -> BotoBaseClient:
     """
     Getter for secrets manager client
     Extracted for mocking
     """
 
-    return boto3.client("secretsmanager")
+    return boto3.client("secretsmanager", region_name=region_name)
 
 
 def aws_sm_expander(config_yaml: str) -> str:
@@ -75,7 +75,7 @@ def aws_sm_expander(config_yaml: str) -> str:
 
     for region in secret_key_values_cache:
         for secrets_manager_name in secret_key_values_cache[region]:
-            str_secrets = get_secret_values(secrets_manager_name)
+            str_secrets = get_secret_values(secrets_manager_name, region)
             parsed_secrets = parse_secrets_str(str_secrets)
 
             secret_key_values_cache[region][secrets_manager_name] = parsed_secrets
@@ -114,7 +114,7 @@ def aws_sm_expander(config_yaml: str) -> str:
     return config_yaml
 
 
-def get_secret_values(secret_name: str) -> str:
+def get_secret_values(secret_name: str, region_name: str) -> str:
     """
     Calls the get_secret_value api from secrets manager, and returns the values.
     If the secret is created in a binary format, it will be received as a byte string
@@ -123,7 +123,7 @@ def get_secret_values(secret_name: str) -> str:
     """
 
     secrets: str = ""
-    client = _get_aws_sm_client()
+    client = _get_aws_sm_client(region_name)
 
     try:
         get_secret_value_response = client.get_secret_value(SecretId=secret_name)
