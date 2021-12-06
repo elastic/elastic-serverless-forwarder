@@ -2,7 +2,7 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 import yaml
 
@@ -271,11 +271,14 @@ class Config:
         self._inputs[new_input.type][new_input.id] = new_input
 
 
-def parse_config(config_yaml: str) -> Config:
+def parse_config(config_yaml: str, expanders: list[Callable[[str], str]] = []) -> Config:
     """
     Config component factory
     Given a config yaml as string it return the Config instance as defined by the yaml
     """
+
+    for expander in expanders:
+        config_yaml = expander(config_yaml)
 
     yaml_config = yaml.safe_load(config_yaml)
     assert isinstance(yaml_config, dict)

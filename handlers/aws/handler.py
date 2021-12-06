@@ -3,18 +3,20 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 import os
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 import elasticapm  # noqa: F401
 from aws_lambda_typing import context as context_
 
 from share import Config, Output, parse_config, shared_logger
+from share.secretsmanager import aws_sm_expander
 from shippers import CommonShipper, CompositeShipper, ShipperFactory
 
 from .sqs_trigger import _handle_sqs_continuation, _handle_sqs_event
 from .utils import capture_serverless, config_yaml_from_payload, config_yaml_from_s3, get_trigger_type, wrap_try_except
 
 _completion_grace_period: int = 60000
+_expanders: list[Callable[[str], str]] = [aws_sm_expander]
 
 
 @capture_serverless
@@ -38,7 +40,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         return "empty config"
 
     shared_logger.debug("config", extra={"yaml": config_yaml})
-    config: Config = parse_config(config_yaml)
+    config: Config = parse_config(config_yaml, _expanders)
 
     if trigger_type == "sqs" or trigger_type == "self_sqs":
         event_input = config.get_input_by_type_and_id("sqs", lambda_event["Records"][0]["eventSourceARN"])

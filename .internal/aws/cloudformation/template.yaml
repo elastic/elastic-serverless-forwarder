@@ -56,6 +56,12 @@ Resources:
               - sqs:DeleteMessage
               - sqs:GetQueueAttributes
             Resource: 'arn:aws:sqs:*:*:*'
+      - Version: '2012-10-17' # Policy Document
+        Statement:
+          - Effect: Allow
+            Action:
+              - secretsmanager:GetSecretValue
+            Resource: 'arn:aws:secretsmanager:*:*:*'
 Metadata:
   AWS::ServerlessRepo::Application:
     Name: %sarAppName%
