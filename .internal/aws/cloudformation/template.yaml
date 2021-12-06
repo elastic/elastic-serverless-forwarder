@@ -11,19 +11,19 @@ Resources:
     Properties:
       DelaySeconds: 0
       QueueName: !Join [ "-", ["elastic-serverless-forwarder-continuing-dlq", !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
-      VisibilityTimeout: 900
+      VisibilityTimeout: 910
   ElasticServerlessForwarderContinuingQueue:
     Type: AWS::SQS::Queue
     Properties:
       DelaySeconds: 0
       QueueName: !Join [ "-", ["elastic-serverless-forwarder-continuing-queue", !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
       RedrivePolicy: { "deadLetterTargetArn" : !GetAtt ElasticServerlessForwarderContinuingDLQ.Arn, "maxReceiveCount" : 1 }
-      VisibilityTimeout: 900
+      VisibilityTimeout: 910
   ElasticServerlessForwarderFunction:
     Type: AWS::Serverless::Function
     Properties:
       Timeout: 900
-      MemorySize: 128
+      MemorySize: 256
       PackageType: Zip
       CodeUri:
         Bucket: %codeURIBucket%
@@ -56,6 +56,12 @@ Resources:
               - sqs:DeleteMessage
               - sqs:GetQueueAttributes
             Resource: 'arn:aws:sqs:*:*:*'
+      - Version: '2012-10-17' # Policy Document
+        Statement:
+          - Effect: Allow
+            Action:
+              - sqs:SendMessage
+            Resource: !GetAtt ElasticServerlessForwarderContinuingQueue.Arn
       - Version: '2012-10-17' # Policy Document
         Statement:
           - Effect: Allow
