@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Optional
+from typing import Optional, Union
 from unittest import TestCase
 
 import mock
@@ -18,76 +18,53 @@ from share.secretsmanager import aws_sm_expander
 
 @pytest.mark.unit
 class MockContent:
-    SECRETS_MANAGER_MOCK_DATA: dict[str, dict[str, dict[str, str]]] = {
-        "eu-central-1": {
-            "es_secrets": {
-                "type": "SecretString",
-                "data": json.dumps(
-                    {
-                        "url": "mock_elastic_url",
-                        "username": "mock_elastic_username",
-                        "password": "mock_elastic_password",
-                    }
-                ),
-            },
-            "plain_secret": {"type": "SecretString", "data": "mock_plain_text_sqs_arn"},
+    SECRETS_MANAGER_MOCK_DATA: dict[str, dict[str, str]] = {
+        "es_secrets": {
+            "type": "SecretString",
+            "data": json.dumps(
+                {
+                    "url": "mock_elastic_url",
+                    "username": "mock_elastic_username",
+                    "password": "mock_elastic_password",
+                }
+            ),
         },
-        "eu-west-1": {
-            "binary_secret": {"type": "SecretBinary", "data": "bW9ja19uZ2lueC5sb2c="},
-            "empty_secret": {"type": "SecretString", "data": ""},
-        },
+        "plain_secret": {"type": "SecretString", "data": "mock_plain_text_sqs_arn"},
+        "binary_secret": {"type": "SecretBinary", "data": "bW9ja19uZ2lueC5sb2c="},
+        "empty_secret": {"type": "SecretString", "data": ""},
     }
 
     @staticmethod
-    def get_secret_values(secret_name: str, region_name: str) -> Optional[str]:
-        secret_data: str = ""
+    def _get_aws_sm_client(region_name: str) -> mock.MagicMock:
+        client = mock.Mock()
+        client.get_secret_value = MockContent.get_secret_value
+        return client
 
-        if region_name == "eu-central-1":
-            secrets = MockContent.SECRETS_MANAGER_MOCK_DATA[region_name].get(secret_name)
+    @staticmethod
+    def get_secret_value(SecretId: str) -> Optional[dict[str, Union[bytes, str]]]:
+        secrets = MockContent.SECRETS_MANAGER_MOCK_DATA.get(SecretId)
 
-            if secrets is None:
-                raise ClientError(
-                    {
-                        "Error": {
-                            "Message": "Secrets Manager can't find the specified secret.",
-                            "Code": "ResourceNotFoundException",
-                        }
-                    },
-                    "GetSecretValue",
-                )
+        if secrets is None:
+            raise ClientError(
+                {
+                    "Error": {
+                        "Message": "Secrets Manager can't find the specified secret.",
+                        "Code": "ResourceNotFoundException",
+                    }
+                },
+                "GetSecretValue",
+            )
 
-            if secrets["type"] == "SecretBinary":
-                secret_data = base64.b64decode(secrets["data"]).decode("utf-8")
-            elif secrets["type"] == "SecretString":
-                secret_data = secrets["data"]
+        if secrets["type"] == "SecretBinary":
+            return {"SecretBinary": base64.b64decode(secrets["data"])}
+        elif secrets["type"] == "SecretString":
+            return {"SecretString": secrets["data"]}
 
-        elif region_name == "eu-west-1":
-            secrets = MockContent.SECRETS_MANAGER_MOCK_DATA[region_name].get(secret_name)
-
-            if secrets is None:
-                raise ClientError(
-                    {
-                        "Error": {
-                            "Message": "Secrets Manager can't find the specified secret.",
-                            "Code": "ResourceNotFoundException",
-                        }
-                    },
-                    "GetSecretValue",
-                )
-
-            if secrets["type"] == "SecretBinary":
-                secret_data = base64.b64decode(secrets["data"]).decode("utf-8")
-            elif secrets["type"] == "SecretString":
-                secret_data = secrets["data"]
-
-        return secret_data
+        return None
 
 
 class TestAWSSecretsManager(TestCase):
-    @mock.patch(
-        "share.secretsmanager.get_secret_values",
-        new=MockContent.get_secret_values,
-    )
+    @mock.patch("share.secretsmanager._get_aws_sm_client", new=MockContent._get_aws_sm_client)
     def test_parse_secrets_manager(self) -> None:
         with self.subTest("invalid arn format - too long"):
             config_yaml = """
@@ -114,6 +91,7 @@ class TestAWSSecretsManager(TestCase):
                 aws_sm_expander(config_yaml)
 
         with self.subTest("invalid arn format - pattern not caught"):
+            # BEWARE aws:arn != arn:aws at id
             config_yaml = """
                 inputs:
                 - type: sqs
