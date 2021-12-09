@@ -21,7 +21,6 @@ from localstack.utils import testutil
 from localstack.utils.aws import aws_stack
 
 from main_aws import handler
-from share.secretsmanager import aws_sm_expander
 
 
 class ContextMock:
@@ -247,18 +246,18 @@ class TestLambdaHandlerSuccess(TestCase):
         self._continuing_queue_info = testutil.create_sqs_queue("continuing-queue")
 
         self._config_yaml: str = f"""
-                        inputs:
-                          - type: "sqs"
-                            id: "{self._source_queue_info["QueueArn"]}"
-                            outputs:
-                              - type: "elasticsearch"
-                                args:
-                                  elasticsearch_url: "http://127.0.0.1:{self._ES_HOST_PORT}"
-                                  username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
-                                  password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                                  dataset: "redis.log"
-                                  namespace: "default"
-                                """
+        inputs:
+          - type: "sqs"
+            id: "{self._source_queue_info["QueueArn"]}"
+            outputs:
+              - type: "elasticsearch"
+                args:
+                  elasticsearch_url: "http://127.0.0.1:{self._ES_HOST_PORT}"
+                  username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
+                  password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                  dataset: "redis.log"
+                  namespace: "default"
+                """
 
         self._upload_content_to_bucket(
             content=self._config_yaml,
@@ -309,22 +308,6 @@ class TestLambdaHandlerSuccess(TestCase):
                     ),
                 ):
                     with mock.patch("shippers.ElasticsearchShipper._elasticsearch_client", self._es_client_patch):
-
-                        parsed_config_yml: str = f"""
-                        inputs:
-                          - type: "sqs"
-                            id: "{self._source_queue_info["QueueArn"]}"
-                            outputs:
-                              - type: "elasticsearch"
-                                args:
-                                  elasticsearch_url: "http://127.0.0.1:{self._ES_HOST_PORT}"
-                                  username: "{self._ELASTIC_USER}"
-                                  password: "{self._ELASTIC_PASSWORD}"
-                                  dataset: "redis.log"
-                                  namespace: "default"
-                                """
-
-                        assert aws_sm_expander(self._config_yaml) == parsed_config_yml
 
                         ctx = ContextMock()
                         event = {

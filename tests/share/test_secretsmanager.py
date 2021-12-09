@@ -16,7 +16,6 @@ from botocore.exceptions import ClientError
 from share.secretsmanager import aws_sm_expander
 
 
-@pytest.mark.unit
 class MockContent:
     SECRETS_MANAGER_MOCK_DATA: dict[str, dict[str, str]] = {
         "es_secrets": {
@@ -63,6 +62,7 @@ class MockContent:
         return None
 
 
+@pytest.mark.unit
 class TestAWSSecretsManager(TestCase):
     @mock.patch("share.secretsmanager._get_aws_sm_client", new=MockContent._get_aws_sm_client)
     def test_parse_secrets_manager(self) -> None:
