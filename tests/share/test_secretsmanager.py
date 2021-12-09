@@ -92,6 +92,7 @@ class TestAWSSecretsManager(TestCase):
 
         with self.subTest("invalid arn format - pattern not caught"):
             # BEWARE aws:arn != arn:aws at id
+            # BEWARE secrets_manager != secretsmanager at elasticsearch_url
             config_yaml = """
                 inputs:
                 - type: sqs
@@ -123,7 +124,41 @@ class TestAWSSecretsManager(TestCase):
 
             assert mock_fetched_data == parsed_config_yaml
 
+        with self.subTest("invalid arn format - pattern not caught: case sensitive"):
+            # BEWARE AWS != aws at id
+            config_yaml = """
+                inputs:
+                - type: sqs
+                    id: "arn:AWS:secretsmanager:eu-central-1:123-456-789:secret:plain_secret"
+                    outputs:
+                    - type: elasticsearch
+                        args:
+                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
+                            username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
+                            password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                            dataset: "dataset"
+                            namespace: "namespace"
+            """
+            mock_fetched_data = aws_sm_expander(config_yaml)
+
+            parsed_config_yaml = """
+                inputs:
+                - type: sqs
+                    id: "arn:AWS:secretsmanager:eu-central-1:123-456-789:secret:plain_secret"
+                    outputs:
+                    - type: elasticsearch
+                        args:
+                            elasticsearch_url: "mock_elastic_url"
+                            username: "mock_elastic_username"
+                            password: "mock_elastic_password"
+                            dataset: "dataset"
+                            namespace: "namespace"
+            """
+
+            assert mock_fetched_data == parsed_config_yaml
+
         with self.subTest("invalid both plain text and json secret"):
+            # BEWARE elasticsearch_url and password have json key, but username don't
             config_yaml = """
                 inputs:
                 - type: sqs
