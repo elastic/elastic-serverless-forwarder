@@ -167,6 +167,39 @@ Custom init arguments for the given forwarding target output
   * `args.dataset`: Dataset for the data stream where to forward the logs to. Default value: "generic"
   * `args.namespace`: Namespace for the data stream where to forward the logs to. Default value: "default"
 
+## Secrets Manager Support
+```yaml
+inputs:
+  - type: "sqs"
+    id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_text_secret"
+    outputs:
+      - type: "elasticsearch"
+        args:
+          elasticsearch_url: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:es_secrets:elasticsearch_url"
+          username: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:es_secrets:username"
+          password: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:es_secrets:password"
+          dataset: "generic"
+          namespace: "default"
+```
+There are 2 types of secrets that can be used:
+- SecretString (plain text or key/value pairs)
+- SecretBinary
+
+#### Usage
+Beware that the arn of a secret is `arn:aws:secretsmanager:AWS_REGION:AWS_ACCOUNT_ID:secret:SECRET_NAME`. This is assumed to be the name of a **plain text** or a **binary** secret.
+
+In order to use a **key/value** pair secret you need to provide the key at the end of the arn like `arn:aws:secretsmanager:AWS_REGION:AWS_ACCOUNT_ID:secret:SECRET_NAME:SECRET_KEY`.
+
+Currently, the only version retrieved for a secret is `AWSCURRENT`.
+
+It supports secrets from different regions.
+
+#### Notes
+- Cannot use the same secret for both plain text and key/value pair
+- It's case sensitive
+- Any typo or misconfiguration in the config file will be ignored (or exceptions risen), therefore the secrets will not be retrieved
+- Keys must exist in the secret manager
+- Empty value for a given key is not allowed
 
 ## S3 event notification to SQS
 In order to set up an S3 event notification to SQS please look at the official documentation: https://docs.aws.amazon.com/AmazonS3/latest/userguide/NotificationHowTo.html
