@@ -44,6 +44,7 @@ class ElasticSearchOutput(Output):
         api_key: str = "",
         dataset: str = "",
         namespace: str = "",
+        tags: list[str] = [],
     ):
 
         super().__init__(output_type="elasticsearch")
@@ -54,6 +55,7 @@ class ElasticSearchOutput(Output):
         self.api_key = api_key
         self.dataset = dataset
         self.namespace = namespace
+        self.tags = tags
 
         if not self.cloud_id and not self.elasticsearch_url:
             raise ValueError("Elasticsearch Output elasticsearch_url or cloud_id must be set")
@@ -80,6 +82,9 @@ class ElasticSearchOutput(Output):
         if not self.namespace:
             shared_logger.warning("no namespace set in config: using `default`")
             self.namespace = "default"
+
+        if not self.tags:
+            shared_logger.warning("no tags set in config")
 
     @property
     def elasticsearch_url(self) -> str:
@@ -157,6 +162,17 @@ class ElasticSearchOutput(Output):
             raise ValueError("Elasticsearch Output namespace must be of type str")
 
         self._namespace = value
+
+    @property
+    def tags(self) -> list[str]:
+        return self._tags
+
+    @tags.setter
+    def tags(self, values: list[str]) -> None:
+        if not isinstance(values, list):
+            raise ValueError("Tags must be of type list")
+
+        self._tags = [value for value in values]
 
 
 class Input:

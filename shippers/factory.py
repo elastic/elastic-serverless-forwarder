@@ -41,6 +41,7 @@ class ShipperFactory:
                 api_key=output.api_key,
                 dataset=output.dataset,
                 namespace=output.namespace,
+                tags=output.tags,
             )
 
         raise ValueError(
