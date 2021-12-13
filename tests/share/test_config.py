@@ -326,8 +326,9 @@ class TestElasticSearchOutput(TestCase):
                     password="password",
                     dataset="dataset",
                     namespace="namespace",
-                    tags="tags",
+                    tags="tags",  # type:ignore
                 )
+
 
 @pytest.mark.unit
 class TestInput(TestCase):
