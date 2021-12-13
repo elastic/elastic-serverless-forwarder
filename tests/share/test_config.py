@@ -43,6 +43,7 @@ class TestElasticSearchOutput(TestCase):
                 password="password",
                 dataset="dataset",
                 namespace="namespace",
+                tags=["tag1", "tag2", "tag3"],
             )
 
             assert elasticsearch.type == "elasticsearch"
@@ -53,6 +54,7 @@ class TestElasticSearchOutput(TestCase):
             assert not elasticsearch.api_key
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
+            assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
 
         with self.subTest("valid init with cloud_id and http_auth"):
             elasticsearch = ElasticSearchOutput(
@@ -61,6 +63,7 @@ class TestElasticSearchOutput(TestCase):
                 password="password",
                 dataset="dataset",
                 namespace="namespace",
+                tags=["tag1", "tag2", "tag3"],
             )
 
             assert elasticsearch.type == "elasticsearch"
@@ -71,6 +74,7 @@ class TestElasticSearchOutput(TestCase):
             assert not elasticsearch.api_key
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
+            assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
 
         with self.subTest("valid init with elasticsearch_url and api key"):
             elasticsearch = ElasticSearchOutput(
@@ -78,6 +82,7 @@ class TestElasticSearchOutput(TestCase):
                 api_key="api_key",
                 dataset="dataset",
                 namespace="namespace",
+                tags=["tag1", "tag2", "tag3"],
             )
 
             assert elasticsearch.type == "elasticsearch"
@@ -88,6 +93,7 @@ class TestElasticSearchOutput(TestCase):
             assert not elasticsearch.password
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
+            assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
 
         with self.subTest("valid init with cloud_id and api key"):
             elasticsearch = ElasticSearchOutput(
@@ -95,6 +101,7 @@ class TestElasticSearchOutput(TestCase):
                 api_key="api_key",
                 dataset="dataset",
                 namespace="namespace",
+                tags=["tag1", "tag2", "tag3"],
             )
 
             assert elasticsearch.type == "elasticsearch"
@@ -105,6 +112,7 @@ class TestElasticSearchOutput(TestCase):
             assert not elasticsearch.password
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
+            assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
 
         with self.subTest("neither elasticsearch_url or cloud_id"):
             with self.assertRaisesRegex(ValueError, "Elasticsearch Output elasticsearch_url or cloud_id must be set"):
@@ -117,6 +125,7 @@ class TestElasticSearchOutput(TestCase):
                 api_key="api_key",
                 dataset="dataset",
                 namespace="namespace",
+                tags=["tag1", "tag2", "tag3"],
             )
 
             assert elasticsearch.type == "elasticsearch"
@@ -127,6 +136,7 @@ class TestElasticSearchOutput(TestCase):
             assert not elasticsearch.password
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
+            assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
 
         with self.subTest("no username or api_key"):
             with self.assertRaisesRegex(
@@ -136,6 +146,7 @@ class TestElasticSearchOutput(TestCase):
                     elasticsearch_url="elasticsearch_url",
                     dataset="dataset",
                     namespace="namespace",
+                    tags=["tag1", "tag2", "tag3"],
                 )
 
         with self.subTest("both username and api_key"):
@@ -146,6 +157,7 @@ class TestElasticSearchOutput(TestCase):
                 password="password",
                 dataset="dataset",
                 namespace="namespace",
+                tags=["tag1", "tag2", "tag3"],
             )
 
             assert elasticsearch.type == "elasticsearch"
@@ -156,6 +168,7 @@ class TestElasticSearchOutput(TestCase):
             assert not elasticsearch.password
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
+            assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
 
         with self.subTest("empty password"):
             with self.assertRaisesRegex(ValueError, "Elasticsearch Output password must be set when using username"):
@@ -165,6 +178,7 @@ class TestElasticSearchOutput(TestCase):
                     password="",
                     dataset="dataset",
                     namespace="namespace",
+                    tags=["tag1", "tag2", "tag3"],
                 )
 
         with self.subTest("empty dataset"):
@@ -174,6 +188,7 @@ class TestElasticSearchOutput(TestCase):
                 username="username",
                 password="password",
                 namespace="namespace",
+                tags=["tag1", "tag2", "tag3"],
             )
 
             assert elasticsearch.type == "elasticsearch"
@@ -184,8 +199,29 @@ class TestElasticSearchOutput(TestCase):
             assert not elasticsearch.password
             assert elasticsearch.dataset == "generic"
             assert elasticsearch.namespace == "namespace"
+            assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
 
         with self.subTest("empty namespace"):
+            elasticsearch = ElasticSearchOutput(
+                cloud_id="cloud_id",
+                api_key="api_key",
+                username="username",
+                password="password",
+                dataset="dataset",
+                tags=["tag1", "tag2", "tag3"],
+            )
+
+            assert elasticsearch.type == "elasticsearch"
+            assert elasticsearch.cloud_id == "cloud_id"
+            assert elasticsearch.api_key == "api_key"
+            assert not elasticsearch.elasticsearch_url
+            assert not elasticsearch.username
+            assert not elasticsearch.password
+            assert elasticsearch.dataset == "dataset"
+            assert elasticsearch.namespace == "default"
+            assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
+
+        with self.subTest("empty tags"):
             elasticsearch = ElasticSearchOutput(
                 cloud_id="cloud_id",
                 api_key="api_key",
@@ -202,6 +238,7 @@ class TestElasticSearchOutput(TestCase):
             assert not elasticsearch.password
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "default"
+            assert elasticsearch.tags == []
 
         with self.subTest("elasticsearch_url not str"):
             with self.assertRaisesRegex(
@@ -213,6 +250,7 @@ class TestElasticSearchOutput(TestCase):
                     password="password",
                     dataset="dataset",
                     namespace="namespace",
+                    tags=["tag1", "tag2", "tag3"],
                 )
 
         with self.subTest("username not str"):
@@ -223,6 +261,7 @@ class TestElasticSearchOutput(TestCase):
                     password="password",
                     dataset="dataset",
                     namespace="namespace",
+                    tags=["tag1", "tag2", "tag3"],
                 )
 
         with self.subTest("password not str"):
@@ -233,6 +272,7 @@ class TestElasticSearchOutput(TestCase):
                     password=0,  # type:ignore
                     dataset="dataset",
                     namespace="namespace",
+                    tags=["tag1", "tag2", "tag3"],
                 )
 
         with self.subTest("cloud_id not str"):
@@ -243,6 +283,7 @@ class TestElasticSearchOutput(TestCase):
                     password="password",
                     dataset="dataset",
                     namespace="namespace",
+                    tags=["tag1", "tag2", "tag3"],
                 )
 
         with self.subTest("api_key not str"):
@@ -252,6 +293,7 @@ class TestElasticSearchOutput(TestCase):
                     api_key=0,  # type:ignore
                     dataset="dataset",
                     namespace="namespace",
+                    tags=["tag1", "tag2", "tag3"],
                 )
 
         with self.subTest("dataset not str"):
@@ -262,6 +304,7 @@ class TestElasticSearchOutput(TestCase):
                     password="password",
                     dataset=0,  # type:ignore
                     namespace="namespace",
+                    tags=["tag1", "tag2", "tag3"],
                 )
 
         with self.subTest("namespace not str"):
@@ -272,8 +315,19 @@ class TestElasticSearchOutput(TestCase):
                     password="password",
                     dataset="dataset",
                     namespace=0,  # type:ignore
+                    tags=["tag1", "tag2", "tag3"],
                 )
 
+        with self.subTest("tags not list"):
+            with self.assertRaisesRegex(ValueError, "Tags must be of type list"):
+                ElasticSearchOutput(
+                    elasticsearch_url="elasticsearch_url",
+                    username="username",
+                    password="password",
+                    dataset="dataset",
+                    namespace="namespace",
+                    tags="tags",
+                )
 
 @pytest.mark.unit
 class TestInput(TestCase):
@@ -313,6 +367,7 @@ class TestInput(TestCase):
                 password="password",
                 dataset="dataset",
                 namespace="namespace",
+                tags=["tag1", "tag2", "tag3"],
             )
 
             assert isinstance(input_sqs.get_output_by_type(output_type="elasticsearch"), ElasticSearchOutput)
@@ -327,6 +382,7 @@ class TestInput(TestCase):
                 password="password",
                 dataset="dataset",
                 namespace="namespace",
+                tags=["tag1", "tag2", "tag3"],
             )
 
             assert isinstance(input_sqs.get_output_by_type(output_type="elasticsearch"), ElasticSearchOutput)
@@ -350,6 +406,7 @@ class TestInput(TestCase):
                 password="password",
                 dataset="dataset",
                 namespace="namespace",
+                tags=["tag1", "tag2", "tag3"],
             )
 
             with self.assertRaisesRegex(ValueError, "Duplicated Output elasticsearch"):
@@ -360,6 +417,7 @@ class TestInput(TestCase):
                     password="password",
                     dataset="dataset",
                     namespace="namespace",
+                    tags=["tag1", "tag2", "tag3"],
                 )
 
     def test_get_output_types(self) -> None:
@@ -376,6 +434,7 @@ class TestInput(TestCase):
                 password="password",
                 dataset="dataset",
                 namespace="namespace",
+                tags=["tag1", "tag2", "tag3"],
             )
 
             assert input_sqs.get_output_types() == ["elasticsearch"]
@@ -390,6 +449,7 @@ class TestInput(TestCase):
                 password="password",
                 dataset="dataset",
                 namespace="namespace",
+                tags=["tag1", "tag2", "tag3"],
             )
 
             input_sqs.delete_output_by_type("elasticsearch")
@@ -614,6 +674,10 @@ class TestParseConfig(TestCase):
                       password: "password"
                       dataset: "dataset"
                       namespace: "namespace"
+                      tags:
+                        - "tag1"
+                        - "tag2"
+                        - "tag3"
             """
             )
 
@@ -632,6 +696,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch.password == "password"
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
+            assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
 
         with self.subTest("valid input valid elasticsearch output with elasticsearch_url and api key"):
             config = parse_config(
@@ -646,6 +711,10 @@ class TestParseConfig(TestCase):
                       api_key: "api_key"
                       dataset: "dataset"
                       namespace: "namespace"
+                      tags:
+                        - "tag1"
+                        - "tag2"
+                        - "tag3"
             """
             )
 
@@ -663,6 +732,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch.api_key == "api_key"
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
+            assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
 
         with self.subTest("valid input valid elasticsearch output with cloud id and http auth"):
             config = parse_config(
@@ -678,6 +748,10 @@ class TestParseConfig(TestCase):
                       password: "password"
                       dataset: "dataset"
                       namespace: "namespace"
+                      tags:
+                        - "tag1"
+                        - "tag2"
+                        - "tag3"
             """
             )
 
@@ -696,6 +770,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch.password == "password"
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
+            assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
 
         with self.subTest("valid input valid elasticsearch output cloud_id and api key"):
             config = parse_config(
@@ -710,6 +785,10 @@ class TestParseConfig(TestCase):
                       api_key: "api_key"
                       dataset: "dataset"
                       namespace: "namespace"
+                      tags:
+                        - "tag1"
+                        - "tag2"
+                        - "tag3"
             """
             )
 
@@ -727,3 +806,4 @@ class TestParseConfig(TestCase):
             assert elasticsearch.api_key == "api_key"
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
+            assert elasticsearch.tags == ["tag1", "tag2", "tag3"]

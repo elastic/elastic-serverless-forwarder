@@ -83,7 +83,7 @@ class ElasticSearchOutput(Output):
             shared_logger.warning("no namespace set in config: using `default`")
             self.namespace = "default"
 
-        if not self.tags:
+        if not self.tags or len(self.tags) == 0:
             shared_logger.warning("no tags set in config")
 
     @property
@@ -172,7 +172,7 @@ class ElasticSearchOutput(Output):
         if not isinstance(values, list):
             raise ValueError("Tags must be of type list")
 
-        self._tags = [value for value in values]
+        self._tags = [str(value) for value in values]
 
 
 class Input:
