@@ -81,6 +81,15 @@ class MockContent:
 
         return {"Body": StreamingBody(content_body, content_length), "ContentLength": content_length}
 
+    @staticmethod
+    def s3_client_download_fileobj(Bucket: str, Key: str, Fileobj: io.BytesIO) -> None:
+        if Key.endswith(".gz"):
+            assert MockContent.f_stream_gzip is not None
+            Fileobj.writelines(MockContent.f_stream_gzip.readlines())
+        else:
+            assert MockContent.f_stream_plain is not None
+            Fileobj.writelines(MockContent.f_stream_plain.readlines())
+
 
 @pytest.mark.unit
 class TestS3Storage(TestCase):
@@ -95,7 +104,7 @@ class TestS3Storage(TestCase):
         assert len(content) == len(MockContent.f_content_plain)
 
     @mock.patch("storage.S3Storage._s3_client.head_object", new=MockContent.s3_client_head_object)
-    @mock.patch("storage.S3Storage._s3_client.get_object", new=MockContent.s3_client_get_object)
+    @mock.patch("storage.S3Storage._s3_client.download_fileobj", new=MockContent.s3_client_download_fileobj)
     def test_get_by_lines(self) -> None:
         for newline in ["", "\n", "\r\n"]:
             with self.subTest(f"testing with newline length {len(newline)}", newline=newline):
