@@ -20,7 +20,7 @@ class ElasticsearchShipper(CommonShipper):
     This class implements concrete Elasticsearch Shipper
     """
 
-    _bulk_batch_size: int = 10000
+    _bulk_batch_size: int = 1000
 
     def __init__(
         self,
