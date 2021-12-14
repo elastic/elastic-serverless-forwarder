@@ -108,7 +108,7 @@ class ElasticsearchShipper(CommonShipper):
 
         event_payload["event"] = {"dataset": self._dataset, "original": event_payload["fields"]["message"]}
 
-        event_payload["tags"] = self._tags
+        event_payload["tags"] = ["preserve_original_event", "forwarded", self._dataset.replace(".", "-")] + self._tags
 
     @staticmethod
     def _log_outcome(success: int, failed: int) -> None:

@@ -103,7 +103,14 @@ class TestElasticsearchShipper(TestCase):
                         },
                         "message": "A dummy message",
                     },
-                    "tags": ["tag1", "tag2", "tag3"],
+                    "tags": [
+                        "preserve_original_event",
+                        "forwarded",
+                        "data-set",
+                        "tag1",
+                        "tag2",
+                        "tag3",
+                    ],
                 }
             ]
         ]
@@ -143,7 +150,14 @@ class TestElasticsearchShipper(TestCase):
                     "log": {"file": {"path": "https://bucket_name.s3.aws-region.amazonaws.com/file.key"}, "offset": 10},
                     "message": "A dummy message",
                 },
-                "tags": ["tag1", "tag2", "tag3"],
+                "tags": [
+                    "preserve_original_event",
+                    "forwarded",
+                    "data-set",
+                    "tag1",
+                    "tag2",
+                    "tag3",
+                ],
             }
         ]
 
