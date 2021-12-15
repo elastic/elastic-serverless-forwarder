@@ -38,7 +38,7 @@ def aws_sm_expander(config_yaml: str) -> str:
     secret_key_values_cache: dict[str, dict[str, Any]] = {}
     secret_consistency_len_check: dict[str, int] = {}
 
-    re_pattern = r"arn:aws:secretsmanager:(?:[^:]+):(?:[^:]+):secret:(?:[^\"']+)"
+    re_pattern = r"arn:aws:secretsmanager:(?:[^:]+)?:(?:[^:]+)?:secret:(?:[^\"']+)?"
     found_secrets_entries = re.findall(re_pattern, config_yaml)
 
     for secret_arn in found_secrets_entries:

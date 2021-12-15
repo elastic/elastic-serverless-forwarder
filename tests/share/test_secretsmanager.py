@@ -70,14 +70,12 @@ class TestAWSSecretsManager(TestCase):
             config_yaml = """
                 inputs:
                     - type: sqs
-                    id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:sqs_secret:THIS:IS:INVALID"
+                    id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret:THIS:IS:INVALID"
                     outputs:
                         - type: elasticsearch
                         args:
-                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:
-                            es_secrets:elasticsearch_url"
-                            username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:
-                            es_secrets:elasticsearch_url"
+                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
+                            username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
                             password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
                             dataset: "dataset"
                             namespace: "namespace"
@@ -86,7 +84,130 @@ class TestAWSSecretsManager(TestCase):
             with self.assertRaisesRegex(
                 SyntaxError,
                 "Invalid arn format: arn:aws:secretsmanager:eu-central-1:123-456-789:"
-                + "secret:sqs_secret:THIS:IS:INVALID",
+                + "secret:plain_secret:THIS:IS:INVALID",
+            ):
+                aws_sm_expander(config_yaml)
+
+        with self.subTest("region is empty"):
+            # BEWARE empty region at id
+            config_yaml = """
+                inputs:
+                    - type: sqs
+                    id: "arn:aws:secretsmanager::123-456-789:secret:plain_secret"
+                    outputs:
+                        - type: elasticsearch
+                        args:
+                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
+                            username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
+                            password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                            dataset: "dataset"
+                            namespace: "namespace"
+            """
+        with self.assertRaisesRegex(
+            ValueError, "Must be provided region in arn: arn:aws:secretsmanager::123-456-789:secret:plain_secret"
+        ):
+            aws_sm_expander(config_yaml)
+
+        with self.subTest("empty secrets manager name"):
+            # BEWARE empty secrets manager name at id
+            config_yaml = """
+                inputs:
+                    - type: sqs
+                    id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:"
+                    outputs:
+                        - type: elasticsearch
+                        args:
+                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
+                            username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
+                            password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                            dataset: "dataset"
+                            namespace: "namespace"
+            """
+        with self.assertRaisesRegex(
+            ValueError,
+            "Must be provided secrets manager name in arn: arn:aws:secretsmanager:eu-central-1:123-456-789:secret:",
+        ):
+            aws_sm_expander(config_yaml)
+
+        with self.subTest("empty secret key"):
+            # BEWARE empty secret key at elasticsearch_url
+            config_yaml = """
+                inputs:
+                    - type: sqs
+                    id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret"
+                    outputs:
+                        - type: elasticsearch
+                        args:
+                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:"
+                            username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
+                            password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                            dataset: "dataset"
+                            namespace: "namespace"
+            """
+        with self.assertRaisesRegex(
+            ValueError, "Key must not be empty: arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:"
+        ):
+            aws_sm_expander(config_yaml)
+
+        with self.subTest("invalid both plain text and json secret"):
+            # BEWARE elasticsearch_url and password have json key, but username don't
+            config_yaml = """
+                inputs:
+                - type: sqs
+                    id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:sqs_secret"
+                    outputs:
+                    - type: elasticsearch
+                        args:
+                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
+                            username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets"
+                            password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                            dataset: "dataset"
+                            namespace: "namespace"
+            """
+
+            with self.assertRaisesRegex(
+                ValueError,
+                "You cannot have both plain text and json key for the same secret: "
+                + "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets",
+            ):
+                aws_sm_expander(config_yaml)
+
+        with self.subTest("secret does not exist"):
+            config_yaml = """
+                inputs:
+                - type: sqs
+                    id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:DOES_NOT_EXIST"
+                    outputs:
+                    - type: elasticsearch
+                        args:
+                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
+                            username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
+                            password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                            dataset: "dataset"
+                            namespace: "namespace"
+            """
+
+            with self.assertRaises(ClientError):
+                aws_sm_expander(config_yaml)
+
+        with self.subTest("secret is empty"):
+            config_yaml = """
+                inputs:
+                - type: sqs
+                    id: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:empty_secret"
+                    outputs:
+                    - type: elasticsearch
+                        args:
+                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
+                            username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
+                            password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                            dataset: "dataset"
+                            namespace: "namespace"
+            """
+
+            with self.assertRaisesRegex(
+                ValueError,
+                "Value for secret: arn:aws:secretsmanager:eu-west-1:123-456-789:secret:empty_secret must not be empty",
             ):
                 aws_sm_expander(config_yaml)
 
@@ -156,68 +277,6 @@ class TestAWSSecretsManager(TestCase):
             """
 
             assert mock_fetched_data == parsed_config_yaml
-
-        with self.subTest("invalid both plain text and json secret"):
-            # BEWARE elasticsearch_url and password have json key, but username don't
-            config_yaml = """
-                inputs:
-                - type: sqs
-                    id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:sqs_secret"
-                    outputs:
-                    - type: elasticsearch
-                        args:
-                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
-                            username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets"
-                            password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                            dataset: "dataset"
-                            namespace: "namespace"
-            """
-
-            with self.assertRaisesRegex(
-                ValueError,
-                "You cannot have both plain text and json key for the same secret: "
-                + "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets",
-            ):
-                aws_sm_expander(config_yaml)
-
-        with self.subTest("secret does not exist"):
-            config_yaml = """
-                inputs:
-                - type: sqs
-                    id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:DOES_NOT_EXIST"
-                    outputs:
-                    - type: elasticsearch
-                        args:
-                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
-                            username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
-                            password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                            dataset: "dataset"
-                            namespace: "namespace"
-            """
-
-            with self.assertRaises(ClientError):
-                aws_sm_expander(config_yaml)
-
-        with self.subTest("secret is empty"):
-            config_yaml = """
-                inputs:
-                - type: sqs
-                    id: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:empty_secret"
-                    outputs:
-                    - type: elasticsearch
-                        args:
-                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
-                            username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
-                            password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                            dataset: "dataset"
-                            namespace: "namespace"
-            """
-
-            with self.assertRaisesRegex(
-                ValueError,
-                "Value for secret: arn:aws:secretsmanager:eu-west-1:123-456-789:secret:empty_secret must not be empty",
-            ):
-                aws_sm_expander(config_yaml)
 
         with self.subTest("config successfully parsed"):
             config_yaml = """

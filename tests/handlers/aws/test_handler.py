@@ -162,19 +162,15 @@ class TestLambdaHandlerFailure(TestCase):
             config_yml: str = """
                 inputs:
                   - type: "sqs"
-                    id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secrets:THIS:IS:INVALID"
+                    id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret:THIS:IS:INVALID"
                     outputs:
                       - type: "elasticsearch"
                         args:
                           elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
-                          username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:es_username"
-                          password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:es_password"
+                          username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
+                          password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
                           dataset: "redis.log"
                           namespace: "default"
-                          tags:
-                            - "tag1"
-                            - "tag2"
-                            - "tag3"
             """
             event = deepcopy(event_with_config)
             event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
@@ -183,28 +179,105 @@ class TestLambdaHandlerFailure(TestCase):
 
             assert (
                 call == "exception raised: SyntaxError('Invalid arn format: "
-                "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secrets:THIS:IS:INVALID')"
+                "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret:THIS:IS:INVALID')"
             )
 
-            with self.subTest("invalid secretsmanager: cannot use both plain text and key/value pairs"):
+            with self.subTest("invalid secretsmanager: empty region"):
                 ctx = ContextMock()
-                # BEWARE using 'es_secrets' with and without ending key in arn
+                # BEWARE region is empty at id
                 config_yml = """
                     inputs:
                       - type: "sqs"
-                        id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:sqs_secret"
+                        id: "arn:aws:secretsmanager::123-456-789:secret:plain_secret"
                         outputs:
                           - type: "elasticsearch"
                             args:
                               elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets"
-                              username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:es_username"
-                              password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:es_password"
+                              username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
+                              password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
                               dataset: "redis.log"
                               namespace: "default"
-                              tags:
-                                - "tag1"
-                                - "tag2"
-                                - "tag3"
+                """
+
+            event = deepcopy(event_with_config)
+            event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
+
+            call = handler(event, ctx)  # type:ignore
+
+            assert (
+                call == "exception raised: ValueError('Must be provided region in arn: "
+                "arn:aws:secretsmanager::123-456-789:secret:plain_secret')"
+            )
+
+            with self.subTest("invalid secretsmanager: empty secrets manager name"):
+                ctx = ContextMock()
+                # BEWARE empty secrets manager name at id
+                config_yml = """
+                    inputs:
+                      - type: "sqs"
+                        id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:"
+                        outputs:
+                          - type: "elasticsearch"
+                            args:
+                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets"
+                              username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
+                              password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                              dataset: "redis.log"
+                              namespace: "default"
+                """
+
+            event = deepcopy(event_with_config)
+            event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
+
+            call = handler(event, ctx)  # type:ignore
+
+            assert (
+                call == "exception raised: ValueError('Must be provided secrets manager name in arn: "
+                "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:')"
+            )
+
+            with self.subTest("invalid secretsmanager: empty secret key"):
+                ctx = ContextMock()
+                # BEWARE empty key at elasticsearch_url
+                config_yml = """
+                    inputs:
+                      - type: "sqs"
+                        id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secrets"
+                        outputs:
+                          - type: "elasticsearch"
+                            args:
+                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:"
+                              username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
+                              password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                              dataset: "redis.log"
+                              namespace: "default"
+                """
+
+            event = deepcopy(event_with_config)
+            event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
+
+            call = handler(event, ctx)  # type:ignore
+
+            assert (
+                call == "exception raised: ValueError('Key must not be empty: "
+                "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:')"
+            )
+
+            with self.subTest("invalid secretsmanager: cannot use both plain text and key/value pairs"):
+                ctx = ContextMock()
+                # BEWARE using es_secrets plain text for elasticsearch_url and es_secrets:username for username
+                config_yml = """
+                    inputs:
+                      - type: "sqs"
+                        id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secrets"
+                        outputs:
+                          - type: "elasticsearch"
+                            args:
+                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets"
+                              username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
+                              password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                              dataset: "redis.log"
+                              namespace: "default"
                 """
 
             event = deepcopy(event_with_config)
@@ -214,7 +287,7 @@ class TestLambdaHandlerFailure(TestCase):
 
             assert (
                 call == "exception raised: ValueError('You cannot have both plain text and json key for the same "
-                "secret: arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:es_username')"
+                "secret: arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username')"
             )
 
         with mock.patch("share.secretsmanager._get_aws_sm_client", new=MockContent._get_aws_sm_client):
@@ -229,14 +302,10 @@ class TestLambdaHandlerFailure(TestCase):
                           - type: "elasticsearch"
                             args:
                               elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
-                              username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:es_username"
-                              password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:es_password"
+                              username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
+                              password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
                               dataset: "redis.log"
                               namespace: "default"
-                              tags:
-                                - "tag1"
-                                - "tag2"
-                                - "tag3"
                 """
 
             event = deepcopy(event_with_config)
@@ -262,14 +331,10 @@ class TestLambdaHandlerFailure(TestCase):
                           - type: "elasticsearch"
                             args:
                               elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
-                              username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:es_username"
-                              password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:es_password"
+                              username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
+                              password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
                               dataset: "redis.log"
                               namespace: "default"
-                              tags:
-                                - "tag1"
-                                - "tag2"
-                                - "tag3"
                 """
 
             event = deepcopy(event_with_config)
