@@ -182,22 +182,22 @@ class TestLambdaHandlerFailure(TestCase):
                 "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret:THIS:IS:INVALID')"
             )
 
-            with self.subTest("invalid secretsmanager: empty region"):
-                ctx = ContextMock()
-                # BEWARE region is empty at id
-                config_yml = """
-                    inputs:
-                      - type: "sqs"
-                        id: "arn:aws:secretsmanager::123-456-789:secret:plain_secret"
-                        outputs:
-                          - type: "elasticsearch"
-                            args:
-                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets"
-                              username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
-                              password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                              dataset: "redis.log"
-                              namespace: "default"
-                """
+        with self.subTest("invalid secretsmanager: empty region"):
+            ctx = ContextMock()
+            # BEWARE region is empty at id
+            config_yml = """
+                inputs:
+                  - type: "sqs"
+                    id: "arn:aws:secretsmanager::123-456-789:secret:plain_secret"
+                    outputs:
+                      - type: "elasticsearch"
+                        args:
+                          elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets"
+                          username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
+                          password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                          dataset: "redis.log"
+                          namespace: "default"
+            """
 
             event = deepcopy(event_with_config)
             event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
@@ -209,22 +209,22 @@ class TestLambdaHandlerFailure(TestCase):
                 "arn:aws:secretsmanager::123-456-789:secret:plain_secret')"
             )
 
-            with self.subTest("invalid secretsmanager: empty secrets manager name"):
-                ctx = ContextMock()
-                # BEWARE empty secrets manager name at id
-                config_yml = """
-                    inputs:
-                      - type: "sqs"
-                        id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:"
-                        outputs:
-                          - type: "elasticsearch"
-                            args:
-                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets"
-                              username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
-                              password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                              dataset: "redis.log"
-                              namespace: "default"
-                """
+        with self.subTest("invalid secretsmanager: empty secrets manager name"):
+            ctx = ContextMock()
+            # BEWARE empty secrets manager name at id
+            config_yml = """
+                inputs:
+                  - type: "sqs"
+                    id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:"
+                    outputs:
+                      - type: "elasticsearch"
+                        args:
+                          elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets"
+                          username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
+                          password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                          dataset: "redis.log"
+                          namespace: "default"
+            """
 
             event = deepcopy(event_with_config)
             event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
@@ -236,49 +236,22 @@ class TestLambdaHandlerFailure(TestCase):
                 "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:')"
             )
 
-            with self.subTest("invalid secretsmanager: empty secret key"):
-                ctx = ContextMock()
-                # BEWARE empty key at elasticsearch_url
-                config_yml = """
-                    inputs:
-                      - type: "sqs"
-                        id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secrets"
-                        outputs:
-                          - type: "elasticsearch"
-                            args:
-                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:"
-                              username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
-                              password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                              dataset: "redis.log"
-                              namespace: "default"
-                """
-
-            event = deepcopy(event_with_config)
-            event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
-
-            call = handler(event, ctx)  # type:ignore
-
-            assert (
-                call == "exception raised: ValueError('Key must not be empty: "
-                "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:')"
-            )
-
-            with self.subTest("invalid secretsmanager: cannot use both plain text and key/value pairs"):
-                ctx = ContextMock()
-                # BEWARE using es_secrets plain text for elasticsearch_url and es_secrets:username for username
-                config_yml = """
-                    inputs:
-                      - type: "sqs"
-                        id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secrets"
-                        outputs:
-                          - type: "elasticsearch"
-                            args:
-                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets"
-                              username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
-                              password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                              dataset: "redis.log"
-                              namespace: "default"
-                """
+        with self.subTest("invalid secretsmanager: cannot use both plain text and key/value pairs"):
+            ctx = ContextMock()
+            # BEWARE using es_secrets plain text for elasticsearch_url and es_secrets:username for username
+            config_yml = """
+                inputs:
+                  - type: "sqs"
+                    id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secrets"
+                    outputs:
+                      - type: "elasticsearch"
+                        args:
+                          elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets"
+                          username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
+                          password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                          dataset: "redis.log"
+                          namespace: "default"
+            """
 
             event = deepcopy(event_with_config)
             event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
@@ -291,8 +264,35 @@ class TestLambdaHandlerFailure(TestCase):
             )
 
         with mock.patch("share.secretsmanager._get_aws_sm_client", new=MockContent._get_aws_sm_client):
-            with self.subTest("invalid secretsmanager: secret does not exist"):
+            with self.subTest("invalid secretsmanager: empty secret key"):
+                ctx = ContextMock()
+                # BEWARE empty key at elasticsearch_url
+                config_yml = """
+                    inputs:
+                      - type: "sqs"
+                        id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret"
+                        outputs:
+                          - type: "elasticsearch"
+                            args:
+                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:"
+                              username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
+                              password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                              dataset: "redis.log"
+                              namespace: "default"
+                """
 
+                event = deepcopy(event_with_config)
+                event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
+
+                call = handler(event, ctx)  # type:ignore
+
+                assert (
+                    call == "exception raised: ValueError('Key must not be empty: "
+                    "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:')"
+                )
+
+        with mock.patch("share.secretsmanager._get_aws_sm_client", new=MockContent._get_aws_sm_client):
+            with self.subTest("invalid secretsmanager: secret does not exist"):
                 ctx = ContextMock()
                 config_yml = """
                     inputs:
@@ -308,20 +308,19 @@ class TestLambdaHandlerFailure(TestCase):
                               namespace: "default"
                 """
 
-            event = deepcopy(event_with_config)
-            event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
+                event = deepcopy(event_with_config)
+                event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
 
-            call = handler(event, ctx)  # type:ignore
+                call = handler(event, ctx)  # type:ignore
 
-            assert (
-                call
-                == 'exception raised: ClientError("An error occurred (ResourceNotFoundException) when calling '
-                + "the GetSecretValue operation: Secrets Manager can't find the specified secret.\")"
-            )
+                assert (
+                    call
+                    == 'exception raised: ClientError("An error occurred (ResourceNotFoundException) when calling '
+                    + "the GetSecretValue operation: Secrets Manager can't find the specified secret.\")"
+                )
 
         with mock.patch("share.secretsmanager._get_aws_sm_client", new=MockContent._get_aws_sm_client):
             with self.subTest("invalid secretsmanager: empty secret value"):
-
                 ctx = ContextMock()
                 config_yml = """
                     inputs:
@@ -337,16 +336,16 @@ class TestLambdaHandlerFailure(TestCase):
                               namespace: "default"
                 """
 
-            event = deepcopy(event_with_config)
-            event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
+                event = deepcopy(event_with_config)
+                event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
 
-            call = handler(event, ctx)  # type:ignore
+                call = handler(event, ctx)  # type:ignore
 
-            assert (
-                call
-                == "exception raised: ValueError('Value for secret: arn:aws:secretsmanager:eu-central-1:"
-                + "123-456-789:secret:empty_secret must not be empty')"
-            )
+                assert (
+                    call
+                    == "exception raised: ValueError('Value for secret: arn:aws:secretsmanager:eu-central-1:"
+                    + "123-456-789:secret:empty_secret must not be empty')"
+                )
 
 
 @pytest.mark.integration

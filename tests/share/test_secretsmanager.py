@@ -103,10 +103,10 @@ class TestAWSSecretsManager(TestCase):
                             dataset: "dataset"
                             namespace: "namespace"
             """
-        with self.assertRaisesRegex(
-            ValueError, "Must be provided region in arn: arn:aws:secretsmanager::123-456-789:secret:plain_secret"
-        ):
-            aws_sm_expander(config_yaml)
+            with self.assertRaisesRegex(
+                ValueError, "Must be provided region in arn: arn:aws:secretsmanager::123-456-789:secret:plain_secret"
+            ):
+                aws_sm_expander(config_yaml)
 
         with self.subTest("empty secrets manager name"):
             # BEWARE empty secrets manager name at id
@@ -123,11 +123,11 @@ class TestAWSSecretsManager(TestCase):
                             dataset: "dataset"
                             namespace: "namespace"
             """
-        with self.assertRaisesRegex(
-            ValueError,
-            "Must be provided secrets manager name in arn: arn:aws:secretsmanager:eu-central-1:123-456-789:secret:",
-        ):
-            aws_sm_expander(config_yaml)
+            with self.assertRaisesRegex(
+                ValueError,
+                "Must be provided secrets manager name in arn: arn:aws:secretsmanager:eu-central-1:123-456-789:secret:",
+            ):
+                aws_sm_expander(config_yaml)
 
         with self.subTest("empty secret key"):
             # BEWARE empty secret key at elasticsearch_url
@@ -144,10 +144,10 @@ class TestAWSSecretsManager(TestCase):
                             dataset: "dataset"
                             namespace: "namespace"
             """
-        with self.assertRaisesRegex(
-            ValueError, "Key must not be empty: arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:"
-        ):
-            aws_sm_expander(config_yaml)
+            with self.assertRaisesRegex(
+                ValueError, "Key must not be empty: arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:"
+            ):
+                aws_sm_expander(config_yaml)
 
         with self.subTest("invalid both plain text and json secret"):
             # BEWARE elasticsearch_url and password have json key, but username don't
