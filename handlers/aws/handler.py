@@ -66,6 +66,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             config, lambda_event
         ):
             shared_logger.debug("es_event", extra={"es_event": es_event})
+            es_event["fields"]["tags"] = event_input.tags
 
             composite_shipper.send(es_event)
             sent_event += 1

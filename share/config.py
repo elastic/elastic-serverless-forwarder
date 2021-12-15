@@ -186,6 +186,7 @@ class Input:
     def __init__(self, input_type: str, input_id: str):
         self.type = input_type
         self.id = input_id
+        self._tags: list[str] = []
         self._outputs: dict[str, Output] = {}
 
     @property
@@ -210,6 +211,29 @@ class Input:
         if not isinstance(value, str):
             raise ValueError("Input id must be of type str")
         self._id = value
+
+    @property
+    def tags(self) -> list[str]:
+        """
+        Tags getter.
+        Returns all tags
+        """
+        return self._tags
+
+    @tags.setter
+    def tags(self, values: list[str]) -> None:
+        """
+        Tags setter.
+        It receives a list of tags and performs type validation
+        """
+        if not isinstance(values, list):
+            raise ValueError("Tags must be of type list")
+
+        for value in values:
+            if not isinstance(value, str):
+                raise ValueError("Each tag must be of type str")
+
+        self._tags = [value for value in values]
 
     def get_output_by_type(self, output_type: str) -> Optional[Output]:
         """
@@ -315,6 +339,9 @@ def parse_config(config_yaml: str, expanders: list[Callable[[str], str]] = []) -
             raise ValueError("Must be provided str id for input")
 
         current_input: Input = Input(input_type=input_config["type"], input_id=input_config["id"])
+
+        if "tags" in input_config:
+            current_input.tags = input_config["tags"]
 
         if "outputs" not in input_config or not isinstance(input_config["outputs"], list):
             raise ValueError("No valid outputs for input")
