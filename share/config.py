@@ -162,21 +162,6 @@ class ElasticSearchOutput(Output):
 
         self._namespace = value
 
-    @property
-    def tags(self) -> list[str]:
-        return self._tags
-
-    @tags.setter
-    def tags(self, values: list[str]) -> None:
-        if not isinstance(values, list):
-            raise ValueError("Tags must be of type list")
-
-        for value in values:
-            if not isinstance(value, str):
-                raise ValueError(f"All tags must be of type str: {value}")
-
-        self._tags = [value for value in values]
-
 
 class Input:
     """
@@ -231,7 +216,7 @@ class Input:
 
         for value in values:
             if not isinstance(value, str):
-                raise ValueError("Each tag must be of type str")
+                raise ValueError(f"Each tag must be of type str: {value}")
 
         self._tags = [value for value in values]
 
@@ -353,6 +338,7 @@ def parse_config(config_yaml: str, expanders: list[Callable[[str], str]] = []) -
             if "args" not in output_config or not isinstance(output_config["args"], dict):
                 raise ValueError("Must be provided dict args for output")
 
+            output_config["args"]["tags"] = current_input.tags
             current_input.add_output(output_type=output_config["type"], **output_config["args"])
 
         conf.add_input(current_input)
