@@ -35,6 +35,13 @@ class ElasticsearchShipper(CommonShipper):
 
         self._bulk_actions: list[dict[str, Any]] = []
 
+        self._bulk_kwargs: dict[str, Any] = {
+            "max_retries": 10,
+            "stats_only": True,
+            "raise_on_error": False,
+            "raise_on_exception": False,
+        }
+
         es_client_kwargs: dict[str, Any] = {}
         if elasticsearch_url:
             es_client_kwargs["hosts"] = [elasticsearch_url]
@@ -102,15 +109,6 @@ class ElasticsearchShipper(CommonShipper):
         event_payload["tags"] = ["preserve_original_event", "forwarded", self._dataset.replace(".", "-")]
 
     @staticmethod
-    def _bulk_kwargs() -> Any:
-        return {
-            "max_retries": 10,
-            "stats_only": True,
-            "raise_on_error": False,
-            "raise_on_exception": False,
-        }
-
-    @staticmethod
     def _log_outcome(success: int, failed: int) -> None:
         if failed > 0:
             shared_logger.error("elasticsearch shipper", extra={"success": success, "failed": failed})
@@ -129,7 +127,7 @@ class ElasticsearchShipper(CommonShipper):
         if len(self._bulk_actions) < self._bulk_batch_size:
             return
 
-        success, failed = es_bulk(self._es_client, self._bulk_actions, **self._bulk_kwargs())
+        success, failed = es_bulk(self._es_client, self._bulk_actions, **self._bulk_kwargs)
         assert isinstance(failed, int)
         self._log_outcome(success=success, failed=failed)
 
@@ -137,7 +135,7 @@ class ElasticsearchShipper(CommonShipper):
 
     def flush(self) -> Any:
         if len(self._bulk_actions) > 0:
-            success, failed = es_bulk(self._es_client, self._bulk_actions, **self._bulk_kwargs())
+            success, failed = es_bulk(self._es_client, self._bulk_actions, **self._bulk_kwargs)
             assert isinstance(failed, int)
             self._log_outcome(success=success, failed=failed)
 
