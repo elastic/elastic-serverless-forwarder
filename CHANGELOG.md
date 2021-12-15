@@ -1,6 +1,6 @@
 ### v0.12.0 - 2021/12/14
 ##### Features
-* General performance refactoring as stress test outcome: [#48](https://github.com/elastic/elastic-serverless-forwarder/pull/48)
+* General performance refactoring after stress test outcome: [#48](https://github.com/elastic/elastic-serverless-forwarder/pull/48)
 
 ### v0.11.0 - 2021/11/04
 ##### Bug fixes
