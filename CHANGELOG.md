@@ -1,3 +1,7 @@
+### v0.12.0 - 2021/12/14
+##### Features
+* General performance refactoring after stress test outcome: [#48](https://github.com/elastic/elastic-serverless-forwarder/pull/48)
+
 ### v0.11.0 - 2021/11/04
 ##### Bug fixes
 * Integration tests for AWS Lambda handler: [#24](https://github.com/elastic/elastic-serverless-forwarder/pull/24)

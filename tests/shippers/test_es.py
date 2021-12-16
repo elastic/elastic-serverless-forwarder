@@ -57,9 +57,10 @@ class MockClient(elasticsearch.Elasticsearch):
 _documents = []
 
 
-def mock_bulk(client: Any, actions: list[dict[str, Any]]) -> None:
+def mock_bulk(client: Any, actions: list[dict[str, Any]], **kwargs: Any) -> tuple[int, int]:
     global _documents
     _documents = [actions]
+    return len(actions), 0
 
 
 @pytest.mark.unit

@@ -2,9 +2,11 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
+from io import SEEK_SET, BytesIO
 from typing import Any, Iterator, Union
 
 import boto3
+import botocore.client
 import elasticapm  # noqa: F401
 from botocore.response import StreamingBody
 
@@ -20,7 +22,9 @@ class S3Storage(CommonStorage):
     This class implements concrete S3 Storage
     """
 
-    _s3_client = boto3.client("s3")
+    _s3_client = boto3.client(
+        "s3", config=botocore.client.Config(retries={"total_max_attempts": 10, "mode": "standard"})
+    )
 
     def __init__(self, bucket_name: str, object_key: str):
         self._bucket_name: str = bucket_name
@@ -29,7 +33,7 @@ class S3Storage(CommonStorage):
     @by_lines
     @inflate
     def _generate(
-        self, range_start: int, body: StreamingBody, content_type: str, content_length: int
+        self, range_start: int, body: BytesIO, content_type: str, content_length: int
     ) -> Iterator[tuple[Union[StorageReader, bytes], int, int]]:
         """
         Concrete implementation of the iterator for get_by_lines
@@ -71,13 +75,15 @@ class S3Storage(CommonStorage):
             range_start = 0
 
         if content_type == "application/x-gzip" or original_range_start < content_length:
-            s3_object = self._s3_client.get_object(
-                Bucket=self._bucket_name, Key=self._object_key, Range=f"bytes={range_start}-"
-            )
+            file_content: BytesIO = BytesIO(b"")
+            self._s3_client.download_fileobj(self._bucket_name, self._object_key, file_content)
+
+            file_content.flush()
+            file_content.seek(range_start, SEEK_SET)
 
             for log_event, line_ending_offset, newline_length in self._generate(
                 original_range_start,
-                s3_object["Body"],
+                file_content,
                 content_type,
                 content_length,
             ):

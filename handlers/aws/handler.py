@@ -15,7 +15,7 @@ from shippers import CommonShipper, CompositeShipper, ShipperFactory
 from .sqs_trigger import _handle_sqs_continuation, _handle_sqs_event
 from .utils import capture_serverless, config_yaml_from_payload, config_yaml_from_s3, get_trigger_type, wrap_try_except
 
-_completion_grace_period: int = 60000
+_completion_grace_period: int = 120000
 _expanders: list[Callable[[str], str]] = [aws_sm_expander]
 
 

@@ -9,6 +9,8 @@ import elasticapm  # noqa: F401
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk as es_bulk
 
+from share import shared_logger
+
 from .shipper import CommonShipper
 
 
@@ -18,7 +20,7 @@ class ElasticsearchShipper(CommonShipper):
     This class implements concrete Elasticsearch Shipper
     """
 
-    _bulk_batch_size: int = 10000
+    _bulk_batch_size: int = 1000
 
     def __init__(
         self,
@@ -32,6 +34,13 @@ class ElasticsearchShipper(CommonShipper):
     ):
 
         self._bulk_actions: list[dict[str, Any]] = []
+
+        self._bulk_kwargs: dict[str, Any] = {
+            "max_retries": 10,
+            "stats_only": True,
+            "raise_on_error": False,
+            "raise_on_exception": False,
+        }
 
         es_client_kwargs: dict[str, Any] = {}
         if elasticsearch_url:
@@ -62,6 +71,9 @@ class ElasticsearchShipper(CommonShipper):
         Extracted for mocking
         """
 
+        es_client_kwargs["timeout"] = 30
+        es_client_kwargs["max_retries"] = 10
+        es_client_kwargs["retry_on_timeout"] = True
         return Elasticsearch(**es_client_kwargs)
 
     @staticmethod
@@ -96,6 +108,14 @@ class ElasticsearchShipper(CommonShipper):
 
         event_payload["tags"] = ["preserve_original_event", "forwarded", self._dataset.replace(".", "-")]
 
+    @staticmethod
+    def _log_outcome(success: int, failed: int) -> None:
+        if failed > 0:
+            shared_logger.error("elasticsearch shipper", extra={"success": success, "failed": failed})
+            return
+
+        shared_logger.info("elasticsearch shipper", extra={"success": success, "failed": failed})
+
     def send(self, event: dict[str, Any]) -> Any:
         self._enrich_event(event_payload=event)
 
@@ -107,11 +127,16 @@ class ElasticsearchShipper(CommonShipper):
         if len(self._bulk_actions) < self._bulk_batch_size:
             return
 
-        es_bulk(self._es_client, self._bulk_actions)
+        success, failed = es_bulk(self._es_client, self._bulk_actions, **self._bulk_kwargs)
+        assert isinstance(failed, int)
+        self._log_outcome(success=success, failed=failed)
+
         self._bulk_actions = []
 
-    def flush(self) -> None:
+    def flush(self) -> Any:
         if len(self._bulk_actions) > 0:
-            es_bulk(self._es_client, self._bulk_actions)
+            success, failed = es_bulk(self._es_client, self._bulk_actions, **self._bulk_kwargs)
+            assert isinstance(failed, int)
+            self._log_outcome(success=success, failed=failed)
 
         self._bulk_actions = []
