@@ -36,7 +36,7 @@ class ContextMock:
 
 class MockContent:
     SECRETS_MANAGER_MOCK_DATA: dict[str, dict[str, str]] = {
-        "es_secrets": {
+        "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets": {
             "type": "SecretString",
             "data": json.dumps(
                 {
@@ -46,9 +46,15 @@ class MockContent:
                 }
             ),
         },
-        "plain_secret": {"type": "SecretString", "data": "mock_plain_text_sqs_arn"},
-        "binary_secret": {"type": "SecretBinary", "data": "bW9ja19uZ2lueC5sb2c="},
-        "empty_secret": {"type": "SecretString", "data": ""},
+        "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret": {
+            "type": "SecretString",
+            "data": "mock_plain_text_sqs_arn",
+        },
+        "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:binary_secret": {
+            "type": "SecretBinary",
+            "data": "bW9ja19uZ2lueC5sb2c=",
+        },
+        "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:empty_secret": {"type": "SecretString", "data": ""},
     }
 
     @staticmethod
@@ -287,8 +293,9 @@ class TestLambdaHandlerFailure(TestCase):
                 call = handler(event, ctx)  # type:ignore
 
                 assert (
-                    call == "exception raised: ValueError('Key must not be empty: "
-                    "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:')"
+                    call == "exception raised: ValueError('Error for secret "
+                    "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:: key must "
+                    "not be empty')"
                 )
 
         with mock.patch("share.secretsmanager._get_aws_sm_client", new=MockContent._get_aws_sm_client):
@@ -342,9 +349,9 @@ class TestLambdaHandlerFailure(TestCase):
                 call = handler(event, ctx)  # type:ignore
 
                 assert (
-                    call
-                    == "exception raised: ValueError('Value for secret: arn:aws:secretsmanager:eu-central-1:"
-                    + "123-456-789:secret:empty_secret must not be empty')"
+                    call == "exception raised: ValueError('Error for secret "
+                    "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:empty_secret: must "
+                    "not be empty')"
                 )
 
 
@@ -373,11 +380,13 @@ class TestLambdaHandlerSuccess(TestCase):
         message["eventSourceARN"] = self._continuing_queue_info["QueueArn"]
         return dict(Records=[message])
 
-    def _create_secrets(self, secret_name: str, secret_data: dict[str, str]) -> None:
+    def _create_secrets(self, secret_name: str, secret_data: dict[str, str]) -> Any:
         client = aws_stack.connect_to_service(
             "secretsmanager", region_name="eu-central-1", endpoint_url=f"http://localhost:{self._LOCALSTACK_HOST_PORT}"
         )
         client.create_secret(Name=secret_name, SecretString=json.dumps(secret_data))
+
+        return client.describe_secret(SecretId=secret_name)["ARN"]
 
     @staticmethod
     def _upload_content_to_bucket(
@@ -456,7 +465,9 @@ class TestLambdaHandlerSuccess(TestCase):
         self._ELASTIC_USER: str = "elastic"
         self._ELASTIC_PASSWORD: str = "password"
 
-        self._create_secrets("es_secrets", {"username": self._ELASTIC_USER, "password": self._ELASTIC_PASSWORD})
+        self._secret_arn = self._create_secrets(
+            "es_secrets", {"username": self._ELASTIC_USER, "password": self._ELASTIC_PASSWORD}
+        )
 
         self._elastic_container = docker_client.containers.run(
             "docker.elastic.co/elasticsearch/elasticsearch:7.15.1",
@@ -503,8 +514,8 @@ class TestLambdaHandlerSuccess(TestCase):
               - type: "elasticsearch"
                 args:
                   elasticsearch_url: "http://127.0.0.1:{self._ES_HOST_PORT}"
-                  username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
-                  password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                  username: "{self._secret_arn}:username"
+                  password: "{self._secret_arn}:password"
                   dataset: "redis.log"
                   namespace: "default"
                 """
