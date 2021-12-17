@@ -40,34 +40,6 @@ Resources:
             Queue: !GetAtt ElasticServerlessForwarderContinuingQueue.Arn
             BatchSize: 1
             Enabled: true
-      Policies:
-      - AWSLambdaExecute # Managed Policy
-      - Version: '2012-10-17' # Policy Document
-        Statement:
-          - Effect: Allow
-            Action:
-              - s3:GetObject
-            Resource: 'arn:aws:s3:::*/*'
-      - Version: '2012-10-17' # Policy Document
-        Statement:
-          - Effect: Allow
-            Action:
-              - sqs:ReceiveMessage
-              - sqs:DeleteMessage
-              - sqs:GetQueueAttributes
-            Resource: 'arn:aws:sqs:*:*:*'
-      - Version: '2012-10-17' # Policy Document
-        Statement:
-          - Effect: Allow
-            Action:
-              - sqs:SendMessage
-            Resource: !GetAtt ElasticServerlessForwarderContinuingQueue.Arn
-      - Version: '2012-10-17' # Policy Document
-        Statement:
-          - Effect: Allow
-            Action:
-              - secretsmanager:GetSecretValue
-            Resource: 'arn:aws:secretsmanager:*:*:*'
 Metadata:
   AWS::ServerlessRepo::Application:
     Name: %sarAppName%

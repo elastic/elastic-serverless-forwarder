@@ -29,10 +29,8 @@ At a high level the deployment consists of the following steps:
   * Click on "Create a function"
   * Click on "Browse serverless app repository"
   * Select "Public applications" tab
-  * Click on "Show apps that create custom IAM roles or resource policies" checkbox
   * In the search box type "elastic-serverless-forwarder" and submit
   * Look for "elastic-serverless-forwarder" in the results and click on it
-* In the page on "Application settings" section check the "I acknowledge that this app creates custom IAM roles." checkbox
   * Click on the "Deploy" button in the bottom right corner
 * Once on the Application page for "serverlessrepo-elastic-serverless-forwarder" loaded afterward
   * Click on "Deployments" tab
@@ -51,8 +49,29 @@ At a high level the deployment consists of the following steps:
     * Click on "Add trigger"
     * From "Trigger configuration" dropdown select "SQS"
     * In the "SQS queue" field chose the queue or insert the ARN of the queue you want to use as trigger for your Elastic Forwarder for Serverless
-      * The SQS queue you want to use as trigger must have a visibility timeout of 900 seconds, equal to the Elastic Forwarder for Serverless Lambda timeout.
+      * The SQS queue you want to use as trigger must have a visibility timeout of 910 seconds, 10 seconds more than the Elastic Forwarder for Serverless Lambda timeout.
     * Click on "Add"
+    *
+#### Lambda IAM permissions and policies
+Assure the Lambda is given AssumeRole permission to the following `ManagedPolicyArns`:
+* `arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole`
+* `arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole`
+
+On top of this basic permission the following policies must be provided:
+* For the SQS queue resource that's reported in the `SQS_CONTINUE_URL` environment variable the following action must be allowed:
+  * `sqs:SendMessage`
+
+* For every S3 bucket resource that's reported in the `SQS_CONTINUE_URL` environment variable the following action must be allowed on the S3 buckets' config file object key:
+  * `s3:GetObject`
+
+
+* For every S3 bucket resource that SQS queues are receiving notification from used by triggers of the Lambda the following action must be allowed on the S3 buckets' keys:
+  * `s3:GetObject`
+
+* For every Secret Manager secret that you want to refer in the yaml configuration file (see below) the following action must be allowed:
+  * `secretsmanager:GetSecretValue`
+
+* For SQS queue resource that you want to use as triggers of the Lambda the proper permission are arleady included by `arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole`:
 
 
 ### Cloudformation
@@ -64,57 +83,135 @@ Resources:
     Type: AWS::Serverless::Application
     Properties:
       Location:
-        ApplicationId: 'arn:aws:serverlessrepo:%REGION%:%ELASTIC_ACCOUNT_ID%:applications/elastic-serverless-forwarder'
+        ApplicationId: 'arn:aws:serverlessrepo:%REGION%:267093732750:applications/elastic-serverless-forwarder'
         SemanticVersion: %VERSION%
 
 ```
 
 * Deploy the Lambda from SAR running the following command:
   * ```commandline
-    aws cloudformation deploy --template-file sar-application.yaml --stack-name sar-cloudformation-deployment --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND
+    aws cloudformation deploy --template-file sar-application.yaml --stack-name esf-cloudformation-deployment --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND
     ```
 
 * Import json template from deployed stack running the following commands:
   * ```commandline
-    PARENT_STACK_ARN=$(aws cloudformation describe-stacks --stack-name sar-cloudformation-deployment --query Stacks[0].StackId --output text)
+    PARENT_STACK_ARN=$(aws cloudformation describe-stacks --stack-name esf-cloudformation-deployment --query Stacks[0].StackId --output text)
     LAMBDA_STACK_ARN=$(aws cloudformation list-stacks --stack-status-filter CREATE_COMPLETE --query "StackSummaries[?ParentId==\`${PARENT_STACK_ARN}\`].StackId" --output text)
     aws cloudformation get-template --stack-name "${LAMBDA_STACK_ARN}" --query TemplateBody > sar-lambda.json
     ```
 
-  * Edit sar-lambda.json to customise your deployment of Elastic Forwarder for Serverless
-    * Examples:
-      * Adding environment variables: add entries in `Resources.ElasticServerlessForwarderFunction.Environment.Variables`
-        ```json
-        "Environment": {
-          "Variables": {
-            "SQS_CONTINUE_URL": { # Do not remove this
-              "Ref": "ElasticServerlessForwarderContinuingQueue"
-            },
-            "ELASTIC_APM_ACTIVE": "true",
-            "ELASTIC_APM_SECRET_TOKEN": "%ELASTIC_APM_SECRET_TOKEN%",
-            "ELASTIC_APM_SERVER_URL": "%ELASTIC_APM_SERVER_URL%",
-            "S3_CONFIG_FILE": "s3://bucket-name/config-file-name"
+* Edit sar-lambda.json to add required IAM permissions for the Lambda to run:
+  * Add `Policies` to Resources.`ElasticServerlessForwarderFunctionRole.Properties`
+  ```json
+   "Policies": [
+    {
+      "PolicyName": "ElasticServerlessForwarderFunctionRolePolicySQSContinuingQueue", ## ADD AS IT IS FOR THE CONTINUING QUEUE
+      "PolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+          "Action": [
+            "sqs:SendMessage"
+          ],
+          "Resource": {
+            "Fn::GetAtt": [
+              "ElasticServerlessForwarderContinuingQueue",
+              "Arn"
+            ]
+          },
+          "Effect": "Allow"
           }
-        },
-        ```
-      * Adding an Event Source Mapping: add a new resource in the template
-        ```json
-        "CustomSQSEvent": {
-          "Type": "AWS::Lambda::EventSourceMapping",
-          "Properties": {
-            "BatchSize": 1,
-            "Enabled": true,
-            "FunctionName": { # You must reference to `ElasticServerlessForwarderFunction` resource
-              "Ref": "ElasticServerlessForwarderFunction"
-            },
-            "EventSourceArn": "%SQS_ARN%"
+        ]
+      }
+    },
+    {
+      "PolicyName": "ElasticServerlessForwarderFunctionRolePolicyS3Configfile", ## ADAPT TO THE CONFIG FILE IN THE S3 BUCKET
+      "PolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+          "Action": [
+            "s3:GetObject"
+          ],
+          "Resource": "arn:aws:s3:::%CONFIG_FILE_BUCKET_NAME%/%CONFIG_FILE_OBJECT_KEY%",
+          "Effect": "Allow"
           }
+        ]
+      }
+    },
+    {
+      "PolicyName": "ElasticServerlessForwarderFunctionRolePolicyS3", ## ADD FOR YOUR S3 BUCKET
+      "PolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+          "Action": [
+            "s3:GetObject"
+          ],
+          "Resource": [
+            "arn:aws:s3:::%BUCKET_NAME%/*",
+            ...
+          ],
+          "Effect": "Allow"
+          }
+        ]
+      }
+    },
+    {
+      "PolicyName": "ElasticServerlessForwarderFunctionRolePolicySM", ## ADD FOR YOUR SM SECRET START
+      "PolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+          "Action": [
+            "secretsmanager:GetSecretValue"
+          ],
+          "Resource": [
+            "arn:aws:secretsmanager:%AWS_REGION%:%AWS_ACCOUNT_ID%:secret:%SECRET_NAME%",
+            ...
+          ],
+          "Effect": "Allow"
+          }
+        ]
+      }
+    }
+  ]
+  ```
+
+* Edit sar-lambda.json to further customise your deployment of Elastic Forwarder for Serverless
+  * Examples:
+    * Adding environment variables: add entries in `Resources.ElasticServerlessForwarderFunction.Environment.Variables`
+      ```json
+      "Environment": {
+        "Variables": {
+          "SQS_CONTINUE_URL": { # Do not remove this
+            "Ref": "ElasticServerlessForwarderContinuingQueue"
+          },
+          "ELASTIC_APM_ACTIVE": "true",
+          "ELASTIC_APM_SECRET_TOKEN": "%ELASTIC_APM_SECRET_TOKEN%",
+          "ELASTIC_APM_SERVER_URL": "%ELASTIC_APM_SERVER_URL%",
+          "S3_CONFIG_FILE": "s3://bucket-name/config-file-name"
         }
-        ```
+      },
+      ```
+    * Adding an Event Source Mapping: add a new resource in the template
+      ```json
+      "CustomSQSEvent": {
+        "Type": "AWS::Lambda::EventSourceMapping",
+        "Properties": {
+          "BatchSize": 1,
+          "Enabled": true,
+          "FunctionName": { # You must reference to `ElasticServerlessForwarderFunction` resource
+            "Ref": "ElasticServerlessForwarderFunction"
+          },
+          "EventSourceArn": "%SQS_ARN%"
+        }
+      }
+      ```
 
 * Update the stack running the following command:
   * ```commandline
-    aws cloudformation update-stack --stack-name "${LAMBDA_STACK_ARN}" --template-body file://./sar-lambda.json
+    aws cloudformation update-stack --stack-name "${LAMBDA_STACK_ARN}" --template-body file://./sar-lambda.json --capabilities CAPABILITY_IAM
     ```
 
 
@@ -196,9 +293,9 @@ It supports secrets from different regions.
 
 #### Notes
 - Cannot use the same secret for both plain text and key/value pair
-- It's case sensitive
+- It's case-sensitive
 - Any typo or misconfiguration in the config file will be ignored (or exceptions risen), therefore the secrets will not be retrieved
-- Keys must exist in the secret manager
+- Keys must exist in the Secrets Manager
 - Empty value for a given key is not allowed
 
 ## S3 event notification to SQS
