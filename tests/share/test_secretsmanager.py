@@ -152,7 +152,8 @@ class TestAWSSecretsManager(TestCase):
             """
             with self.assertRaisesRegex(
                 ValueError,
-                "Error for secret arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:: key must not be empty",
+                "Error for secret arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets::"
+                "key must not be empty",
             ):
                 aws_sm_expander(config_yaml)
 
