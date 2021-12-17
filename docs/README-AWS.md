@@ -318,6 +318,32 @@ It supports secrets from different regions.
 - Keys must exist in the Secrets Manager
 - Empty value for a given key is not allowed
 
+## Tags support
+Adding custom tags is a common way to filter and categorize items in datasets.
+```yaml
+inputs:
+  - type: "sqs"
+    id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_text_secret"
+    tags:
+      - "tag1"
+      - "tag2"
+      - "tag3"
+    outputs:
+      - type: "elasticsearch"
+        args:
+          elasticsearch_url: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:es_secrets:elasticsearch_url"
+          username: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:es_secrets:username"
+          password: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:es_secrets:password"
+          dataset: "generic"
+          namespace: "default"
+```
+Using the above configuration, the tags will be set in the following way`["preserve_original_event", "forwarded", "data-set", "tag1", "tag2", "tag3"]`
+
+#### Notes
+- Tags must be placed at input level in the config file
+- Tags must be added in the form list only
+- Each tag must be a string
+
 ## S3 event notification to SQS
 In order to set up an S3 event notification to SQS please look at the official documentation: https://docs.aws.amazon.com/AmazonS3/latest/userguide/NotificationHowTo.html
 

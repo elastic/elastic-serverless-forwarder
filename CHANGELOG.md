@@ -1,3 +1,7 @@
+### v0.14.0 - 2021/12/17
+##### Features
+* Support for tags: [#45](https://github.com/elastic/elastic-serverless-forwarder/pull/45)
+
 ### v0.13.0 - 2021/12/14
 ##### Features
 * General performance refactoring after stress test outcome: [#48](https://github.com/elastic/elastic-serverless-forwarder/pull/48)
