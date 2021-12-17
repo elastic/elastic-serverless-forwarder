@@ -214,11 +214,9 @@ class Input:
         if not isinstance(values, list):
             raise ValueError("Tags must be of type list")
 
-        for value in values:
-            if not isinstance(value, str):
-                raise ValueError(f"Each tag must be of type str: {value}")
-
-        self._tags = [value for value in values]
+        self._tags = [value for value in values if isinstance(value, str)]
+        if len(self._tags) != len(values):
+            raise ValueError(f"Each tag must be of type str, given: {values}")
 
     def get_output_by_type(self, output_type: str) -> Optional[Output]:
         """

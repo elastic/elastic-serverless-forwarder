@@ -353,6 +353,61 @@ class TestLambdaHandlerFailure(TestCase):
                     "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:empty_secret: must "
                     "not be empty')"
                 )
+        with mock.patch("share.secretsmanager._get_aws_sm_client", new=MockContent._get_aws_sm_client):
+            with self.subTest("tags not list"):
+                ctx = ContextMock()
+                config_yml = """
+                    inputs:
+                      - type: "sqs"
+                        id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret"
+                        tags: "tag1"
+                        outputs:
+                          - type: "elasticsearch"
+                            args:
+                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
+                              username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
+                              password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                              dataset: "redis.log"
+                              namespace: "default"
+                """
+
+                event = deepcopy(event_with_config)
+                event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
+
+                call = handler(event, ctx)  # type:ignore
+
+                assert call == "exception raised: ValueError('Tags must be of type list')"
+
+        with mock.patch("share.secretsmanager._get_aws_sm_client", new=MockContent._get_aws_sm_client):
+            with self.subTest("each tag must be of type str"):
+                ctx = ContextMock()
+                config_yml = """
+                    inputs:
+                      - type: "sqs"
+                        id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret"
+                        tags:
+                          - "tag1"
+                          - 2
+                          - "tag3"
+                        outputs:
+                          - type: "elasticsearch"
+                            args:
+                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
+                              username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
+                              password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                              dataset: "redis.log"
+                              namespace: "default"
+                """
+
+                event = deepcopy(event_with_config)
+                event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
+
+                call = handler(event, ctx)  # type:ignore
+
+                assert call, (
+                    "exception raised: exception raised: "
+                    "ValueError(\"Each tag must be of type str, given: ['tag1', 2, 'tag3']\")"
+                )
 
 
 @pytest.mark.integration
@@ -510,6 +565,10 @@ class TestLambdaHandlerSuccess(TestCase):
         inputs:
           - type: "sqs"
             id: "{self._source_queue_info["QueueArn"]}"
+            tags:
+              - "tag1"
+              - "tag2"
+              - "tag3"
             outputs:
               - type: "elasticsearch"
                 args:
@@ -630,6 +689,15 @@ class TestLambdaHandlerSuccess(TestCase):
                         "provider": "aws",
                         "region": "eu-central-1",
                     }
+
+                    assert res["hits"]["hits"][0]["_source"]["tags"] == [
+                        "preserve_original_event",
+                        "forwarded",
+                        "redis-log",
+                        "tag1",
+                        "tag2",
+                        "tag3",
+                    ]
 
                     event = self._event_from_sqs_message()
                     second_call = handler(event, ctx)  # type:ignore
