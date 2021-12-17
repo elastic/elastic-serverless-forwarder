@@ -1,6 +1,10 @@
-### v0.12.0 - 2021/12/14
+### v0.13.0 - 2021/12/14
 ##### Features
 * General performance refactoring after stress test outcome: [#48](https://github.com/elastic/elastic-serverless-forwarder/pull/48)
+
+### v0.12.0 - 2021/12/06
+##### Features
+* Support for Secrets Manager: [#42](https://github.com/elastic/elastic-serverless-forwarder/pull/42)
 
 ### v0.11.0 - 2021/11/04
 ##### Bug fixes
