@@ -61,9 +61,8 @@ On top of this basic permission the following policies must be provided:
 * For the SQS queue resource that's reported in the `SQS_CONTINUE_URL` environment variable the following action must be allowed:
   * `sqs:SendMessage`
 
-* For every S3 bucket resource that's reported in the `SQS_CONTINUE_URL` environment variable the following action must be allowed on the S3 buckets' config file object key:
+* For every S3 bucket resource that's reported in the `S3_CONFIG_FILE` environment variable the following action must be allowed on the S3 buckets' config file object key:
   * `s3:GetObject`
-
 
 * For every S3 bucket resource that SQS queues are receiving notification from used by triggers of the Lambda the following action must be allowed on the S3 buckets' keys:
   * `s3:GetObject`
@@ -71,7 +70,10 @@ On top of this basic permission the following policies must be provided:
 * For every Secret Manager secret that you want to refer in the yaml configuration file (see below) the following action must be allowed:
   * `secretsmanager:GetSecretValue`
 
-* For SQS queue resource that you want to use as triggers of the Lambda the proper permission are arleady included by `arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole`:
+* For every decrypt key that's not the default one that you used to encrypt your Secret Manager secrets with, the following action must be allowed:
+  * `kms:Decrypt`
+
+* For SQS queue resource that you want to use as triggers of the Lambda the proper permission are already included by `arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole`:
 
 
 ### Cloudformation
@@ -158,7 +160,7 @@ Resources:
       }
     },
     {
-      "PolicyName": "ElasticServerlessForwarderFunctionRolePolicySM", ## ADD FOR YOUR SM SECRET START
+      "PolicyName": "ElasticServerlessForwarderFunctionRolePolicySM", ## ADD FOR YOUR SECRET MANAGER SECRET
       "PolicyDocument": {
         "Version": "2012-10-17",
         "Statement": [
@@ -168,6 +170,24 @@ Resources:
           ],
           "Resource": [
             "arn:aws:secretsmanager:%AWS_REGION%:%AWS_ACCOUNT_ID%:secret:%SECRET_NAME%",
+            ...
+          ],
+          "Effect": "Allow"
+          }
+        ]
+      }
+    },
+    {
+      "PolicyName": "ElasticServerlessForwarderFunctionRolePolicyKMS", ## ADD FOR YOUR KMS DECRYPT KEY
+      "PolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+          "Action": [
+            "kms:Decrypt"
+          ],
+          "Resource": [
+            "arn:aws:kms:%AWS_REGION%:%AWS_ACCOUNT_ID%:key/%KEY_ID%",
             ...
           ],
           "Effect": "Allow"
