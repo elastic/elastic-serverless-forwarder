@@ -11,9 +11,10 @@ from unittest import TestCase
 
 import mock
 import pytest
-from botocore.exceptions import ClientError
+from botocore.client import BaseClient as BotoBaseClient
+from botocore.exceptions import ClientError, InvalidRegionError
 
-from share.secretsmanager import aws_sm_expander
+from share.secretsmanager import _get_aws_sm_client, aws_sm_expander
 
 
 class MockContent:
@@ -25,12 +26,21 @@ class MockContent:
                     "url": "mock_elastic_url",
                     "username": "mock_elastic_username",
                     "password": "mock_elastic_password",
+                    "empty": "",
                 }
             ),
         },
         "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret": {
             "type": "SecretString",
             "data": "mock_plain_text_sqs_arn",
+        },
+        "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret_not_str_byte": {
+            "type": "SecretString",
+            "data": b"i am not a str",  # type:ignore
+        },
+        "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret_not_str_int": {
+            "type": "SecretString",
+            "data": 2021,  # type:ignore
         },
         "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:binary_secret": {
             "type": "SecretBinary",
@@ -198,7 +208,7 @@ class TestAWSSecretsManager(TestCase):
             with self.assertRaises(ClientError):
                 aws_sm_expander(config_yaml)
 
-        with self.subTest("secret is empty"):
+        with self.subTest("plain secret is empty"):
             config_yaml = """
                 inputs:
                 - type: sqs
@@ -217,6 +227,113 @@ class TestAWSSecretsManager(TestCase):
                 ValueError,
                 "Error for secret arn:aws:secretsmanager:eu-west-1:123-456-789:secret:empty_secret: must not be empty",
             ):
+                aws_sm_expander(config_yaml)
+
+        with self.subTest("key/value secret is empty"):
+            config_yaml = """
+                inputs:
+                - type: sqs
+                    id: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:es_secrets:empty"
+                    outputs:
+                    - type: elasticsearch
+                        args:
+                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
+                            username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
+                            password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                            dataset: "dataset"
+                            namespace: "namespace"
+            """
+
+            with self.assertRaisesRegex(
+                ValueError,
+                "Error for secret arn:aws:secretsmanager:eu-west-1:123-456-789:secret:es_secrets:empty: "
+                "must not be empty",
+            ):
+                aws_sm_expander(config_yaml)
+
+        with self.subTest("plain text used as key/value pair"):
+            config_yaml = """
+                inputs:
+                - type: sqs
+                    id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret:I_SHOULD_NOT_HAVE_A_KEY"
+                    outputs:
+                    - type: elasticsearch
+                        args:
+                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
+                            username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
+                            password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                            dataset: "dataset"
+                            namespace: "namespace"
+            """
+
+            with self.assertRaisesRegex(
+                ValueError,
+                "Error for secret "
+                "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret:I_SHOULD_NOT_HAVE_A_KEY: "
+                "expected to be keys/values pair",
+            ):
+                aws_sm_expander(config_yaml)
+
+        with self.subTest("key does not exist"):
+            config_yaml = """
+                inputs:
+                - type: sqs
+                    id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:I_DO_NOT_EXIST"
+                    outputs:
+                    - type: elasticsearch
+                        args:
+                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
+                            username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
+                            password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                            dataset: "dataset"
+                            namespace: "namespace"
+            """
+
+            with self.assertRaisesRegex(
+                KeyError,
+                "Error for secret arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:I_DO_NOT_EXIST: "
+                "key not found",
+            ):
+                aws_sm_expander(config_yaml)
+
+        with self.subTest("plain text secret not str"):
+            config_yaml = """
+                inputs:
+                - type: sqs
+                    id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret_not_str_byte"
+                    outputs:
+                    - type: elasticsearch
+                        args:
+                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
+                            username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
+                            password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                            dataset: "dataset"
+                            namespace: "namespace"
+            """
+
+            with self.assertRaisesRegex(
+                ValueError,
+                "Error for secret arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret_not_str_byte: "
+                "expected to be a string",
+            ):
+                aws_sm_expander(config_yaml)
+
+        with self.subTest("json TypeError risen"):
+            config_yaml = """
+                inputs:
+                - type: sqs
+                    id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret_not_str_int"
+                    outputs:
+                    - type: elasticsearch
+                        args:
+                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
+                            username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
+                            password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                            dataset: "dataset"
+                            namespace: "namespace"
+            """
+
+            with self.assertRaisesRegex(Exception, "the JSON object must be str, bytes or bytearray, not int"):
                 aws_sm_expander(config_yaml)
 
         with self.subTest("invalid arn format - pattern not caught"):
@@ -317,3 +434,16 @@ class TestAWSSecretsManager(TestCase):
             """
 
             assert mock_fetched_data == parsed_config_yaml
+
+    def test_get_aws_sm_client(self) -> None:
+        with self.subTest("client is of type baseclient"):
+            region_name: str = "eu-central-1"
+            assert isinstance(_get_aws_sm_client(region_name), BotoBaseClient)
+
+        with self.subTest("invalid region format"):
+            region_name = "22222222222"
+            with self.assertRaisesRegex(
+                InvalidRegionError,
+                "Provided region_name '22222222222' doesn't match a supported format.",
+            ):
+                _get_aws_sm_client(region_name)

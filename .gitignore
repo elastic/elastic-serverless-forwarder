@@ -31,3 +31,4 @@ tests/elastic-serverless-forwarder-junit.xml
 *.code-workspace
 .pytest_cache/
 .python-version
+htmlcov/
