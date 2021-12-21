@@ -9,7 +9,7 @@ from unittest import TestCase
 
 import pytest
 
-from share import Config, ElasticSearchOutput, Input, Output, parse_config
+from share import Config, ElasticsearchOutput, Input, Output, parse_config
 
 
 class DummyOutput(Output):
@@ -34,10 +34,10 @@ class TestOutput(TestCase):
 
 
 @pytest.mark.unit
-class TestElasticSearchOutput(TestCase):
+class TestElasticsearchOutput(TestCase):
     def test_init(self) -> None:
         with self.subTest("valid init with elasticsearch_url and http_auth"):
-            elasticsearch = ElasticSearchOutput(
+            elasticsearch = ElasticsearchOutput(
                 elasticsearch_url="elasticsearch_url",
                 username="username",
                 password="password",
@@ -56,7 +56,7 @@ class TestElasticSearchOutput(TestCase):
             assert elasticsearch.tags == []
 
         with self.subTest("valid init with cloud_id and http_auth"):
-            elasticsearch = ElasticSearchOutput(
+            elasticsearch = ElasticsearchOutput(
                 cloud_id="cloud_id",
                 username="username",
                 password="password",
@@ -75,7 +75,7 @@ class TestElasticSearchOutput(TestCase):
             assert elasticsearch.tags == []
 
         with self.subTest("valid init with elasticsearch_url and api key"):
-            elasticsearch = ElasticSearchOutput(
+            elasticsearch = ElasticsearchOutput(
                 elasticsearch_url="elasticsearch_url",
                 api_key="api_key",
                 dataset="dataset",
@@ -93,7 +93,7 @@ class TestElasticSearchOutput(TestCase):
             assert elasticsearch.tags == []
 
         with self.subTest("valid init with cloud_id and api key"):
-            elasticsearch = ElasticSearchOutput(
+            elasticsearch = ElasticsearchOutput(
                 cloud_id="cloud_id",
                 api_key="api_key",
                 dataset="dataset",
@@ -112,10 +112,10 @@ class TestElasticSearchOutput(TestCase):
 
         with self.subTest("neither elasticsearch_url or cloud_id"):
             with self.assertRaisesRegex(ValueError, "Elasticsearch Output elasticsearch_url or cloud_id must be set"):
-                ElasticSearchOutput(elasticsearch_url="", cloud_id="")
+                ElasticsearchOutput(elasticsearch_url="", cloud_id="")
 
         with self.subTest("both elasticsearch_url and cloud_id"):
-            elasticsearch = ElasticSearchOutput(
+            elasticsearch = ElasticsearchOutput(
                 elasticsearch_url="elasticsearch_url",
                 cloud_id="cloud_id",
                 api_key="api_key",
@@ -137,14 +137,14 @@ class TestElasticSearchOutput(TestCase):
             with self.assertRaisesRegex(
                 ValueError, "Elasticsearch Output username and password or api_key must be set"
             ):
-                ElasticSearchOutput(
+                ElasticsearchOutput(
                     elasticsearch_url="elasticsearch_url",
                     dataset="dataset",
                     namespace="namespace",
                 )
 
         with self.subTest("both username and api_key"):
-            elasticsearch = ElasticSearchOutput(
+            elasticsearch = ElasticsearchOutput(
                 cloud_id="cloud_id",
                 api_key="api_key",
                 username="username",
@@ -164,7 +164,7 @@ class TestElasticSearchOutput(TestCase):
             assert elasticsearch.tags == []
 
         with self.subTest("with tags"):
-            elasticsearch = ElasticSearchOutput(
+            elasticsearch = ElasticsearchOutput(
                 cloud_id="cloud_id",
                 api_key="api_key",
                 username="username",
@@ -185,7 +185,7 @@ class TestElasticSearchOutput(TestCase):
 
         with self.subTest("empty password"):
             with self.assertRaisesRegex(ValueError, "Elasticsearch Output password must be set when using username"):
-                ElasticSearchOutput(
+                ElasticsearchOutput(
                     elasticsearch_url="elasticsearch_url",
                     username="username",
                     password="",
@@ -194,7 +194,7 @@ class TestElasticSearchOutput(TestCase):
                 )
 
         with self.subTest("empty dataset"):
-            elasticsearch = ElasticSearchOutput(
+            elasticsearch = ElasticsearchOutput(
                 cloud_id="cloud_id",
                 api_key="api_key",
                 username="username",
@@ -213,7 +213,7 @@ class TestElasticSearchOutput(TestCase):
             assert elasticsearch.tags == []
 
         with self.subTest("empty namespace"):
-            elasticsearch = ElasticSearchOutput(
+            elasticsearch = ElasticsearchOutput(
                 cloud_id="cloud_id",
                 api_key="api_key",
                 username="username",
@@ -232,7 +232,7 @@ class TestElasticSearchOutput(TestCase):
             assert elasticsearch.tags == []
 
         with self.subTest("empty tags"):
-            elasticsearch = ElasticSearchOutput(
+            elasticsearch = ElasticsearchOutput(
                 cloud_id="cloud_id",
                 api_key="api_key",
                 username="username",
@@ -254,7 +254,7 @@ class TestElasticSearchOutput(TestCase):
             with self.assertRaisesRegex(
                 ValueError, re.escape("Elasticsearch Output elasticsearch_url must be of type str")
             ):
-                ElasticSearchOutput(
+                ElasticsearchOutput(
                     elasticsearch_url=0,  # type:ignore
                     username="username",
                     password="password",
@@ -264,7 +264,7 @@ class TestElasticSearchOutput(TestCase):
 
         with self.subTest("username not str"):
             with self.assertRaisesRegex(ValueError, "Elasticsearch Output username must be of type str"):
-                ElasticSearchOutput(
+                ElasticsearchOutput(
                     elasticsearch_url="",
                     username=0,  # type:ignore
                     password="password",
@@ -274,7 +274,7 @@ class TestElasticSearchOutput(TestCase):
 
         with self.subTest("password not str"):
             with self.assertRaisesRegex(ValueError, "Elasticsearch Output password must be of type str"):
-                ElasticSearchOutput(
+                ElasticsearchOutput(
                     elasticsearch_url="elasticsearch_url",
                     username="username",
                     password=0,  # type:ignore
@@ -284,7 +284,7 @@ class TestElasticSearchOutput(TestCase):
 
         with self.subTest("cloud_id not str"):
             with self.assertRaisesRegex(ValueError, "Elasticsearch Output cloud_id must be of type str"):
-                ElasticSearchOutput(
+                ElasticsearchOutput(
                     cloud_id=0,  # type:ignore
                     username="username",
                     password="password",
@@ -294,7 +294,7 @@ class TestElasticSearchOutput(TestCase):
 
         with self.subTest("api_key not str"):
             with self.assertRaisesRegex(ValueError, "Elasticsearch Output api_key must be of type str"):
-                ElasticSearchOutput(
+                ElasticsearchOutput(
                     cloud_id="cloud_id",
                     api_key=0,  # type:ignore
                     dataset="dataset",
@@ -303,7 +303,7 @@ class TestElasticSearchOutput(TestCase):
 
         with self.subTest("dataset not str"):
             with self.assertRaisesRegex(ValueError, "Elasticsearch Output dataset must be of type str"):
-                ElasticSearchOutput(
+                ElasticsearchOutput(
                     elasticsearch_url="elasticsearch_url",
                     username="username",
                     password="password",
@@ -313,7 +313,7 @@ class TestElasticSearchOutput(TestCase):
 
         with self.subTest("namespace not str"):
             with self.assertRaisesRegex(ValueError, "Elasticsearch Output namespace must be of type str"):
-                ElasticSearchOutput(
+                ElasticsearchOutput(
                     elasticsearch_url="elasticsearch_url",
                     username="username",
                     password="password",
@@ -380,7 +380,7 @@ class TestInput(TestCase):
                 namespace="namespace",
             )
 
-            assert isinstance(input_sqs.get_output_by_type(output_type="elasticsearch"), ElasticSearchOutput)
+            assert isinstance(input_sqs.get_output_by_type(output_type="elasticsearch"), ElasticsearchOutput)
 
     def test_add_output(self) -> None:
         with self.subTest("elasticsearch output"):
@@ -394,7 +394,7 @@ class TestInput(TestCase):
                 namespace="namespace",
             )
 
-            assert isinstance(input_sqs.get_output_by_type(output_type="elasticsearch"), ElasticSearchOutput)
+            assert isinstance(input_sqs.get_output_by_type(output_type="elasticsearch"), ElasticsearchOutput)
 
         with self.subTest("wrong output"):
             input_sqs = Input(input_type="sqs", input_id="id")
@@ -755,7 +755,7 @@ class TestParseConfig(TestCase):
             elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
 
             assert elasticsearch is not None
-            assert isinstance(elasticsearch, ElasticSearchOutput)
+            assert isinstance(elasticsearch, ElasticsearchOutput)
             assert elasticsearch.type == "elasticsearch"
             assert elasticsearch.cloud_id == "cloud_id"
             assert elasticsearch.api_key == "api_key"
@@ -795,7 +795,7 @@ class TestParseConfig(TestCase):
             elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
 
             assert elasticsearch is not None
-            assert isinstance(elasticsearch, ElasticSearchOutput)
+            assert isinstance(elasticsearch, ElasticsearchOutput)
             assert elasticsearch.type == "elasticsearch"
             assert elasticsearch.cloud_id == "cloud_id"
             assert elasticsearch.api_key == "api_key"
@@ -832,7 +832,7 @@ class TestParseConfig(TestCase):
             elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
 
             assert elasticsearch is not None
-            assert isinstance(elasticsearch, ElasticSearchOutput)
+            assert isinstance(elasticsearch, ElasticsearchOutput)
             assert elasticsearch.type == "elasticsearch"
             assert elasticsearch.cloud_id == "cloud_id"
             assert elasticsearch.api_key == "api_key"
@@ -870,7 +870,7 @@ class TestParseConfig(TestCase):
             elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
 
             assert elasticsearch is not None
-            assert isinstance(elasticsearch, ElasticSearchOutput)
+            assert isinstance(elasticsearch, ElasticsearchOutput)
             assert elasticsearch.type == "elasticsearch"
             assert elasticsearch.elasticsearch_url == "elasticsearch_url"
             assert elasticsearch.username == "username"
@@ -908,7 +908,7 @@ class TestParseConfig(TestCase):
             elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
 
             assert elasticsearch is not None
-            assert isinstance(elasticsearch, ElasticSearchOutput)
+            assert isinstance(elasticsearch, ElasticsearchOutput)
             assert elasticsearch.type == "elasticsearch"
             assert elasticsearch.elasticsearch_url == "elasticsearch_url"
             assert elasticsearch.api_key == "api_key"
@@ -946,7 +946,7 @@ class TestParseConfig(TestCase):
             elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
 
             assert elasticsearch is not None
-            assert isinstance(elasticsearch, ElasticSearchOutput)
+            assert isinstance(elasticsearch, ElasticsearchOutput)
             assert elasticsearch.type == "elasticsearch"
             assert elasticsearch.cloud_id == "cloud_id"
             assert elasticsearch.username == "username"
@@ -984,7 +984,7 @@ class TestParseConfig(TestCase):
             elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
 
             assert elasticsearch is not None
-            assert isinstance(elasticsearch, ElasticSearchOutput)
+            assert isinstance(elasticsearch, ElasticsearchOutput)
             assert elasticsearch.type == "elasticsearch"
             assert elasticsearch.cloud_id == "cloud_id"
             assert elasticsearch.api_key == "api_key"
