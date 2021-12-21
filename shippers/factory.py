@@ -4,7 +4,7 @@
 
 from typing import Any, Callable
 
-from share.config import ElasticSearchOutput, Output
+from share.config import ElasticsearchOutput, Output
 
 from .es import ElasticsearchShipper
 from .shipper import CommonShipper
@@ -29,8 +29,8 @@ class ShipperFactory:
         """
 
         if output_type == "elasticsearch":
-            if not isinstance(output, ElasticSearchOutput):
-                raise ValueError(f"output expected to be ElasticSearchOutput type, given {type(output)}")
+            if not isinstance(output, ElasticsearchOutput):
+                raise ValueError(f"output expected to be ElasticsearchOutput type, given {type(output)}")
 
             return ShipperFactory.create(
                 output_type="elasticsearch",

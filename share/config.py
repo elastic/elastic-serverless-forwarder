@@ -34,7 +34,7 @@ class Output:
         self._type = value
 
 
-class ElasticSearchOutput(Output):
+class ElasticsearchOutput(Output):
     def __init__(
         self,
         elasticsearch_url: str = "",
@@ -255,7 +255,7 @@ class Input:
 
         output: Optional[Output] = None
         if output_type == "elasticsearch":
-            output = ElasticSearchOutput(**kwargs)
+            output = ElasticsearchOutput(**kwargs)
 
         assert output is not None
         self._outputs[output.type] = output
