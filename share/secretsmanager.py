@@ -9,7 +9,6 @@ from typing import Any, Union
 
 import boto3
 from botocore.client import BaseClient as BotoBaseClient
-from botocore.exceptions import ClientError
 
 from .logger import logger as shared_logger
 
@@ -35,6 +34,7 @@ def aws_sm_expander(config_yaml: str) -> str:
     """
 
     config_secret_entry_values: dict[str, str] = {}
+    secret_arn_by_secret_name: dict[str, str] = {}
     secret_key_values_cache: dict[str, dict[str, Any]] = {}
     secret_consistency_len_check: dict[str, int] = {}
 
@@ -73,9 +73,12 @@ def aws_sm_expander(config_yaml: str) -> str:
         if secrets_manager_name not in secret_key_values_cache[region]:
             secret_key_values_cache[region][secrets_manager_name] = {}
 
+        secret_arn_by_secret_name[secrets_manager_name] = ":".join(splitted_secret_arn[0:7])
+
     for region in secret_key_values_cache:
         for secrets_manager_name in secret_key_values_cache[region]:
-            str_secrets = get_secret_values(secrets_manager_name, region)
+            secret_arn = secret_arn_by_secret_name[secrets_manager_name]
+            str_secrets = get_secret_values(secret_arn, region)
             parsed_secrets = parse_secrets_str(str_secrets)
 
             secret_key_values_cache[region][secrets_manager_name] = parsed_secrets
@@ -89,24 +92,24 @@ def aws_sm_expander(config_yaml: str) -> str:
         if len(splitted_secret_arn) == 8:
             wanted_key = splitted_secret_arn[-1]
             if wanted_key == "":
-                raise ValueError("Key must not be empty: {}".format(config_secret_entry))
+                raise ValueError(f"Error for secret {config_secret_entry}: key must not be empty")
 
-        if (
-            isinstance(secret_key_values_cache[region][secrets_manager_name], dict)
-            and wanted_key in secret_key_values_cache[region][secrets_manager_name]
-        ):
-            fetched_secret_entry_value = secret_key_values_cache[region][secrets_manager_name][wanted_key]
-            if fetched_secret_entry_value == "":
-                raise ValueError("Value for secret: {} must not be empty".format(config_secret_entry))
-            config_secret_entry_values[config_secret_entry] = fetched_secret_entry_value
-        elif (
-            isinstance(secret_key_values_cache[region][secrets_manager_name], dict)
-            and wanted_key not in secret_key_values_cache
-        ):
-            raise KeyError("Key: {} not found in: {}".format(wanted_key, secrets_manager_name))
+            if not isinstance(secret_key_values_cache[region][secrets_manager_name], dict):
+                raise ValueError(f"Error for secret {config_secret_entry}: expected to be keys/values pair")
+
+            if wanted_key in secret_key_values_cache[region][secrets_manager_name]:
+                fetched_secret_entry_value = secret_key_values_cache[region][secrets_manager_name][wanted_key]
+                if fetched_secret_entry_value == "":
+                    raise ValueError(f"Error for secret {config_secret_entry}: must not be empty")
+                config_secret_entry_values[config_secret_entry] = fetched_secret_entry_value
+            else:
+                raise KeyError(f"Error for secret {config_secret_entry}: key not found")
         else:
             if secret_key_values_cache[region][secrets_manager_name] == "":
-                raise ValueError("Value for secret: {} must not be empty".format(config_secret_entry))
+                raise ValueError(f"Error for secret {config_secret_entry}: must not be empty")
+            elif not isinstance(secret_key_values_cache[region][secrets_manager_name], str):
+                raise ValueError(f"Error for secret {config_secret_entry}: expected to be a string")
+
             config_secret_entry_values[config_secret_entry] = secret_key_values_cache[region][secrets_manager_name]
 
         config_yaml = config_yaml.replace(config_secret_entry, config_secret_entry_values[config_secret_entry])
@@ -114,7 +117,7 @@ def aws_sm_expander(config_yaml: str) -> str:
     return config_yaml
 
 
-def get_secret_values(secret_name: str, region_name: str) -> str:
+def get_secret_values(secret_arn: str, region_name: str) -> str:
     """
     Calls the get_secret_value api from secrets manager, and returns the values.
     If the secret is created in a binary format, it will be received as a byte string
@@ -126,21 +129,9 @@ def get_secret_values(secret_name: str, region_name: str) -> str:
     client = _get_aws_sm_client(region_name)
 
     try:
-        get_secret_value_response = client.get_secret_value(SecretId=secret_name)
-    except ClientError as e:
-        shared_logger.error(
-            "get_secret_values", extra={"error_code": e.response["Error"]["Code"], "secret_name": secret_name}
-        )
-        if e.response["Error"]["Code"] == "DecryptionFailureException":
-            raise e
-        elif e.response["Error"]["Code"] == "InternalServiceErrorException":
-            raise e
-        elif e.response["Error"]["Code"] == "InvalidParameterException":
-            raise e
-        elif e.response["Error"]["Code"] == "InvalidRequestException":
-            raise e
-        elif e.response["Error"]["Code"] == "ResourceNotFoundException":
-            raise e
+        get_secret_value_response = client.get_secret_value(SecretId=secret_arn)
+    except Exception as e:
+        raise e
     else:
         if "SecretString" in get_secret_value_response:
             secrets = get_secret_value_response["SecretString"]
@@ -159,11 +150,10 @@ def parse_secrets_str(secrets: str) -> Union[str, dict[str, Any]]:
 
     try:
         parsed_secrets: dict[str, str] = json.loads(secrets)
-
     except JSONDecodeError:
         return secrets
     except Exception as e:
-        shared_logger.error("parse_secrets_str", extra={"error_code": e})
         raise e
     else:
+        shared_logger.info("parsed_secrets", extra={"json": parsed_secrets})
         return parsed_secrets

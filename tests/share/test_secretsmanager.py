@@ -18,7 +18,7 @@ from share.secretsmanager import aws_sm_expander
 
 class MockContent:
     SECRETS_MANAGER_MOCK_DATA: dict[str, dict[str, str]] = {
-        "es_secrets": {
+        "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets": {
             "type": "SecretString",
             "data": json.dumps(
                 {
@@ -28,9 +28,15 @@ class MockContent:
                 }
             ),
         },
-        "plain_secret": {"type": "SecretString", "data": "mock_plain_text_sqs_arn"},
-        "binary_secret": {"type": "SecretBinary", "data": "bW9ja19uZ2lueC5sb2c="},
-        "empty_secret": {"type": "SecretString", "data": ""},
+        "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret": {
+            "type": "SecretString",
+            "data": "mock_plain_text_sqs_arn",
+        },
+        "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:binary_secret": {
+            "type": "SecretBinary",
+            "data": "bW9ja19uZ2lueC5sb2c=",
+        },
+        "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:empty_secret": {"type": "SecretString", "data": ""},
     }
 
     @staticmethod
@@ -145,7 +151,9 @@ class TestAWSSecretsManager(TestCase):
                             namespace: "namespace"
             """
             with self.assertRaisesRegex(
-                ValueError, "Key must not be empty: arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:"
+                ValueError,
+                "Error for secret arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:: "
+                "key must not be empty",
             ):
                 aws_sm_expander(config_yaml)
 
@@ -207,7 +215,7 @@ class TestAWSSecretsManager(TestCase):
 
             with self.assertRaisesRegex(
                 ValueError,
-                "Value for secret: arn:aws:secretsmanager:eu-west-1:123-456-789:secret:empty_secret must not be empty",
+                "Error for secret arn:aws:secretsmanager:eu-west-1:123-456-789:secret:empty_secret: must not be empty",
             ):
                 aws_sm_expander(config_yaml)
 
