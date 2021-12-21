@@ -53,6 +53,7 @@ class TestElasticSearchOutput(TestCase):
             assert not elasticsearch.api_key
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
+            assert elasticsearch.tags == []
 
         with self.subTest("valid init with cloud_id and http_auth"):
             elasticsearch = ElasticSearchOutput(
@@ -71,6 +72,7 @@ class TestElasticSearchOutput(TestCase):
             assert not elasticsearch.api_key
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
+            assert elasticsearch.tags == []
 
         with self.subTest("valid init with elasticsearch_url and api key"):
             elasticsearch = ElasticSearchOutput(
@@ -88,6 +90,7 @@ class TestElasticSearchOutput(TestCase):
             assert not elasticsearch.password
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
+            assert elasticsearch.tags == []
 
         with self.subTest("valid init with cloud_id and api key"):
             elasticsearch = ElasticSearchOutput(
@@ -105,6 +108,7 @@ class TestElasticSearchOutput(TestCase):
             assert not elasticsearch.password
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
+            assert elasticsearch.tags == []
 
         with self.subTest("neither elasticsearch_url or cloud_id"):
             with self.assertRaisesRegex(ValueError, "Elasticsearch Output elasticsearch_url or cloud_id must be set"):
@@ -127,6 +131,7 @@ class TestElasticSearchOutput(TestCase):
             assert not elasticsearch.password
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
+            assert elasticsearch.tags == []
 
         with self.subTest("no username or api_key"):
             with self.assertRaisesRegex(
@@ -156,6 +161,27 @@ class TestElasticSearchOutput(TestCase):
             assert not elasticsearch.password
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
+            assert elasticsearch.tags == []
+
+        with self.subTest("with tags"):
+            elasticsearch = ElasticSearchOutput(
+                cloud_id="cloud_id",
+                api_key="api_key",
+                username="username",
+                password="password",
+                dataset="dataset",
+                tags=["tag1", "tag2", "tag3"],
+            )
+
+            assert elasticsearch.type == "elasticsearch"
+            assert elasticsearch.cloud_id == "cloud_id"
+            assert elasticsearch.api_key == "api_key"
+            assert not elasticsearch.elasticsearch_url
+            assert not elasticsearch.username
+            assert not elasticsearch.password
+            assert elasticsearch.dataset == "dataset"
+            assert elasticsearch.namespace == "default"
+            assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
 
         with self.subTest("empty password"):
             with self.assertRaisesRegex(ValueError, "Elasticsearch Output password must be set when using username"):
@@ -184,6 +210,7 @@ class TestElasticSearchOutput(TestCase):
             assert not elasticsearch.password
             assert elasticsearch.dataset == "generic"
             assert elasticsearch.namespace == "namespace"
+            assert elasticsearch.tags == []
 
         with self.subTest("empty namespace"):
             elasticsearch = ElasticSearchOutput(
@@ -202,6 +229,26 @@ class TestElasticSearchOutput(TestCase):
             assert not elasticsearch.password
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "default"
+            assert elasticsearch.tags == []
+
+        with self.subTest("empty tags"):
+            elasticsearch = ElasticSearchOutput(
+                cloud_id="cloud_id",
+                api_key="api_key",
+                username="username",
+                password="password",
+                dataset="dataset",
+            )
+
+            assert elasticsearch.type == "elasticsearch"
+            assert elasticsearch.cloud_id == "cloud_id"
+            assert elasticsearch.api_key == "api_key"
+            assert not elasticsearch.elasticsearch_url
+            assert not elasticsearch.username
+            assert not elasticsearch.password
+            assert elasticsearch.dataset == "dataset"
+            assert elasticsearch.namespace == "default"
+            assert elasticsearch.tags == []
 
         with self.subTest("elasticsearch_url not str"):
             with self.assertRaisesRegex(
@@ -282,6 +329,7 @@ class TestInput(TestCase):
             input_sqs = Input(input_type="sqs", input_id="id")
             assert input_sqs.type == "sqs"
             assert input_sqs.id == "id"
+            assert input_sqs.tags == []
 
         with self.subTest("not valid type"):
             with self.assertRaisesRegex(ValueError, "Input type must be one of sqs"):
@@ -298,6 +346,23 @@ class TestInput(TestCase):
         with self.subTest("id not str"):
             with self.assertRaisesRegex(ValueError, "Input id must be of type str"):
                 Input(input_type="sqs", input_id=0)  # type:ignore
+
+    def test_input_tags(self) -> None:
+        with self.subTest("valid tags"):
+            input_sqs = Input(input_type="sqs", input_id="id")
+            input_sqs.tags = ["tag1", "tag2", "tag3"]
+
+            assert input_sqs.tags == ["tag1", "tag2", "tag3"]
+
+        with self.subTest("tags not list"):
+            input_sqs = Input(input_type="sqs", input_id="id")
+            with self.assertRaisesRegex(ValueError, "Tags must be of type list"):
+                input_sqs.tags = "tag1"  # type:ignore
+
+        with self.subTest("each tag not str"):
+            input_sqs = Input(input_type="sqs", input_id="id")
+            with self.assertRaisesRegex(ValueError, "Each tag must be of type str, given: \\['tag1', 2, 'tag3'\\]"):
+                input_sqs.tags = ["tag1", 2, "tag3"]  # type:ignore
 
     def test_get_output_by_type(self) -> None:
         with self.subTest("none output"):
@@ -418,6 +483,7 @@ class TestConfig(TestCase):
             assert isinstance(input_sqs, Input)
             assert input_sqs.type == "sqs"
             assert input_sqs.id == "id"
+            assert input_sqs.tags == []
 
     def test_add_input(self) -> None:
         with self.subTest("sqs input"):
@@ -427,12 +493,14 @@ class TestConfig(TestCase):
             assert isinstance(input_sqs, Input)
             assert input_sqs.type == "sqs"
             assert input_sqs.id == "id"
+            assert input_sqs.tags == []
 
             config.add_input(Input(input_type="sqs", input_id="id2"))
             input_sqs = config.get_input_by_type_and_id(input_type="sqs", input_id="id2")
             assert isinstance(input_sqs, Input)
             assert input_sqs.type == "sqs"
             assert input_sqs.id == "id2"
+            assert input_sqs.tags == []
 
         with self.subTest("duplicated sqs input"):
             config = Config()
@@ -600,12 +668,188 @@ class TestParseConfig(TestCase):
             """
                 )
 
+        with self.subTest("tags not list"):
+            with self.assertRaisesRegex(ValueError, "Tags must be of type list"):
+                parse_config(
+                    config_yaml="""
+            inputs:
+              - type: sqs
+                id: id
+                tags: "tag1"
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      dataset: "dataset"
+                      namespace: "namespace"
+            """
+                )
+
+            with self.assertRaisesRegex(ValueError, "Tags must be of type list"):
+                parse_config(
+                    config_yaml="""
+            inputs:
+              - type: sqs
+                id: id
+                tags: 1, 2, 3
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      dataset: "dataset"
+                      namespace: "namespace"
+            """
+                )
+
+        with self.subTest("each tag not str"):
+            with self.assertRaisesRegex(
+                ValueError, "Each tag must be of type str, given: \\[2021, {'key1': 'value1'}, 'tag3'\\]"
+            ):
+                parse_config(
+                    config_yaml="""
+            inputs:
+              - type: sqs
+                id: id
+                tags:
+                  - 2021
+                  - {"key1": "value1"}
+                  - "tag3"
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      dataset: "dataset"
+                      namespace: "namespace"
+            """
+                )
+
+        with self.subTest("tags added at output level"):
+            config = parse_config(
+                config_yaml="""
+            inputs:
+              - type: sqs
+                id: id
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      dataset: "dataset"
+                      namespace: "namespace"
+                      tags:
+                        - "tag1"
+                        - "tag2"
+                        - "tag3"
+            """
+            )
+
+            input_sqs = config.get_input_by_type_and_id(input_type="sqs", input_id="id")
+            assert input_sqs is not None
+            assert input_sqs.type == "sqs"
+            assert input_sqs.id == "id"
+            assert input_sqs.tags == []
+
+            elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
+
+            assert elasticsearch is not None
+            assert isinstance(elasticsearch, ElasticSearchOutput)
+            assert elasticsearch.type == "elasticsearch"
+            assert elasticsearch.cloud_id == "cloud_id"
+            assert elasticsearch.api_key == "api_key"
+            assert elasticsearch.dataset == "dataset"
+            assert elasticsearch.namespace == "namespace"
+            assert elasticsearch.tags == []
+
+        with self.subTest("tags added at input level and output level"):
+            config = parse_config(
+                config_yaml="""
+            inputs:
+              - type: sqs
+                id: id
+                tags:
+                  - "input_tag1"
+                  - "input_tag2"
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      dataset: "dataset"
+                      namespace: "namespace"
+                      tags:
+                        - "tag1"
+                        - "tag2"
+                        - "tag3"
+            """
+            )
+
+            input_sqs = config.get_input_by_type_and_id(input_type="sqs", input_id="id")
+            assert input_sqs is not None
+            assert input_sqs.type == "sqs"
+            assert input_sqs.id == "id"
+            assert input_sqs.tags == ["input_tag1", "input_tag2"]
+
+            elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
+
+            assert elasticsearch is not None
+            assert isinstance(elasticsearch, ElasticSearchOutput)
+            assert elasticsearch.type == "elasticsearch"
+            assert elasticsearch.cloud_id == "cloud_id"
+            assert elasticsearch.api_key == "api_key"
+            assert elasticsearch.dataset == "dataset"
+            assert elasticsearch.namespace == "namespace"
+            assert elasticsearch.tags == ["input_tag1", "input_tag2"]
+
+        with self.subTest("valid tags"):
+            config = parse_config(
+                config_yaml="""
+            inputs:
+              - type: sqs
+                id: id
+                tags:
+                  - "tag1"
+                  - "tag2"
+                  - "tag3"
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      dataset: "dataset"
+                      namespace: "namespace"
+            """
+            )
+
+            input_sqs = config.get_input_by_type_and_id(input_type="sqs", input_id="id")
+            assert input_sqs is not None
+            assert input_sqs.type == "sqs"
+            assert input_sqs.id == "id"
+            assert input_sqs.tags == ["tag1", "tag2", "tag3"]
+
+            elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
+
+            assert elasticsearch is not None
+            assert isinstance(elasticsearch, ElasticSearchOutput)
+            assert elasticsearch.type == "elasticsearch"
+            assert elasticsearch.cloud_id == "cloud_id"
+            assert elasticsearch.api_key == "api_key"
+            assert elasticsearch.dataset == "dataset"
+            assert elasticsearch.namespace == "namespace"
+            assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
+
         with self.subTest("valid input valid elasticsearch output with elasticsearch_url and http auth"):
             config = parse_config(
                 config_yaml="""
             inputs:
               - type: sqs
                 id: id
+                tags:
+                  - "tag1"
+                  - "tag2"
+                  - "tag3"
                 outputs:
                   - type: elasticsearch
                     args:
@@ -621,6 +865,7 @@ class TestParseConfig(TestCase):
             assert input_sqs is not None
             assert input_sqs.type == "sqs"
             assert input_sqs.id == "id"
+            assert input_sqs.tags == ["tag1", "tag2", "tag3"]
 
             elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
 
@@ -632,6 +877,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch.password == "password"
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
+            assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
 
         with self.subTest("valid input valid elasticsearch output with elasticsearch_url and api key"):
             config = parse_config(
@@ -639,6 +885,10 @@ class TestParseConfig(TestCase):
             inputs:
               - type: sqs
                 id: id
+                tags:
+                  - "tag1"
+                  - "tag2"
+                  - "tag3"
                 outputs:
                   - type: elasticsearch
                     args:
@@ -653,6 +903,7 @@ class TestParseConfig(TestCase):
             assert input_sqs is not None
             assert input_sqs.type == "sqs"
             assert input_sqs.id == "id"
+            assert input_sqs.tags == ["tag1", "tag2", "tag3"]
 
             elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
 
@@ -663,6 +914,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch.api_key == "api_key"
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
+            assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
 
         with self.subTest("valid input valid elasticsearch output with cloud id and http auth"):
             config = parse_config(
@@ -670,6 +922,10 @@ class TestParseConfig(TestCase):
             inputs:
               - type: sqs
                 id: id
+                tags:
+                  - "tag1"
+                  - "tag2"
+                  - "tag3"
                 outputs:
                   - type: elasticsearch
                     args:
@@ -685,6 +941,7 @@ class TestParseConfig(TestCase):
             assert input_sqs is not None
             assert input_sqs.type == "sqs"
             assert input_sqs.id == "id"
+            assert input_sqs.tags == ["tag1", "tag2", "tag3"]
 
             elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
 
@@ -696,6 +953,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch.password == "password"
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
+            assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
 
         with self.subTest("valid input valid elasticsearch output cloud_id and api key"):
             config = parse_config(
@@ -703,6 +961,10 @@ class TestParseConfig(TestCase):
             inputs:
               - type: sqs
                 id: id
+                tags:
+                  - "tag1"
+                  - "tag2"
+                  - "tag3"
                 outputs:
                   - type: elasticsearch
                     args:
@@ -717,6 +979,7 @@ class TestParseConfig(TestCase):
             assert input_sqs is not None
             assert input_sqs.type == "sqs"
             assert input_sqs.id == "id"
+            assert input_sqs.tags == ["tag1", "tag2", "tag3"]
 
             elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
 
@@ -727,3 +990,4 @@ class TestParseConfig(TestCase):
             assert elasticsearch.api_key == "api_key"
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
+            assert elasticsearch.tags == ["tag1", "tag2", "tag3"]

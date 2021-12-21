@@ -75,6 +75,7 @@ class TestElasticsearchShipper(TestCase):
             password="",
             dataset="data.set",
             namespace="namespace",
+            tags=["tag1", "tag2", "tag3"],
         )
         es_event = deepcopy(_dummy_event)
         shipper.send(es_event)
@@ -102,7 +103,14 @@ class TestElasticsearchShipper(TestCase):
                         },
                         "message": "A dummy message",
                     },
-                    "tags": ["preserve_original_event", "forwarded", "data-set"],
+                    "tags": [
+                        "preserve_original_event",
+                        "forwarded",
+                        "data-set",
+                        "tag1",
+                        "tag2",
+                        "tag3",
+                    ],
                 }
             ]
         ]
@@ -118,6 +126,7 @@ class TestElasticsearchShipper(TestCase):
             password="",
             dataset="data.set",
             namespace="namespace",
+            tags=["tag1", "tag2", "tag3"],
         )
         es_event = deepcopy(_dummy_event)
         shipper.send(es_event)
@@ -141,7 +150,14 @@ class TestElasticsearchShipper(TestCase):
                     "log": {"file": {"path": "https://bucket_name.s3.aws-region.amazonaws.com/file.key"}, "offset": 10},
                     "message": "A dummy message",
                 },
-                "tags": ["preserve_original_event", "forwarded", "data-set"],
+                "tags": [
+                    "preserve_original_event",
+                    "forwarded",
+                    "data-set",
+                    "tag1",
+                    "tag2",
+                    "tag3",
+                ],
             }
         ]
 

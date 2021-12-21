@@ -44,6 +44,7 @@ class ElasticSearchOutput(Output):
         api_key: str = "",
         dataset: str = "",
         namespace: str = "",
+        tags: list[str] = [],
     ):
 
         super().__init__(output_type="elasticsearch")
@@ -54,6 +55,7 @@ class ElasticSearchOutput(Output):
         self.api_key = api_key
         self.dataset = dataset
         self.namespace = namespace
+        self.tags = tags
 
         if not self.cloud_id and not self.elasticsearch_url:
             raise ValueError("Elasticsearch Output elasticsearch_url or cloud_id must be set")
@@ -80,6 +82,8 @@ class ElasticSearchOutput(Output):
         if not self.namespace:
             shared_logger.warning("no namespace set in config: using `default`")
             self.namespace = "default"
+
+        shared_logger.debug("tags: ", extra={"tags": self.tags})
 
     @property
     def elasticsearch_url(self) -> str:
@@ -167,6 +171,7 @@ class Input:
     def __init__(self, input_type: str, input_id: str):
         self.type = input_type
         self.id = input_id
+        self._tags: list[str] = []
         self._outputs: dict[str, Output] = {}
 
     @property
@@ -191,6 +196,27 @@ class Input:
         if not isinstance(value, str):
             raise ValueError("Input id must be of type str")
         self._id = value
+
+    @property
+    def tags(self) -> list[str]:
+        """
+        Tags getter.
+        Returns all tags
+        """
+        return self._tags
+
+    @tags.setter
+    def tags(self, values: list[str]) -> None:
+        """
+        Tags setter.
+        It receives a list of tags and performs type validation
+        """
+        if not isinstance(values, list):
+            raise ValueError("Tags must be of type list")
+
+        self._tags = [value for value in values if isinstance(value, str)]
+        if len(self._tags) != len(values):
+            raise ValueError(f"Each tag must be of type str, given: {values}")
 
     def get_output_by_type(self, output_type: str) -> Optional[Output]:
         """
@@ -297,6 +323,9 @@ def parse_config(config_yaml: str, expanders: list[Callable[[str], str]] = []) -
 
         current_input: Input = Input(input_type=input_config["type"], input_id=input_config["id"])
 
+        if "tags" in input_config:
+            current_input.tags = input_config["tags"]
+
         if "outputs" not in input_config or not isinstance(input_config["outputs"], list):
             raise ValueError("No valid outputs for input")
 
@@ -307,6 +336,7 @@ def parse_config(config_yaml: str, expanders: list[Callable[[str], str]] = []) -
             if "args" not in output_config or not isinstance(output_config["args"], dict):
                 raise ValueError("Must be provided dict args for output")
 
+            output_config["args"]["tags"] = current_input.tags
             current_input.add_output(output_type=output_config["type"], **output_config["args"])
 
         conf.add_input(current_input)

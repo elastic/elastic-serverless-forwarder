@@ -31,6 +31,7 @@ class ElasticsearchShipper(CommonShipper):
         api_key: str = "",
         dataset: str = "",
         namespace: str = "",
+        tags: list[str] = [],
     ):
 
         self._bulk_actions: list[dict[str, Any]] = []
@@ -62,6 +63,7 @@ class ElasticsearchShipper(CommonShipper):
 
         self._dataset = dataset
         self._namespace = namespace
+        self._tags = tags
 
         self._es_index = f"logs-{dataset}-{namespace}"
 
@@ -106,7 +108,7 @@ class ElasticsearchShipper(CommonShipper):
 
         event_payload["event"] = {"dataset": self._dataset, "original": event_payload["fields"]["message"]}
 
-        event_payload["tags"] = ["preserve_original_event", "forwarded", self._dataset.replace(".", "-")]
+        event_payload["tags"] = ["preserve_original_event", "forwarded", self._dataset.replace(".", "-")] + self._tags
 
     @staticmethod
     def _log_outcome(success: int, failed: int) -> None:
