@@ -7,6 +7,7 @@ from typing import Any, Callable, Optional
 import yaml
 
 from .logger import logger as shared_logger
+from .parser import parse_dataset
 
 _available_input_types: list[str] = ["sqs"]
 _available_output_types: list[str] = ["elasticsearch"]
@@ -76,8 +77,8 @@ class ElasticsearchOutput(Output):
             raise ValueError("Elasticsearch Output password must be set when using username")
 
         if not self.dataset:
-            shared_logger.warning("no dataset set in config: using `generic`")
-            self.dataset = "generic"
+            shared_logger.warning("no dataset set in config: using `empty`")
+            self.dataset = "empty"
 
         if not self.namespace:
             shared_logger.warning("no namespace set in config: using `default`")
@@ -297,7 +298,7 @@ class Config:
         self._inputs[new_input.type][new_input.id] = new_input
 
 
-def parse_config(config_yaml: str, expanders: list[Callable[[str], str]] = []) -> Config:
+def parse_config(config_yaml: str, expanders: list[Callable[[str], str]], lambda_event: dict[str, Any]) -> Config:
     """
     Config component factory
     Given a config yaml as string it return the Config instance as defined by the yaml
@@ -337,6 +338,10 @@ def parse_config(config_yaml: str, expanders: list[Callable[[str], str]] = []) -
                 raise ValueError("Must be provided dict args for output")
 
             output_config["args"]["tags"] = current_input.tags
+
+            if output_config["args"]["dataset"] == "empty":
+                parse_dataset(output_config["args"], lambda_event)
+
             current_input.add_output(output_type=output_config["type"], **output_config["args"])
 
         conf.add_input(current_input)
