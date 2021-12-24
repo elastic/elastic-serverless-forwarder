@@ -30,3 +30,11 @@ class CommonShipper(metaclass=ABCMeta):
         """
 
         raise NotImplementedError
+
+    @abstractmethod
+    def discover_dataset(self, event: dict[str, Any]) -> None:
+        """
+        Interface for parsing the dataset
+        """
+
+        raise NotImplementedError

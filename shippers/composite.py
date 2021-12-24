@@ -30,3 +30,7 @@ class CompositeShipper(CommonShipper):
     def flush(self) -> None:
         for shipper in self._shippers:
             shipper.flush()
+
+    def discover_dataset(self, event: dict[str, Any]) -> None:
+        for shipper in self._shippers:
+            shipper.discover_dataset(event)

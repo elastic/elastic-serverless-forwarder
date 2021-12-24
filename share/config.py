@@ -7,7 +7,6 @@ from typing import Any, Callable, Optional
 import yaml
 
 from .logger import logger as shared_logger
-from .parser import parse_dataset
 
 _available_input_types: list[str] = ["sqs"]
 _available_output_types: list[str] = ["elasticsearch"]
@@ -298,7 +297,7 @@ class Config:
         self._inputs[new_input.type][new_input.id] = new_input
 
 
-def parse_config(config_yaml: str, expanders: list[Callable[[str], str]], lambda_event: dict[str, Any]) -> Config:
+def parse_config(config_yaml: str, expanders: list[Callable[[str], str]] = []) -> Config:
     """
     Config component factory
     Given a config yaml as string it return the Config instance as defined by the yaml
@@ -338,9 +337,6 @@ def parse_config(config_yaml: str, expanders: list[Callable[[str], str]], lambda
                 raise ValueError("Must be provided dict args for output")
 
             output_config["args"]["tags"] = current_input.tags
-
-            if output_config["args"]["dataset"] == "empty":
-                parse_dataset(output_config["args"], lambda_event)
 
             current_input.add_output(output_type=output_config["type"], **output_config["args"])
 

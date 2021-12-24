@@ -3,7 +3,8 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 import hashlib
-from typing import Any
+import json
+from typing import Any, Dict
 
 import elasticapm  # noqa: F401
 from elasticsearch import Elasticsearch
@@ -142,3 +143,28 @@ class ElasticsearchShipper(CommonShipper):
             self._log_outcome(success=success, failed=failed)
 
         self._bulk_actions = []
+
+    def discover_dataset(self, lambda_event: Dict[str, Any]) -> None:
+        if self._dataset == "empty":
+            body: str = lambda_event["Records"][0]["body"]
+            json_body: Dict[str, Any] = json.loads(body)
+            s3_object_key: str = ""
+
+            if "Records" in json_body and len(json_body["Records"]) > 0:
+                if "s3" in json_body["Records"][0]:
+                    s3_object_key = json_body["Records"][0]["s3"]["object"]["key"]
+
+            if (
+                "/CloudTrail/" in s3_object_key
+                or "/CloudTrail-Digest/" in s3_object_key
+                or "/CloudTrail-Insight/" in s3_object_key
+            ):
+                self._dataset = "aws.cloudtrail"
+            elif "vpcflowlogs" in s3_object_key:
+                self._dataset = "aws.vpc"
+            elif "exportedlogs" in s3_object_key or "cloudwatch" in s3_object_key or "awslogs" in s3_object_key:
+                self._dataset = "aws.cloudwatch"
+            elif "elasticloadbalancing" in s3_object_key:
+                self._dataset = "aws.elb"
+            else:
+                self._dataset = "generic"
