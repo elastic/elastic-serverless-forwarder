@@ -36,22 +36,38 @@ def capture_serverless(
     return apm_capture_serverless()(func)  # type:ignore
 
 
+class RaisebleException(Exception):
+    """Raised when the lambda must fail"""
+
+    pass
+
+
 def wrap_try_except(
     func: Callable[[dict[str, Any], context_.Context], str]
 ) -> Callable[[dict[str, Any], context_.Context], str]:
     """
     Decorator to catch every exception and capture them by apm client if set
+    or raise if type is RaisebleException
     """
 
     def wrapper(lambda_event: dict[str, Any], lambda_context: context_.Context) -> str:
+        apm_client: Client = get_client()
         try:
             return func(lambda_event, lambda_context)
-        except Exception as e:
-            apm_client: Client = get_client()
+        except RaisebleException as e:
             if apm_client:
                 apm_client.capture_exception()
 
             shared_logger.exception("exception raised", exc_info=e)
+
+            raise e
+
+        except Exception as e:
+            if apm_client:
+                apm_client.capture_exception()
+
+            shared_logger.exception("exception raised", exc_info=e)
+
             return f"exception raised: {e.__repr__()}"
 
     return wrapper
