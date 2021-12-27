@@ -144,9 +144,9 @@ class ElasticsearchShipper(CommonShipper):
 
         self._bulk_actions = []
 
-    def discover_dataset(self, lambda_event: Dict[str, Any]) -> None:
+    def discover_dataset(self, event: Dict[str, Any]) -> None:
         if self._dataset == "empty":
-            body: str = lambda_event["Records"][0]["body"]
+            body: str = event["Records"][0]["body"]
             json_body: Dict[str, Any] = json.loads(body)
             s3_object_key: str = ""
 
