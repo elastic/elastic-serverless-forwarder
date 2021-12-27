@@ -6,11 +6,11 @@ import datetime
 import json
 from copy import deepcopy
 from typing import Any, Iterator
+from urllib.parse import unquote_plus
 
 import boto3
 import elasticapm
 from botocore.client import BaseClient as BotoBaseClient
-from urllib.parse import unquote_plus
 
 from share import Config, shared_logger
 from storage import CommonStorage, StorageFactory
