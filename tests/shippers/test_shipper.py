@@ -17,6 +17,9 @@ class DummyShipper(CommonShipper):
     def flush(self) -> None:
         pass
 
+    def discover_dataset(self, event: dict[str, Any]) -> None:
+        pass
+
     def __init__(self, **kwargs: Any):
         pass
 
@@ -34,3 +37,7 @@ class TestCommonShipper(TestCase):
     def test_flush(self) -> None:
         with self.assertRaises(NotImplementedError):
             CommonShipper.flush(DummyShipper())
+
+    def test_discover_dataset(self) -> None:
+        with self.assertRaises(NotImplementedError):
+            CommonShipper.discover_dataset(DummyShipper(), {})

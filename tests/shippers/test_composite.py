@@ -18,9 +18,13 @@ class DummyShipper(CommonShipper):
     def flush(self) -> None:
         self._flushed = True
 
+    def discover_dataset(self, event: dict[str, Any]) -> None:
+        self._dataset_discovered = True
+
     def __init__(self, **kwargs: Any):
         self._sent: list[dict[str, Any]] = []
         self._flushed = False
+        self._dataset_discovered = False
 
 
 @pytest.mark.unit
@@ -44,3 +48,10 @@ class TestCompositeShipper(TestCase):
         composite_shipper.add_shipper(dummy_shipper)
         composite_shipper.flush()
         assert dummy_shipper._flushed is True
+
+    def test_discover_dataset(self) -> None:
+        dummy_shipper = DummyShipper()
+        composite_shipper = CompositeShipper()
+        composite_shipper.add_shipper(dummy_shipper)
+        composite_shipper.discover_dataset({})
+        assert dummy_shipper._dataset_discovered is True
