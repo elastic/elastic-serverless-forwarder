@@ -157,6 +157,10 @@ class ElasticsearchShipper(CommonShipper):
             if "Records" in json_body and len(json_body["Records"]) > 0:
                 if "s3" in json_body["Records"][0]:
                     s3_object_key = json_body["Records"][0]["s3"]["object"]["key"]
+                else:
+                    raise KeyError("Invalid event structure")
+            else:
+                raise KeyError("Invalid event structure")
 
             if s3_object_key == "":
                 raise ValueError("S3 object key cannot be empty")
