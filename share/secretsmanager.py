@@ -79,7 +79,7 @@ def aws_sm_expander(config_yaml: str) -> str:
         for secrets_manager_name in secret_key_values_cache[region]:
             secret_arn = secret_arn_by_secret_name[secrets_manager_name]
             str_secrets = get_secret_values(secret_arn, region)
-            parsed_secrets = parse_secrets_str(str_secrets)
+            parsed_secrets = parse_secrets_str(str_secrets, secret_arn)
 
             secret_key_values_cache[region][secrets_manager_name] = parsed_secrets
 
@@ -142,7 +142,7 @@ def get_secret_values(secret_arn: str, region_name: str) -> str:
     return secrets
 
 
-def parse_secrets_str(secrets: str) -> Union[str, dict[str, Any]]:
+def parse_secrets_str(secrets: str, secret_arn: str) -> Union[str, dict[str, Any]]:
     """
     Helper function to determine if the secrets from secrets manager are json or plain text.
     Returns str or dict only.
@@ -153,7 +153,7 @@ def parse_secrets_str(secrets: str) -> Union[str, dict[str, Any]]:
     except JSONDecodeError:
         return secrets
     except Exception as e:
-        raise e
+        raise Exception(f"{e} while parsing {secret_arn}")
     else:
         shared_logger.info("parsed_secrets", extra={"json": parsed_secrets})
         return parsed_secrets

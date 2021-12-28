@@ -333,7 +333,11 @@ class TestAWSSecretsManager(TestCase):
                             namespace: "namespace"
             """
 
-            with self.assertRaisesRegex(Exception, "the JSON object must be str, bytes or bytearray, not int"):
+            with self.assertRaisesRegex(
+                Exception,
+                "the JSON object must be str, bytes or bytearray, not int while parsing "
+                "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret_not_str_in",
+            ):
                 aws_sm_expander(config_yaml)
 
         with self.subTest("invalid arn format - pattern not caught"):

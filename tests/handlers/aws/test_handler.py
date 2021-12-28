@@ -22,7 +22,7 @@ from localstack.services.sqs.sqs_starter import check_sqs
 from localstack.utils import testutil
 from localstack.utils.aws import aws_stack
 
-from handlers.aws.utils import LambdaFailureableException
+from handlers.aws.utils import ConfigFileException, TriggerTypeException
 from main_aws import handler
 
 
@@ -127,41 +127,41 @@ class TestLambdaHandlerFailure(TestCase):
         }
 
         with self.subTest("Invalid s3 uri"):
-            with self.assertRaisesRegex(LambdaFailureableException, "Invalid s3 uri provided: ``"):
+            with self.assertRaisesRegex(ConfigFileException, "Invalid s3 uri provided: ``"):
                 os.environ["S3_CONFIG_FILE"] = ""
                 ctx = ContextMock()
 
                 handler(dummy_event, ctx)  # type:ignore
         with self.subTest("Invalid s3 uri no bucket and key"):
-            with self.assertRaisesRegex(LambdaFailureableException, "Invalid s3 uri provided: `s3://`"):
+            with self.assertRaisesRegex(ConfigFileException, "Invalid s3 uri provided: `s3://`"):
                 os.environ["S3_CONFIG_FILE"] = "s3://"
                 ctx = ContextMock()
 
                 handler(dummy_event, ctx)  # type:ignore
 
         with self.subTest("no Records in event"):
-            with self.assertRaisesRegex(LambdaFailureableException, "Not supported trigger"):
+            with self.assertRaisesRegex(TriggerTypeException, "Not supported trigger"):
                 ctx = ContextMock()
                 event: dict[str, Any] = {}
 
                 handler(event, ctx)  # type:ignore
 
         with self.subTest("empty Records in event"):
-            with self.assertRaisesRegex(LambdaFailureableException, "Not supported trigger"):
+            with self.assertRaisesRegex(TriggerTypeException, "Not supported trigger"):
                 ctx = ContextMock()
                 event = {"Records": []}
 
                 handler(event, ctx)  # type:ignore
 
         with self.subTest("no eventSource in Records in event"):
-            with self.assertRaisesRegex(LambdaFailureableException, "Not supported trigger"):
+            with self.assertRaisesRegex(TriggerTypeException, "Not supported trigger"):
                 ctx = ContextMock()
                 event = {"Records": [{}]}
 
                 handler(event, ctx)  # type:ignore
 
         with self.subTest("no valid eventSource in Records in event"):
-            with self.assertRaisesRegex(LambdaFailureableException, "Not supported trigger"):
+            with self.assertRaisesRegex(TriggerTypeException, "Not supported trigger"):
                 ctx = ContextMock()
                 event = {"Records": [{"eventSource": "invalid"}]}
 
@@ -169,7 +169,7 @@ class TestLambdaHandlerFailure(TestCase):
 
         with self.subTest("invalid secretsmanager: arn format too long"):
             with self.assertRaisesRegex(
-                LambdaFailureableException,
+                ConfigFileException,
                 "Invalid arn format: "
                 "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret:THIS:IS:INVALID",
             ):
@@ -194,7 +194,7 @@ class TestLambdaHandlerFailure(TestCase):
 
         with self.subTest("invalid secretsmanager: empty region"):
             with self.assertRaisesRegex(
-                LambdaFailureableException,
+                ConfigFileException,
                 "Must be provided region in arn: " "arn:aws:secretsmanager::123-456-789:secret:plain_secret",
             ):
                 ctx = ContextMock()
@@ -220,7 +220,7 @@ class TestLambdaHandlerFailure(TestCase):
 
         with self.subTest("invalid secretsmanager: empty secrets manager name"):
             with self.assertRaisesRegex(
-                LambdaFailureableException,
+                ConfigFileException,
                 "Must be provided secrets manager name in arn: "
                 "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:",
             ):
@@ -247,7 +247,7 @@ class TestLambdaHandlerFailure(TestCase):
 
         with self.subTest("invalid secretsmanager: cannot use both plain text and key/value pairs"):
             with self.assertRaisesRegex(
-                LambdaFailureableException,
+                ConfigFileException,
                 "You cannot have both plain text and json key for the same "
                 "secret: arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username",
             ):
@@ -274,7 +274,7 @@ class TestLambdaHandlerFailure(TestCase):
 
         with self.subTest("invalid secretsmanager: empty secret key"):
             with self.assertRaisesRegex(
-                LambdaFailureableException,
+                ConfigFileException,
                 "Error for secret "
                 "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:: key must "
                 "not be empty",
@@ -302,7 +302,7 @@ class TestLambdaHandlerFailure(TestCase):
 
         with self.subTest("invalid secretsmanager: secret does not exist"):
             with self.assertRaisesRegex(
-                LambdaFailureableException,
+                ConfigFileException,
                 r"An error occurred \(ResourceNotFoundException\) when calling "
                 "the GetSecretValue operation: Secrets Manager can't find the specified secret.",
             ):
@@ -328,7 +328,7 @@ class TestLambdaHandlerFailure(TestCase):
 
         with self.subTest("invalid secretsmanager: empty plain secret value"):
             with self.assertRaisesRegex(
-                LambdaFailureableException,
+                ConfigFileException,
                 "Error for secret "
                 "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:empty_secret: must "
                 "not be empty",
@@ -355,7 +355,7 @@ class TestLambdaHandlerFailure(TestCase):
 
         with self.subTest("invalid secretsmanager: empty key/value secret value"):
             with self.assertRaisesRegex(
-                LambdaFailureableException,
+                ConfigFileException,
                 "Error for secret "
                 "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:empty: must "
                 "not be empty",
@@ -382,7 +382,7 @@ class TestLambdaHandlerFailure(TestCase):
 
         with self.subTest("invalid secretsmanager: plain text used as key/value"):
             with self.assertRaisesRegex(
-                LambdaFailureableException,
+                ConfigFileException,
                 "Error for secret "
                 "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret:SHOULD_NOT_HAVE_A_KEY: "
                 "expected to be keys/values pair",
@@ -409,7 +409,7 @@ class TestLambdaHandlerFailure(TestCase):
 
         with self.subTest("invalid secretsmanager: key does not exist in secret manager"):
             with self.assertRaisesRegex(
-                LambdaFailureableException,
+                ConfigFileException,
                 "Error for secret "
                 "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:I_DO_NOT_EXIST: "
                 "key not found",
@@ -436,7 +436,7 @@ class TestLambdaHandlerFailure(TestCase):
 
         with self.subTest("invalid secretsmanager: plain text secret not str"):
             with self.assertRaisesRegex(
-                LambdaFailureableException,
+                ConfigFileException,
                 "Error for secret "
                 "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret_not_str_byte: "
                 "expected to be a string",
@@ -463,7 +463,9 @@ class TestLambdaHandlerFailure(TestCase):
 
         with self.subTest("invalid secretsmanager: json TypeError risen"):
             with self.assertRaisesRegex(
-                LambdaFailureableException, "the JSON object must be str, bytes or bytearray, not int"
+                ConfigFileException,
+                "the JSON object must be str, bytes or bytearray, not int while parsing "
+                "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret_not_str_int",
             ):
                 ctx = ContextMock()
                 config_yml = """
@@ -486,7 +488,7 @@ class TestLambdaHandlerFailure(TestCase):
                 handler(event, ctx)  # type:ignore
 
         with self.subTest("tags not list"):
-            with self.assertRaisesRegex(LambdaFailureableException, "Tags must be of type list"):
+            with self.assertRaisesRegex(ConfigFileException, "Tags must be of type list"):
                 ctx = ContextMock()
                 config_yml = """
                     inputs:
@@ -510,7 +512,7 @@ class TestLambdaHandlerFailure(TestCase):
 
         with self.subTest("each tag must be of type str"):
             with self.assertRaisesRegex(
-                LambdaFailureableException, r"Each tag must be of type str, given: \['tag1', 2, 'tag3'\]"
+                ConfigFileException, r"Each tag must be of type str, given: \['tag1', 2, 'tag3'\]"
             ):
                 ctx = ContextMock()
                 config_yml = """

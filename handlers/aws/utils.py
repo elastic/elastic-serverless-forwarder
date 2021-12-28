@@ -36,8 +36,26 @@ def capture_serverless(
     return apm_capture_serverless()(func)  # type:ignore
 
 
-class LambdaFailureableException(Exception):
-    """Raised when the lambda must fail"""
+class TriggerTypeException(Exception):
+    """Raised when there is an error related to the trigger type"""
+
+    pass
+
+
+class ConfigFileException(Exception):
+    """Raised when there is an error related to the config file"""
+
+    pass
+
+
+class InputConfigException(Exception):
+    """Raised when there is an error related to the configured input"""
+
+    pass
+
+
+class OutputConfigException(Exception):
+    """Raised when there is an error related to the configured output"""
 
     pass
 
@@ -47,14 +65,15 @@ def wrap_try_except(
 ) -> Callable[[dict[str, Any], context_.Context], str]:
     """
     Decorator to catch every exception and capture them by apm client if set
-    or raise if type is LambdaFailureableException
+    or raise if type is of between TriggerTypeException, ConfigFileException,
+    InputConfigException or OutputConfigException
     """
 
     def wrapper(lambda_event: dict[str, Any], lambda_context: context_.Context) -> str:
         apm_client: Client = get_client()
         try:
             return func(lambda_event, lambda_context)
-        except LambdaFailureableException as e:
+        except (ConfigFileException, InputConfigException, OutputConfigException, TriggerTypeException) as e:
             if apm_client:
                 apm_client.capture_exception()
 
