@@ -704,7 +704,6 @@ class TestLambdaHandlerSuccess(TestCase):
                   elasticsearch_url: "http://127.0.0.1:{self._ES_HOST_PORT}"
                   username: "{self._secret_arn}:username"
                   password: "{self._secret_arn}:password"
-                  dataset: "redis.log"
                   namespace: "default"
                 """
 
@@ -725,7 +724,7 @@ class TestLambdaHandlerSuccess(TestCase):
             content=gzip.compress(redis_log),
             content_type="application/x-gzip",
             bucket_name="test-bucket",
-            key_name="folder/redis.log.gz",
+            key_name="exportedlogs/uuid/yyyy-mm-dd-[$LATEST]hash/000000.gz",
         )
 
         os.environ["S3_CONFIG_FILE"] = "s3://config-bucket/folder/config.yaml"
@@ -745,7 +744,7 @@ class TestLambdaHandlerSuccess(TestCase):
         self._localstack_container.remove()
 
     def test_lambda_handler(self) -> None:
-        filename: str = "folder/redis.log.gz"
+        filename: str = "exportedlogs/uuid/yyyy-mm-dd-[$LATEST]hash/000000.gz"
         with mock.patch("storage.S3Storage._s3_client", aws_stack.connect_to_service("s3")):
             with mock.patch("handlers.aws.sqs_trigger._get_sqs_client", lambda: aws_stack.connect_to_service("sqs")):
                 with mock.patch(
@@ -795,10 +794,10 @@ class TestLambdaHandlerSuccess(TestCase):
 
                     assert first_call == "continuing"
 
-                    self._es_client.indices.refresh(index="logs-redis.log-default")
-                    assert self._es_client.count(index="logs-redis.log-default")["count"] == 1
+                    self._es_client.indices.refresh(index="logs-aws.cloudwatch-default")
+                    assert self._es_client.count(index="logs-aws.cloudwatch-default")["count"] == 1
 
-                    res = self._es_client.search(index="logs-redis.log-default")
+                    res = self._es_client.search(index="logs-aws.cloudwatch-default")
                     assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
                     assert (
                         res["hits"]["hits"][0]["_source"]["fields"]["message"]
@@ -822,7 +821,7 @@ class TestLambdaHandlerSuccess(TestCase):
                     assert res["hits"]["hits"][0]["_source"]["tags"] == [
                         "preserve_original_event",
                         "forwarded",
-                        "redis-log",
+                        "aws-cloudwatch",
                         "tag1",
                         "tag2",
                         "tag3",
@@ -833,10 +832,10 @@ class TestLambdaHandlerSuccess(TestCase):
 
                     assert second_call == "continuing"
 
-                    self._es_client.indices.refresh(index="logs-redis.log-default")
-                    assert self._es_client.count(index="logs-redis.log-default")["count"] == 2
+                    self._es_client.indices.refresh(index="logs-aws.cloudwatch-default")
+                    assert self._es_client.count(index="logs-aws.cloudwatch-default")["count"] == 2
 
-                    res = self._es_client.search(index="logs-redis.log-default")
+                    res = self._es_client.search(index="logs-aws.cloudwatch-default")
                     assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
                     assert (
                         res["hits"]["hits"][1]["_source"]["fields"]["message"]
