@@ -1,3 +1,7 @@
+### v0.15.0 - 2021/12/24
+##### Features
+* Let the Lambda fail and end up in built-in retry mechanism in case of errors before ingestion phase: [#57](https://github.com/elastic/elastic-serverless-forwarder/pull/57)
+
 ### v0.14.0 - 2021/12/17
 ##### Features
 * Support for tags: [#45](https://github.com/elastic/elastic-serverless-forwarder/pull/45)

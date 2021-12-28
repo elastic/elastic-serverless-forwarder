@@ -36,22 +36,63 @@ def capture_serverless(
     return apm_capture_serverless()(func)  # type:ignore
 
 
+class TriggerTypeException(Exception):
+    """Raised when there is an error related to the trigger type"""
+
+    pass
+
+
+class ConfigFileException(Exception):
+    """Raised when there is an error related to the config file"""
+
+    pass
+
+
+class InputConfigException(Exception):
+    """Raised when there is an error related to the configured input"""
+
+    pass
+
+
+class OutputConfigException(Exception):
+    """Raised when there is an error related to the configured output"""
+
+    pass
+
+
 def wrap_try_except(
     func: Callable[[dict[str, Any], context_.Context], str]
 ) -> Callable[[dict[str, Any], context_.Context], str]:
     """
     Decorator to catch every exception and capture them by apm client if set
+    or raise if type is of between TriggerTypeException, ConfigFileException,
+    InputConfigException or OutputConfigException
     """
 
     def wrapper(lambda_event: dict[str, Any], lambda_context: context_.Context) -> str:
+        apm_client: Client = get_client()
         try:
             return func(lambda_event, lambda_context)
-        except Exception as e:
-            apm_client: Client = get_client()
+
+        # NOTE: for all these cases we want the exception to bubble up to Lambda platform and let the defined retry
+        # mechanism take action. These are non transient unrecoverable error from this code point of view.
+        except (ConfigFileException, InputConfigException, OutputConfigException, TriggerTypeException) as e:
             if apm_client:
                 apm_client.capture_exception()
 
             shared_logger.exception("exception raised", exc_info=e)
+
+            raise e
+
+        # NOTE: any generic exception is logged and suppressed to prevent the entire Lambda function to fail.
+        # As Lambda can process multiple events, when within a Lambda execution only some event produce an Exception
+        # it should not prevent all other events to be ingested.
+        except Exception as e:
+            if apm_client:
+                apm_client.capture_exception()
+
+            shared_logger.exception("exception raised", exc_info=e)
+
             return f"exception raised: {e.__repr__()}"
 
     return wrapper

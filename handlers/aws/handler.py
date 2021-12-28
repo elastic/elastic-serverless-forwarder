@@ -13,7 +13,17 @@ from share.secretsmanager import aws_sm_expander
 from shippers import CommonShipper, CompositeShipper, ShipperFactory
 
 from .sqs_trigger import _handle_sqs_continuation, _handle_sqs_event
-from .utils import capture_serverless, config_yaml_from_payload, config_yaml_from_s3, get_trigger_type, wrap_try_except
+from .utils import (
+    ConfigFileException,
+    InputConfigException,
+    OutputConfigException,
+    TriggerTypeException,
+    capture_serverless,
+    config_yaml_from_payload,
+    config_yaml_from_s3,
+    get_trigger_type,
+    wrap_try_except,
+)
 
 _completion_grace_period: int = 120000
 _expanders: list[Callable[[str], str]] = [aws_sm_expander]
@@ -26,28 +36,38 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
     AWS Lambda handler in handler.aws package
     Parses the config and acts as front controller for inputs
     """
-    trigger_type: str = get_trigger_type(lambda_event)
-    shared_logger.info("trigger", extra={"type": trigger_type})
+
+    try:
+        trigger_type: str = get_trigger_type(lambda_event)
+        shared_logger.info("trigger", extra={"type": trigger_type})
+    except Exception as e:
+        raise TriggerTypeException(e)
 
     config_yaml: str = ""
-    if trigger_type == "self_sqs":
-        config_yaml = config_yaml_from_payload(lambda_event)
-    else:
-        config_yaml = config_yaml_from_s3()
+    try:
+        if trigger_type == "self_sqs":
+            config_yaml = config_yaml_from_payload(lambda_event)
+        else:
+            config_yaml = config_yaml_from_s3()
+    except Exception as e:
+        raise ConfigFileException(e)
 
     if config_yaml == "":
         shared_logger.error("empty config")
-        return "empty config"
+        raise ConfigFileException("empty config")
 
     shared_logger.debug("config", extra={"yaml": config_yaml})
-    config: Config = parse_config(config_yaml, _expanders)
+    try:
+        config: Config = parse_config(config_yaml, _expanders)
+    except Exception as e:
+        raise ConfigFileException(e)
 
     if trigger_type == "sqs" or trigger_type == "self_sqs":
         event_input = config.get_input_by_type_and_id("sqs", lambda_event["Records"][0]["eventSourceARN"])
         if not event_input:
             shared_logger.error(f'no input set for {lambda_event["Records"][0]["eventSourceARN"]}')
 
-            return "not input set"
+            raise InputConfigException("not input set")
 
         shared_logger.info("input", extra={"type": event_input.type, "id": event_input.id})
 
@@ -58,9 +78,16 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             if output_type == "elasticsearch":
                 shared_logger.info("setting ElasticSearch shipper")
                 output: Optional[Output] = event_input.get_output_by_type("elasticsearch")
-                assert output is not None
-                shipper: CommonShipper = ShipperFactory.create_from_output(output_type="elasticsearch", output=output)
-                composite_shipper.add_shipper(shipper=shipper)
+                if output is None:
+                    raise OutputConfigException("no available output for elasticsearch type")
+
+                try:
+                    shipper: CommonShipper = ShipperFactory.create_from_output(
+                        output_type="elasticsearch", output=output
+                    )
+                    composite_shipper.add_shipper(shipper=shipper)
+                except Exception as e:
+                    raise OutputConfigException(e)
 
         for es_event, last_ending_offset, current_sqs_record, current_s3_record in _handle_sqs_event(
             config, lambda_event
