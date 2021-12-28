@@ -394,7 +394,7 @@ class TestDiscoverDataset(TestCase):
         assert shipper._dataset == "aws.cloudwatch_logs"
         assert shipper._es_index == "logs-aws.cloudwatch_logs-namespace"
 
-    def test_elb_dataset(self) -> None:
+    def test_elb_logs_dataset(self) -> None:
         shipper = ElasticsearchShipper(
             elasticsearch_url="elasticsearch_url",
             username="username",
@@ -415,6 +415,27 @@ class TestDiscoverDataset(TestCase):
 
         assert shipper._dataset == "aws.elb_logs"
         assert shipper._es_index == "logs-aws.elb_logs-namespace"
+
+    def test_network_firewall_dataset(self) -> None:
+        shipper = ElasticsearchShipper(
+            elasticsearch_url="elasticsearch_url",
+            username="username",
+            password="password",
+            namespace="namespace",
+            tags=["tag1", "tag2", "tag3"],
+        )
+
+        lambda_event = deepcopy(_dummy_lambda_event)
+        lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+        lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
+            "AWSLogs/aws-account-id/network-firewall/log-type/Region/firewall-name/timestamp/"
+        )
+        lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+
+        shipper.discover_dataset(lambda_event)
+
+        assert shipper._dataset == "aws.firewall_logs"
+        assert shipper._es_index == "logs-aws.firewall_logs-namespace"
 
     def test_aws_vpc_dataset(self) -> None:
         shipper = ElasticsearchShipper(

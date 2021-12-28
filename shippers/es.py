@@ -174,6 +174,8 @@ class ElasticsearchShipper(CommonShipper):
                     self._dataset = "aws.cloudwatch_logs"
                 elif "elasticloadbalancing" in s3_object_key:
                     self._dataset = "aws.elb_logs"
+                elif "network-firewall" in s3_object_key:
+                    self._dataset = "aws.firewall_logs"
                 elif "vpcflowlogs" in s3_object_key:
                     self._dataset = "aws.vpcflow"
                 else:
