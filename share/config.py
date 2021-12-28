@@ -76,7 +76,7 @@ class ElasticsearchOutput(Output):
             raise ValueError("Elasticsearch Output password must be set when using username")
 
         if not self.dataset:
-            shared_logger.warning("no dataset set in config")
+            shared_logger.info("no dataset set in config")
 
         if not self.namespace:
             shared_logger.warning("no namespace set in config: using `default`")

@@ -3,7 +3,7 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 from abc import ABCMeta, abstractmethod
-from typing import Any
+from typing import Any, TypeVar
 
 
 class CommonShipper(metaclass=ABCMeta):
@@ -31,10 +31,5 @@ class CommonShipper(metaclass=ABCMeta):
 
         raise NotImplementedError
 
-    @abstractmethod
-    def discover_dataset(self, event: dict[str, Any]) -> None:
-        """
-        Interface for parsing the dataset
-        """
 
-        raise NotImplementedError
+CommonShipperType = TypeVar("CommonShipperType", bound=CommonShipper)

@@ -157,27 +157,28 @@ class ElasticsearchShipper(CommonShipper):
             if "Records" in json_body and len(json_body["Records"]) > 0:
                 if "s3" in json_body["Records"][0]:
                     s3_object_key = json_body["Records"][0]["s3"]["object"]["key"]
-                else:
-                    raise KeyError("Invalid event structure")
             else:
                 raise KeyError("Invalid event structure")
 
             if s3_object_key == "":
-                raise ValueError("S3 object key cannot be empty")
-
-            if (
-                "/CloudTrail/" in s3_object_key
-                or "/CloudTrail-Digest/" in s3_object_key
-                or "/CloudTrail-Insight/" in s3_object_key
-            ):
-                self._dataset = "aws.cloudtrail"
-            elif "vpcflowlogs" in s3_object_key:
-                self._dataset = "aws.vpc"
-            elif "exportedlogs" in s3_object_key or "cloudwatch" in s3_object_key or "awslogs" in s3_object_key:
-                self._dataset = "aws.cloudwatch"
-            elif "elasticloadbalancing" in s3_object_key:
-                self._dataset = "aws.elb"
-            else:
+                shared_logger.warning("s3 object key is empty, dataset set to `generic`")
                 self._dataset = "generic"
+            else:
+                if (
+                    "/CloudTrail/" in s3_object_key
+                    or "/CloudTrail-Digest/" in s3_object_key
+                    or "/CloudTrail-Insight/" in s3_object_key
+                ):
+                    self._dataset = "aws.cloudtrail"
+                elif "exportedlogs" in s3_object_key or "awslogs" in s3_object_key:
+                    self._dataset = "aws.cloudwatch_logs"
+                elif "elasticloadbalancing" in s3_object_key:
+                    self._dataset = "aws.elb_logs"
+                elif "vpcflowlogs" in s3_object_key:
+                    self._dataset = "aws.vpcflow"
+                else:
+                    self._dataset = "generic"
+
+        shared_logger.debug("dataset", extra={"dataset": self._dataset})
 
         self._es_index = f"logs-{self._dataset}-{self._namespace}"

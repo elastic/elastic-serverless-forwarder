@@ -715,9 +715,9 @@ class TestLambdaHandlerSuccess(TestCase):
         )
 
         redis_log: bytes = (
-            "79191:C 08 Jul 2021 13:25:02.609 # oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo\n"
-            + "79191:C 08 Jul 2021 13:25:02.610 # Redis version=6.2.4, bits=64, commit=00000000, "
-            + "modified=0, pid=79191, just started"
+            '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}\n'
+            + '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": '
+            + '{"line": 30, "name": "handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}'
         ).encode("UTF-8")
 
         self._upload_content_to_bucket(
@@ -794,14 +794,14 @@ class TestLambdaHandlerSuccess(TestCase):
 
                     assert first_call == "continuing"
 
-                    self._es_client.indices.refresh(index="logs-aws.cloudwatch-default")
-                    assert self._es_client.count(index="logs-aws.cloudwatch-default")["count"] == 1
+                    self._es_client.indices.refresh(index="logs-aws.cloudwatch_logs-default")
+                    assert self._es_client.count(index="logs-aws.cloudwatch_logs-default")["count"] == 1
 
-                    res = self._es_client.search(index="logs-aws.cloudwatch-default")
+                    res = self._es_client.search(index="logs-aws.cloudwatch_logs-default")
                     assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
                     assert (
                         res["hits"]["hits"][0]["_source"]["fields"]["message"]
-                        == "79191:C 08 Jul 2021 13:25:02.609 # oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo"
+                        == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}'
                     )
                     assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
                         "offset": 0,
@@ -821,7 +821,7 @@ class TestLambdaHandlerSuccess(TestCase):
                     assert res["hits"]["hits"][0]["_source"]["tags"] == [
                         "preserve_original_event",
                         "forwarded",
-                        "aws-cloudwatch",
+                        "aws-cloudwatch_logs",
                         "tag1",
                         "tag2",
                         "tag3",
@@ -832,19 +832,19 @@ class TestLambdaHandlerSuccess(TestCase):
 
                     assert second_call == "continuing"
 
-                    self._es_client.indices.refresh(index="logs-aws.cloudwatch-default")
-                    assert self._es_client.count(index="logs-aws.cloudwatch-default")["count"] == 2
+                    self._es_client.indices.refresh(index="logs-aws.cloudwatch_logs-default")
+                    assert self._es_client.count(index="logs-aws.cloudwatch_logs-default")["count"] == 2
 
-                    res = self._es_client.search(index="logs-aws.cloudwatch-default")
+                    res = self._es_client.search(index="logs-aws.cloudwatch_logs-default")
                     assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
                     assert (
                         res["hits"]["hits"][1]["_source"]["fields"]["message"]
-                        == "79191:C 08 Jul 2021 13:25:02.610 # Redis version=6.2.4, bits=64, commit=00000000, "
-                        + "modified=0, pid=79191, just started"
+                        == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": '
+                        '{"line": 30, "name": "handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}'
                     )
 
                     assert res["hits"]["hits"][1]["_source"]["fields"]["log"] == {
-                        "offset": 81,
+                        "offset": 86,
                         "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
                     }
                     assert res["hits"]["hits"][1]["_source"]["fields"]["aws"] == {
