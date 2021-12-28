@@ -14,7 +14,7 @@ from shippers import CommonShipper, CompositeShipper, ShipperFactory
 
 from .sqs_trigger import _handle_sqs_continuation, _handle_sqs_event
 from .utils import (
-    RaisebleException,
+    LambdaFailureableException,
     capture_serverless,
     config_yaml_from_payload,
     config_yaml_from_s3,
@@ -38,7 +38,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         trigger_type: str = get_trigger_type(lambda_event)
         shared_logger.info("trigger", extra={"type": trigger_type})
     except Exception as e:
-        raise RaisebleException(e)
+        raise LambdaFailureableException(e)
 
     config_yaml: str = ""
     try:
@@ -47,24 +47,24 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         else:
             config_yaml = config_yaml_from_s3()
     except Exception as e:
-        raise RaisebleException(e)
+        raise LambdaFailureableException(e)
 
     if config_yaml == "":
         shared_logger.error("empty config")
-        raise RaisebleException("empty config")
+        raise LambdaFailureableException("empty config")
 
     shared_logger.debug("config", extra={"yaml": config_yaml})
     try:
         config: Config = parse_config(config_yaml, _expanders)
     except Exception as e:
-        raise RaisebleException(e)
+        raise LambdaFailureableException(e)
 
     if trigger_type == "sqs" or trigger_type == "self_sqs":
         event_input = config.get_input_by_type_and_id("sqs", lambda_event["Records"][0]["eventSourceARN"])
         if not event_input:
             shared_logger.error(f'no input set for {lambda_event["Records"][0]["eventSourceARN"]}')
 
-            raise RaisebleException("not input set")
+            raise LambdaFailureableException("not input set")
 
         shared_logger.info("input", extra={"type": event_input.type, "id": event_input.id})
 
@@ -76,7 +76,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 shared_logger.info("setting ElasticSearch shipper")
                 output: Optional[Output] = event_input.get_output_by_type("elasticsearch")
                 if output is None:
-                    raise RaisebleException("no available output for elasticsearch type")
+                    raise LambdaFailureableException("no available output for elasticsearch type")
 
                 try:
                     shipper: CommonShipper = ShipperFactory.create_from_output(
@@ -84,7 +84,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                     )
                     composite_shipper.add_shipper(shipper=shipper)
                 except Exception as e:
-                    raise RaisebleException(e)
+                    raise LambdaFailureableException(e)
 
         for es_event, last_ending_offset, current_sqs_record, current_s3_record in _handle_sqs_event(
             config, lambda_event
