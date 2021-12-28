@@ -427,9 +427,9 @@ class TestDiscoverDataset(TestCase):
 
         lambda_event = deepcopy(_dummy_lambda_event)
         lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
-        lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
-            "AWSLogs/aws-account-id/network-firewall/log-type/Region/firewall-name/timestamp/"
-        )
+        lambda_event_body["Records"][0]["s3"]["object"][
+            "key"
+        ] = "AWSLogs/aws-account-id/network-firewall/log-type/Region/firewall-name/timestamp/"
         lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
 
         shipper.discover_dataset(lambda_event)
