@@ -81,6 +81,7 @@ def wrap_try_except(
 
             raise e
 
+        # NOTE: any generic exception is logged and suppressed to prevent the entire Lambda function to fail. As Lambas can process multiple events, when within a Lambda execution only some event produce an Exception it should not prevent all other events to be ingested.
         except Exception as e:
             if apm_client:
                 apm_client.capture_exception()
