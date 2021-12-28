@@ -78,6 +78,7 @@ class TestElasticsearchShipper(TestCase):
             tags=["tag1", "tag2", "tag3"],
         )
         es_event = deepcopy(_dummy_event)
+        shipper.discover_dataset(es_event)
         shipper.send(es_event)
 
         assert _documents == [
@@ -129,6 +130,7 @@ class TestElasticsearchShipper(TestCase):
             tags=["tag1", "tag2", "tag3"],
         )
         es_event = deepcopy(_dummy_event)
+        shipper.discover_dataset(es_event)
         shipper.send(es_event)
 
         assert shipper._bulk_actions == [

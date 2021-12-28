@@ -33,6 +33,7 @@ class ElasticsearchShipper(CommonShipper):
         dataset: str = "",
         namespace: str = "",
         tags: list[str] = [],
+        _es_index: str = "",
     ):
 
         self._bulk_actions: list[dict[str, Any]] = []
@@ -66,7 +67,7 @@ class ElasticsearchShipper(CommonShipper):
         self._namespace = namespace
         self._tags = tags
 
-        self._es_index = f"logs-{dataset}-{namespace}"
+        self._es_index = _es_index
 
     def _elasticsearch_client(self, **es_client_kwargs: Any) -> Elasticsearch:
         """
@@ -122,6 +123,9 @@ class ElasticsearchShipper(CommonShipper):
     def send(self, event: dict[str, Any]) -> Any:
         self._enrich_event(event_payload=event)
 
+        if self._es_index == "":
+            raise ValueError("Elasticsearch index cannot be empty")
+
         event["_op_type"] = "create"
         event["_index"] = self._es_index
         event["_id"] = self._s3_object_id(event)
@@ -168,3 +172,5 @@ class ElasticsearchShipper(CommonShipper):
                 self._dataset = "aws.elb"
             else:
                 self._dataset = "generic"
+
+        self._es_index = f"logs-{self._dataset}-{self._namespace}"
