@@ -149,7 +149,7 @@ class ElasticsearchShipper(CommonShipper):
         self._bulk_actions = []
 
     def discover_dataset(self, event: Dict[str, Any]) -> None:
-        if self._dataset == "empty":
+        if self._dataset == "":
             body: str = event["Records"][0]["body"]
             json_body: Dict[str, Any] = json.loads(body)
             s3_object_key: str = ""
@@ -157,6 +157,9 @@ class ElasticsearchShipper(CommonShipper):
             if "Records" in json_body and len(json_body["Records"]) > 0:
                 if "s3" in json_body["Records"][0]:
                     s3_object_key = json_body["Records"][0]["s3"]["object"]["key"]
+
+            if s3_object_key == "":
+                raise ValueError("S3 object key cannot be empty")
 
             if (
                 "/CloudTrail/" in s3_object_key
