@@ -98,6 +98,7 @@ class MockContent:
 
 @pytest.mark.unit
 class TestLambdaHandlerFailure(TestCase):
+    @mock.patch("share.secretsmanager._get_aws_sm_client", new=MockContent._get_aws_sm_client)
     def test_lambda_handler_failure(self) -> None:
         dummy_event: dict[str, Any] = {
             "Records": [
@@ -131,7 +132,6 @@ class TestLambdaHandlerFailure(TestCase):
                 ctx = ContextMock()
 
                 handler(dummy_event, ctx)  # type:ignore
-
         with self.subTest("Invalid s3 uri no bucket and key"):
             with self.assertRaisesRegex(RaisebleException, "Invalid s3 uri provided: `s3://`"):
                 os.environ["S3_CONFIG_FILE"] = "s3://"
@@ -170,8 +170,8 @@ class TestLambdaHandlerFailure(TestCase):
         with self.subTest("invalid secretsmanager: arn format too long"):
             with self.assertRaisesRegex(
                 RaisebleException,
-                "Invalid arn format: arn:aws:secretsmanager:eu-central-1:123-456-789:secret:"
-                "plain_secret:THIS:IS:INVALID",
+                "Invalid arn format: "
+                "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret:THIS:IS:INVALID",
             ):
                 ctx = ContextMock()
                 config_yml: str = """
@@ -195,9 +195,8 @@ class TestLambdaHandlerFailure(TestCase):
         with self.subTest("invalid secretsmanager: empty region"):
             with self.assertRaisesRegex(
                 RaisebleException,
-                "Must be provided region in arn: arn:aws:secretsmanager::123-456-789:secret:plain_secret",
+                "Must be provided region in arn: " "arn:aws:secretsmanager::123-456-789:secret:plain_secret",
             ):
-
                 ctx = ContextMock()
                 # BEWARE region is empty at id
                 config_yml = """
@@ -222,9 +221,9 @@ class TestLambdaHandlerFailure(TestCase):
         with self.subTest("invalid secretsmanager: empty secrets manager name"):
             with self.assertRaisesRegex(
                 RaisebleException,
-                "Must be provided secrets manager name in arn: arn:aws:secretsmanager:eu-central-1:123-456-789:secret:",
+                "Must be provided secrets manager name in arn: "
+                "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:",
             ):
-
                 ctx = ContextMock()
                 # BEWARE empty secrets manager name at id
                 config_yml = """
@@ -249,10 +248,9 @@ class TestLambdaHandlerFailure(TestCase):
         with self.subTest("invalid secretsmanager: cannot use both plain text and key/value pairs"):
             with self.assertRaisesRegex(
                 RaisebleException,
-                "You cannot have both plain text and json key for the same secret: "
-                "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username",
+                "You cannot have both plain text and json key for the same "
+                "secret: arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username",
             ):
-
                 ctx = ContextMock()
                 # BEWARE using es_secrets plain text for elasticsearch_url and es_secrets:username for username
                 config_yml = """
@@ -274,283 +272,267 @@ class TestLambdaHandlerFailure(TestCase):
 
                 handler(event, ctx)  # type:ignore
 
-        with mock.patch("share.secretsmanager._get_aws_sm_client", new=MockContent._get_aws_sm_client):
-            with self.subTest("invalid secretsmanager: empty secret key"):
-                with self.assertRaisesRegex(
-                    RaisebleException,
-                    "Error for secret arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:: "
-                    "key must not be empty",
-                ):
-
-                    ctx = ContextMock()
-                    # BEWARE empty key at elasticsearch_url
-                    config_yml = """
-                        inputs:
-                         - type: "sqs"
-                           id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret"
-                           outputs:
-                            - type: "elasticsearch"
-                              args:
-                               elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:"
-                               username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
-                               password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                               dataset: "redis.log"
-                               namespace: "default"
-                    """
-
-                    event = deepcopy(event_with_config)
-                    event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
-
-                    handler(event, ctx)  # type:ignore
-
-        with mock.patch("share.secretsmanager._get_aws_sm_client", new=MockContent._get_aws_sm_client):
-            with self.subTest("invalid secretsmanager: secret does not exist"):
-                with self.assertRaisesRegex(
-                    RaisebleException,
-                    r"An error occurred \(ResourceNotFoundException\) when calling the GetSecretValue operation: "
-                    "Secrets Manager can't find the specified secret.",
-                ):
-
-                    ctx = ContextMock()
-                    config_yml = """
-                       inputs:
-                        - type: "sqs"
-                          id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:DOES_NOT_EXIST"
-                          outputs:
-                           - type: "elasticsearch"
-                             args:
-                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
-                              username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
-                              password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                              dataset: "redis.log"
-                              namespace: "default"
-                    """
-
-                    event = deepcopy(event_with_config)
-                    event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
-
-                    handler(event, ctx)  # type:ignore
-
-        with mock.patch("share.secretsmanager._get_aws_sm_client", new=MockContent._get_aws_sm_client):
-            with self.subTest("invalid secretsmanager: empty plain secret value"):
-                with self.assertRaisesRegex(
-                    RaisebleException,
-                    "Error for secret arn:aws:secretsmanager:eu-central-1:123-456-789:secret:empty_secret: "
-                    "must not be empty",
-                ):
-
-                    ctx = ContextMock()
-                    config_yml = """
-                       inputs:
-                        - type: "sqs"
-                          id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:empty_secret"
-                          outputs:
-                           - type: "elasticsearch"
-                             args:
-                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
-                              username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
-                              password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                              dataset: "redis.log"
-                              namespace: "default"
-                    """
-
-                    event = deepcopy(event_with_config)
-                    event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
-
-                    handler(event, ctx)  # type:ignore
-
-        with mock.patch("share.secretsmanager._get_aws_sm_client", new=MockContent._get_aws_sm_client):
-            with self.subTest("invalid secretsmanager: empty key/value secret value"):
-                with self.assertRaisesRegex(
-                    RaisebleException,
-                    "Error for secret arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:empty: "
-                    "must not be empty",
-                ):
-
-                    ctx = ContextMock()
-                    config_yml = """
-                       inputs:
-                        - type: "sqs"
-                          id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:empty"
-                          outputs:
-                           - type: "elasticsearch"
-                             args:
-                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
-                              username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
-                              password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                              dataset: "redis.log"
-                              namespace: "default"
-                    """
-
-                    event = deepcopy(event_with_config)
-                    event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
-
-                    handler(event, ctx)  # type:ignore
-
-        with mock.patch("share.secretsmanager._get_aws_sm_client", new=MockContent._get_aws_sm_client):
-            with self.subTest("invalid secretsmanager: plain text used as key/value"):
-                with self.assertRaisesRegex(
-                    RaisebleException,
-                    "Error for secret arn:aws:secretsmanager:eu-central-1:123-456-789:secret:"
-                    "plain_secret:SHOULD_NOT_HAVE_A_KEY: expected to be keys/values pair",
-                ):
-
-                    ctx = ContextMock()
-                    config_yml = """
-                      inputs:
-                       - type: "sqs"
-                         id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret:SHOULD_NOT_HAVE_A_KEY"
-                         outputs:
+        with self.subTest("invalid secretsmanager: empty secret key"):
+            with self.assertRaisesRegex(
+                RaisebleException,
+                "Error for secret "
+                "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:: key must "
+                "not be empty",
+            ):
+                ctx = ContextMock()
+                # BEWARE empty key at elasticsearch_url
+                config_yml = """
+                    inputs:
+                      - type: "sqs"
+                        id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret"
+                        outputs:
                           - type: "elasticsearch"
                             args:
-                             elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
-                             username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
-                             password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                             dataset: "redis.log"
-                             namespace: "default"
-                    """
+                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:"
+                              username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
+                              password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                              dataset: "redis.log"
+                              namespace: "default"
+                """
 
-                    event = deepcopy(event_with_config)
-                    event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
+                event = deepcopy(event_with_config)
+                event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
 
-                    handler(event, ctx)  # type:ignore
+                handler(event, ctx)  # type:ignore
 
-        with mock.patch("share.secretsmanager._get_aws_sm_client", new=MockContent._get_aws_sm_client):
-            with self.subTest("invalid secretsmanager: key does not exist in secret manager"):
-                with self.assertRaisesRegex(
-                    RaisebleException,
-                    "Error for secret arn:aws:secretsmanager:eu-central-1:123-456-789:secret:"
-                    "es_secrets:I_DO_NOT_EXIST: key not found",
-                ):
-
-                    ctx = ContextMock()
-                    config_yml = """
-                       inputs:
-                        - type: "sqs"
-                          id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:I_DO_NOT_EXIST"
-                          outputs:
-                           - type: "elasticsearch"
-                             args:
+        with self.subTest("invalid secretsmanager: secret does not exist"):
+            with self.assertRaisesRegex(
+                RaisebleException,
+                r"An error occurred \(ResourceNotFoundException\) when calling "
+                "the GetSecretValue operation: Secrets Manager can't find the specified secret.",
+            ):
+                ctx = ContextMock()
+                config_yml = """
+                    inputs:
+                      - type: "sqs"
+                        id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:DOES_NOT_EXIST"
+                        outputs:
+                          - type: "elasticsearch"
+                            args:
                               elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                               username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
                               password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
                               dataset: "redis.log"
                               namespace: "default"
-                    """
+                """
 
-                    event = deepcopy(event_with_config)
-                    event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
+                event = deepcopy(event_with_config)
+                event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
 
-                    handler(event, ctx)  # type:ignore
+                handler(event, ctx)  # type:ignore
 
-        with mock.patch("share.secretsmanager._get_aws_sm_client", new=MockContent._get_aws_sm_client):
-            with self.subTest("invalid secretsmanager: plain text secret not str"):
-                with self.assertRaisesRegex(
-                    RaisebleException,
-                    "Error for secret arn:aws:secretsmanager:eu-central-1:123-456-789:secret:"
-                    "plain_secret_not_str_byte: expected to be a string",
-                ):
-
-                    ctx = ContextMock()
-                    config_yml = """
-                       inputs:
-                        - type: "sqs"
-                          id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret_not_str_byte"
-                          outputs:
-                           - type: "elasticsearch"
-                             args:
+        with self.subTest("invalid secretsmanager: empty plain secret value"):
+            with self.assertRaisesRegex(
+                RaisebleException,
+                "Error for secret "
+                "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:empty_secret: must "
+                "not be empty",
+            ):
+                ctx = ContextMock()
+                config_yml = """
+                    inputs:
+                      - type: "sqs"
+                        id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:empty_secret"
+                        outputs:
+                          - type: "elasticsearch"
+                            args:
                               elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                               username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
                               password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
                               dataset: "redis.log"
                               namespace: "default"
-                    """
+                """
 
-                    event = deepcopy(event_with_config)
-                    event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
+                event = deepcopy(event_with_config)
+                event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
 
-                    handler(event, ctx)  # type:ignore
+                handler(event, ctx)  # type:ignore
 
-        with mock.patch("share.secretsmanager._get_aws_sm_client", new=MockContent._get_aws_sm_client):
-            with self.subTest("invalid secretsmanager: json TypeError risen"):
-                with self.assertRaisesRegex(
-                    RaisebleException, "the JSON object must be str, bytes or bytearray, not int"
-                ):
-
-                    ctx = ContextMock()
-                    config_yml = """
-                       inputs:
-                        - type: "sqs"
-                          id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret_not_str_int"
-                          outputs:
-                           - type: "elasticsearch"
-                             args:
+        with self.subTest("invalid secretsmanager: empty key/value secret value"):
+            with self.assertRaisesRegex(
+                RaisebleException,
+                "Error for secret "
+                "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:empty: must "
+                "not be empty",
+            ):
+                ctx = ContextMock()
+                config_yml = """
+                    inputs:
+                      - type: "sqs"
+                        id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:empty"
+                        outputs:
+                          - type: "elasticsearch"
+                            args:
                               elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                               username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
                               password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
                               dataset: "redis.log"
                               namespace: "default"
-                    """
+                """
 
-                    event = deepcopy(event_with_config)
-                    event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
+                event = deepcopy(event_with_config)
+                event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
 
-                    handler(event, ctx)  # type:ignore
+                handler(event, ctx)  # type:ignore
 
-        with mock.patch("share.secretsmanager._get_aws_sm_client", new=MockContent._get_aws_sm_client):
-            with self.subTest("tags not list"):
-                with self.assertRaisesRegex(RaisebleException, "Tags must be of type list"):
-
-                    ctx = ContextMock()
-                    config_yml = """
-                       inputs:
-                        - type: "sqs"
-                          id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret"
-                          tags: "tag1"
-                          outputs:
-                           - type: "elasticsearch"
-                             args:
+        with self.subTest("invalid secretsmanager: plain text used as key/value"):
+            with self.assertRaisesRegex(
+                RaisebleException,
+                "Error for secret "
+                "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret:SHOULD_NOT_HAVE_A_KEY: "
+                "expected to be keys/values pair",
+            ):
+                ctx = ContextMock()
+                config_yml = """
+                    inputs:
+                      - type: "sqs"
+                        id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret:SHOULD_NOT_HAVE_A_KEY"
+                        outputs:
+                          - type: "elasticsearch"
+                            args:
                               elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                               username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
                               password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
                               dataset: "redis.log"
                               namespace: "default"
-                    """
+                """
 
-                    event = deepcopy(event_with_config)
-                    event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
+                event = deepcopy(event_with_config)
+                event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
 
-                    handler(event, ctx)  # type:ignore
+                handler(event, ctx)  # type:ignore
 
-        with mock.patch("share.secretsmanager._get_aws_sm_client", new=MockContent._get_aws_sm_client):
-            with self.subTest("each tag must be of type str"):
-                with self.assertRaisesRegex(
-                    RaisebleException, r"Each tag must be of type str, given: \['tag1', 2, 'tag3'\]"
-                ):
-
-                    ctx = ContextMock()
-                    config_yml = """
-                       inputs:
-                        - type: "sqs"
-                          id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret"
-                          tags:
-                           - "tag1"
-                           - 2
-                           - "tag3"
-                          outputs:
-                           - type: "elasticsearch"
-                             args:
+        with self.subTest("invalid secretsmanager: key does not exist in secret manager"):
+            with self.assertRaisesRegex(
+                RaisebleException,
+                "Error for secret "
+                "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:I_DO_NOT_EXIST: "
+                "key not found",
+            ):
+                ctx = ContextMock()
+                config_yml = """
+                    inputs:
+                      - type: "sqs"
+                        id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:I_DO_NOT_EXIST"
+                        outputs:
+                          - type: "elasticsearch"
+                            args:
                               elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                               username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
                               password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
                               dataset: "redis.log"
                               namespace: "default"
-                    """
+                """
 
-                    event = deepcopy(event_with_config)
-                    event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
+                event = deepcopy(event_with_config)
+                event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
 
-                    handler(event, ctx)  # type:ignore
+                handler(event, ctx)  # type:ignore
+
+        with self.subTest("invalid secretsmanager: plain text secret not str"):
+            with self.assertRaisesRegex(
+                RaisebleException,
+                "Error for secret "
+                "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret_not_str_byte: "
+                "expected to be a string",
+            ):
+                ctx = ContextMock()
+                config_yml = """
+                    inputs:
+                      - type: "sqs"
+                        id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret_not_str_byte"
+                        outputs:
+                          - type: "elasticsearch"
+                            args:
+                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
+                              username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
+                              password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                              dataset: "redis.log"
+                              namespace: "default"
+                """
+
+                event = deepcopy(event_with_config)
+                event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
+
+                handler(event, ctx)  # type:ignore
+
+        with self.subTest("invalid secretsmanager: json TypeError risen"):
+            with self.assertRaisesRegex(RaisebleException, "the JSON object must be str, bytes or bytearray, not int"):
+                ctx = ContextMock()
+                config_yml = """
+                    inputs:
+                      - type: "sqs"
+                        id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret_not_str_int"
+                        outputs:
+                          - type: "elasticsearch"
+                            args:
+                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
+                              username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
+                              password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                              dataset: "redis.log"
+                              namespace: "default"
+                """
+
+                event = deepcopy(event_with_config)
+                event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
+
+                handler(event, ctx)  # type:ignore
+
+        with self.subTest("tags not list"):
+            with self.assertRaisesRegex(RaisebleException, "Tags must be of type list"):
+                ctx = ContextMock()
+                config_yml = """
+                    inputs:
+                      - type: "sqs"
+                        id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret"
+                        tags: "tag1"
+                        outputs:
+                          - type: "elasticsearch"
+                            args:
+                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
+                              username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
+                              password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                              dataset: "redis.log"
+                              namespace: "default"
+                """
+
+                event = deepcopy(event_with_config)
+                event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
+
+                handler(event, ctx)  # type:ignore
+
+        with self.subTest("each tag must be of type str"):
+            with self.assertRaisesRegex(
+                RaisebleException, r"Each tag must be of type str, given: \['tag1', 2, 'tag3'\]"
+            ):
+                ctx = ContextMock()
+                config_yml = """
+                    inputs:
+                      - type: "sqs"
+                        id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret"
+                        tags:
+                          - "tag1"
+                          - 2
+                          - "tag3"
+                        outputs:
+                          - type: "elasticsearch"
+                            args:
+                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
+                              username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
+                              password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                              dataset: "redis.log"
+                              namespace: "default"
+                """
+
+                event = deepcopy(event_with_config)
+                event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
+
+                handler(event, ctx)  # type:ignore
 
 
 @pytest.mark.integration
