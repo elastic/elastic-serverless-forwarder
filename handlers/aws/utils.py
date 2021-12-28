@@ -73,6 +73,7 @@ def wrap_try_except(
         apm_client: Client = get_client()
         try:
             return func(lambda_event, lambda_context)
+        # NOTE: for all these cases we want the exception to bubble up to Lambda platform and let the defined retry mechanism take action. These are non transient unrecoverable error from this code point of view.
         except (ConfigFileException, InputConfigException, OutputConfigException, TriggerTypeException) as e:
             if apm_client:
                 apm_client.capture_exception()
