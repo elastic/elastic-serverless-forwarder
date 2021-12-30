@@ -4,7 +4,7 @@
 
 from typing import Any
 
-from .shipper import CommonShipper
+from .shipper import CommonShipper, ReplayHandlerCallable
 
 
 class CompositeShipper(CommonShipper):
@@ -22,6 +22,10 @@ class CompositeShipper(CommonShipper):
         Add a shipper to the composite
         """
         self._shippers.append(shipper)
+
+    def set_replay_handler(self, replay_handler: ReplayHandlerCallable) -> None:
+        for shipper in self._shippers:
+            shipper.set_replay_handler(replay_handler=replay_handler)
 
     def send(self, event: dict[str, Any]) -> Any:
         for shipper in self._shippers:

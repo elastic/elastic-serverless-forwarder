@@ -5,4 +5,4 @@
 from .composite import CompositeShipper
 from .es import ElasticsearchShipper
 from .factory import ShipperFactory
-from .shipper import CommonShipper
+from .shipper import CommonShipper, ReplayHandlerCallable
