@@ -53,8 +53,8 @@ class MockContent:
         MockContent.f_stream_plain = io.BytesIO(MockContent.f_content_plain)
         MockContent.rewind()
 
-        MockContent.f_size_gzip = len(MockContent.f_content_gzip)
-        MockContent.f_size_plain = len(MockContent.f_content_plain)
+        MockContent.f_size_gzip = len(MockContent.f_content_gzip) + len(newline)
+        MockContent.f_size_plain = len(MockContent.f_content_plain) + len(newline)
 
     @staticmethod
     def s3_client_head_object(Bucket: str, Key: str) -> dict[str, Any]:
