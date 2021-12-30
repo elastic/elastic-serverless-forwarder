@@ -7,13 +7,16 @@ from unittest import TestCase
 
 import pytest
 
-from shippers import CommonShipper, CompositeShipper
+from shippers import CommonShipper, CompositeShipper, ReplayHandlerCallable
 
 
 class DummyShipper(CommonShipper):
     def send(self, event: dict[str, Any]) -> Any:
         self._sent.append(event)
         return
+
+    def set_replay_handler(self, replay_handler: ReplayHandlerCallable) -> None:
+        self._replay_handler = replay_handler
 
     def flush(self) -> None:
         self._flushed = True
@@ -37,6 +40,17 @@ class TestCompositeShipper(TestCase):
         composite_shipper.add_shipper(dummy_shipper)
         composite_shipper.send({})
         assert dummy_shipper._sent == [{}]
+
+    def test_set_replay_handler(self) -> None:
+        dummy_shipper = DummyShipper()
+        composite_shipper = CompositeShipper()
+        composite_shipper.add_shipper(dummy_shipper)
+
+        def replay_handler(output_type: str, output_args: dict[str, Any], payload: dict[str, Any]) -> None:
+            return
+
+        composite_shipper.set_replay_handler(replay_handler=replay_handler)
+        assert dummy_shipper._replay_handler == replay_handler
 
     def test_flush(self) -> None:
         dummy_shipper = DummyShipper()
