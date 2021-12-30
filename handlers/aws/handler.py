@@ -2,6 +2,7 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
+import json
 import os
 from typing import Any, Callable, Optional
 
@@ -12,6 +13,7 @@ from share import Config, Output, parse_config, shared_logger
 from share.secretsmanager import aws_sm_expander
 from shippers import CommonShipper, CompositeShipper, ShipperFactory
 
+from .reply import _handle_reply_event
 from .sqs_trigger import _handle_sqs_continuation, _handle_sqs_event
 from .utils import (
     ConfigFileException,
@@ -22,6 +24,7 @@ from .utils import (
     config_yaml_from_payload,
     config_yaml_from_s3,
     get_trigger_type,
+    replay_handler,
     wrap_try_except,
 )
 
@@ -45,23 +48,33 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
     config_yaml: str = ""
     try:
-        if trigger_type == "self_sqs":
+        if trigger_type == "replay":
+            pass
+        elif trigger_type == "self_sqs":
             config_yaml = config_yaml_from_payload(lambda_event)
         else:
             config_yaml = config_yaml_from_s3()
     except Exception as e:
         raise ConfigFileException(e)
 
-    if config_yaml == "":
+    if config_yaml == "" and trigger_type != "replay":
         shared_logger.error("empty config")
         raise ConfigFileException("empty config")
 
-    shared_logger.debug("config", extra={"yaml": config_yaml})
+    config: Optional[Config] = None
     try:
-        config: Config = parse_config(config_yaml, _expanders)
+        if trigger_type != "replay":
+            shared_logger.debug("config", extra={"yaml": config_yaml})
+            config = parse_config(config_yaml, _expanders)
     except Exception as e:
         raise ConfigFileException(e)
 
+    if trigger_type == "replay":
+        event = json.loads(lambda_event["Records"][0]["body"])
+        _handle_reply_event(event["output_type"], event["output_args"], event["payload"])
+        return "replayed"
+
+    assert config is not None
     if trigger_type == "sqs" or trigger_type == "self_sqs":
         event_input = config.get_input_by_type_and_id("sqs", lambda_event["Records"][0]["eventSourceARN"])
         if not event_input:
@@ -86,6 +99,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                         output_type="elasticsearch", output=output
                     )
                     composite_shipper.add_shipper(shipper=shipper)
+                    composite_shipper.set_replay_handler(replay_handler=replay_handler)
                 except Exception as e:
                     raise OutputConfigException(e)
 

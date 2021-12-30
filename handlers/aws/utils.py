@@ -1,11 +1,13 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
-
+import json
 import os
 from typing import Any, Callable
 
+import boto3
 from aws_lambda_typing import context as context_
+from botocore.client import BaseClient as BotoBaseClient
 from elasticapm import Client, get_client
 from elasticapm.contrib.serverless.aws import capture_serverless as apm_capture_serverless  # noqa: F401
 
@@ -13,6 +15,14 @@ from share import shared_logger
 from storage import CommonStorage, StorageFactory
 
 _available_triggers: dict[str, str] = {"aws:sqs": "sqs"}
+
+
+def get_sqs_client() -> BotoBaseClient:
+    """
+    Getter for sqs client
+    Extracted for mocking
+    """
+    return boto3.client("sqs")
 
 
 def capture_serverless(
@@ -167,6 +177,11 @@ def get_trigger_type(event: dict[str, Any]) -> str:
     if "Records" not in event or len(event["Records"]) < 1:
         raise Exception("Not supported trigger")
 
+    if "body" in event["Records"][0]:
+        event_body = event["Records"][0]["body"]
+        if "output_type" in event_body and "output_args" in event_body and "payload" in event_body:
+            return "replay"
+
     if "eventSource" not in event["Records"][0]:
         raise Exception("Not supported trigger")
 
@@ -185,3 +200,19 @@ def get_trigger_type(event: dict[str, Any]) -> str:
         return trigger_type
 
     return "self_sqs"
+
+
+def replay_handler(output_type: str, output_args: dict[str, Any], payload: dict[str, Any]) -> None:
+    sqs_replay_queue = os.environ["SQS_REPLAY_URL"]
+
+    sqs_client = get_sqs_client()
+
+    sqs_client.send_message(
+        QueueUrl=sqs_replay_queue,
+        MessageBody=json.dumps({"output_type": output_type, "output_args": output_args, "payload": payload}),
+    )
+
+    shared_logger.warn(
+        "sent to replay queue",
+        extra={"sqs_replay_queue": sqs_replay_queue, "output_type": output_type, "payload": payload},
+    )
