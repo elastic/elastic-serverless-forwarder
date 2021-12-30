@@ -1,3 +1,7 @@
+### v0.16.0 - 2021/12/17
+##### Features
+* Routing support for AWS Services logs: [#58](https://github.com/elastic/elastic-serverless-forwarder/pull/58)
+
 ### v0.15.0 - 2021/12/24
 ##### Features
 * Let the Lambda fail and end up in built-in retry mechanism in case of errors before ingestion phase: [#57](https://github.com/elastic/elastic-serverless-forwarder/pull/57)

@@ -10,7 +10,7 @@ from aws_lambda_typing import context as context_
 
 from share import Config, Output, parse_config, shared_logger
 from share.secretsmanager import aws_sm_expander
-from shippers import CommonShipper, CompositeShipper, ShipperFactory
+from shippers import CompositeShipper, ElasticsearchShipper, ShipperFactory
 
 from .sqs_trigger import _handle_sqs_continuation, _handle_sqs_event
 from .utils import (
@@ -82,9 +82,10 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                     raise OutputConfigException("no available output for elasticsearch type")
 
                 try:
-                    shipper: CommonShipper = ShipperFactory.create_from_output(
+                    shipper: ElasticsearchShipper = ShipperFactory.create_from_output(
                         output_type="elasticsearch", output=output
                     )
+                    shipper.discover_dataset(event=lambda_event)
                     composite_shipper.add_shipper(shipper=shipper)
                 except Exception as e:
                     raise OutputConfigException(e)

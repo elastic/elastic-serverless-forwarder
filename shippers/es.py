@@ -120,7 +120,7 @@ class ElasticsearchShipper(CommonShipper):
     def send(self, event: dict[str, Any]) -> Any:
         self._enrich_event(event_payload=event)
 
-        if self._es_index == "":
+        if not hasattr(self, "_es_index") or self._es_index == "":
             raise ValueError("Elasticsearch index cannot be empty")
 
         event["_op_type"] = "create"
@@ -179,7 +179,7 @@ class ElasticsearchShipper(CommonShipper):
                     self._dataset = "aws.s3_storage_lens"
                 elif "/vpcflowlogs/" in s3_object_key:
                     self._dataset = "aws.vpcflow"
-                elif "waflogs" in s3_object_key:
+                elif "/WAFLogs/" in s3_object_key:
                     self._dataset = "aws.waf"
                 else:
                     self._dataset = "generic"

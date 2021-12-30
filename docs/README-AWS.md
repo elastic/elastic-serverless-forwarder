@@ -347,7 +347,7 @@ Using the above configuration, the tags will be set in the following way`["prese
 ## Routing support for AWS Services Logs
 If the `dataset` field is empty or not set in the config file, the ESF Lambda will try to guess where the logs came from
 
-If the origin is unknown, or it cannot be matched with any of the following `aws.cloudtrail`, `aws.cloudwatch`, `aws.elb`, `aws.vpc`, then the `dataset` will be set to **"generic"**
+If the origin is unknown, or it cannot be matched with any of the following `aws.cloudtrail`, `aws.cloudwatch_logs`, `aws.elb_logs`, `aws.firewall_logs`, `aws.lambda`, `aws.sns`, `aws.s3_storage_lens`, `aws.vpcflow`, `aws.waf`, then the `dataset` will be set to **"generic"**
 
 ## S3 event notification to SQS
 In order to set up an S3 event notification to SQS please look at the official documentation: https://docs.aws.amazon.com/AmazonS3/latest/userguide/NotificationHowTo.html
