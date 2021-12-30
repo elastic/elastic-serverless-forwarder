@@ -33,7 +33,6 @@ class ElasticsearchShipper(CommonShipper):
         dataset: str = "",
         namespace: str = "",
         tags: list[str] = [],
-        _es_index: str = "",
     ):
 
         self._bulk_actions: list[dict[str, Any]] = []
@@ -66,8 +65,6 @@ class ElasticsearchShipper(CommonShipper):
         self._dataset = dataset
         self._namespace = namespace
         self._tags = tags
-
-        self._es_index = _es_index
 
     def _elasticsearch_client(self, **es_client_kwargs: Any) -> Elasticsearch:
         """
@@ -157,8 +154,6 @@ class ElasticsearchShipper(CommonShipper):
             if "Records" in json_body and len(json_body["Records"]) > 0:
                 if "s3" in json_body["Records"][0]:
                     s3_object_key = json_body["Records"][0]["s3"]["object"]["key"]
-            else:
-                raise KeyError("Invalid event structure")
 
             if s3_object_key == "":
                 shared_logger.warning("s3 object key is empty, dataset set to `generic`")
@@ -172,12 +167,20 @@ class ElasticsearchShipper(CommonShipper):
                     self._dataset = "aws.cloudtrail"
                 elif "exportedlogs" in s3_object_key or "awslogs" in s3_object_key:
                     self._dataset = "aws.cloudwatch_logs"
-                elif "elasticloadbalancing" in s3_object_key:
+                elif "/elasticloadbalancing/" in s3_object_key:
                     self._dataset = "aws.elb_logs"
-                elif "network-firewall" in s3_object_key:
+                elif "/network-firewall/" in s3_object_key:
                     self._dataset = "aws.firewall_logs"
-                elif "vpcflowlogs" in s3_object_key:
+                elif "lambda" in s3_object_key:
+                    self._dataset = "aws.lambda"
+                elif "/SMSUsageReports/" in s3_object_key:
+                    self._dataset = "aws.sns"
+                elif "/StorageLens/" in s3_object_key:
+                    self._dataset = "aws.s3_storage_lens"
+                elif "/vpcflowlogs/" in s3_object_key:
                     self._dataset = "aws.vpcflow"
+                elif "waflogs" in s3_object_key:
+                    self._dataset = "aws.waf"
                 else:
                     self._dataset = "generic"
 
