@@ -545,11 +545,9 @@ class TestLambdaHandlerFailure(TestCase):
 
 @pytest.mark.integration
 class TestLambdaHandlerSuccess(TestCase):
-    def _event_from_sqs_message(self) -> dict[str, Any]:
+    def _event_from_sqs_message(self, queue_url: str, add_sqs_event_source: bool = True) -> dict[str, Any]:
         sqs_client = aws_stack.connect_to_service("sqs")
-        messages = sqs_client.receive_message(
-            QueueUrl=self._continuing_queue_info["QueueUrl"], MaxNumberOfMessages=2, MessageAttributeNames=["All"]
-        )
+        messages = sqs_client.receive_message(QueueUrl=queue_url, MaxNumberOfMessages=2, MessageAttributeNames=["All"])
 
         assert "Messages" in messages
         assert len(messages["Messages"]) == 1
@@ -564,8 +562,10 @@ class TestLambdaHandlerSuccess(TestCase):
                 new_attribute[camel_case_key] = new_attribute[attribute_key]
                 message["messageAttributes"][attribute] = new_attribute
 
-        message["eventSource"] = "aws:sqs"
-        message["eventSourceARN"] = self._continuing_queue_info["QueueArn"]
+        if add_sqs_event_source:
+            message["eventSource"] = "aws:sqs"
+            message["eventSourceARN"] = queue_url
+
         return dict(Records=[message])
 
     def _create_secrets(self, secret_name: str, secret_data: dict[str, str]) -> Any:
@@ -756,7 +756,7 @@ class TestLambdaHandlerSuccess(TestCase):
     def test_lambda_handler_reply(self) -> None:
         filename: str = "folder/redis.log.gz"
         with mock.patch("storage.S3Storage._s3_client", aws_stack.connect_to_service("s3")):
-            with mock.patch("handlers.aws.utils.get_sqs_client", lambda: aws_stack.connect_to_service("sqs")):
+            with mock.patch("handlers.aws.reply.get_sqs_client", lambda: aws_stack.connect_to_service("sqs")):
                 with mock.patch(
                     "share.secretsmanager._get_aws_sm_client",
                     lambda region_name: aws_stack.connect_to_service(
@@ -806,7 +806,7 @@ class TestLambdaHandlerSuccess(TestCase):
                         index="logs-redis.log-default",
                         op_type="create",
                         id="b7a95918eb-000000000000",
-                        body={"@timestamp": datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
+                        document={"@timestamp": datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
                     )
                     self._es_client.indices.refresh(index="logs-redis.log-default")
 
@@ -855,18 +855,7 @@ class TestLambdaHandlerSuccess(TestCase):
                         "tag3",
                     ]
 
-                    sqs_client = aws_stack.connect_to_service("sqs")
-                    messages = sqs_client.receive_message(
-                        QueueUrl=self._replay_queue_info["QueueUrl"],
-                        MaxNumberOfMessages=2,
-                        MessageAttributeNames=["All"],
-                    )
-
-                    assert "Messages" in messages
-                    assert len(messages["Messages"]) == 1
-
-                    messages["Messages"][0]["body"] = messages["Messages"][0]["Body"]
-                    event = dict(Records=[messages["Messages"][0]])
+                    event = self._event_from_sqs_message(self._replay_queue_info["QueueUrl"], False)
                     second_call = handler(event, ctx)  # type:ignore
 
                     assert second_call == "replayed"
@@ -988,7 +977,7 @@ class TestLambdaHandlerSuccess(TestCase):
                         "tag3",
                     ]
 
-                    event = self._event_from_sqs_message()
+                    event = self._event_from_sqs_message(queue_url=self._continuing_queue_info["QueueUrl"])
                     second_call = handler(event, ctx)  # type:ignore
 
                     assert second_call == "continuing"
@@ -1028,7 +1017,7 @@ class TestLambdaHandlerSuccess(TestCase):
                         "tag3",
                     ]
 
-                    event = self._event_from_sqs_message()
+                    event = self._event_from_sqs_message(queue_url=self._continuing_queue_info["QueueUrl"])
                     third_call = handler(event, ctx)  # type:ignore
 
                     assert third_call == "completed"
