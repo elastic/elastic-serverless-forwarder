@@ -151,9 +151,10 @@ def parse_secrets_str(secrets: str, secret_arn: str) -> Union[str, dict[str, Any
     try:
         parsed_secrets: dict[str, str] = json.loads(secrets)
     except JSONDecodeError:
+        shared_logger.debug("parsed secrets as plaintext")
         return secrets
     except Exception as e:
         raise Exception(f"{e} while parsing {secret_arn}")
     else:
-        shared_logger.info("parsed_secrets", extra={"json": parsed_secrets})
+        shared_logger.debug("parsed secrets as json")
         return parsed_secrets
