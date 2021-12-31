@@ -59,16 +59,7 @@ class ElasticsearchShipper(CommonShipper):
         else:
             raise ValueError("You must provide one between username and password or api_key")
 
-        self._replay_args = {
-            "elasticsearch_url": elasticsearch_url,
-            "username": username,
-            "password": password,
-            "cloud_id": cloud_id,
-            "api_key": api_key,
-            "dataset": "",
-            "namespace": namespace,
-            "tags": tags,
-        }
+        self._replay_args: dict[str, Any] = {}
 
         self._es_client = self._elasticsearch_client(**es_client_kwargs)
         self._replay_handler: Optional[ReplayHandlerCallable] = None

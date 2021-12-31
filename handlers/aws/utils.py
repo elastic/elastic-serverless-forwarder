@@ -1,7 +1,7 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
-import json
+
 import os
 from typing import Any, Callable
 
@@ -15,6 +15,9 @@ from share import shared_logger
 from storage import CommonStorage, StorageFactory
 
 _available_triggers: dict[str, str] = {"aws:sqs": "sqs"}
+
+CONFIG_FROM_PAYLOAD: str = "CONFIG_FROM_PAYLOAD"
+CONFIG_FROM_S3FILE: str = "CONFIG_FROM_S3FILE"
 
 
 def get_sqs_client() -> BotoBaseClient:
@@ -118,7 +121,6 @@ def config_yaml_from_payload(lambda_event: dict[str, Any]) -> str:
 
     payload = lambda_event["Records"][0]["messageAttributes"]
     config_yaml: str = payload["config"]["stringValue"]
-    lambda_event["Records"][0]["eventSourceARN"] = payload["originalEventSource"]["stringValue"]
 
     return config_yaml
 
@@ -169,9 +171,10 @@ def get_bucket_name_from_arn(bucket_arn: str) -> str:
     return bucket_arn.split(":")[-1]
 
 
-def get_trigger_type(event: dict[str, Any]) -> str:
+def get_trigger_type_and_config_source(event: dict[str, Any]) -> tuple[str, str]:
     """
     Determines the trigger type according to the payload of the trigger event
+    and if the config must be read from attributes or from S3 file in env
     """
 
     if "Records" not in event or len(event["Records"]) < 1:
@@ -179,8 +182,8 @@ def get_trigger_type(event: dict[str, Any]) -> str:
 
     if "body" in event["Records"][0]:
         event_body = event["Records"][0]["body"]
-        if "output_type" in event_body and "output_args" in event_body and "payload" in event_body:
-            return "replay"
+        if "output_type" in event_body and "output_args" in event_body and "event_payload" in event_body:
+            return "replay", CONFIG_FROM_PAYLOAD
 
     if "eventSource" not in event["Records"][0]:
         raise Exception("Not supported trigger")
@@ -191,28 +194,12 @@ def get_trigger_type(event: dict[str, Any]) -> str:
 
     trigger_type = _available_triggers[event_source]
     if trigger_type != "sqs":
-        return trigger_type
+        return trigger_type, CONFIG_FROM_S3FILE
 
     if "messageAttributes" not in event["Records"][0]:
-        return trigger_type
+        return trigger_type, CONFIG_FROM_S3FILE
 
     if "originalEventSource" not in event["Records"][0]["messageAttributes"]:
-        return trigger_type
+        return trigger_type, CONFIG_FROM_S3FILE
 
-    return "self_sqs"
-
-
-def replay_handler(output_type: str, output_args: dict[str, Any], payload: dict[str, Any]) -> None:
-    sqs_replay_queue = os.environ["SQS_REPLAY_URL"]
-
-    sqs_client = get_sqs_client()
-
-    sqs_client.send_message(
-        QueueUrl=sqs_replay_queue,
-        MessageBody=json.dumps({"output_type": output_type, "output_args": output_args, "payload": payload}),
-    )
-
-    shared_logger.warn(
-        "sent to replay queue",
-        extra={"sqs_replay_queue": sqs_replay_queue, "output_type": output_type, "payload": payload},
-    )
+    return "self_sqs", CONFIG_FROM_PAYLOAD

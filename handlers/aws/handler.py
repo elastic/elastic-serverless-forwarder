@@ -13,9 +13,11 @@ from share import Config, Output, parse_config, shared_logger
 from share.secretsmanager import aws_sm_expander
 from shippers import CommonShipper, CompositeShipper, ShipperFactory
 
-from .reply import _handle_reply_event
+from .reply import ReplayEventHandler, _handle_reply_event
 from .sqs_trigger import _handle_sqs_continuation, _handle_sqs_event
 from .utils import (
+    CONFIG_FROM_PAYLOAD,
+    CONFIG_FROM_S3FILE,
     ConfigFileException,
     InputConfigException,
     OutputConfigException,
@@ -23,8 +25,7 @@ from .utils import (
     capture_serverless,
     config_yaml_from_payload,
     config_yaml_from_s3,
-    get_trigger_type,
-    replay_handler,
+    get_trigger_type_and_config_source,
     wrap_try_except,
 )
 
@@ -41,19 +42,23 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
     """
 
     try:
-        trigger_type: str = get_trigger_type(lambda_event)
+        trigger_type, config_source = get_trigger_type_and_config_source(lambda_event)
         shared_logger.info("trigger", extra={"type": trigger_type})
     except Exception as e:
         raise TriggerTypeException(e)
 
     config_yaml: str = ""
     try:
-        if trigger_type == "replay":
-            pass
-        elif trigger_type == "self_sqs":
+        if config_source == CONFIG_FROM_PAYLOAD:
             config_yaml = config_yaml_from_payload(lambda_event)
-        else:
+
+            payload = lambda_event["Records"][0]["messageAttributes"]
+            if "originalEventSource" in payload:
+                lambda_event["Records"][0]["eventSourceARN"] = payload["originalEventSource"]["stringValue"]
+        elif config_source == CONFIG_FROM_S3FILE:
             config_yaml = config_yaml_from_s3()
+        else:
+            raise ConfigFileException("cannot determine config source")
     except Exception as e:
         raise ConfigFileException(e)
 
@@ -63,15 +68,21 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
     config: Optional[Config] = None
     try:
-        if trigger_type != "replay":
-            shared_logger.debug("config", extra={"yaml": config_yaml})
-            config = parse_config(config_yaml, _expanders)
+        shared_logger.debug("config", extra={"yaml": config_yaml})
+        config = parse_config(config_yaml, _expanders)
     except Exception as e:
         raise ConfigFileException(e)
 
     if trigger_type == "replay":
         event = json.loads(lambda_event["Records"][0]["body"])
-        _handle_reply_event(event["output_type"], event["output_args"], event["payload"])
+        _handle_reply_event(
+            config=config,
+            output_type=event["output_type"],
+            output_args=event["output_args"],
+            event_input_id=event["event_input_id"],
+            event_input_type=event["event_input_type"],
+            event_payload=event["event_payload"],
+        )
         return "replayed"
 
     assert config is not None
@@ -99,7 +110,8 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                         output_type="elasticsearch", output=output
                     )
                     composite_shipper.add_shipper(shipper=shipper)
-                    composite_shipper.set_replay_handler(replay_handler=replay_handler)
+                    replay_handler = ReplayEventHandler(config_yaml=config_yaml, event_input=event_input)
+                    composite_shipper.set_replay_handler(replay_handler=replay_handler.replay_handler)
                 except Exception as e:
                     raise OutputConfigException(e)
 
