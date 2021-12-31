@@ -62,8 +62,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
     except Exception as e:
         raise ConfigFileException(e)
 
-    if config_yaml == "" and trigger_type != "replay":
-        shared_logger.error("empty config")
+    if config_yaml == "":
         raise ConfigFileException("empty config")
 
     config: Optional[Config] = None
