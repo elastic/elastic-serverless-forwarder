@@ -13,7 +13,7 @@ from share import Config, Output, parse_config, shared_logger
 from share.secretsmanager import aws_sm_expander
 from shippers import CommonShipper, CompositeShipper, ShipperFactory
 
-from .reply import ReplayEventHandler, _handle_reply_event
+from .replay import ReplayEventHandler, _handle_replay_event
 from .sqs_trigger import _handle_sqs_continuation, _handle_sqs_event
 from .utils import (
     CONFIG_FROM_PAYLOAD,
@@ -74,7 +74,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
     if trigger_type == "replay":
         event = json.loads(lambda_event["Records"][0]["body"])
-        _handle_reply_event(
+        _handle_replay_event(
             config=config,
             output_type=event["output_type"],
             output_args=event["output_args"],

@@ -753,10 +753,10 @@ class TestLambdaHandlerSuccess(TestCase):
         self._localstack_container.remove()
 
     @mock.patch("handlers.aws.handler._completion_grace_period", 1)
-    def test_lambda_handler_reply(self) -> None:
+    def test_lambda_handler_replay(self) -> None:
         filename: str = "folder/redis.log.gz"
         with mock.patch("storage.S3Storage._s3_client", aws_stack.connect_to_service("s3")):
-            with mock.patch("handlers.aws.reply.get_sqs_client", lambda: aws_stack.connect_to_service("sqs")):
+            with mock.patch("handlers.aws.replay.get_sqs_client", lambda: aws_stack.connect_to_service("sqs")):
                 with mock.patch(
                     "share.secretsmanager._get_aws_sm_client",
                     lambda region_name: aws_stack.connect_to_service(

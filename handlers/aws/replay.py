@@ -42,7 +42,7 @@ class ReplayEventHandler:
         shared_logger.warning("sent to replay queue", extra=message_payload)
 
 
-def _handle_reply_event(
+def _handle_replay_event(
     config: Config,
     output_type: str,
     output_args: dict[str, Any],
