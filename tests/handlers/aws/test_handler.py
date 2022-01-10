@@ -714,14 +714,14 @@ class TestLambdaHandlerSuccess(TestCase):
             key_name="folder/config.yaml",
         )
 
-        redis_log: bytes = (
+        cw_log: bytes = (
             '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}\n'
             + '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": '
             + '{"line": 30, "name": "handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}'
         ).encode("UTF-8")
 
         self._upload_content_to_bucket(
-            content=gzip.compress(redis_log),
+            content=gzip.compress(cw_log),
             content_type="application/x-gzip",
             bucket_name="test-bucket",
             key_name="exportedlogs/uuid/yyyy-mm-dd-[$LATEST]hash/000000.gz",
