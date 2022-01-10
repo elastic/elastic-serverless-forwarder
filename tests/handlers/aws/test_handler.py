@@ -704,7 +704,6 @@ class TestLambdaHandlerSuccess(TestCase):
                   elasticsearch_url: "http://127.0.0.1:{self._ES_HOST_PORT}"
                   username: "{self._secret_arn}:username"
                   password: "{self._secret_arn}:password"
-                  dataset: "redis.log"
                   namespace: "default"
                 """
 
@@ -715,17 +714,17 @@ class TestLambdaHandlerSuccess(TestCase):
             key_name="folder/config.yaml",
         )
 
-        redis_log: bytes = (
-            "79191:C 08 Jul 2021 13:25:02.609 # oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo\n"
-            + "79191:C 08 Jul 2021 13:25:02.610 # Redis version=6.2.4, bits=64, commit=00000000, "
-            + "modified=0, pid=79191, just started"
+        cw_log: bytes = (
+            '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}\n'
+            + '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": '
+            + '{"line": 30, "name": "handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}'
         ).encode("UTF-8")
 
         self._upload_content_to_bucket(
-            content=gzip.compress(redis_log),
+            content=gzip.compress(cw_log),
             content_type="application/x-gzip",
             bucket_name="test-bucket",
-            key_name="folder/redis.log.gz",
+            key_name="exportedlogs/uuid/yyyy-mm-dd-[$LATEST]hash/000000.gz",
         )
 
         os.environ["S3_CONFIG_FILE"] = "s3://config-bucket/folder/config.yaml"
@@ -745,7 +744,7 @@ class TestLambdaHandlerSuccess(TestCase):
         self._localstack_container.remove()
 
     def test_lambda_handler(self) -> None:
-        filename: str = "folder/redis.log.gz"
+        filename: str = "exportedlogs/uuid/yyyy-mm-dd-[$LATEST]hash/000000.gz"
         with mock.patch("storage.S3Storage._s3_client", aws_stack.connect_to_service("s3")):
             with mock.patch("handlers.aws.sqs_trigger._get_sqs_client", lambda: aws_stack.connect_to_service("sqs")):
                 with mock.patch(
@@ -795,14 +794,14 @@ class TestLambdaHandlerSuccess(TestCase):
 
                     assert first_call == "continuing"
 
-                    self._es_client.indices.refresh(index="logs-redis.log-default")
-                    assert self._es_client.count(index="logs-redis.log-default")["count"] == 1
+                    self._es_client.indices.refresh(index="logs-aws.cloudwatch_logs-default")
+                    assert self._es_client.count(index="logs-aws.cloudwatch_logs-default")["count"] == 1
 
-                    res = self._es_client.search(index="logs-redis.log-default")
+                    res = self._es_client.search(index="logs-aws.cloudwatch_logs-default")
                     assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
                     assert (
                         res["hits"]["hits"][0]["_source"]["fields"]["message"]
-                        == "79191:C 08 Jul 2021 13:25:02.609 # oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo"
+                        == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}'
                     )
                     assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
                         "offset": 0,
@@ -822,7 +821,7 @@ class TestLambdaHandlerSuccess(TestCase):
                     assert res["hits"]["hits"][0]["_source"]["tags"] == [
                         "preserve_original_event",
                         "forwarded",
-                        "redis-log",
+                        "aws-cloudwatch_logs",
                         "tag1",
                         "tag2",
                         "tag3",
@@ -833,19 +832,19 @@ class TestLambdaHandlerSuccess(TestCase):
 
                     assert second_call == "continuing"
 
-                    self._es_client.indices.refresh(index="logs-redis.log-default")
-                    assert self._es_client.count(index="logs-redis.log-default")["count"] == 2
+                    self._es_client.indices.refresh(index="logs-aws.cloudwatch_logs-default")
+                    assert self._es_client.count(index="logs-aws.cloudwatch_logs-default")["count"] == 2
 
-                    res = self._es_client.search(index="logs-redis.log-default")
+                    res = self._es_client.search(index="logs-aws.cloudwatch_logs-default")
                     assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
                     assert (
                         res["hits"]["hits"][1]["_source"]["fields"]["message"]
-                        == "79191:C 08 Jul 2021 13:25:02.610 # Redis version=6.2.4, bits=64, commit=00000000, "
-                        + "modified=0, pid=79191, just started"
+                        == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": '
+                        '{"line": 30, "name": "handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}'
                     )
 
                     assert res["hits"]["hits"][1]["_source"]["fields"]["log"] == {
-                        "offset": 81,
+                        "offset": 86,
                         "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
                     }
                     assert res["hits"]["hits"][1]["_source"]["fields"]["aws"] == {

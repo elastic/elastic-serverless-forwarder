@@ -76,8 +76,7 @@ class ElasticsearchOutput(Output):
             raise ValueError("Elasticsearch Output password must be set when using username")
 
         if not self.dataset:
-            shared_logger.warning("no dataset set in config: using `generic`")
-            self.dataset = "generic"
+            shared_logger.info("no dataset set in config")
 
         if not self.namespace:
             shared_logger.warning("no namespace set in config: using `default`")
@@ -337,6 +336,7 @@ def parse_config(config_yaml: str, expanders: list[Callable[[str], str]] = []) -
                 raise ValueError("Must be provided dict args for output")
 
             output_config["args"]["tags"] = current_input.tags
+
             current_input.add_output(output_type=output_config["type"], **output_config["args"])
 
         conf.add_input(current_input)

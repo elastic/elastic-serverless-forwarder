@@ -208,7 +208,7 @@ class TestElasticsearchOutput(TestCase):
             assert not elasticsearch.elasticsearch_url
             assert not elasticsearch.username
             assert not elasticsearch.password
-            assert elasticsearch.dataset == "generic"
+            assert elasticsearch.dataset == ""
             assert elasticsearch.namespace == "namespace"
             assert elasticsearch.tags == []
 

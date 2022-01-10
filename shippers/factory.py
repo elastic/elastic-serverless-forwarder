@@ -7,7 +7,7 @@ from typing import Any, Callable
 from share.config import ElasticsearchOutput, Output
 
 from .es import ElasticsearchShipper
-from .shipper import CommonShipper
+from .shipper import CommonShipperType
 
 _init_definition_by_output: dict[str, dict[str, Any]] = {
     "elasticsearch": {
@@ -23,7 +23,7 @@ class ShipperFactory:
     """
 
     @staticmethod
-    def create_from_output(output_type: str, output: Output) -> CommonShipper:
+    def create_from_output(output_type: str, output: Output) -> CommonShipperType:
         """
         Instantiates a concrete Shipper given an output type and an Output instance
         """
@@ -49,7 +49,7 @@ class ShipperFactory:
         )
 
     @staticmethod
-    def create(output_type: str, **kwargs: Any) -> CommonShipper:
+    def create(output_type: str, **kwargs: Any) -> CommonShipperType:
         """
         Instantiates a concrete Shipper given an output type and the shipper init kwargs
         """
@@ -61,6 +61,6 @@ class ShipperFactory:
 
         output_definition = _init_definition_by_output[output_type]
 
-        output_builder: Callable[..., CommonShipper] = output_definition["class"]
+        output_builder: Callable[..., CommonShipperType] = output_definition["class"]
 
         return output_builder(**kwargs)
