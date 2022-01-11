@@ -7,7 +7,7 @@ import os
 from typing import Any, Optional
 
 from share import Config, ElasticsearchOutput, Input, Output, shared_logger
-from shippers import ShipperFactory
+from shippers import ElasticsearchShipper, ShipperFactory
 
 from .utils import InputConfigException, OutputConfigException, get_sqs_client
 
@@ -58,11 +58,12 @@ def _handle_replay_event(
     output: Optional[Output] = event_input.get_output_by_type(output_type)
     if output is None:
         raise OutputConfigException(f"cannot load output of type {output_type}")
+
     if output_type == "elasticsearch":
         assert isinstance(output, ElasticsearchOutput)
         output.dataset = output_args["dataset"]
         shared_logger.info("setting ElasticSearch shipper")
-        elasticsearch = ShipperFactory.create_from_output(output_type=output_type, output=output)
-
+        elasticsearch: ElasticsearchShipper = ShipperFactory.create_from_output(output_type=output_type, output=output)
+        elasticsearch.discover_dataset({})
         elasticsearch.send(event_payload)
         elasticsearch.flush()

@@ -6,6 +6,7 @@ import datetime
 import json
 from copy import deepcopy
 from typing import Any, Iterator
+from urllib.parse import unquote_plus
 
 import elasticapm
 
@@ -72,8 +73,8 @@ def _handle_sqs_event(config: Config, event: dict[str, Any]) -> Iterator[tuple[d
         body = json.loads(sqs_record["body"])
         for s3_record_n, s3_record in enumerate(body["Records"]):
             aws_region = s3_record["awsRegion"]
-            bucket_arn = s3_record["s3"]["bucket"]["arn"]
-            object_key = s3_record["s3"]["object"]["key"]
+            bucket_arn = unquote_plus(s3_record["s3"]["bucket"]["arn"], "utf-8")
+            object_key = unquote_plus(s3_record["s3"]["object"]["key"], "utf-8")
             last_ending_offset = s3_record["last_ending_offset"] if "last_ending_offset" in s3_record else 0
 
             if len(bucket_arn) == 0 or len(object_key) == 0:
