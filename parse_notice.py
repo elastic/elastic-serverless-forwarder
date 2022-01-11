@@ -4,24 +4,23 @@
 
 import json
 from datetime import datetime
-from typing import AnyStr
 
 import requests
 
 
 def main(scanned_json_output: str) -> None:
     seen_package: dict[str, dict[str, str]] = {}
-    required_packages: dict[str, int] = {}
+    required_packages: dict[str, str] = {}
 
     read_requirements("requirements.txt", required_packages)
     read_requirements("requirements-lint.txt", required_packages)
     read_requirements("requirements-tests.txt", required_packages)
 
-    requirements_list: list[str, str] = [key.strip("\n") for key in required_packages.keys()]
+    requirements_list: list[str] = [key.strip("\n") for key in required_packages.keys()]
 
     with open(scanned_json_output) as fh:
-        data: str = fh.read()
-        dict_data: dict[str, str] = json.loads(data)
+        data = fh.read()
+        dict_data = json.loads(data)
 
     for entry in dict_data["files"]:
         if (
@@ -60,7 +59,7 @@ def main(scanned_json_output: str) -> None:
 
                 if splitted_entry_path[-1].startswith("LICENSE"):
 
-                    license_content: AnyStr = read_license_from_file(license_file_path=license_path)
+                    license_content: str = read_license_from_file(license_file_path=license_path)
                     seen_package[package]["license_content"] = license_content
 
     for package in seen_package:
@@ -102,10 +101,10 @@ def read_requirements(file_name: str, packages: dict[str, str]) -> None:
                 cleaned_requirement_name = cleaned_requirement_name.split("[")[0]
 
             if cleaned_requirement_name not in packages:
-                packages[cleaned_requirement_name] = True
+                packages[cleaned_requirement_name] = ""
 
 
-def write_to_file(data: dict[str, dict[str, str]], file_name: str) -> None:
+def write_to_file(data: dict[str, str], file_name: str) -> None:
 
     with open(file_name, "a+") as fh:
         fh.write(f"Module: {data['homepage_url']}")
@@ -124,9 +123,9 @@ def write_to_file(data: dict[str, dict[str, str]], file_name: str) -> None:
         fh.write("\n")
 
 
-def read_license_from_file(license_file_path: str) -> AnyStr:
+def read_license_from_file(license_file_path: str) -> str:
     with open(license_file_path) as fh:
-        license_content: AnyStr = fh.read()
+        license_content: str = fh.read()
 
     return license_content
 
