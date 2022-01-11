@@ -32,3 +32,4 @@ tests/elastic-serverless-forwarder-junit.xml
 .pytest_cache/
 .python-version
 htmlcov/
+NOTICE.json
