@@ -823,7 +823,7 @@ class TestLambdaHandlerSuccess(TestCase):
 
                     assert self._es_client.count(index="logs-aws.cloudwatch_logs-default")["count"] == 1
 
-                    res = self._es_client.search(index="logs-aws.cloudwatch_logs-default")
+                    res = self._es_client.search(index="logs-aws.cloudwatch_logs-default", sort="_seq_no")
                     assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
 
                     assert (
@@ -864,7 +864,7 @@ class TestLambdaHandlerSuccess(TestCase):
                     self._es_client.indices.refresh(index="logs-aws.cloudwatch_logs-default")
                     assert self._es_client.count(index="logs-aws.cloudwatch_logs-default")["count"] == 2
 
-                    res = self._es_client.search(index="logs-aws.cloudwatch_logs-default")
+                    res = self._es_client.search(index="logs-aws.cloudwatch_logs-default", sort="_seq_no")
                     assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
                     assert (
                         res["hits"]["hits"][1]["_source"]["fields"]["message"]
@@ -948,7 +948,7 @@ class TestLambdaHandlerSuccess(TestCase):
                     self._es_client.indices.refresh(index="logs-aws.cloudwatch_logs-default")
                     assert self._es_client.count(index="logs-aws.cloudwatch_logs-default")["count"] == 1
 
-                    res = self._es_client.search(index="logs-aws.cloudwatch_logs-default")
+                    res = self._es_client.search(index="logs-aws.cloudwatch_logs-default", sort="_seq_no")
                     assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
                     assert (
                         res["hits"]["hits"][0]["_source"]["fields"]["message"]
@@ -986,32 +986,31 @@ class TestLambdaHandlerSuccess(TestCase):
                     self._es_client.indices.refresh(index="logs-aws.cloudwatch_logs-default")
                     assert self._es_client.count(index="logs-aws.cloudwatch_logs-default")["count"] == 2
 
-                    res = self._es_client.search(index="logs-aws.cloudwatch_logs-default")
+                    res = self._es_client.search(index="logs-aws.cloudwatch_logs-default", sort="_seq_no")
                     assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
 
-                    # Why index 0 and 1? Because of https://github.com/elastic/elasticsearch/pull/75195
                     assert (
-                        res["hits"]["hits"][0]["_source"]["fields"]["message"]
+                        res["hits"]["hits"][1]["_source"]["fields"]["message"]
                         == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": {"line": 30, '
                         '"name": "handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}'
                     )
 
-                    assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
+                    assert res["hits"]["hits"][1]["_source"]["fields"]["log"] == {
                         "offset": 86,
                         "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
                     }
-                    assert res["hits"]["hits"][0]["_source"]["fields"]["aws"] == {
+                    assert res["hits"]["hits"][1]["_source"]["fields"]["aws"] == {
                         "s3": {
                             "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
                             "object": {"key": f"{filename}"},
                         }
                     }
-                    assert res["hits"]["hits"][0]["_source"]["fields"]["cloud"] == {
+                    assert res["hits"]["hits"][1]["_source"]["fields"]["cloud"] == {
                         "provider": "aws",
                         "region": "eu-central-1",
                     }
 
-                    assert res["hits"]["hits"][0]["_source"]["tags"] == [
+                    assert res["hits"]["hits"][1]["_source"]["tags"] == [
                         "preserve_original_event",
                         "forwarded",
                         "aws-cloudwatch_logs",
