@@ -9,7 +9,7 @@ import json
 import os
 import time
 from copy import deepcopy
-from typing import Any, Optional, Union
+from typing import Any, Callable, Optional, Union
 from unittest import TestCase
 
 import docker
@@ -17,6 +17,7 @@ import localstack.utils.aws.aws_stack
 import mock
 import pytest
 from botocore.exceptions import ClientError
+from docker.models.containers import Container
 from elasticsearch import Elasticsearch
 from localstack.services.s3.s3_starter import check_s3
 from localstack.services.secretsmanager.secretsmanager_starter import check_secretsmanager
@@ -577,6 +578,27 @@ class TestLambdaHandlerSuccess(TestCase):
         return client.describe_secret(SecretId=secret_name)["ARN"]
 
     @staticmethod
+    def _wait_for_container(container: Container, port: str) -> None:
+        while (
+            port not in container.ports or len(container.ports[port]) == 0 or "HostPort" not in container.ports[port][0]
+        ):
+            container.reload()
+            time.sleep(1)
+
+    @staticmethod
+    def _wait_for_localstack_service(wait_callback: Callable[[], None]) -> None:
+        while True:
+            ready = True
+            try:
+                wait_callback()
+                time.sleep(1)
+            except AssertionError:
+                ready = False
+
+            if ready:
+                return
+
+    @staticmethod
     def _upload_content_to_bucket(
         content: Union[bytes, str], content_type: str, bucket_name: str, key_name: str
     ) -> None:
@@ -596,13 +618,7 @@ class TestLambdaHandlerSuccess(TestCase):
             ports={"4566/tcp": None},
         )
 
-        while (
-            "4566/tcp" not in self._localstack_container.ports
-            or len(self._localstack_container.ports["4566/tcp"]) == 0
-            or "HostPort" not in self._localstack_container.ports["4566/tcp"][0]
-        ):
-            self._localstack_container.reload()
-            time.sleep(1)
+        self._wait_for_container(self._localstack_container, "4566/tcp")
 
         self._TEST_S3_URL = os.environ["TEST_S3_URL"]
         self._TEST_SQS_URL = os.environ["TEST_SQS_URL"]
@@ -613,43 +629,16 @@ class TestLambdaHandlerSuccess(TestCase):
         os.environ["TEST_SQS_URL"] = f"http://localhost:{self._LOCALSTACK_HOST_PORT}"
 
         with mock.patch("localstack.services.s3.s3_starter.s3_listener.PORT_S3_BACKEND", self._LOCALSTACK_HOST_PORT):
-            while True:
-                ready = True
-                try:
-                    check_s3()
-                    time.sleep(1)
-                except AssertionError:
-                    ready = False
-
-                if ready:
-                    break
+            self._wait_for_localstack_service(check_s3)
 
         with mock.patch("localstack.services.sqs.sqs_starter.PORT_SQS_BACKEND", self._LOCALSTACK_HOST_PORT):
-            while True:
-                ready = True
-                try:
-                    check_sqs()
-                    time.sleep(1)
-                except AssertionError:
-                    ready = False
-
-                if ready:
-                    break
+            self._wait_for_localstack_service(check_sqs)
 
         with mock.patch(
             "localstack.services.secretsmanager.secretsmanager_starter.PORT_SECRETS_MANAGER_BACKEND",
             self._LOCALSTACK_HOST_PORT,
         ):
-            while True:
-                ready = True
-                try:
-                    check_secretsmanager()
-                    time.sleep(1)
-                except AssertionError:
-                    ready = False
-
-                if ready:
-                    break
+            self._wait_for_localstack_service(check_secretsmanager)
 
         self._ELASTIC_USER: str = "elastic"
         self._ELASTIC_PASSWORD: str = "password"
@@ -671,13 +660,7 @@ class TestLambdaHandlerSuccess(TestCase):
             ports={"9200/tcp": None},
         )
 
-        while (
-            "9200/tcp" not in self._elastic_container.ports
-            or len(self._elastic_container.ports["9200/tcp"]) == 0
-            or "HostPort" not in self._elastic_container.ports["9200/tcp"][0]
-        ):
-            self._elastic_container.reload()
-            time.sleep(1)
+        self._wait_for_container(self._elastic_container, "9200/tcp")
 
         self._ES_HOST_PORT: str = self._elastic_container.ports["9200/tcp"][0]["HostPort"]
 
