@@ -730,7 +730,7 @@ class TestLambdaHandlerSuccess(TestCase):
         del os.environ["SQS_REPLAY_URL"]
 
         self._elastic_container.stop()
-        self._elastic_container.remove()
+        # self._elastic_container.remove()
 
         self._localstack_container.stop()
         self._localstack_container.remove()
