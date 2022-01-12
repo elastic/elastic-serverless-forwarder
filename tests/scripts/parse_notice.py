@@ -10,163 +10,159 @@ import requests
 from requests import Response
 
 
-def main(scanned_json_output: str) -> None:
-    processed_modules: dict[str, dict[str, str]] = {}
-    required_modules: dict[str, str] = {}
+class NoticeParser:
+    def __init__(self, requirement_files, scanned_json_file):
+        self.requirement_files = requirement_files
+        self.scanned_json_file = scanned_json_file
+        self.processed_modules = {}
+        self.required_modules = {}
+        self.notice_file_name = "NOTICE.txt"
 
-    read_requirements("requirements.txt", required_modules)
-    read_requirements("requirements-lint.txt", required_modules)
-    read_requirements("requirements-tests.txt", required_modules)
+        self.read_requirements()
 
-    requirements_list: list[str] = [key for key in required_modules.keys()]
-    requirements_list.sort()
+        scanned_results_data = self.read_content_from_file(self.scanned_json_file)
+        self.scanned_results_json = json.loads(scanned_results_data)
 
-    original_required_modules_list: list[str] = [value for value in required_modules.values()]
-    original_required_modules_list.sort()
+        notice_file_content = self.read_content_from_file("NOTICE.txt")
+        module_pattern = r"(?:Module: ([^\n]+))"
+        found_requirement_modules = re.findall(module_pattern, notice_file_content)
+        found_requirement_modules.sort()
 
-    notice_file_content = read_content_from_file("NOTICE.txt")
+        original_requirement_names = [requirement for requirement in self.required_modules.values()]
+        original_requirement_names.sort()
 
-    module_pattern = r"(?:Module: ([^\n]+))"
-    found_requirement_modules = re.findall(module_pattern, notice_file_content)
-    found_requirement_modules.sort()
+        if original_requirement_names == found_requirement_modules:
+            raise ValueError("There is no new package listed in the requirements files\n")
 
-    if original_required_modules_list == found_requirement_modules:
-        print("There is no new package listed in the requirements files")
-        return
+        for new_module in original_requirement_names:
+            if new_module not in found_requirement_modules and new_module.isascii():
+                print(f"New module found: {new_module}\n")
+                self.process_module(required_module=new_module)
+                self.verify_license_in_modules()
+                self.write_to_file(self.processed_modules[new_module])
 
-    for new_module in original_required_modules_list:
-        if not new_module.isascii():
-            print(f"New module: '{new_module}' is not valid")
-            return
-        if new_module not in found_requirement_modules and len(found_requirement_modules) > 1:
-            print(f"New module added: {new_module}")
-            print("You need scan the project's files and provide the results in the NOTICE.json file")
-            return
+    def process_module(self, required_module):
+        for entry in self.scanned_results_json["files"]:
+            if (
+                entry["path"].endswith("LICENSE")
+                or entry["path"].endswith("LICENSE.txt")
+                or entry["path"].endswith("METADATA")
+                or entry["path"].endswith("METADATA.txt")
+            ) and len(entry["licenses"]) > 0:
+                splitted_entry_path: list[str] = entry["path"].split("/")
 
-    process_module(scanned_json_output, processed_modules, required_modules)
+                if not len(splitted_entry_path) > 6:
+                    continue
 
-    if len(original_required_modules_list) != len(requirements_list):
-        raise AssertionError("There are missing packages")
+                module_name = splitted_entry_path[5].split("-")[0]
 
-    for module in processed_modules:
-        if "license_content" not in processed_modules[module]:
-            try:
-                raw_github_base_url: str = "https://raw.githubusercontent.com"
-                homepage_url: str = processed_modules[module]["homepage_url"]
+                if module_name == required_module:
+                    if module_name not in self.processed_modules:
+                        self.processed_modules[module_name] = {}
 
-                github_project: str = "/".join(homepage_url.split("/")[3:])
-                github_license_pages: list[str] = [
-                    f"{raw_github_base_url}/{github_project}/master/LICENSE",
-                    f"{raw_github_base_url}/{github_project}/master/LICENSE.txt",
-                    f"{raw_github_base_url}/{github_project}/main/LICENSE",
-                    f"{raw_github_base_url}/{github_project}/main/LICENSE.txt",
-                ]
+                        self.processed_modules[module_name]["license_name"] = entry["licenses"][0]["key"].upper()
 
-                for github_page in github_license_pages:
-                    response: Response = requests.get(github_page)
+                        license_path: str = entry["path"][29:]
+                        self.processed_modules[module_name]["license_path"] = license_path
 
-                    if response.status_code == 200:
-                        processed_modules[module]["license_content"] = response.text
-                        processed_modules[module]["license_path"] = github_page
+                        self.processed_modules[module_name]["module_name"] = self.required_modules[required_module]
 
-            except Exception as e:
-                print(e)
-                processed_modules[module]["license_content"] = ""
+                    if "METADATA" in splitted_entry_path[-1]:
+                        module_version: str = splitted_entry_path[5].split("-")[1].strip(".dist")
+                        self.processed_modules[module_name]["version"] = module_version
 
-        write_to_file(processed_modules[module], "NOTICE.txt")
+                        homepage_url: str = entry["packages"][0]["homepage_url"]
+                        vcs_url: str = entry["packages"][0]["vcs_url"]
 
+                        if "github" not in homepage_url and vcs_url and "github" in vcs_url:
+                            homepage_url = vcs_url.split(" ")[-1]
 
-def process_module(
-    scanned_json_output_file: str, processed_modules: dict[str, dict[str, str]], required_modules
-) -> None:
-    scanned_results_data = read_content_from_file(scanned_json_output_file)
-    scanned_results_json = json.loads(scanned_results_data)
+                        self.processed_modules[module_name]["homepage_url"] = homepage_url
 
-    for entry in scanned_results_json["files"]:
-        if (
-            entry["path"].endswith("LICENSE")
-            or entry["path"].endswith("LICENSE.txt")
-            or entry["path"].endswith("METADATA")
-            or entry["path"].endswith("METADATA.txt")
-        ) and len(entry["licenses"]) > 0:
-            splitted_entry_path: list[str] = entry["path"].split("/")
+                    if "LICENSE" in splitted_entry_path[-1]:
+                        license_content: str = self.read_content_from_file(license_file_path=license_path)
+                        self.processed_modules[module_name]["license_content"] = license_content
+        else:
+            raise ValueError(f"Nothing has been found for module '{required_module}' in the scanned file\n")
 
-            if not len(splitted_entry_path) > 6:
-                continue
+    @staticmethod
+    def read_content_from_file(license_file_path: str) -> str:
+        with open(license_file_path) as fh:
+            license_content: str = fh.read()
 
-            module_name = splitted_entry_path[5].split("-")[0]
+        return license_content
 
-            if module_name in [key for key in required_modules.keys()]:
-                if module_name not in processed_modules:
-                    processed_modules[module_name] = {}
+    def read_requirements(self) -> None:
+        for requirement_file in self.requirement_files:
+            with open(requirement_file) as fh:
+                req_data: list[str] = fh.readlines()
 
-                    processed_modules[module_name]["license_name"] = entry["licenses"][0]["key"].upper()
+                for original_requirement in req_data:
+                    module_name: str = original_requirement.split("=")[0].strip(">").strip("\n").replace("-", "_")
 
-                    license_path: str = entry["path"][29:]
-                    processed_modules[module_name]["license_path"] = license_path
+                    if module_name not in self.required_modules:
+                        if "[" and "]" in module_name:
+                            module_name: str = module_name.split("[")[0]
 
-                    processed_modules[module_name]["module"] = required_modules[module_name]
+                        self.required_modules[module_name] = original_requirement.split("=")[0].strip(">").strip("\n")
 
-                if "METADATA" in splitted_entry_path[-1]:
-                    package_version: str = splitted_entry_path[5].split("-")[1].strip(".dist")
-                    processed_modules[module_name]["version"] = package_version
+    def verify_license_in_modules(self) -> None:
+        for processed_module in self.processed_modules:
+            if "license_content" not in self.processed_modules[processed_module]:
+                try:
+                    raw_github_base_url: str = "https://raw.githubusercontent.com"
+                    homepage_url: str = self.processed_modules[processed_module]["homepage_url"]
 
-                    homepage_url: str = entry["packages"][0]["homepage_url"]
-                    vcs_url: str = entry["packages"][0]["vcs_url"]
-                    extra_info: str = entry["licenses"][0]["scancode_text_url"]
+                    github_project: str = "/".join(homepage_url.split("/")[3:])
+                    github_license_pages: list[str] = [
+                        f"{raw_github_base_url}/{github_project}/master/LICENSE",
+                        f"{raw_github_base_url}/{github_project}/master/LICENSE.txt",
+                        f"{raw_github_base_url}/{github_project}/main/LICENSE",
+                        f"{raw_github_base_url}/{github_project}/main/LICENSE.txt",
+                    ]
 
-                    if "github" not in homepage_url and vcs_url and "github" in vcs_url:
-                        homepage_url = vcs_url.split(" ")[-1]
+                    for github_page in github_license_pages:
+                        response: Response = requests.get(github_page)
 
-                    processed_modules[module_name]["homepage_url"] = homepage_url
-                    processed_modules[module_name]["extra_info"] = extra_info
+                        if response.status_code == 200:
+                            self.processed_modules[processed_module]["license_content"] = response.text
+                            self.processed_modules[processed_module]["license_path"] = github_page
+                            break
 
-                if "LICENSE" in splitted_entry_path[-1]:
-                    license_content: str = read_content_from_file(license_file_path=license_path)
-                    processed_modules[module_name]["license_content"] = license_content
+                except Exception as e:
+                    print(e)
+                    self.processed_modules[processed_module]["license_content"] = ""
 
-
-def read_requirements(file_name: str, packages: dict[str, str]) -> None:
-    with open(file_name) as fh:
-        req_data: list[str] = fh.readlines()
-
-        for requirement in req_data:
-            module_name: str = requirement.split("=")[0].strip(">").strip("\n").replace("-", "_")
-
-            if module_name not in packages:
-                if "[" and "]" in module_name:
-                    module_name: str = module_name.split("[")[0]
-
-                packages[module_name] = requirement.split("=")[0].strip(">").strip("\n")
-
-
-def write_to_file(data: dict[str, str], file_name: str) -> None:
-
-    with open(file_name, "a+") as fh:
-        fh.write(f"Module: {data['module']}")
-        fh.write("\n")
-        fh.write(f"Version: {data['version']}")
-        fh.write("\n")
-        fh.write(f"Homepage: {data['homepage_url']}")
-        fh.write("\n")
-        fh.write(f"Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}")
-        fh.write("\n")
-        fh.write(f"License: {data['license_name']}")
-        fh.write("\n" * 2)
-        fh.write(f"Contents of probable licence file {data['license_path']}: \n")
-        fh.write("\n")
-        fh.write(data["license_content"])
-        fh.write("\n" * 2)
-        fh.write("-" * 100)
-        fh.write("\n")
-
-
-def read_content_from_file(license_file_path: str) -> str:
-    with open(license_file_path) as fh:
-        license_content: str = fh.read()
-
-    return license_content
+    def write_to_file(self, module_data: dict[str, str]) -> None:
+        with open(self.notice_file_name, "a+") as fh:
+            fh.write(f"Module: {module_data['module_name']}")
+            fh.write("\n")
+            fh.write(f"Version: {module_data['version']}")
+            fh.write("\n")
+            fh.write(f"Homepage: {module_data['homepage_url']}")
+            fh.write("\n")
+            fh.write(f"Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}")
+            fh.write("\n")
+            fh.write(f"License: {module_data['license_name']}")
+            fh.write("\n" * 2)
+            fh.write(f"Contents of probable licence file {module_data['license_path']}: \n")
+            fh.write("\n")
+            fh.write(module_data["license_content"])
+            fh.write("\n" * 2)
+            fh.write("-" * 100)
+            fh.write("\n")
 
 
 if __name__ == "__main__":
-    main(scanned_json_output="NOTICE.json")
+    requirements_list: list[str] = ["requirements.txt", "requirements-lint.txt", "requirements-tests.txt"]
+    scanned_file_name: str = "NOTICE.json"
+    np = NoticeParser(requirement_files=requirements_list, scanned_json_file=scanned_file_name)
+
+    for module in np.required_modules:
+        np.process_module(required_module=module)
+
+    np.verify_license_in_modules()
+
+    for module in np.processed_modules:
+        np.write_to_file(module_data=np.processed_modules[module])
+
