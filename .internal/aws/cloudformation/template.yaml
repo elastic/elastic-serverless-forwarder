@@ -46,6 +46,7 @@ Resources:
       Environment:
           Variables:
               SQS_CONTINUE_URL: !Ref ElasticServerlessForwarderContinuingQueue
+              SQS_REPLAY_URL: !Ref ElasticServerlessForwarderReplayQueue
       Events:
         SQSEvent:
           Type: SQS

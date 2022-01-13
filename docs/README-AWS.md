@@ -127,6 +127,26 @@ Resources:
       }
     },
     {
+      "PolicyName": "ElasticServerlessForwarderFunctionRolePolicySQSContinuingQueue", ## ADD AS IT IS FOR THE REPLAY QUEUE
+      "PolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+          "Action": [
+            "sqs:SendMessage"
+          ],
+          "Resource": {
+            "Fn::GetAtt": [
+              "ElasticServerlessForwarderReplayQueue",
+              "Arn"
+            ]
+          },
+          "Effect": "Allow"
+          }
+        ]
+      }
+    },
+    {
       "PolicyName": "ElasticServerlessForwarderFunctionRolePolicyS3Configfile", ## ADAPT TO THE CONFIG FILE IN THE S3 BUCKET
       "PolicyDocument": {
         "Version": "2012-10-17",
@@ -206,6 +226,9 @@ Resources:
         "Variables": {
           "SQS_CONTINUE_URL": { # Do not remove this
             "Ref": "ElasticServerlessForwarderContinuingQueue"
+          },
+          "SQS_REPLAY_URL": { # Do not remove this
+            "Ref": "ElasticServerlessForwarderReplayQueue"
           },
           "ELASTIC_APM_ACTIVE": "true",
           "ELASTIC_APM_SECRET_TOKEN": "%ELASTIC_APM_SECRET_TOKEN%",
@@ -356,3 +379,20 @@ The event type to set up in the notification should be `s3:ObjectCreated:*`
 
 The Elastic Forwarder for Serverless Lambda doesn't need to be provided extra IAM policies in order to access S3 and SQS resources in your account: the policies to grant only the minimum required permissions for the Lambda to run are already defined in the SAM template when creating the Lamda from the Serverless Application Repository.
 
+## Error handling
+There are two kind of errors that can happen during the execution of the Lambda:
+1. Errors before the ingestion phase started
+2. Errors during the ingestion phase
+
+For errors at (1), the Lambda will return a failure: these errors are mostly due to misconfiguration, improper permission on the AWS resources, etc. Most importantly when an error occurs at this stage we don’t have any state yet about the events that are ingested, so there’s no consistency to keep and we can safely let the Lambda return a failure.
+The original SQS message will go back to the queue and will trigger the Lambda again with the same payload.
+
+For errors at (2) the situation is different: we have now a state for N failed events out of total X events, if we fail the whole Lambda all the X events will be processed again. While the N failed ones could now succeed, the remaining X-N will now fail, since the datastreams are append-only and we would try to recreate already ingested documents (the ID of the document is deterministic).
+
+In case any of these errors will happen the Lambda won't return a failure. However, the payload of the event that failed to be ingested will be sent to a replay SQS queue.
+The replay SQS queue is set up and permissions set up automatically by the Lambda deployment.
+The replay SQS queue is not set as Event Source Mapping for the Lambda by default: the user can consume the message as preferred in order to investigate the failure.
+It is possible anyway to temporarily set the replay SQS queue as Event Source Mapping for the Lambda: in this case the messages in the queue will be consumed by the Lambda and tried to be ingested again if the failure was transient.
+In case the failure will persist the affected log entry will be moved to a DLQ after three retries.
+
+Every other error occurring during the execution of the Lambda is silently ignored and reported to the APM server is instrumentation is enabled.
