@@ -5,7 +5,9 @@
 import os
 from typing import Any, Callable
 
+import boto3
 from aws_lambda_typing import context as context_
+from botocore.client import BaseClient as BotoBaseClient
 from elasticapm import Client, get_client
 from elasticapm.contrib.serverless.aws import capture_serverless as apm_capture_serverless  # noqa: F401
 
@@ -13,6 +15,17 @@ from share import shared_logger
 from storage import CommonStorage, StorageFactory
 
 _available_triggers: dict[str, str] = {"aws:sqs": "sqs"}
+
+CONFIG_FROM_PAYLOAD: str = "CONFIG_FROM_PAYLOAD"
+CONFIG_FROM_S3FILE: str = "CONFIG_FROM_S3FILE"
+
+
+def get_sqs_client() -> BotoBaseClient:
+    """
+    Getter for sqs client
+    Extracted for mocking
+    """
+    return boto3.client("sqs")
 
 
 def capture_serverless(
@@ -108,7 +121,6 @@ def config_yaml_from_payload(lambda_event: dict[str, Any]) -> str:
 
     payload = lambda_event["Records"][0]["messageAttributes"]
     config_yaml: str = payload["config"]["stringValue"]
-    lambda_event["Records"][0]["eventSourceARN"] = payload["originalEventSource"]["stringValue"]
 
     return config_yaml
 
@@ -159,13 +171,19 @@ def get_bucket_name_from_arn(bucket_arn: str) -> str:
     return bucket_arn.split(":")[-1]
 
 
-def get_trigger_type(event: dict[str, Any]) -> str:
+def get_trigger_type_and_config_source(event: dict[str, Any]) -> tuple[str, str]:
     """
     Determines the trigger type according to the payload of the trigger event
+    and if the config must be read from attributes or from S3 file in env
     """
 
     if "Records" not in event or len(event["Records"]) < 1:
         raise Exception("Not supported trigger")
+
+    if "body" in event["Records"][0]:
+        event_body = event["Records"][0]["body"]
+        if "output_type" in event_body and "output_args" in event_body and "event_payload" in event_body:
+            return "replay", CONFIG_FROM_PAYLOAD
 
     if "eventSource" not in event["Records"][0]:
         raise Exception("Not supported trigger")
@@ -176,12 +194,12 @@ def get_trigger_type(event: dict[str, Any]) -> str:
 
     trigger_type = _available_triggers[event_source]
     if trigger_type != "sqs":
-        return trigger_type
+        return trigger_type, CONFIG_FROM_S3FILE
 
     if "messageAttributes" not in event["Records"][0]:
-        return trigger_type
+        return trigger_type, CONFIG_FROM_S3FILE
 
     if "originalEventSource" not in event["Records"][0]["messageAttributes"]:
-        return trigger_type
+        return trigger_type, CONFIG_FROM_S3FILE
 
-    return "self_sqs"
+    return "self_sqs", CONFIG_FROM_PAYLOAD

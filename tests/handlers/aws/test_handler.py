@@ -3,18 +3,21 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 import base64
+import datetime
 import gzip
 import json
 import os
 import time
 from copy import deepcopy
-from typing import Any, Optional, Union
+from typing import Any, Callable, Optional, Union
 from unittest import TestCase
 
 import docker
+import localstack.utils.aws.aws_stack
 import mock
 import pytest
 from botocore.exceptions import ClientError
+from docker.models.containers import Container
 from elasticsearch import Elasticsearch
 from localstack.services.s3.s3_starter import check_s3
 from localstack.services.secretsmanager.secretsmanager_starter import check_secretsmanager
@@ -27,12 +30,14 @@ from main_aws import handler
 
 
 class ContextMock:
+    def __init__(self, remaining_time_in_millis: int = 0):
+        self._remaining_time_in_millis = remaining_time_in_millis
+
     aws_request_id = "aws_request_id"
     invoked_function_arn = "invoked:function:arn:invoked:function:arn"
 
-    @staticmethod
-    def get_remaining_time_in_millis() -> int:
-        return 0
+    def get_remaining_time_in_millis(self) -> int:
+        return self._remaining_time_in_millis
 
 
 class MockContent:
@@ -541,11 +546,9 @@ class TestLambdaHandlerFailure(TestCase):
 
 @pytest.mark.integration
 class TestLambdaHandlerSuccess(TestCase):
-    def _event_from_sqs_message(self) -> dict[str, Any]:
+    def _event_from_sqs_message(self, queue_url: str, add_sqs_event_source: bool = True) -> dict[str, Any]:
         sqs_client = aws_stack.connect_to_service("sqs")
-        messages = sqs_client.receive_message(
-            QueueUrl=self._continuing_queue_info["QueueUrl"], MaxNumberOfMessages=2, MessageAttributeNames=["All"]
-        )
+        messages = sqs_client.receive_message(QueueUrl=queue_url, MaxNumberOfMessages=2, MessageAttributeNames=["All"])
 
         assert "Messages" in messages
         assert len(messages["Messages"]) == 1
@@ -560,8 +563,10 @@ class TestLambdaHandlerSuccess(TestCase):
                 new_attribute[camel_case_key] = new_attribute[attribute_key]
                 message["messageAttributes"][attribute] = new_attribute
 
-        message["eventSource"] = "aws:sqs"
-        message["eventSourceARN"] = self._continuing_queue_info["QueueArn"]
+        if add_sqs_event_source:
+            message["eventSource"] = "aws:sqs"
+            message["eventSourceARN"] = queue_url
+
         return dict(Records=[message])
 
     def _create_secrets(self, secret_name: str, secret_data: dict[str, str]) -> Any:
@@ -571,6 +576,27 @@ class TestLambdaHandlerSuccess(TestCase):
         client.create_secret(Name=secret_name, SecretString=json.dumps(secret_data))
 
         return client.describe_secret(SecretId=secret_name)["ARN"]
+
+    @staticmethod
+    def _wait_for_container(container: Container, port: str) -> None:
+        while (
+            port not in container.ports or len(container.ports[port]) == 0 or "HostPort" not in container.ports[port][0]
+        ):
+            container.reload()
+            time.sleep(1)
+
+    @staticmethod
+    def _wait_for_localstack_service(wait_callback: Callable[[], None]) -> None:
+        while True:
+            ready = True
+            try:
+                wait_callback()
+                time.sleep(1)
+            except AssertionError:
+                ready = False
+
+            if ready:
+                return
 
     @staticmethod
     def _upload_content_to_bucket(
@@ -583,6 +609,7 @@ class TestLambdaHandlerSuccess(TestCase):
 
     def setUp(self) -> None:
         docker_client = docker.from_env()
+        localstack.utils.aws.aws_stack.BOTO_CLIENTS_CACHE = {}
 
         self._localstack_container = docker_client.containers.run(
             "localstack/localstack",
@@ -591,13 +618,7 @@ class TestLambdaHandlerSuccess(TestCase):
             ports={"4566/tcp": None},
         )
 
-        while (
-            "4566/tcp" not in self._localstack_container.ports
-            or len(self._localstack_container.ports["4566/tcp"]) == 0
-            or "HostPort" not in self._localstack_container.ports["4566/tcp"][0]
-        ):
-            self._localstack_container.reload()
-            time.sleep(1)
+        self._wait_for_container(self._localstack_container, "4566/tcp")
 
         self._TEST_S3_URL = os.environ["TEST_S3_URL"]
         self._TEST_SQS_URL = os.environ["TEST_SQS_URL"]
@@ -608,43 +629,16 @@ class TestLambdaHandlerSuccess(TestCase):
         os.environ["TEST_SQS_URL"] = f"http://localhost:{self._LOCALSTACK_HOST_PORT}"
 
         with mock.patch("localstack.services.s3.s3_starter.s3_listener.PORT_S3_BACKEND", self._LOCALSTACK_HOST_PORT):
-            while True:
-                ready = True
-                try:
-                    check_s3()
-                    time.sleep(1)
-                except AssertionError:
-                    ready = False
-
-                if ready:
-                    break
+            self._wait_for_localstack_service(check_s3)
 
         with mock.patch("localstack.services.sqs.sqs_starter.PORT_SQS_BACKEND", self._LOCALSTACK_HOST_PORT):
-            while True:
-                ready = True
-                try:
-                    check_sqs()
-                    time.sleep(1)
-                except AssertionError:
-                    ready = False
-
-                if ready:
-                    break
+            self._wait_for_localstack_service(check_sqs)
 
         with mock.patch(
             "localstack.services.secretsmanager.secretsmanager_starter.PORT_SECRETS_MANAGER_BACKEND",
             self._LOCALSTACK_HOST_PORT,
         ):
-            while True:
-                ready = True
-                try:
-                    check_secretsmanager()
-                    time.sleep(1)
-                except AssertionError:
-                    ready = False
-
-                if ready:
-                    break
+            self._wait_for_localstack_service(check_secretsmanager)
 
         self._ELASTIC_USER: str = "elastic"
         self._ELASTIC_PASSWORD: str = "password"
@@ -654,7 +648,7 @@ class TestLambdaHandlerSuccess(TestCase):
         )
 
         self._elastic_container = docker_client.containers.run(
-            "docker.elastic.co/elasticsearch/elasticsearch:7.15.1",
+            "docker.elastic.co/elasticsearch/elasticsearch:7.16.2",
             detach=True,
             environment=[
                 "ES_JAVA_OPTS=-Xms1g -Xmx1g",
@@ -662,17 +656,12 @@ class TestLambdaHandlerSuccess(TestCase):
                 "xpack.security.enabled=true",
                 "discovery.type=single-node",
                 "network.bind_host=0.0.0.0",
+                "logger.org.elasticsearch=DEBUG",
             ],
             ports={"9200/tcp": None},
         )
 
-        while (
-            "9200/tcp" not in self._elastic_container.ports
-            or len(self._elastic_container.ports["9200/tcp"]) == 0
-            or "HostPort" not in self._elastic_container.ports["9200/tcp"][0]
-        ):
-            self._elastic_container.reload()
-            time.sleep(1)
+        self._wait_for_container(self._elastic_container, "9200/tcp")
 
         self._ES_HOST_PORT: str = self._elastic_container.ports["9200/tcp"][0]["HostPort"]
 
@@ -680,15 +669,24 @@ class TestLambdaHandlerSuccess(TestCase):
             hosts=[f"127.0.0.1:{self._ES_HOST_PORT}"],
             scheme="http",
             http_auth=(self._ELASTIC_USER, self._ELASTIC_PASSWORD),
+            timeout=30,
+            max_retries=10,
+            retry_on_timeout=True,
         )
 
         while not self._es_client.ping():
             time.sleep(1)
 
-        self._es_client.cluster.health(wait_for_status="green")
+        while True:
+            cluster_health = self._es_client.cluster.health(wait_for_status="green")
+            if "status" in cluster_health and cluster_health["status"] == "green":
+                break
+
+            time.sleep(1)
 
         self._source_queue_info = testutil.create_sqs_queue("source-queue")
         self._continuing_queue_info = testutil.create_sqs_queue("continuing-queue")
+        self._replay_queue_info = testutil.create_sqs_queue("replay-queue")
 
         self._config_yaml: str = f"""
         inputs:
@@ -714,14 +712,15 @@ class TestLambdaHandlerSuccess(TestCase):
             key_name="folder/config.yaml",
         )
 
-        cw_log: bytes = (
+        cloudwatch_log: bytes = (
             '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}\n'
-            + '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": '
-            + '{"line": 30, "name": "handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}'
+            '{"ecs": {"version": "1.6.0"}, "log": {"logger": '
+            '"root", "origin": {"file": {"line": 30, "name": "handler.py"}, "function": "lambda_handler"}, '
+            '"original": "trigger"}}'
         ).encode("UTF-8")
 
         self._upload_content_to_bucket(
-            content=gzip.compress(cw_log),
+            content=gzip.compress(cloudwatch_log),
             content_type="application/x-gzip",
             bucket_name="test-bucket",
             key_name="exportedlogs/uuid/yyyy-mm-dd-[$LATEST]hash/000000.gz",
@@ -729,6 +728,7 @@ class TestLambdaHandlerSuccess(TestCase):
 
         os.environ["S3_CONFIG_FILE"] = "s3://config-bucket/folder/config.yaml"
         os.environ["SQS_CONTINUE_URL"] = self._continuing_queue_info["QueueUrl"]
+        os.environ["SQS_REPLAY_URL"] = self._replay_queue_info["QueueUrl"]
 
     def tearDown(self) -> None:
         os.environ["TEST_S3_URL"] = self._TEST_S3_URL
@@ -736,6 +736,7 @@ class TestLambdaHandlerSuccess(TestCase):
 
         del os.environ["S3_CONFIG_FILE"]
         del os.environ["SQS_CONTINUE_URL"]
+        del os.environ["SQS_REPLAY_URL"]
 
         self._elastic_container.stop()
         self._elastic_container.remove()
@@ -743,10 +744,152 @@ class TestLambdaHandlerSuccess(TestCase):
         self._localstack_container.stop()
         self._localstack_container.remove()
 
-    def test_lambda_handler(self) -> None:
+    @mock.patch("handlers.aws.handler._completion_grace_period", 1)
+    def test_lambda_handler_replay(self) -> None:
         filename: str = "exportedlogs/uuid/yyyy-mm-dd-[$LATEST]hash/000000.gz"
         with mock.patch("storage.S3Storage._s3_client", aws_stack.connect_to_service("s3")):
-            with mock.patch("handlers.aws.sqs_trigger._get_sqs_client", lambda: aws_stack.connect_to_service("sqs")):
+            with mock.patch("handlers.aws.replay.get_sqs_client", lambda: aws_stack.connect_to_service("sqs")):
+                with mock.patch(
+                    "share.secretsmanager._get_aws_sm_client",
+                    lambda region_name: aws_stack.connect_to_service(
+                        "secretsmanager",
+                        endpoint_url=f"http://localhost:{self._LOCALSTACK_HOST_PORT}",
+                        region_name=region_name,
+                    ),
+                ):
+
+                    ctx = ContextMock(remaining_time_in_millis=2)
+                    event = {
+                        "Records": [
+                            {
+                                "messageId": "9b745861-1171-489c-9748-799ed2a3d9da",
+                                "body": json.dumps(
+                                    {
+                                        "Records": [
+                                            {
+                                                "eventVersion": "2.1",
+                                                "eventSource": "aws:s3",
+                                                "awsRegion": "eu-central-1",
+                                                "eventTime": "2021-09-08T18:34:25.042Z",
+                                                "eventName": "ObjectCreated:Put",
+                                                "s3": {
+                                                    "s3SchemaVersion": "1.0",
+                                                    "configurationId": "test-bucket",
+                                                    "bucket": {
+                                                        "name": "test-bucket",
+                                                        "arn": "arn:aws:s3:::test-bucket",
+                                                    },
+                                                    "object": {
+                                                        "key": f"{filename}",
+                                                    },
+                                                },
+                                            }
+                                        ]
+                                    }
+                                ),
+                                "eventSource": "aws:sqs",
+                                "eventSourceARN": self._source_queue_info["QueueArn"],
+                            },
+                        ]
+                    }
+
+                    # Create an expected id so that es.send will fail
+                    self._es_client.index(
+                        index="logs-aws.cloudwatch_logs-default",
+                        op_type="create",
+                        id="e69eaefedb-000000000000",
+                        document={"@timestamp": datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
+                    )
+                    self._es_client.indices.refresh(index="logs-aws.cloudwatch_logs-default")
+
+                    first_call = handler(event, ctx)  # type:ignore
+
+                    assert first_call == "completed"
+
+                    # Remove the expected id so that it can be replayed
+                    self._es_client.delete_by_query(
+                        index="logs-aws.cloudwatch_logs-default",
+                        body={"query": {"match": {"_id": "e69eaefedb-000000000000"}}},
+                    )
+                    self._es_client.indices.refresh(index="logs-aws.cloudwatch_logs-default")
+
+                    assert self._es_client.count(index="logs-aws.cloudwatch_logs-default")["count"] == 1
+
+                    res = self._es_client.search(index="logs-aws.cloudwatch_logs-default", sort="_seq_no")
+                    assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
+
+                    assert (
+                        res["hits"]["hits"][0]["_source"]["fields"]["message"]
+                        == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": {"line": 30, '
+                        '"name": "handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}'
+                    )
+
+                    assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
+                        "offset": 86,
+                        "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
+                    }
+                    assert res["hits"]["hits"][0]["_source"]["fields"]["aws"] == {
+                        "s3": {
+                            "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
+                            "object": {"key": f"{filename}"},
+                        }
+                    }
+                    assert res["hits"]["hits"][0]["_source"]["fields"]["cloud"] == {
+                        "provider": "aws",
+                        "region": "eu-central-1",
+                    }
+
+                    assert res["hits"]["hits"][0]["_source"]["tags"] == [
+                        "preserve_original_event",
+                        "forwarded",
+                        "aws-cloudwatch_logs",
+                        "tag1",
+                        "tag2",
+                        "tag3",
+                    ]
+
+                    event = self._event_from_sqs_message(self._replay_queue_info["QueueUrl"], False)
+                    second_call = handler(event, ctx)  # type:ignore
+
+                    assert second_call == "replayed"
+
+                    self._es_client.indices.refresh(index="logs-aws.cloudwatch_logs-default")
+                    assert self._es_client.count(index="logs-aws.cloudwatch_logs-default")["count"] == 2
+
+                    res = self._es_client.search(index="logs-aws.cloudwatch_logs-default", sort="_seq_no")
+                    assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
+                    assert (
+                        res["hits"]["hits"][1]["_source"]["fields"]["message"]
+                        == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}'
+                    )
+                    assert res["hits"]["hits"][1]["_source"]["fields"]["log"] == {
+                        "offset": 0,
+                        "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
+                    }
+                    assert res["hits"]["hits"][1]["_source"]["fields"]["aws"] == {
+                        "s3": {
+                            "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
+                            "object": {"key": f"{filename}"},
+                        }
+                    }
+                    assert res["hits"]["hits"][1]["_source"]["fields"]["cloud"] == {
+                        "provider": "aws",
+                        "region": "eu-central-1",
+                    }
+
+                    assert res["hits"]["hits"][1]["_source"]["tags"] == [
+                        "preserve_original_event",
+                        "forwarded",
+                        "aws-cloudwatch_logs",
+                        "tag1",
+                        "tag2",
+                        "tag3",
+                    ]
+
+    def test_lambda_handler_continuing(self) -> None:
+        filename: str = "exportedlogs/uuid/yyyy-mm-dd-[$LATEST]hash/000000.gz"
+        with mock.patch("storage.S3Storage._s3_client", aws_stack.connect_to_service("s3")):
+            with mock.patch("handlers.aws.sqs_trigger.get_sqs_client", lambda: aws_stack.connect_to_service("sqs")):
                 with mock.patch(
                     "share.secretsmanager._get_aws_sm_client",
                     lambda region_name: aws_stack.connect_to_service(
@@ -797,7 +940,7 @@ class TestLambdaHandlerSuccess(TestCase):
                     self._es_client.indices.refresh(index="logs-aws.cloudwatch_logs-default")
                     assert self._es_client.count(index="logs-aws.cloudwatch_logs-default")["count"] == 1
 
-                    res = self._es_client.search(index="logs-aws.cloudwatch_logs-default")
+                    res = self._es_client.search(index="logs-aws.cloudwatch_logs-default", sort="_seq_no")
                     assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
                     assert (
                         res["hits"]["hits"][0]["_source"]["fields"]["message"]
@@ -827,7 +970,7 @@ class TestLambdaHandlerSuccess(TestCase):
                         "tag3",
                     ]
 
-                    event = self._event_from_sqs_message()
+                    event = self._event_from_sqs_message(queue_url=self._continuing_queue_info["QueueUrl"])
                     second_call = handler(event, ctx)  # type:ignore
 
                     assert second_call == "continuing"
@@ -835,12 +978,13 @@ class TestLambdaHandlerSuccess(TestCase):
                     self._es_client.indices.refresh(index="logs-aws.cloudwatch_logs-default")
                     assert self._es_client.count(index="logs-aws.cloudwatch_logs-default")["count"] == 2
 
-                    res = self._es_client.search(index="logs-aws.cloudwatch_logs-default")
+                    res = self._es_client.search(index="logs-aws.cloudwatch_logs-default", sort="_seq_no")
                     assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
+
                     assert (
                         res["hits"]["hits"][1]["_source"]["fields"]["message"]
-                        == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": '
-                        '{"line": 30, "name": "handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}'
+                        == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": {"line": 30, '
+                        '"name": "handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}'
                     )
 
                     assert res["hits"]["hits"][1]["_source"]["fields"]["log"] == {
@@ -858,7 +1002,16 @@ class TestLambdaHandlerSuccess(TestCase):
                         "region": "eu-central-1",
                     }
 
-                    event = self._event_from_sqs_message()
+                    assert res["hits"]["hits"][1]["_source"]["tags"] == [
+                        "preserve_original_event",
+                        "forwarded",
+                        "aws-cloudwatch_logs",
+                        "tag1",
+                        "tag2",
+                        "tag3",
+                    ]
+
+                    event = self._event_from_sqs_message(queue_url=self._continuing_queue_info["QueueUrl"])
                     third_call = handler(event, ctx)  # type:ignore
 
                     assert third_call == "completed"

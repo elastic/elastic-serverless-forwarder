@@ -4,7 +4,7 @@
 
 import hashlib
 import json
-from typing import Any, Dict
+from typing import Any, Dict, Optional, Union
 
 import elasticapm  # noqa: F401
 from elasticsearch import Elasticsearch
@@ -12,7 +12,7 @@ from elasticsearch.helpers import bulk as es_bulk
 
 from share import shared_logger
 
-from .shipper import CommonShipper
+from .shipper import CommonShipper, ReplayHandlerCallable
 
 
 class ElasticsearchShipper(CommonShipper):
@@ -39,7 +39,7 @@ class ElasticsearchShipper(CommonShipper):
 
         self._bulk_kwargs: dict[str, Any] = {
             "max_retries": 10,
-            "stats_only": True,
+            "stats_only": False,
             "raise_on_error": False,
             "raise_on_exception": False,
         }
@@ -60,13 +60,17 @@ class ElasticsearchShipper(CommonShipper):
         else:
             raise ValueError("You must provide one between username and password or api_key")
 
+        self._replay_args: dict[str, Any] = {}
+
         self._es_client = self._elasticsearch_client(**es_client_kwargs)
+        self._replay_handler: Optional[ReplayHandlerCallable] = None
 
         self._dataset = dataset
         self._namespace = namespace
         self._tags = tags
 
-    def _elasticsearch_client(self, **es_client_kwargs: Any) -> Elasticsearch:
+    @staticmethod
+    def _elasticsearch_client(**es_client_kwargs: Any) -> Elasticsearch:
         """
         Getter for elasticsearch client
         Extracted for mocking
@@ -109,41 +113,64 @@ class ElasticsearchShipper(CommonShipper):
 
         event_payload["tags"] = ["preserve_original_event", "forwarded", self._dataset.replace(".", "-")] + self._tags
 
-    @staticmethod
-    def _log_outcome(success: int, failed: int) -> None:
+    def _handle_outcome(self, errors: tuple[int, Union[int, list[Any]]]) -> None:
+        assert isinstance(errors[1], list)
+
+        success = errors[0]
+        failed = len(errors[1])
+        for error in errors[1]:
+            action_failed = [action for action in self._bulk_actions if action["_id"] == error["create"]["_id"]]
+            assert len(action_failed) == 1
+            assert self._replay_handler is not None
+            self._replay_handler("elasticsearch", self._replay_args, action_failed[0])
+
         if failed > 0:
             shared_logger.error("elasticsearch shipper", extra={"success": success, "failed": failed})
             return
 
         shared_logger.info("elasticsearch shipper", extra={"success": success, "failed": failed})
 
+        return
+
+    def set_replay_handler(self, replay_handler: ReplayHandlerCallable) -> None:
+        self._replay_handler = replay_handler
+
     def send(self, event: dict[str, Any]) -> Any:
+        self._replay_args["dataset"] = self._dataset
+
         self._enrich_event(event_payload=event)
 
         if not hasattr(self, "_es_index") or self._es_index == "":
             raise ValueError("Elasticsearch index cannot be empty")
 
         event["_op_type"] = "create"
-        event["_index"] = self._es_index
-        event["_id"] = self._s3_object_id(event)
+
+        if "_index" not in event:
+            event["_index"] = self._es_index
+
+        if "_id" not in event:
+            # TODO: leaking concrete storage in shipper, refactor to use an abstract callback
+            event["_id"] = self._s3_object_id(event)
+
         self._bulk_actions.append(event)
 
         if len(self._bulk_actions) < self._bulk_batch_size:
             return
 
-        success, failed = es_bulk(self._es_client, self._bulk_actions, **self._bulk_kwargs)
-        assert isinstance(failed, int)
-        self._log_outcome(success=success, failed=failed)
-
+        errors = es_bulk(self._es_client, self._bulk_actions, **self._bulk_kwargs)
+        self._handle_outcome(errors=errors)
         self._bulk_actions = []
+
+        return
 
     def flush(self) -> Any:
         if len(self._bulk_actions) > 0:
-            success, failed = es_bulk(self._es_client, self._bulk_actions, **self._bulk_kwargs)
-            assert isinstance(failed, int)
-            self._log_outcome(success=success, failed=failed)
+            errors = es_bulk(self._es_client, self._bulk_actions, **self._bulk_kwargs)
+            self._handle_outcome(errors=errors)
 
         self._bulk_actions = []
+
+        return
 
     def discover_dataset(self, event: Dict[str, Any]) -> None:
         if self._dataset == "":

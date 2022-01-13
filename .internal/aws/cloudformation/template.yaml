@@ -19,6 +19,19 @@ Resources:
       QueueName: !Join [ "-", ["elastic-serverless-forwarder-continuing-queue", !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
       RedrivePolicy: { "deadLetterTargetArn" : !GetAtt ElasticServerlessForwarderContinuingDLQ.Arn, "maxReceiveCount" : 1 }
       VisibilityTimeout: 910
+  ElasticServerlessForwarderReplayDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      DelaySeconds: 0
+      QueueName: !Join [ "-", ["elastic-serverless-forwarder-replay-dlq", !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
+      VisibilityTimeout: 910
+  ElasticServerlessForwarderReplayQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      DelaySeconds: 0
+      QueueName: !Join [ "-", ["elastic-serverless-forwarder-replay-queue", !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
+      RedrivePolicy: { "deadLetterTargetArn" : !GetAtt ElasticServerlessForwarderReplayDLQ.Arn, "maxReceiveCount" : 3 }
+      VisibilityTimeout: 910
   ElasticServerlessForwarderFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -33,6 +46,7 @@ Resources:
       Environment:
           Variables:
               SQS_CONTINUE_URL: !Ref ElasticServerlessForwarderContinuingQueue
+              SQS_REPLAY_URL: !Ref ElasticServerlessForwarderReplayQueue
       Events:
         SQSEvent:
           Type: SQS

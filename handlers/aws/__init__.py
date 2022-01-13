@@ -3,4 +3,4 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 from .handler import lambda_handler
-from .utils import ConfigFileException, TriggerTypeException
+from .utils import ConfigFileException, TriggerTypeException, get_sqs_client

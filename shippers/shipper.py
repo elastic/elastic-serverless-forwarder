@@ -3,7 +3,9 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 from abc import ABCMeta, abstractmethod
-from typing import Any, TypeVar
+from typing import Any, Callable, TypeVar
+
+ReplayHandlerCallable = Callable[[str, dict[str, Any], dict[str, Any]], None]
 
 
 class CommonShipper(metaclass=ABCMeta):
@@ -19,6 +21,14 @@ class CommonShipper(metaclass=ABCMeta):
     def send(self, event: dict[str, Any]) -> Any:
         """
         Interface for sending the event by the shipper
+        """
+
+        raise NotImplementedError
+
+    @abstractmethod
+    def set_replay_handler(self, replay_handler: ReplayHandlerCallable) -> None:
+        """
+        Interface for setting the replay handler of the shipper
         """
 
         raise NotImplementedError
