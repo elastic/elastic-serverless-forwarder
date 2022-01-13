@@ -656,6 +656,7 @@ class TestLambdaHandlerSuccess(TestCase):
                 "xpack.security.enabled=true",
                 "discovery.type=single-node",
                 "network.bind_host=0.0.0.0",
+                "logger.org.elasticsearch=DEBUG",
             ],
             ports={"9200/tcp": None},
         )
