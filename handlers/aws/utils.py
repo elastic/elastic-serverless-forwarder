@@ -14,7 +14,7 @@ from elasticapm.contrib.serverless.aws import capture_serverless as apm_capture_
 from share import shared_logger
 from storage import CommonStorage, StorageFactory
 
-_available_triggers: dict[str, str] = {"aws:sqs": "sqs"}
+_available_triggers: dict[str, str] = {"aws:sqs": "s3-sqs"}
 
 CONFIG_FROM_PAYLOAD: str = "CONFIG_FROM_PAYLOAD"
 CONFIG_FROM_S3FILE: str = "CONFIG_FROM_S3FILE"
@@ -193,7 +193,7 @@ def get_trigger_type_and_config_source(event: dict[str, Any]) -> tuple[str, str]
         raise Exception("Not supported trigger")
 
     trigger_type = _available_triggers[event_source]
-    if trigger_type != "sqs":
+    if trigger_type != "s3-sqs":
         return trigger_type, CONFIG_FROM_S3FILE
 
     if "messageAttributes" not in event["Records"][0]:
@@ -202,4 +202,4 @@ def get_trigger_type_and_config_source(event: dict[str, Any]) -> tuple[str, str]
     if "originalEventSource" not in event["Records"][0]["messageAttributes"]:
         return trigger_type, CONFIG_FROM_S3FILE
 
-    return "self_sqs", CONFIG_FROM_PAYLOAD
+    return "s3-sqs", CONFIG_FROM_PAYLOAD
