@@ -669,6 +669,9 @@ class TestLambdaHandlerSuccess(TestCase):
             hosts=[f"127.0.0.1:{self._ES_HOST_PORT}"],
             scheme="http",
             http_auth=(self._ELASTIC_USER, self._ELASTIC_PASSWORD),
+            timeout=30,
+            max_retries=10,
+            retry_on_timeout=True,
         )
 
         while not self._es_client.ping():
