@@ -1,4 +1,4 @@
-### v0.17.0 - 2022/01/13
+### v0.18.0 - 2022/01/13
 ##### Features
 * Handle batches of SQS records: [#63](https://github.com/elastic/elastic-serverless-forwarder/pull/63)
 
