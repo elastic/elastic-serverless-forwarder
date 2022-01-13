@@ -17,7 +17,25 @@ from .event import _default_event
 from .utils import get_bucket_name_from_arn, get_sqs_client
 
 
+def _delete_sqs_record(sqs_arn: str, receipt_handle: str) -> None:
+    """
+    Sqs records can be batched, we should delete the successful one:
+    otherwise if a failure happens the whole batch will go back to the queue
+    """
+    arn_components = sqs_arn.split(":")
+    account_id = arn_components[4]
+    queue_name = arn_components[5]
+
+    sqs_client = get_sqs_client()
+
+    queue_url = sqs_client.get_queue_url(QueueName=queue_name, QueueOwnerAWSAccountId=account_id)["QueueUrl"]
+    sqs_client.delete_message(QueueUrl=queue_url, ReceiptHandle=receipt_handle)
+
+    shared_logger.info("delete processed sqs message", extra={"queue_url": queue_url})
+
+
 def _handle_sqs_continuation(
+    trigger_event_source_arn: str,
     sqs_continuing_queue: str,
     lambda_event: dict[str, Any],
     event_input_id: str,
@@ -52,6 +70,8 @@ def _handle_sqs_continuation(
             },
         )
 
+        _delete_sqs_record(trigger_event_source_arn, sqs_record["receiptHandle"])
+
         shared_logger.debug(
             "continuing", extra={"sqs_continuing_queue": sqs_continuing_queue, "body": sqs_record["body"]}
         )
@@ -66,7 +86,7 @@ def _handle_sqs_event(config: Config, event: dict[str, Any]) -> Iterator[tuple[d
     timeout of the lambda it will call the sqs continuing handler
     """
     for sqs_record_n, sqs_record in enumerate(event["Records"]):
-        event_input = config.get_input_by_type_and_id("sqs", sqs_record["eventSourceARN"])
+        event_input = config.get_input_by_type_and_id("s3-sqs", sqs_record["eventSourceARN"])
         if not event_input:
             return None
 
