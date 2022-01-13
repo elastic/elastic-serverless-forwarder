@@ -656,7 +656,6 @@ class TestLambdaHandlerSuccess(TestCase):
                 "xpack.security.enabled=true",
                 "discovery.type=single-node",
                 "network.bind_host=0.0.0.0",
-                "logger.org.elasticsearch.*=DEBUG",
             ],
             ports={"9200/tcp": None},
         )
@@ -674,7 +673,12 @@ class TestLambdaHandlerSuccess(TestCase):
         while not self._es_client.ping():
             time.sleep(1)
 
-        self._es_client.cluster.health(wait_for_status="green")
+        while True:
+            cluster_health = self._es_client.cluster.health(wait_for_status="green")
+            if "status" in cluster_health and cluster_health["status"] == "green":
+                break
+
+            time.sleep(1)
 
         self._source_queue_info = testutil.create_sqs_queue("source-queue")
         self._continuing_queue_info = testutil.create_sqs_queue("continuing-queue")
