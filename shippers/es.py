@@ -77,7 +77,7 @@ class ElasticsearchShipper(CommonShipper):
         Extracted for mocking
         """
 
-        es_client_kwargs["timeout"] = urllib3.Timeout(connect=1.0, read=999.0)
+        es_client_kwargs["timeout"] = urllib3.Timeout(connect=10.0, read=999.0)
         es_client_kwargs["max_retries"] = 10
         es_client_kwargs["retry_on_timeout"] = True
         return Elasticsearch(**es_client_kwargs)
