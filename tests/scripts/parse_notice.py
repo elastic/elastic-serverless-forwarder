@@ -4,72 +4,102 @@
 
 import json
 import re
+import sys
 from datetime import datetime
+from typing import Any
 
 import requests
 from requests import Response
 
 
 class NoticeParser:
-    def __init__(self, requirement_files, scanned_json_file):
-        self.requirement_files = requirement_files
-        self.scanned_json_file = scanned_json_file
-        self.processed_modules = {}
-        self.required_modules = {}
-        self.notice_file_name = "NOTICE.txt"
+    POSSIBLE_LICENSE_FILES: list[str] = [
+        "LICENSE",
+        "LICENSE.txt",
+        "LICENSE.srt",
+        "apache-2.0.LICENSE",
+        "apache-2.0.LICENSE.txt",
+    ]
+    POSSIBLE_METADATA_FILES: list[str] = ["METADATA", "METADATA.txt"]
+
+    def __init__(self, requirement_files: list[str], scanned_json_file: str) -> None:
+        self.requirement_files: list[str] = requirement_files
+        self.scanned_json_file: str = scanned_json_file
+        self.processed_packages: dict[str, dict[str, str]] = {}
+        self.required_packages: dict[str, str] = {}
+        self.notice_file_name: str = "NOTICE.txt"
 
         self.read_requirements()
 
         scanned_results_data = self.read_content_from_file(self.scanned_json_file)
-        self.scanned_results_json = json.loads(scanned_results_data)
+        self.scanned_results_json: Any = json.loads(scanned_results_data)
 
-        notice_file_content = self.read_content_from_file("NOTICE.txt")
-        module_pattern = r"(?:Module: ([^\n]+))"
-        found_requirement_modules = re.findall(module_pattern, notice_file_content)
-        found_requirement_modules.sort()
+        notice_file_content: str = self.read_content_from_file("NOTICE.txt")
 
-        original_requirement_names = [requirement for requirement in self.required_modules.values()]
-        original_requirement_names.sort()
+        package_pattern = r"(?:Package: ([^\n]+))"
+        existing_packages: list[str] = re.findall(package_pattern, notice_file_content)
+        existing_packages.sort()
 
-        if original_requirement_names == found_requirement_modules:
-            raise ValueError("There is no new package listed in the requirements files\n")
+        requirements_name_from_file = [requirement for requirement in self.required_packages.keys()]
+        requirements_name_from_file.sort()
 
-        for new_module in original_requirement_names:
-            if new_module not in found_requirement_modules and new_module.isascii():
-                print(f"New module found: {new_module}\n")
-                self.process_module(required_module=new_module)
-                self.verify_license_in_modules()
-                self.write_to_file(self.processed_modules[new_module])
+        real_requirements_name = [requirement for requirement in self.required_packages.values()]
+        real_requirements_name.sort()
 
-    def process_module(self, required_module):
+        if real_requirements_name == existing_packages:
+            print("There is no new package listed in the requirements files\n")
+            sys.exit()
+
+        for new_package in requirements_name_from_file:
+            if self.required_packages[new_package] not in existing_packages:
+
+                print(f"New package found: {new_package}")
+                self.process_package(required_package=new_package)
+                self.verify_license_in_packages()
+
+                processed_package = self.processed_packages.get(new_package)
+
+                if not processed_package:
+                    print(f"Nothing has been found for package {new_package} in the scanned file\n")
+                    continue
+
+                if (
+                    "package_name" not in processed_package
+                    or "version" not in processed_package
+                    or "homepage_url" not in processed_package
+                    or "license_name" not in processed_package
+                    or "license_path" not in processed_package
+                    or "license_content" not in processed_package
+                ):
+                    print(f"Missing data for {new_package}. Skipping...\n")
+                    continue
+
+                self.write_to_file(processed_package)
+                print(f"Package {new_package} has been added to {self.notice_file_name}\n")
+
+    def process_package(self, required_package: str) -> None:
         for entry in self.scanned_results_json["files"]:
-            if (
-                entry["path"].endswith("LICENSE")
-                or entry["path"].endswith("LICENSE.txt")
-                or entry["path"].endswith("METADATA")
-                or entry["path"].endswith("METADATA.txt")
-            ) and len(entry["licenses"]) > 0:
-                splitted_entry_path: list[str] = entry["path"].split("/")
+            splitted_entry_path: list[str] = entry["path"].split("/")
 
+            if (
+                splitted_entry_path[-1] in NoticeParser.POSSIBLE_LICENSE_FILES
+                or splitted_entry_path[-1] in NoticeParser.POSSIBLE_METADATA_FILES
+                and len(entry["licenses"]) > 0
+            ):
                 if not len(splitted_entry_path) > 6:
                     continue
 
-                module_name = splitted_entry_path[5].split("-")[0]
+                package_name = splitted_entry_path[5].split("-")[0]
 
-                if module_name == required_module:
-                    if module_name not in self.processed_modules:
-                        self.processed_modules[module_name] = {}
+                if package_name == required_package:
+                    if package_name not in self.processed_packages:
+                        self.processed_packages[package_name] = {}
+                        self.processed_packages[package_name]["license_name"] = entry["licenses"][0]["key"].upper()
+                        self.processed_packages[package_name]["package_name"] = self.required_packages[required_package]
 
-                        self.processed_modules[module_name]["license_name"] = entry["licenses"][0]["key"].upper()
-
-                        license_path: str = entry["path"][29:]
-                        self.processed_modules[module_name]["license_path"] = license_path
-
-                        self.processed_modules[module_name]["module_name"] = self.required_modules[required_module]
-
-                    if "METADATA" in splitted_entry_path[-1]:
-                        module_version: str = splitted_entry_path[5].split("-")[1].strip(".dist")
-                        self.processed_modules[module_name]["version"] = module_version
+                    if splitted_entry_path[-1] in NoticeParser.POSSIBLE_METADATA_FILES:
+                        package_version: str = splitted_entry_path[5].split("-")[1].strip(".dist")
+                        self.processed_packages[package_name]["version"] = package_version
 
                         homepage_url: str = entry["packages"][0]["homepage_url"]
                         vcs_url: str = entry["packages"][0]["vcs_url"]
@@ -77,13 +107,14 @@ class NoticeParser:
                         if "github" not in homepage_url and vcs_url and "github" in vcs_url:
                             homepage_url = vcs_url.split(" ")[-1]
 
-                        self.processed_modules[module_name]["homepage_url"] = homepage_url
+                        self.processed_packages[package_name]["homepage_url"] = homepage_url
 
-                    if "LICENSE" in splitted_entry_path[-1]:
+                    if splitted_entry_path[-1] in NoticeParser.POSSIBLE_LICENSE_FILES:
+                        license_path: str = entry["path"][29:]
+                        self.processed_packages[package_name]["license_path"] = license_path
+
                         license_content: str = self.read_content_from_file(license_file_path=license_path)
-                        self.processed_modules[module_name]["license_content"] = license_content
-        else:
-            raise ValueError(f"Nothing has been found for module '{required_module}' in the scanned file\n")
+                        self.processed_packages[package_name]["license_content"] = license_content
 
     @staticmethod
     def read_content_from_file(license_file_path: str) -> str:
@@ -98,20 +129,20 @@ class NoticeParser:
                 req_data: list[str] = fh.readlines()
 
                 for original_requirement in req_data:
-                    module_name: str = original_requirement.split("=")[0].strip(">").strip("\n").replace("-", "_")
+                    package_name: str = original_requirement.split("=")[0].strip(">").strip("\n").replace("-", "_")
 
-                    if module_name not in self.required_modules:
-                        if "[" and "]" in module_name:
-                            module_name: str = module_name.split("[")[0]
+                    if package_name not in self.required_packages:
+                        if "[" and "]" in package_name:
+                            package_name = package_name.split("[")[0]
 
-                        self.required_modules[module_name] = original_requirement.split("=")[0].strip(">").strip("\n")
+                        self.required_packages[package_name] = original_requirement.split("=")[0].strip(">").strip("\n")
 
-    def verify_license_in_modules(self) -> None:
-        for processed_module in self.processed_modules:
-            if "license_content" not in self.processed_modules[processed_module]:
+    def verify_license_in_packages(self) -> None:
+        for processed_package in self.processed_packages:
+            if "license_content" not in self.processed_packages[processed_package]:
                 try:
                     raw_github_base_url: str = "https://raw.githubusercontent.com"
-                    homepage_url: str = self.processed_modules[processed_module]["homepage_url"]
+                    homepage_url: str = self.processed_packages[processed_package]["homepage_url"]
 
                     github_project: str = "/".join(homepage_url.split("/")[3:])
                     github_license_pages: list[str] = [
@@ -125,44 +156,36 @@ class NoticeParser:
                         response: Response = requests.get(github_page)
 
                         if response.status_code == 200:
-                            self.processed_modules[processed_module]["license_content"] = response.text
-                            self.processed_modules[processed_module]["license_path"] = github_page
+                            self.processed_packages[processed_package]["license_content"] = response.text
+                            self.processed_packages[processed_package]["license_path"] = github_page
                             break
 
                 except Exception as e:
                     print(e)
-                    self.processed_modules[processed_module]["license_content"] = ""
+                    self.processed_packages[processed_package]["license_content"] = ""
 
-    def write_to_file(self, module_data: dict[str, str]) -> None:
+    def write_to_file(self, package_data: dict[str, str]) -> None:
         with open(self.notice_file_name, "a+") as fh:
-            fh.write(f"Module: {module_data['module_name']}")
-            fh.write("\n")
-            fh.write(f"Version: {module_data['version']}")
-            fh.write("\n")
-            fh.write(f"Homepage: {module_data['homepage_url']}")
-            fh.write("\n")
-            fh.write(f"Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}")
-            fh.write("\n")
-            fh.write(f"License: {module_data['license_name']}")
-            fh.write("\n" * 2)
-            fh.write(f"Contents of probable licence file {module_data['license_path']}: \n")
-            fh.write("\n")
-            fh.write(module_data["license_content"])
             fh.write("\n" * 2)
             fh.write("-" * 100)
             fh.write("\n")
+            fh.write(f"Package: {package_data['package_name']}")
+            fh.write("\n")
+            fh.write(f"Version: {package_data['version']}")
+            fh.write("\n")
+            fh.write(f"Homepage: {package_data['homepage_url']}")
+            fh.write("\n")
+            fh.write(f"Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}")
+            fh.write("\n")
+            fh.write(f"License: {package_data['license_name']}")
+            fh.write("\n" * 2)
+            fh.write(f"Contents of probable licence file {package_data['license_path']}: \n")
+            fh.write("\n")
+            fh.write(package_data["license_content"])
 
 
 if __name__ == "__main__":
     requirements_list: list[str] = ["requirements.txt", "requirements-lint.txt", "requirements-tests.txt"]
     scanned_file_name: str = "NOTICE.json"
+
     np = NoticeParser(requirement_files=requirements_list, scanned_json_file=scanned_file_name)
-
-    for module in np.required_modules:
-        np.process_module(required_module=module)
-
-    np.verify_license_in_modules()
-
-    for module in np.processed_modules:
-        np.write_to_file(module_data=np.processed_modules[module])
-
