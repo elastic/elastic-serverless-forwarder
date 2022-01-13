@@ -69,8 +69,11 @@ docker-mypy: mypy
 license:  ## Run license validation in the project
 	tests/scripts/license_headers_check.sh check
 
-notice:
+notice: ## Creates NOTICE.txt file
 	python3 tests/scripts/parse_notice.py
+
+scancode: ## Scans the project for license files
+	grep -c ^processor /proc/cpuinfo | xargs -I{} scancode -clpi -n {} --ignore "*.py" --json-pp NOTICE.json .
 
 all-requirements: requirements requirements-lint requirements-tests  ## Install all requirements on the host
 
