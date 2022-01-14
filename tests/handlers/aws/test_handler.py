@@ -109,6 +109,7 @@ class TestLambdaHandlerFailure(TestCase):
             "Records": [
                 {
                     "eventSource": "aws:sqs",
+                    "eventSourceARN": "arn:aws:sqs",
                 },
             ]
         }
@@ -181,7 +182,7 @@ class TestLambdaHandlerFailure(TestCase):
                 ctx = ContextMock()
                 config_yml: str = """
                     inputs:
-                      - type: "sqs"
+                      - type: "s3-sqs"
                         id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret:THIS:IS:INVALID"
                         outputs:
                           - type: "elasticsearch"
@@ -206,7 +207,7 @@ class TestLambdaHandlerFailure(TestCase):
                 # BEWARE region is empty at id
                 config_yml = """
                     inputs:
-                      - type: "sqs"
+                      - type: "s3-sqs"
                         id: "arn:aws:secretsmanager::123-456-789:secret:plain_secret"
                         outputs:
                           - type: "elasticsearch"
@@ -233,7 +234,7 @@ class TestLambdaHandlerFailure(TestCase):
                 # BEWARE empty secrets manager name at id
                 config_yml = """
                     inputs:
-                      - type: "sqs"
+                      - type: "s3-sqs"
                         id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:"
                         outputs:
                           - type: "elasticsearch"
@@ -260,7 +261,7 @@ class TestLambdaHandlerFailure(TestCase):
                 # BEWARE using es_secrets plain text for elasticsearch_url and es_secrets:username for username
                 config_yml = """
                     inputs:
-                      - type: "sqs"
+                      - type: "s3-sqs"
                         id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secrets"
                         outputs:
                           - type: "elasticsearch"
@@ -288,7 +289,7 @@ class TestLambdaHandlerFailure(TestCase):
                 # BEWARE empty key at elasticsearch_url
                 config_yml = """
                     inputs:
-                      - type: "sqs"
+                      - type: "s3-sqs"
                         id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret"
                         outputs:
                           - type: "elasticsearch"
@@ -314,7 +315,7 @@ class TestLambdaHandlerFailure(TestCase):
                 ctx = ContextMock()
                 config_yml = """
                     inputs:
-                      - type: "sqs"
+                      - type: "s3-sqs"
                         id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:DOES_NOT_EXIST"
                         outputs:
                           - type: "elasticsearch"
@@ -341,7 +342,7 @@ class TestLambdaHandlerFailure(TestCase):
                 ctx = ContextMock()
                 config_yml = """
                     inputs:
-                      - type: "sqs"
+                      - type: "s3-sqs"
                         id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:empty_secret"
                         outputs:
                           - type: "elasticsearch"
@@ -368,7 +369,7 @@ class TestLambdaHandlerFailure(TestCase):
                 ctx = ContextMock()
                 config_yml = """
                     inputs:
-                      - type: "sqs"
+                      - type: "s3-sqs"
                         id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:empty"
                         outputs:
                           - type: "elasticsearch"
@@ -395,7 +396,7 @@ class TestLambdaHandlerFailure(TestCase):
                 ctx = ContextMock()
                 config_yml = """
                     inputs:
-                      - type: "sqs"
+                      - type: "s3-sqs"
                         id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret:SHOULD_NOT_HAVE_A_KEY"
                         outputs:
                           - type: "elasticsearch"
@@ -422,7 +423,7 @@ class TestLambdaHandlerFailure(TestCase):
                 ctx = ContextMock()
                 config_yml = """
                     inputs:
-                      - type: "sqs"
+                      - type: "s3-sqs"
                         id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:I_DO_NOT_EXIST"
                         outputs:
                           - type: "elasticsearch"
@@ -449,7 +450,7 @@ class TestLambdaHandlerFailure(TestCase):
                 ctx = ContextMock()
                 config_yml = """
                     inputs:
-                      - type: "sqs"
+                      - type: "s3-sqs"
                         id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret_not_str_byte"
                         outputs:
                           - type: "elasticsearch"
@@ -475,7 +476,7 @@ class TestLambdaHandlerFailure(TestCase):
                 ctx = ContextMock()
                 config_yml = """
                     inputs:
-                      - type: "sqs"
+                      - type: "s3-sqs"
                         id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret_not_str_int"
                         outputs:
                           - type: "elasticsearch"
@@ -497,7 +498,7 @@ class TestLambdaHandlerFailure(TestCase):
                 ctx = ContextMock()
                 config_yml = """
                     inputs:
-                      - type: "sqs"
+                      - type: "s3-sqs"
                         id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret"
                         tags: "tag1"
                         outputs:
@@ -522,7 +523,7 @@ class TestLambdaHandlerFailure(TestCase):
                 ctx = ContextMock()
                 config_yml = """
                     inputs:
-                      - type: "sqs"
+                      - type: "s3-sqs"
                         id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret"
                         tags:
                           - "tag1"
@@ -546,26 +547,65 @@ class TestLambdaHandlerFailure(TestCase):
 
 @pytest.mark.integration
 class TestLambdaHandlerSuccess(TestCase):
-    def _event_from_sqs_message(self, queue_url: str, add_sqs_event_source: bool = True) -> dict[str, Any]:
+    @staticmethod
+    def _event_to_sqs_message(queue_attributes: dict[str, Any], filename: str) -> None:
         sqs_client = aws_stack.connect_to_service("sqs")
-        messages = sqs_client.receive_message(QueueUrl=queue_url, MaxNumberOfMessages=2, MessageAttributeNames=["All"])
+
+        sqs_client.send_message(
+            QueueUrl=queue_attributes["QueueUrl"],
+            MessageBody=json.dumps(
+                {
+                    "Records": [
+                        {
+                            "eventVersion": "2.1",
+                            "eventSource": "aws:s3",
+                            "awsRegion": "eu-central-1",
+                            "eventTime": "2021-09-08T18:34:25.042Z",
+                            "eventName": "ObjectCreated:Put",
+                            "s3": {
+                                "s3SchemaVersion": "1.0",
+                                "configurationId": "test-bucket",
+                                "bucket": {
+                                    "name": "test-bucket",
+                                    "arn": "arn:aws:s3:::test-bucket",
+                                },
+                                "object": {
+                                    "key": f"{filename}",
+                                },
+                            },
+                        }
+                    ]
+                }
+            ),
+        )
+
+    @staticmethod
+    def _event_from_sqs_message(queue_attributes: dict[str, Any]) -> dict[str, Any]:
+        sqs_client = aws_stack.connect_to_service("sqs")
+        messages = sqs_client.receive_message(
+            QueueUrl=queue_attributes["QueueUrl"], MaxNumberOfMessages=2, MessageAttributeNames=["All"]
+        )
 
         assert "Messages" in messages
         assert len(messages["Messages"]) == 1
 
-        message = messages["Messages"][0]
-        message["body"] = message["Body"]
-        message["messageAttributes"] = message["MessageAttributes"]
-        for attribute in message["messageAttributes"]:
-            new_attribute = deepcopy(message["messageAttributes"][attribute])
-            for attribute_key in message["messageAttributes"][attribute]:
-                camel_case_key = "".join([attribute_key[0].lower(), attribute_key[1:]])
-                new_attribute[camel_case_key] = new_attribute[attribute_key]
-                message["messageAttributes"][attribute] = new_attribute
+        message = {}
+        original_message = messages["Messages"][0]
+        for key in original_message:
+            new_value = deepcopy(original_message[key])
+            camel_case_key = "".join([key[0].lower(), key[1:]])
+            message[camel_case_key] = new_value
 
-        if add_sqs_event_source:
-            message["eventSource"] = "aws:sqs"
-            message["eventSourceARN"] = queue_url
+        if "messageAttributes" in message:
+            for attribute in message["messageAttributes"]:
+                new_attribute = deepcopy(message["messageAttributes"][attribute])
+                for attribute_key in message["messageAttributes"][attribute]:
+                    camel_case_key = "".join([attribute_key[0].lower(), attribute_key[1:]])
+                    new_attribute[camel_case_key] = new_attribute[attribute_key]
+                    message["messageAttributes"][attribute] = new_attribute
+
+        message["eventSource"] = "aws:sqs"
+        message["eventSourceARN"] = queue_attributes["QueueArn"]
 
         return dict(Records=[message])
 
@@ -690,7 +730,7 @@ class TestLambdaHandlerSuccess(TestCase):
 
         self._config_yaml: str = f"""
         inputs:
-          - type: "sqs"
+          - type: "s3-sqs"
             id: "{self._source_queue_info["QueueArn"]}"
             tags:
               - "tag1"
@@ -749,142 +789,115 @@ class TestLambdaHandlerSuccess(TestCase):
         filename: str = "exportedlogs/uuid/yyyy-mm-dd-[$LATEST]hash/000000.gz"
         with mock.patch("storage.S3Storage._s3_client", aws_stack.connect_to_service("s3")):
             with mock.patch("handlers.aws.replay.get_sqs_client", lambda: aws_stack.connect_to_service("sqs")):
-                with mock.patch(
-                    "share.secretsmanager._get_aws_sm_client",
-                    lambda region_name: aws_stack.connect_to_service(
-                        "secretsmanager",
-                        endpoint_url=f"http://localhost:{self._LOCALSTACK_HOST_PORT}",
-                        region_name=region_name,
-                    ),
-                ):
+                with mock.patch("handlers.aws.sqs_trigger.get_sqs_client", lambda: aws_stack.connect_to_service("sqs")):
+                    with mock.patch(
+                        "share.secretsmanager._get_aws_sm_client",
+                        lambda region_name: aws_stack.connect_to_service(
+                            "secretsmanager",
+                            endpoint_url=f"http://localhost:{self._LOCALSTACK_HOST_PORT}",
+                            region_name=region_name,
+                        ),
+                    ):
 
-                    ctx = ContextMock(remaining_time_in_millis=2)
-                    event = {
-                        "Records": [
-                            {
-                                "messageId": "9b745861-1171-489c-9748-799ed2a3d9da",
-                                "body": json.dumps(
-                                    {
-                                        "Records": [
-                                            {
-                                                "eventVersion": "2.1",
-                                                "eventSource": "aws:s3",
-                                                "awsRegion": "eu-central-1",
-                                                "eventTime": "2021-09-08T18:34:25.042Z",
-                                                "eventName": "ObjectCreated:Put",
-                                                "s3": {
-                                                    "s3SchemaVersion": "1.0",
-                                                    "configurationId": "test-bucket",
-                                                    "bucket": {
-                                                        "name": "test-bucket",
-                                                        "arn": "arn:aws:s3:::test-bucket",
-                                                    },
-                                                    "object": {
-                                                        "key": f"{filename}",
-                                                    },
-                                                },
-                                            }
-                                        ]
-                                    }
-                                ),
-                                "eventSource": "aws:sqs",
-                                "eventSourceARN": self._source_queue_info["QueueArn"],
-                            },
+                        # Create an expected id so that es.send will fail
+                        self._es_client.index(
+                            index="logs-aws.cloudwatch_logs-default",
+                            op_type="create",
+                            id="e69eaefedb-000000000000",
+                            document={"@timestamp": datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
+                        )
+                        self._es_client.indices.refresh(index="logs-aws.cloudwatch_logs-default")
+
+                        ctx = ContextMock(remaining_time_in_millis=2)
+
+                        self._event_to_sqs_message(queue_attributes=self._source_queue_info, filename=filename)
+                        event = self._event_from_sqs_message(queue_attributes=self._source_queue_info)
+                        event["Records"][0]["eventSource"] = "aws:sqs"
+                        event["Records"][0]["eventSourceARN"] = self._source_queue_info["QueueArn"]
+
+                        first_call = handler(event, ctx)  # type:ignore
+
+                        assert first_call == "completed"
+
+                        # Remove the expected id so that it can be replayed
+                        self._es_client.delete_by_query(
+                            index="logs-aws.cloudwatch_logs-default",
+                            body={"query": {"match": {"_id": "e69eaefedb-000000000000"}}},
+                        )
+                        self._es_client.indices.refresh(index="logs-aws.cloudwatch_logs-default")
+
+                        assert self._es_client.count(index="logs-aws.cloudwatch_logs-default")["count"] == 1
+
+                        res = self._es_client.search(index="logs-aws.cloudwatch_logs-default", sort="_seq_no")
+                        assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
+
+                        assert (
+                            res["hits"]["hits"][0]["_source"]["fields"]["message"]
+                            == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": {"line": '
+                            '30, "name": "handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}'
+                        )
+
+                        assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
+                            "offset": 86,
+                            "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
+                        }
+                        assert res["hits"]["hits"][0]["_source"]["fields"]["aws"] == {
+                            "s3": {
+                                "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
+                                "object": {"key": f"{filename}"},
+                            }
+                        }
+                        assert res["hits"]["hits"][0]["_source"]["fields"]["cloud"] == {
+                            "provider": "aws",
+                            "region": "eu-central-1",
+                        }
+
+                        assert res["hits"]["hits"][0]["_source"]["tags"] == [
+                            "preserve_original_event",
+                            "forwarded",
+                            "aws-cloudwatch_logs",
+                            "tag1",
+                            "tag2",
+                            "tag3",
                         ]
-                    }
 
-                    # Create an expected id so that es.send will fail
-                    self._es_client.index(
-                        index="logs-aws.cloudwatch_logs-default",
-                        op_type="create",
-                        id="e69eaefedb-000000000000",
-                        document={"@timestamp": datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
-                    )
-                    self._es_client.indices.refresh(index="logs-aws.cloudwatch_logs-default")
+                        event = self._event_from_sqs_message(queue_attributes=self._replay_queue_info)
+                        second_call = handler(event, ctx)  # type:ignore
 
-                    first_call = handler(event, ctx)  # type:ignore
+                        assert second_call == "replayed"
 
-                    assert first_call == "completed"
+                        self._es_client.indices.refresh(index="logs-aws.cloudwatch_logs-default")
+                        assert self._es_client.count(index="logs-aws.cloudwatch_logs-default")["count"] == 2
 
-                    # Remove the expected id so that it can be replayed
-                    self._es_client.delete_by_query(
-                        index="logs-aws.cloudwatch_logs-default",
-                        body={"query": {"match": {"_id": "e69eaefedb-000000000000"}}},
-                    )
-                    self._es_client.indices.refresh(index="logs-aws.cloudwatch_logs-default")
-
-                    assert self._es_client.count(index="logs-aws.cloudwatch_logs-default")["count"] == 1
-
-                    res = self._es_client.search(index="logs-aws.cloudwatch_logs-default", sort="_seq_no")
-                    assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
-
-                    assert (
-                        res["hits"]["hits"][0]["_source"]["fields"]["message"]
-                        == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": {"line": 30, '
-                        '"name": "handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}'
-                    )
-
-                    assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
-                        "offset": 86,
-                        "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
-                    }
-                    assert res["hits"]["hits"][0]["_source"]["fields"]["aws"] == {
-                        "s3": {
-                            "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
-                            "object": {"key": f"{filename}"},
+                        res = self._es_client.search(index="logs-aws.cloudwatch_logs-default", sort="_seq_no")
+                        assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
+                        assert (
+                            res["hits"]["hits"][1]["_source"]["fields"]["message"]
+                            == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}'
+                        )
+                        assert res["hits"]["hits"][1]["_source"]["fields"]["log"] == {
+                            "offset": 0,
+                            "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
                         }
-                    }
-                    assert res["hits"]["hits"][0]["_source"]["fields"]["cloud"] == {
-                        "provider": "aws",
-                        "region": "eu-central-1",
-                    }
-
-                    assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                        "preserve_original_event",
-                        "forwarded",
-                        "aws-cloudwatch_logs",
-                        "tag1",
-                        "tag2",
-                        "tag3",
-                    ]
-
-                    event = self._event_from_sqs_message(self._replay_queue_info["QueueUrl"], False)
-                    second_call = handler(event, ctx)  # type:ignore
-
-                    assert second_call == "replayed"
-
-                    self._es_client.indices.refresh(index="logs-aws.cloudwatch_logs-default")
-                    assert self._es_client.count(index="logs-aws.cloudwatch_logs-default")["count"] == 2
-
-                    res = self._es_client.search(index="logs-aws.cloudwatch_logs-default", sort="_seq_no")
-                    assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
-                    assert (
-                        res["hits"]["hits"][1]["_source"]["fields"]["message"]
-                        == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}'
-                    )
-                    assert res["hits"]["hits"][1]["_source"]["fields"]["log"] == {
-                        "offset": 0,
-                        "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
-                    }
-                    assert res["hits"]["hits"][1]["_source"]["fields"]["aws"] == {
-                        "s3": {
-                            "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
-                            "object": {"key": f"{filename}"},
+                        assert res["hits"]["hits"][1]["_source"]["fields"]["aws"] == {
+                            "s3": {
+                                "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
+                                "object": {"key": f"{filename}"},
+                            }
                         }
-                    }
-                    assert res["hits"]["hits"][1]["_source"]["fields"]["cloud"] == {
-                        "provider": "aws",
-                        "region": "eu-central-1",
-                    }
+                        assert res["hits"]["hits"][1]["_source"]["fields"]["cloud"] == {
+                            "provider": "aws",
+                            "region": "eu-central-1",
+                        }
 
-                    assert res["hits"]["hits"][1]["_source"]["tags"] == [
-                        "preserve_original_event",
-                        "forwarded",
-                        "aws-cloudwatch_logs",
-                        "tag1",
-                        "tag2",
-                        "tag3",
-                    ]
+                        assert res["hits"]["hits"][1]["_source"]["tags"] == [
+                            "preserve_original_event",
+                            "forwarded",
+                            "aws-cloudwatch_logs",
+                            "tag1",
+                            "tag2",
+                            "tag3",
+                        ]
 
     def test_lambda_handler_continuing(self) -> None:
         filename: str = "exportedlogs/uuid/yyyy-mm-dd-[$LATEST]hash/000000.gz"
@@ -898,40 +911,12 @@ class TestLambdaHandlerSuccess(TestCase):
                         region_name=region_name,
                     ),
                 ):
+
                     ctx = ContextMock()
-                    event = {
-                        "Records": [
-                            {
-                                "messageId": "9b745861-1171-489c-9748-799ed2a3d9da",
-                                "body": json.dumps(
-                                    {
-                                        "Records": [
-                                            {
-                                                "eventVersion": "2.1",
-                                                "eventSource": "aws:s3",
-                                                "awsRegion": "eu-central-1",
-                                                "eventTime": "2021-09-08T18:34:25.042Z",
-                                                "eventName": "ObjectCreated:Put",
-                                                "s3": {
-                                                    "s3SchemaVersion": "1.0",
-                                                    "configurationId": "test-bucket",
-                                                    "bucket": {
-                                                        "name": "test-bucket",
-                                                        "arn": "arn:aws:s3:::test-bucket",
-                                                    },
-                                                    "object": {
-                                                        "key": f"{filename}",
-                                                    },
-                                                },
-                                            }
-                                        ]
-                                    }
-                                ),
-                                "eventSource": "aws:sqs",
-                                "eventSourceARN": self._source_queue_info["QueueArn"],
-                            },
-                        ]
-                    }
+                    self._event_to_sqs_message(queue_attributes=self._source_queue_info, filename=filename)
+                    event = self._event_from_sqs_message(queue_attributes=self._source_queue_info)
+                    event["Records"][0]["eventSource"] = "aws:sqs"
+                    event["Records"][0]["eventSourceARN"] = self._source_queue_info["QueueArn"]
 
                     first_call = handler(event, ctx)  # type:ignore
 
@@ -970,7 +955,7 @@ class TestLambdaHandlerSuccess(TestCase):
                         "tag3",
                     ]
 
-                    event = self._event_from_sqs_message(queue_url=self._continuing_queue_info["QueueUrl"])
+                    event = self._event_from_sqs_message(queue_attributes=self._continuing_queue_info)
                     second_call = handler(event, ctx)  # type:ignore
 
                     assert second_call == "continuing"
@@ -1011,7 +996,7 @@ class TestLambdaHandlerSuccess(TestCase):
                         "tag3",
                     ]
 
-                    event = self._event_from_sqs_message(queue_url=self._continuing_queue_info["QueueUrl"])
+                    event = self._event_from_sqs_message(queue_attributes=self._continuing_queue_info)
                     third_call = handler(event, ctx)  # type:ignore
 
                     assert third_call == "completed"
