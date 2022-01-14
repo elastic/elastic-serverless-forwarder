@@ -326,13 +326,13 @@ class TestElasticsearchOutput(TestCase):
 class TestInput(TestCase):
     def test_init(self) -> None:
         with self.subTest("valid init"):
-            input_sqs = Input(input_type="sqs", input_id="id")
-            assert input_sqs.type == "sqs"
+            input_sqs = Input(input_type="s3-sqs", input_id="id")
+            assert input_sqs.type == "s3-sqs"
             assert input_sqs.id == "id"
             assert input_sqs.tags == []
 
         with self.subTest("not valid type"):
-            with self.assertRaisesRegex(ValueError, "Input type must be one of sqs"):
+            with self.assertRaisesRegex(ValueError, "Input type must be one of s3-sqs"):
                 Input(input_type="type", input_id="id")
 
         with self.subTest("type not str"):
@@ -341,36 +341,32 @@ class TestInput(TestCase):
 
         with self.subTest("id not str"):
             with self.assertRaisesRegex(ValueError, "Input id must be of type str"):
-                Input(input_type="sqs", input_id=0)  # type:ignore
-
-        with self.subTest("id not str"):
-            with self.assertRaisesRegex(ValueError, "Input id must be of type str"):
-                Input(input_type="sqs", input_id=0)  # type:ignore
+                Input(input_type="s3-sqs", input_id=0)  # type:ignore
 
     def test_input_tags(self) -> None:
         with self.subTest("valid tags"):
-            input_sqs = Input(input_type="sqs", input_id="id")
+            input_sqs = Input(input_type="s3-sqs", input_id="id")
             input_sqs.tags = ["tag1", "tag2", "tag3"]
 
             assert input_sqs.tags == ["tag1", "tag2", "tag3"]
 
         with self.subTest("tags not list"):
-            input_sqs = Input(input_type="sqs", input_id="id")
+            input_sqs = Input(input_type="s3-sqs", input_id="id")
             with self.assertRaisesRegex(ValueError, "Tags must be of type list"):
                 input_sqs.tags = "tag1"  # type:ignore
 
         with self.subTest("each tag not str"):
-            input_sqs = Input(input_type="sqs", input_id="id")
+            input_sqs = Input(input_type="s3-sqs", input_id="id")
             with self.assertRaisesRegex(ValueError, "Each tag must be of type str, given: \\['tag1', 2, 'tag3'\\]"):
                 input_sqs.tags = ["tag1", 2, "tag3"]  # type:ignore
 
     def test_get_output_by_type(self) -> None:
         with self.subTest("none output"):
-            input_sqs = Input(input_type="sqs", input_id="id")
+            input_sqs = Input(input_type="s3-sqs", input_id="id")
             assert input_sqs.get_output_by_type(output_type="test") is None
 
         with self.subTest("elasticsearch output"):
-            input_sqs = Input(input_type="sqs", input_id="id")
+            input_sqs = Input(input_type="s3-sqs", input_id="id")
             input_sqs.add_output(
                 output_type="elasticsearch",
                 elasticsearch_url="elasticsearch_url",
@@ -384,7 +380,7 @@ class TestInput(TestCase):
 
     def test_add_output(self) -> None:
         with self.subTest("elasticsearch output"):
-            input_sqs = Input(input_type="sqs", input_id="id")
+            input_sqs = Input(input_type="s3-sqs", input_id="id")
             input_sqs.add_output(
                 output_type="elasticsearch",
                 elasticsearch_url="elasticsearch_url",
@@ -397,17 +393,17 @@ class TestInput(TestCase):
             assert isinstance(input_sqs.get_output_by_type(output_type="elasticsearch"), ElasticsearchOutput)
 
         with self.subTest("wrong output"):
-            input_sqs = Input(input_type="sqs", input_id="id")
+            input_sqs = Input(input_type="s3-sqs", input_id="id")
             with self.assertRaises(AssertionError):
                 input_sqs.add_output(output_type="wrong")
 
         with self.subTest("type is not str"):
-            input_sqs = Input(input_type="sqs", input_id="id")
+            input_sqs = Input(input_type="s3-sqs", input_id="id")
             with self.assertRaisesRegex(ValueError, "Output type must be of type str"):
                 input_sqs.add_output(output_type=0)  # type:ignore
 
         with self.subTest("type is duplicated"):
-            input_sqs = Input(input_type="sqs", input_id="id")
+            input_sqs = Input(input_type="s3-sqs", input_id="id")
             input_sqs.add_output(
                 output_type="elasticsearch",
                 elasticsearch_url="elasticsearch_url",
@@ -429,11 +425,11 @@ class TestInput(TestCase):
 
     def test_get_output_types(self) -> None:
         with self.subTest("none output"):
-            input_sqs = Input(input_type="sqs", input_id="id")
+            input_sqs = Input(input_type="s3-sqs", input_id="id")
             assert input_sqs.get_output_types() == []
 
         with self.subTest("elasticsearch output"):
-            input_sqs = Input(input_type="sqs", input_id="id")
+            input_sqs = Input(input_type="s3-sqs", input_id="id")
             input_sqs.add_output(
                 output_type="elasticsearch",
                 elasticsearch_url="elasticsearch_url",
@@ -447,7 +443,7 @@ class TestInput(TestCase):
 
     def test_delete_output_by_type(self) -> None:
         with self.subTest("delete elasticsearch output"):
-            input_sqs = Input(input_type="sqs", input_id="id")
+            input_sqs = Input(input_type="s3-sqs", input_id="id")
             input_sqs.add_output(
                 output_type="elasticsearch",
                 elasticsearch_url="elasticsearch_url",
@@ -461,7 +457,7 @@ class TestInput(TestCase):
             assert input_sqs.get_output_types() == []
 
         with self.subTest("delete not existing output"):
-            input_sqs = Input(input_type="sqs", input_id="id")
+            input_sqs = Input(input_type="s3-sqs", input_id="id")
             with self.assertRaisesRegex(KeyError, "'type"):
                 input_sqs.delete_output_by_type("type")
 
@@ -471,42 +467,42 @@ class TestConfig(TestCase):
     def test_get_input_by_type_and_id(self) -> None:
         with self.subTest("none input"):
             config = Config()
-            assert config.get_input_by_type_and_id(input_type="sqs", input_id="id") is None
+            assert config.get_input_by_type_and_id(input_type="s3-sqs", input_id="id") is None
 
-            config.add_input(Input(input_type="sqs", input_id="id"))
-            assert config.get_input_by_type_and_id(input_type="sqs", input_id="another_id") is None
+            config.add_input(Input(input_type="s3-sqs", input_id="id"))
+            assert config.get_input_by_type_and_id(input_type="s3-sqs", input_id="another_id") is None
 
         with self.subTest("sqs input"):
             config = Config()
-            config.add_input(Input(input_type="sqs", input_id="id"))
-            input_sqs = config.get_input_by_type_and_id(input_type="sqs", input_id="id")
+            config.add_input(Input(input_type="s3-sqs", input_id="id"))
+            input_sqs = config.get_input_by_type_and_id(input_type="s3-sqs", input_id="id")
             assert isinstance(input_sqs, Input)
-            assert input_sqs.type == "sqs"
+            assert input_sqs.type == "s3-sqs"
             assert input_sqs.id == "id"
             assert input_sqs.tags == []
 
     def test_add_input(self) -> None:
         with self.subTest("sqs input"):
             config = Config()
-            config.add_input(Input(input_type="sqs", input_id="id"))
-            input_sqs = config.get_input_by_type_and_id(input_type="sqs", input_id="id")
+            config.add_input(Input(input_type="s3-sqs", input_id="id"))
+            input_sqs = config.get_input_by_type_and_id(input_type="s3-sqs", input_id="id")
             assert isinstance(input_sqs, Input)
-            assert input_sqs.type == "sqs"
+            assert input_sqs.type == "s3-sqs"
             assert input_sqs.id == "id"
             assert input_sqs.tags == []
 
-            config.add_input(Input(input_type="sqs", input_id="id2"))
-            input_sqs = config.get_input_by_type_and_id(input_type="sqs", input_id="id2")
+            config.add_input(Input(input_type="s3-sqs", input_id="id2"))
+            input_sqs = config.get_input_by_type_and_id(input_type="s3-sqs", input_id="id2")
             assert isinstance(input_sqs, Input)
-            assert input_sqs.type == "sqs"
+            assert input_sqs.type == "s3-sqs"
             assert input_sqs.id == "id2"
             assert input_sqs.tags == []
 
         with self.subTest("duplicated sqs input"):
             config = Config()
-            config.add_input(Input(input_type="sqs", input_id="id"))
-            with self.assertRaisesRegex(ValueError, "duplicated input sqs/id"):
-                config.add_input(Input(input_type="sqs", input_id="id"))
+            config.add_input(Input(input_type="s3-sqs", input_id="id"))
+            with self.assertRaisesRegex(ValueError, "duplicated input s3-sqs/id"):
+                config.add_input(Input(input_type="s3-sqs", input_id="id"))
 
 
 @pytest.mark.unit
@@ -567,7 +563,7 @@ class TestParseConfig(TestCase):
             )
 
         with self.subTest("no valid input type"):
-            with self.assertRaisesRegex(ValueError, "Input type must be one of sqs"):
+            with self.assertRaisesRegex(ValueError, "Input type must be one of s3-sqs"):
                 parse_config(
                     config_yaml="""
             inputs:
@@ -581,7 +577,7 @@ class TestParseConfig(TestCase):
                 parse_config(
                     config_yaml="""
             inputs:
-              - type: sqs
+              - type: s3-sqs
                 id: id
             """
                 )
@@ -590,7 +586,7 @@ class TestParseConfig(TestCase):
                 parse_config(
                     config_yaml="""
             inputs:
-              - type: sqs
+              - type: s3-sqs
                 id: id
                 outputs: {}
             """
@@ -601,7 +597,7 @@ class TestParseConfig(TestCase):
                 parse_config(
                     config_yaml="""
             inputs:
-              - type: sqs
+              - type: s3-sqs
                 id: id
                 outputs:
                   - args: {}
@@ -612,7 +608,7 @@ class TestParseConfig(TestCase):
                 parse_config(
                     config_yaml="""
             inputs:
-              - type: sqs
+              - type: s3-sqs
                 id: id
                 outputs:
                   - type: {}
@@ -624,7 +620,7 @@ class TestParseConfig(TestCase):
                 parse_config(
                     config_yaml="""
             inputs:
-              - type: sqs
+              - type: s3-sqs
                 id: id
                 outputs:
                   - type: type
@@ -635,7 +631,7 @@ class TestParseConfig(TestCase):
                 parse_config(
                     config_yaml="""
             inputs:
-              - type: sqs
+              - type: s3-sqs
                 id: id
                 outputs:
                   - type: type
@@ -648,7 +644,7 @@ class TestParseConfig(TestCase):
                 parse_config(
                     config_yaml="""
             inputs:
-              - type: sqs
+              - type: s3-sqs
                 id: id
                 outputs:
                   - type: type
@@ -660,7 +656,7 @@ class TestParseConfig(TestCase):
                 parse_config(
                     config_yaml="""
             inputs:
-              - type: sqs
+              - type: s3-sqs
                 id: id
                 outputs:
                   - type: elasticsearch
@@ -673,7 +669,7 @@ class TestParseConfig(TestCase):
                 parse_config(
                     config_yaml="""
             inputs:
-              - type: sqs
+              - type: s3-sqs
                 id: id
                 tags: "tag1"
                 outputs:
@@ -690,7 +686,7 @@ class TestParseConfig(TestCase):
                 parse_config(
                     config_yaml="""
             inputs:
-              - type: sqs
+              - type: s3-sqs
                 id: id
                 tags: 1, 2, 3
                 outputs:
@@ -710,7 +706,7 @@ class TestParseConfig(TestCase):
                 parse_config(
                     config_yaml="""
             inputs:
-              - type: sqs
+              - type: s3-sqs
                 id: id
                 tags:
                   - 2021
@@ -730,7 +726,7 @@ class TestParseConfig(TestCase):
             config = parse_config(
                 config_yaml="""
             inputs:
-              - type: sqs
+              - type: s3-sqs
                 id: id
                 outputs:
                   - type: elasticsearch
@@ -746,9 +742,9 @@ class TestParseConfig(TestCase):
             """
             )
 
-            input_sqs = config.get_input_by_type_and_id(input_type="sqs", input_id="id")
+            input_sqs = config.get_input_by_type_and_id(input_type="s3-sqs", input_id="id")
             assert input_sqs is not None
-            assert input_sqs.type == "sqs"
+            assert input_sqs.type == "s3-sqs"
             assert input_sqs.id == "id"
             assert input_sqs.tags == []
 
@@ -767,7 +763,7 @@ class TestParseConfig(TestCase):
             config = parse_config(
                 config_yaml="""
             inputs:
-              - type: sqs
+              - type: s3-sqs
                 id: id
                 tags:
                   - "input_tag1"
@@ -786,9 +782,9 @@ class TestParseConfig(TestCase):
             """
             )
 
-            input_sqs = config.get_input_by_type_and_id(input_type="sqs", input_id="id")
+            input_sqs = config.get_input_by_type_and_id(input_type="s3-sqs", input_id="id")
             assert input_sqs is not None
-            assert input_sqs.type == "sqs"
+            assert input_sqs.type == "s3-sqs"
             assert input_sqs.id == "id"
             assert input_sqs.tags == ["input_tag1", "input_tag2"]
 
@@ -807,7 +803,7 @@ class TestParseConfig(TestCase):
             config = parse_config(
                 config_yaml="""
             inputs:
-              - type: sqs
+              - type: s3-sqs
                 id: id
                 tags:
                   - "tag1"
@@ -823,9 +819,9 @@ class TestParseConfig(TestCase):
             """
             )
 
-            input_sqs = config.get_input_by_type_and_id(input_type="sqs", input_id="id")
+            input_sqs = config.get_input_by_type_and_id(input_type="s3-sqs", input_id="id")
             assert input_sqs is not None
-            assert input_sqs.type == "sqs"
+            assert input_sqs.type == "s3-sqs"
             assert input_sqs.id == "id"
             assert input_sqs.tags == ["tag1", "tag2", "tag3"]
 
@@ -844,7 +840,7 @@ class TestParseConfig(TestCase):
             config = parse_config(
                 config_yaml="""
             inputs:
-              - type: sqs
+              - type: s3-sqs
                 id: id
                 tags:
                   - "tag1"
@@ -861,9 +857,9 @@ class TestParseConfig(TestCase):
             """
             )
 
-            input_sqs = config.get_input_by_type_and_id(input_type="sqs", input_id="id")
+            input_sqs = config.get_input_by_type_and_id(input_type="s3-sqs", input_id="id")
             assert input_sqs is not None
-            assert input_sqs.type == "sqs"
+            assert input_sqs.type == "s3-sqs"
             assert input_sqs.id == "id"
             assert input_sqs.tags == ["tag1", "tag2", "tag3"]
 
@@ -883,7 +879,7 @@ class TestParseConfig(TestCase):
             config = parse_config(
                 config_yaml="""
             inputs:
-              - type: sqs
+              - type: s3-sqs
                 id: id
                 tags:
                   - "tag1"
@@ -899,9 +895,9 @@ class TestParseConfig(TestCase):
             """
             )
 
-            input_sqs = config.get_input_by_type_and_id(input_type="sqs", input_id="id")
+            input_sqs = config.get_input_by_type_and_id(input_type="s3-sqs", input_id="id")
             assert input_sqs is not None
-            assert input_sqs.type == "sqs"
+            assert input_sqs.type == "s3-sqs"
             assert input_sqs.id == "id"
             assert input_sqs.tags == ["tag1", "tag2", "tag3"]
 
@@ -920,7 +916,7 @@ class TestParseConfig(TestCase):
             config = parse_config(
                 config_yaml="""
             inputs:
-              - type: sqs
+              - type: s3-sqs
                 id: id
                 tags:
                   - "tag1"
@@ -937,9 +933,9 @@ class TestParseConfig(TestCase):
             """
             )
 
-            input_sqs = config.get_input_by_type_and_id(input_type="sqs", input_id="id")
+            input_sqs = config.get_input_by_type_and_id(input_type="s3-sqs", input_id="id")
             assert input_sqs is not None
-            assert input_sqs.type == "sqs"
+            assert input_sqs.type == "s3-sqs"
             assert input_sqs.id == "id"
             assert input_sqs.tags == ["tag1", "tag2", "tag3"]
 
@@ -959,7 +955,7 @@ class TestParseConfig(TestCase):
             config = parse_config(
                 config_yaml="""
             inputs:
-              - type: sqs
+              - type: s3-sqs
                 id: id
                 tags:
                   - "tag1"
@@ -975,9 +971,9 @@ class TestParseConfig(TestCase):
             """
             )
 
-            input_sqs = config.get_input_by_type_and_id(input_type="sqs", input_id="id")
+            input_sqs = config.get_input_by_type_and_id(input_type="s3-sqs", input_id="id")
             assert input_sqs is not None
-            assert input_sqs.type == "sqs"
+            assert input_sqs.type == "s3-sqs"
             assert input_sqs.id == "id"
             assert input_sqs.tags == ["tag1", "tag2", "tag3"]
 

@@ -85,10 +85,10 @@ class TestAWSSecretsManager(TestCase):
         with self.subTest("invalid arn format - too long"):
             config_yaml = """
                 inputs:
-                    - type: sqs
+                  - type: s3-sqs
                     id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret:THIS:IS:INVALID"
                     outputs:
-                        - type: elasticsearch
+                      - type: elasticsearch
                         args:
                             elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                             username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
@@ -108,10 +108,10 @@ class TestAWSSecretsManager(TestCase):
             # BEWARE empty region at id
             config_yaml = """
                 inputs:
-                    - type: sqs
+                  - type: s3-sqs
                     id: "arn:aws:secretsmanager::123-456-789:secret:plain_secret"
                     outputs:
-                        - type: elasticsearch
+                      - type: elasticsearch
                         args:
                             elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                             username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
@@ -128,10 +128,10 @@ class TestAWSSecretsManager(TestCase):
             # BEWARE empty secrets manager name at id
             config_yaml = """
                 inputs:
-                    - type: sqs
+                  - type: s3-sqs
                     id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:"
                     outputs:
-                        - type: elasticsearch
+                      - type: elasticsearch
                         args:
                             elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                             username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
@@ -149,10 +149,10 @@ class TestAWSSecretsManager(TestCase):
             # BEWARE empty secret key at elasticsearch_url
             config_yaml = """
                 inputs:
-                    - type: sqs
+                  - type: s3-sqs
                     id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret"
                     outputs:
-                        - type: elasticsearch
+                      - type: elasticsearch
                         args:
                             elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:"
                             username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
@@ -171,10 +171,10 @@ class TestAWSSecretsManager(TestCase):
             # BEWARE elasticsearch_url and password have json key, but username don't
             config_yaml = """
                 inputs:
-                - type: sqs
+                  - type: s3-sqs
                     id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:sqs_secret"
                     outputs:
-                    - type: elasticsearch
+                      - type: elasticsearch
                         args:
                             elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                             username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets"
@@ -193,10 +193,10 @@ class TestAWSSecretsManager(TestCase):
         with self.subTest("secret does not exist"):
             config_yaml = """
                 inputs:
-                - type: sqs
+                  - type: s3-sqs
                     id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:DOES_NOT_EXIST"
                     outputs:
-                    - type: elasticsearch
+                      - type: elasticsearch
                         args:
                             elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                             username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
@@ -211,10 +211,10 @@ class TestAWSSecretsManager(TestCase):
         with self.subTest("plain secret is empty"):
             config_yaml = """
                 inputs:
-                - type: sqs
+                  - type: s3-sqs
                     id: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:empty_secret"
                     outputs:
-                    - type: elasticsearch
+                      - type: elasticsearch
                         args:
                             elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                             username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
@@ -232,10 +232,10 @@ class TestAWSSecretsManager(TestCase):
         with self.subTest("key/value secret is empty"):
             config_yaml = """
                 inputs:
-                - type: sqs
+                  - type: s3-sqs
                     id: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:es_secrets:empty"
                     outputs:
-                    - type: elasticsearch
+                      - type: elasticsearch
                         args:
                             elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                             username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
@@ -254,10 +254,10 @@ class TestAWSSecretsManager(TestCase):
         with self.subTest("plain text used as key/value pair"):
             config_yaml = """
                 inputs:
-                - type: sqs
+                  - type: s3-sqs
                     id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret:I_SHOULD_NOT_HAVE_A_KEY"
                     outputs:
-                    - type: elasticsearch
+                      - type: elasticsearch
                         args:
                             elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                             username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
@@ -277,10 +277,10 @@ class TestAWSSecretsManager(TestCase):
         with self.subTest("key does not exist"):
             config_yaml = """
                 inputs:
-                - type: sqs
+                  - type: s3-sqs
                     id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:I_DO_NOT_EXIST"
                     outputs:
-                    - type: elasticsearch
+                      - type: elasticsearch
                         args:
                             elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                             username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
@@ -299,10 +299,10 @@ class TestAWSSecretsManager(TestCase):
         with self.subTest("plain text secret not str"):
             config_yaml = """
                 inputs:
-                - type: sqs
+                  - type: s3-sqs
                     id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret_not_str_byte"
                     outputs:
-                    - type: elasticsearch
+                      - type: elasticsearch
                         args:
                             elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                             username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
@@ -321,10 +321,10 @@ class TestAWSSecretsManager(TestCase):
         with self.subTest("json TypeError risen"):
             config_yaml = """
                 inputs:
-                - type: sqs
+                  - type: s3-sqs
                     id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret_not_str_int"
                     outputs:
-                    - type: elasticsearch
+                      - type: elasticsearch
                         args:
                             elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                             username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
@@ -345,10 +345,10 @@ class TestAWSSecretsManager(TestCase):
             # BEWARE secrets_manager != secretsmanager at elasticsearch_url
             config_yaml = """
                 inputs:
-                - type: sqs
+                  - type: s3-sqs
                     id: "aws:arn:secretsmanager:eu-central-1:123-456-789:secret:plain_secret"
                     outputs:
-                    - type: elasticsearch
+                      - type: elasticsearch
                         args:
                             elasticsearch_url: "arn:aws:secrets_manager:eu-central-1:123-456-789:secret:es_secrets:url"
                             username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
@@ -360,10 +360,10 @@ class TestAWSSecretsManager(TestCase):
 
             parsed_config_yaml = """
                 inputs:
-                - type: sqs
+                  - type: s3-sqs
                     id: "aws:arn:secretsmanager:eu-central-1:123-456-789:secret:plain_secret"
                     outputs:
-                    - type: elasticsearch
+                      - type: elasticsearch
                         args:
                             elasticsearch_url: "arn:aws:secrets_manager:eu-central-1:123-456-789:secret:es_secrets:url"
                             username: "mock_elastic_username"
@@ -378,10 +378,10 @@ class TestAWSSecretsManager(TestCase):
             # BEWARE AWS != aws at id
             config_yaml = """
                 inputs:
-                - type: sqs
+                  - type: s3-sqs
                     id: "arn:AWS:secretsmanager:eu-central-1:123-456-789:secret:plain_secret"
                     outputs:
-                    - type: elasticsearch
+                      - type: elasticsearch
                         args:
                             elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                             username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
@@ -393,10 +393,10 @@ class TestAWSSecretsManager(TestCase):
 
             parsed_config_yaml = """
                 inputs:
-                - type: sqs
+                  - type: s3-sqs
                     id: "arn:AWS:secretsmanager:eu-central-1:123-456-789:secret:plain_secret"
                     outputs:
-                    - type: elasticsearch
+                      - type: elasticsearch
                         args:
                             elasticsearch_url: "mock_elastic_url"
                             username: "mock_elastic_username"
@@ -410,10 +410,10 @@ class TestAWSSecretsManager(TestCase):
         with self.subTest("config successfully parsed"):
             config_yaml = """
                 inputs:
-                - type: sqs
+                  - type: s3-sqs
                     id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret"
                     outputs:
-                    - type: elasticsearch
+                      - type: elasticsearch
                         args:
                             elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                             username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
@@ -425,10 +425,10 @@ class TestAWSSecretsManager(TestCase):
 
             parsed_config_yaml = """
                 inputs:
-                - type: sqs
+                  - type: s3-sqs
                     id: "mock_plain_text_sqs_arn"
                     outputs:
-                    - type: elasticsearch
+                      - type: elasticsearch
                         args:
                             elasticsearch_url: "mock_elastic_url"
                             username: "mock_elastic_username"

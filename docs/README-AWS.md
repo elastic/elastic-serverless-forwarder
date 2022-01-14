@@ -264,7 +264,7 @@ The Elastic Forwarder for Serverless Lambda rely on a config yaml file to be upl
 This is the format of the config yaml file
 ```yaml
 inputs:
-  - type: "sqs"
+  - type: "s3-sqs"
     id: "arn:aws:sqs:%REGION%:%ACCOUNT%:%QUEUENAME%"
     outputs:
       - type: "elasticsearch"
@@ -310,7 +310,7 @@ Custom init arguments for the given forwarding target output
 ## Secrets Manager Support
 ```yaml
 inputs:
-  - type: "sqs"
+  - type: "s3-sqs"
     id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_text_secret"
     outputs:
       - type: "elasticsearch"
@@ -345,7 +345,7 @@ It supports secrets from different regions.
 Adding custom tags is a common way to filter and categorize items in datasets.
 ```yaml
 inputs:
-  - type: "sqs"
+  - type: "s3-sqs"
     id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_text_secret"
     tags:
       - "tag1"

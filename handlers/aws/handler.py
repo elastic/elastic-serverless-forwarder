@@ -14,7 +14,7 @@ from share.secretsmanager import aws_sm_expander
 from shippers import CompositeShipper, ElasticsearchShipper, ShipperFactory
 
 from .replay import ReplayEventHandler, _handle_replay_event
-from .sqs_trigger import _handle_sqs_continuation, _handle_sqs_event
+from .sqs_trigger import _delete_sqs_record, _handle_sqs_continuation, _handle_sqs_event
 from .utils import (
     CONFIG_FROM_PAYLOAD,
     CONFIG_FROM_S3FILE,
@@ -47,6 +47,8 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
     except Exception as e:
         raise TriggerTypeException(e)
 
+    trigger_event_source_arn: str = lambda_event["Records"][0]["eventSourceARN"]
+
     config_yaml: str = ""
     try:
         if config_source == CONFIG_FROM_PAYLOAD:
@@ -73,20 +75,26 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         raise ConfigFileException(e)
 
     if trigger_type == "replay":
-        event = json.loads(lambda_event["Records"][0]["body"])
-        _handle_replay_event(
-            config=config,
-            output_type=event["output_type"],
-            output_args=event["output_args"],
-            event_input_id=event["event_input_id"],
-            event_input_type=event["event_input_type"],
-            event_payload=event["event_payload"],
-        )
+        for replay_record in lambda_event["Records"]:
+            event = json.loads(replay_record["body"])
+            _handle_replay_event(
+                config=config,
+                output_type=event["output_type"],
+                output_args=event["output_args"],
+                event_input_id=event["event_input_id"],
+                event_input_type=event["event_input_type"],
+                event_payload=event["event_payload"],
+            )
+
+            _delete_sqs_record(replay_record["eventSourceARN"], replay_record["receiptHandle"])
+            if lambda_context is not None and lambda_context.get_remaining_time_in_millis() < _completion_grace_period:
+                shared_logger.info("lambda is going to shutdown")
+
         return "replayed"
 
     assert config is not None
-    if trigger_type == "sqs" or trigger_type == "self_sqs":
-        event_input = config.get_input_by_type_and_id("sqs", lambda_event["Records"][0]["eventSourceARN"])
+    if trigger_type == "s3-sqs":
+        event_input = config.get_input_by_type_and_id("s3-sqs", lambda_event["Records"][0]["eventSourceARN"])
         if not event_input:
             shared_logger.error(f'no input set for {lambda_event["Records"][0]["eventSourceARN"]}')
 
@@ -115,6 +123,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 except Exception as e:
                     raise OutputConfigException(e)
 
+        previous_sqs_record: int = 0
         for es_event, last_ending_offset, current_sqs_record, current_s3_record in _handle_sqs_event(
             config, lambda_event
         ):
@@ -122,6 +131,12 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
             composite_shipper.send(es_event)
             sent_event += 1
+
+            if current_sqs_record > previous_sqs_record:
+                sqs_record = lambda_event["Records"][previous_sqs_record]
+                _delete_sqs_record(trigger_event_source_arn, sqs_record["receiptHandle"])
+
+            previous_sqs_record = current_sqs_record
 
             if lambda_context is not None and lambda_context.get_remaining_time_in_millis() < _completion_grace_period:
                 sqs_continuing_queue = os.environ["SQS_CONTINUE_URL"]
@@ -134,6 +149,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 composite_shipper.flush()
 
                 _handle_sqs_continuation(
+                    trigger_event_source_arn=trigger_event_source_arn,
                     sqs_continuing_queue=sqs_continuing_queue,
                     lambda_event=lambda_event,
                     event_input_id=event_input.id,
