@@ -39,7 +39,7 @@ Verify the Lambda is given AssumeRole permission to the following `ManagedPolicy
 * `arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole`
 
 On top of this basic permission the following policies must be provided:
-* For the SQS queue resource that's reported in the `SQS_CONTINUE_URL` environment variable the following action must be allowed:
+* For the SQS queues resources that are reported in the `SQS_CONTINUE_URL` and `SQS_REPLAY_URL` environment variable the following action must be allowed:
   * `sqs:SendMessage`
 
 * For every S3 bucket resource that's reported in the `S3_CONFIG_FILE` environment variable the following action must be allowed on the S3 buckets' config file object key:
@@ -80,7 +80,7 @@ On top of this basic permission the following policies must be provided:
       }
     },
     {
-      "PolicyName": "ElasticServerlessForwarderFunctionRolePolicySQSContinuingQueue", ## ADD AS IT IS FOR THE REPLAY QUEUE
+      "PolicyName": "ElasticServerlessForwarderFunctionRolePolicySQSReplayQueue", ## ADD AS IT IS FOR THE REPLAY QUEUE
       "PolicyDocument": {
         "Version": "2012-10-17",
         "Statement": [
