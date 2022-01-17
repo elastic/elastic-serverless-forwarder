@@ -371,7 +371,7 @@ inputs:
           dataset: "generic"
           namespace: "default"
 ```
-Using the above configuration, the tags will be set in the following way`["preserve_original_event", "forwarded", "data-set", "tag1", "tag2", "tag3"]`
+Using the above configuration, the tags will be set in the following way`["preserve_original_event", "forwarded", "generic", "tag1", "tag2", "tag3"]`
 
 #### Notes
 - Tags must be placed at input level in the config file
