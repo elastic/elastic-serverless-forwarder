@@ -66,11 +66,15 @@ docker-mypy:  ## Run mypy in the project on docker
 docker-mypy: BASE_DIR=docker/
 docker-mypy: mypy
 
+docker-notice:  ## Run notice in the project on docker
+docker-notice: BASE_DIR=docker/
+docker-notice: notice
+
 license:  ## Run license validation in the project
 	tests/scripts/license_headers_check.sh check
 
 notice: ## Creates NOTICE.txt file
-	tests/scripts/parse_notice.sh check
+	tests/scripts/${BASE_DIR}parse_notice.sh NOTICE.json check
 
 scancode: ## Scans the project for license files
 	scancode -clpi -n 16 --include "*LICENSE*" --include "*METADATA*" --max-depth 6 --json-pp NOTICE.json .
