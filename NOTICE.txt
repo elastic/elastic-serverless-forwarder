@@ -1,13 +1,21 @@
+# Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
+# or more contributor license agreements. Licensed under the Elastic License 2.0;
+# you may not use this file except in compliance with the Elastic License 2.0.
 
+Elastic Serverless Forwarder
+
+================================================================================
+Third party libraries used by the Elastic Serverless Forwarder project:
+================================================================================
 
 ----------------------------------------------------------------------------------------------------
 Package: PyYAML
 Version: 5.4.1
 Homepage: https://pyyaml.org/
-Time: 2022-01-18 14:57:10
+Time: 2022-01-18 15:41:22
 License: MIT
 
-Contents of probable licence file venv/lib/python3.9/site-packages/PyYAML-5.4.1.dist-info/LICENSE: 
+Contents of probable licence file venv/lib/python3.9/site-packages/PyYAML-5.4.1.dist-info/LICENSE:
 
 Copyright (c) 2017-2021 Ingy döt Net
 Copyright (c) 2006-2016 Kirill Simonov
@@ -35,10 +43,10 @@ SOFTWARE.
 Package: aws_lambda_typing
 Version: 2.0.4
 Homepage: https://github.com/MousaZeidBaker/aws-lambda-typing
-Time: 2022-01-18 14:57:10
+Time: 2022-01-18 15:41:22
 License: MIT
 
-Contents of probable licence file venv/lib/python3.9/site-packages/aws_lambda_typing-2.0.4.dist-info/LICENSE: 
+Contents of probable licence file venv/lib/python3.9/site-packages/aws_lambda_typing-2.0.4.dist-info/LICENSE:
 
 MIT License
 
@@ -67,10 +75,10 @@ SOFTWARE.
 Package: black
 Version: 21.12b0
 Homepage: https://github.com/psf/black
-Time: 2022-01-18 14:57:10
+Time: 2022-01-18 15:41:22
 License: MIT
 
-Contents of probable licence file venv/lib/python3.9/site-packages/black-21.12b0.dist-info/LICENSE: 
+Contents of probable licence file venv/lib/python3.9/site-packages/black-21.12b0.dist-info/LICENSE:
 
 The MIT License (MIT)
 
@@ -99,10 +107,10 @@ SOFTWARE.
 Package: boto3
 Version: 1.20.37
 Homepage: https://github.com/boto/boto3
-Time: 2022-01-18 14:57:10
+Time: 2022-01-18 15:41:22
 License: APACHE-2.0
 
-Contents of probable licence file venv/lib/python3.9/site-packages/boto3-1.20.37.dist-info/LICENSE: 
+Contents of probable licence file venv/lib/python3.9/site-packages/boto3-1.20.37.dist-info/LICENSE:
 
 
                                  Apache License
@@ -287,10 +295,10 @@ Contents of probable licence file venv/lib/python3.9/site-packages/boto3-1.20.37
 Package: coverage
 Version: 6.0.2
 Homepage: https://github.com/nedbat/coveragepy
-Time: 2022-01-18 14:57:10
+Time: 2022-01-18 15:41:22
 License: APACHE-2.0
 
-Contents of probable licence file venv/lib/python3.9/site-packages/coverage-6.0.2.dist-info/LICENSE.txt: 
+Contents of probable licence file venv/lib/python3.9/site-packages/coverage-6.0.2.dist-info/LICENSE.txt:
 
 
                                  Apache License
@@ -475,10 +483,10 @@ Contents of probable licence file venv/lib/python3.9/site-packages/coverage-6.0.
 Package: docker
 Version: 5.0.0
 Homepage: https://github.com/docker/docker-py
-Time: 2022-01-18 14:57:10
+Time: 2022-01-18 15:41:22
 License: APACHE-2.0
 
-Contents of probable licence file venv/lib/python3.9/site-packages/docker-5.0.0.dist-info/LICENSE: 
+Contents of probable licence file venv/lib/python3.9/site-packages/docker-5.0.0.dist-info/LICENSE:
 
 
                                  Apache License
@@ -677,10 +685,10 @@ Contents of probable licence file venv/lib/python3.9/site-packages/docker-5.0.0.
 Package: ecs_logging
 Version: 1.1.0
 Homepage: https://github.com/elastic/ecs-logging-python
-Time: 2022-01-18 14:57:10
+Time: 2022-01-18 15:41:22
 License: APACHE-2.0
 
-Contents of probable licence file venv/lib/python3.9/site-packages/ecs_logging-1.1.0.dist-info/LICENSE.txt: 
+Contents of probable licence file venv/lib/python3.9/site-packages/ecs_logging-1.1.0.dist-info/LICENSE.txt:
 
                                  Apache License
                            Version 2.0, January 2004
@@ -889,10 +897,10 @@ Contents of probable licence file venv/lib/python3.9/site-packages/ecs_logging-1
 Package: elastic-apm
 Version: 6.7.2
 Homepage: https://github.com/elastic/apm-agent-python
-Time: 2022-01-18 14:57:10
+Time: 2022-01-18 15:41:22
 License: BSD-NEW
 
-Contents of probable licence file venv/lib/python3.9/site-packages/elastic_apm-6.7.2.dist-info/LICENSE: 
+Contents of probable licence file venv/lib/python3.9/site-packages/elastic_apm-6.7.2.dist-info/LICENSE:
 
 BSD 3-Clause License
 
@@ -930,10 +938,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 Package: elasticsearch
 Version: 7.16.3
 Homepage: https://github.com/elastic/elasticsearch-py
-Time: 2022-01-18 14:57:10
+Time: 2022-01-18 15:41:22
 License: APACHE-2.0
 
-Contents of probable licence file venv/lib/python3.9/site-packages/elasticsearch-7.16.3.dist-info/LICENSE: 
+Contents of probable licence file venv/lib/python3.9/site-packages/elasticsearch-7.16.3.dist-info/LICENSE:
 
 
                                  Apache License
@@ -1117,10 +1125,10 @@ Contents of probable licence file venv/lib/python3.9/site-packages/elasticsearch
 Package: flake8
 Version: 4.0.1
 Homepage: https://github.com/pycqa/flake8
-Time: 2022-01-18 14:57:10
+Time: 2022-01-18 15:41:22
 License: MIT
 
-Contents of probable licence file venv/lib/python3.9/site-packages/flake8-4.0.1.dist-info/LICENSE: 
+Contents of probable licence file venv/lib/python3.9/site-packages/flake8-4.0.1.dist-info/LICENSE:
 
 == Flake8 License (MIT) ==
 
@@ -1150,10 +1158,10 @@ SOFTWARE.
 Package: flake8-per-file-ignores
 Version: 0.7
 Homepage: https://github.com/snoack/flake8-per-file-ignores
-Time: 2022-01-18 14:57:10
+Time: 2022-01-18 15:41:22
 License: UNKNOWN-LICENSE-REFERENCE
 
-Contents of probable licence file venv/lib/python3.9/site-packages/flake8_per_file_ignores-0.7.dist-info/LICENSE: 
+Contents of probable licence file venv/lib/python3.9/site-packages/flake8_per_file_ignores-0.7.dist-info/LICENSE:
 
 Copyright © 2017 Sebsatian Noack <sebastian.noack@gmail.com>
 
@@ -1184,10 +1192,10 @@ SOFTWARE.
 Package: isort
 Version: 5.10.1
 Homepage: https://pycqa.github.io/isort/
-Time: 2022-01-18 14:57:10
+Time: 2022-01-18 15:41:22
 License: MIT
 
-Contents of probable licence file venv/lib/python3.9/site-packages/isort-5.10.1.dist-info/LICENSE: 
+Contents of probable licence file venv/lib/python3.9/site-packages/isort-5.10.1.dist-info/LICENSE:
 
 The MIT License (MIT)
 
@@ -1216,10 +1224,10 @@ THE SOFTWARE.
 Package: localstack[runtime]
 Version: 0.12.20
 Homepage: https://github.com/localstack/localstack
-Time: 2022-01-18 14:57:10
+Time: 2022-01-18 15:41:22
 License: APACHE-2.0
 
-Contents of probable licence file venv/lib/python3.9/site-packages/localstack-0.12.20.dist-info/LICENSE.txt: 
+Contents of probable licence file venv/lib/python3.9/site-packages/localstack-0.12.20.dist-info/LICENSE.txt:
 
 Copyright (c) 2017+ LocalStack contributors
 Copyright (c) 2016 Atlassian Pty Ltd
@@ -1241,10 +1249,10 @@ limitations under the License.
 Package: mock
 Version: 4.0.3
 Homepage: http://mock.readthedocs.org/en/latest/
-Time: 2022-01-18 14:57:10
+Time: 2022-01-18 15:41:22
 License: BSD-SIMPLIFIED
 
-Contents of probable licence file venv/lib/python3.9/site-packages/mock-4.0.3.dist-info/LICENSE.txt: 
+Contents of probable licence file venv/lib/python3.9/site-packages/mock-4.0.3.dist-info/LICENSE.txt:
 
 Copyright (c) 2003-2013, Michael Foord & the mock team
 All rights reserved.
@@ -1278,10 +1286,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 Package: mypy
 Version: 0.931
 Homepage: https://github.com/python/mypy
-Time: 2022-01-18 14:57:10
+Time: 2022-01-18 15:41:22
 License: MIT
 
-Contents of probable licence file venv/lib/python3.9/site-packages/mypy-0.931.dist-info/LICENSE: 
+Contents of probable licence file venv/lib/python3.9/site-packages/mypy-0.931.dist-info/LICENSE:
 
 Mypy (and mypyc) are licensed under the terms of the MIT license, reproduced below.
 
@@ -1517,10 +1525,10 @@ OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 Package: pytest
 Version: 6.2.5
 Homepage: https://docs.pytest.org/en/latest/
-Time: 2022-01-18 14:57:10
+Time: 2022-01-18 15:41:22
 License: MIT
 
-Contents of probable licence file venv/lib/python3.9/site-packages/pytest-6.2.5.dist-info/LICENSE: 
+Contents of probable licence file venv/lib/python3.9/site-packages/pytest-6.2.5.dist-info/LICENSE:
 
 The MIT License (MIT)
 
@@ -1549,10 +1557,10 @@ SOFTWARE.
 Package: pytest-cov
 Version: 3.0.0
 Homepage: https://github.com/pytest-dev/pytest-cov
-Time: 2022-01-18 14:57:10
+Time: 2022-01-18 15:41:22
 License: MIT
 
-Contents of probable licence file venv/lib/python3.9/site-packages/pytest_cov-3.0.0.dist-info/LICENSE: 
+Contents of probable licence file venv/lib/python3.9/site-packages/pytest_cov-3.0.0.dist-info/LICENSE:
 
 The MIT License
 
@@ -1581,10 +1589,10 @@ THE SOFTWARE.
 Package: scancode-toolkit
 Version: 30.1.0
 Homepage: https://github.com/nexB/scancode-toolkit
-Time: 2022-01-18 14:57:10
+Time: 2022-01-18 15:41:22
 License: APACHE-2.0
 
-Contents of probable licence file venv/lib/python3.9/site-packages/scancode_toolkit-30.1.0.dist-info/apache-2.0.LICENSE: 
+Contents of probable licence file venv/lib/python3.9/site-packages/scancode_toolkit-30.1.0.dist-info/apache-2.0.LICENSE:
 
 
                                  Apache License
@@ -1794,10 +1802,10 @@ Contents of probable licence file venv/lib/python3.9/site-packages/scancode_tool
 Package: types-PyYAML
 Version: 6.0.3
 Homepage: https://github.com/python/typeshed
-Time: 2022-01-18 14:57:11
+Time: 2022-01-18 15:41:22
 License: APACHE-2.0
 
-Contents of probable licence file https://raw.githubusercontent.com/python/typeshed/master/LICENSE: 
+Contents of probable licence file https://raw.githubusercontent.com/python/typeshed/master/LICENSE:
 
 The "typeshed" project is licensed under the terms of the Apache license, as
 reproduced below.
@@ -2043,10 +2051,10 @@ DEALINGS IN THE SOFTWARE.
 Package: types-mock
 Version: 4.0.8
 Homepage: https://github.com/python/typeshed
-Time: 2022-01-18 14:57:11
+Time: 2022-01-18 15:41:23
 License: APACHE-2.0
 
-Contents of probable licence file https://raw.githubusercontent.com/python/typeshed/master/LICENSE: 
+Contents of probable licence file https://raw.githubusercontent.com/python/typeshed/master/LICENSE:
 
 The "typeshed" project is licensed under the terms of the Apache license, as
 reproduced below.

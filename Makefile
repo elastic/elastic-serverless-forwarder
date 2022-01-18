@@ -70,7 +70,7 @@ license:  ## Run license validation in the project
 	tests/scripts/license_headers_check.sh check
 
 notice: ## Creates NOTICE.txt file
-	python3 tests/scripts/parse_notice.py
+	tests/scripts/parse_notice.sh check
 
 scancode: ## Scans the project for license files
 	scancode -clpi -n 16 --include "*LICENSE*" --include "*METADATA*" --max-depth 6 --json-pp NOTICE.json .

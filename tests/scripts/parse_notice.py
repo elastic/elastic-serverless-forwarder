@@ -22,12 +22,13 @@ class NoticeParser:
     ]
     POSSIBLE_METADATA_FILES: list[str] = ["METADATA", "METADATA.txt"]
 
-    def __init__(self, requirement_files: list[str], scanned_json_file: str) -> None:
+    def __init__(self, requirement_files: list[str], scanned_json_file: str, cli_argument: str) -> None:
         self.requirement_files: list[str] = requirement_files
         self.scanned_json_file: str = scanned_json_file
         self.processed_packages: dict[str, dict[str, str]] = {}
         self.required_packages: dict[str, str] = {}
         self.notice_file_name: str = "NOTICE.txt"
+        self.cli_argument: str = cli_argument
 
         self.read_requirements()
 
@@ -46,37 +47,52 @@ class NoticeParser:
         real_requirements_name = [requirement for requirement in self.required_packages.values()]
         real_requirements_name.sort()
 
-        if real_requirements_name == existing_packages:
-            print("There is no new package listed in the requirements files\n")
-            sys.exit()
+        if self.cli_argument == "--check":
+            if real_requirements_name == existing_packages:
+                print("There is no new package listed in the requirements files\n")
+                sys.exit()
+            else:
+                for new_package in requirements_name_from_file:
+                    if self.required_packages[new_package] not in existing_packages:
+                        real_package_name: str = self.required_packages[new_package]
+                        print(f"New package found: '{real_package_name}'")
 
-        for new_package in requirements_name_from_file:
-            if self.required_packages[new_package] not in existing_packages:
-                real_package_name: str = self.required_packages[new_package]
+                print("Run the script with the 'fix' argument in order to add it to the NOTICE.txt file")
 
-                print(f"New package found: '{real_package_name}'")
-                self.process_package(required_package=new_package)
-                self.verify_license_in_packages()
+        elif self.cli_argument == "--fix":
+            if real_requirements_name == existing_packages:
+                print("There is no new package listed in the requirements files\n")
+                sys.exit()
 
-                processed_package = self.processed_packages.get(new_package)
+            for new_package in requirements_name_from_file:
+                if self.required_packages[new_package] not in existing_packages:
+                    real_package_name = self.required_packages[new_package]
 
-                if not processed_package:
-                    print(f"Nothing has been found for package '{real_package_name}' in the scanned file\n")
-                    continue
+                    print(f"New package found: '{real_package_name}'")
+                    self.process_package(required_package=new_package)
+                    self.verify_license_in_packages()
 
-                if (
-                    "package_name" not in processed_package
-                    or "version" not in processed_package
-                    or "homepage_url" not in processed_package
-                    or "license_name" not in processed_package
-                    or "license_path" not in processed_package
-                    or "license_content" not in processed_package
-                ):
-                    print(f"Missing data for '{real_package_name}'. Skipping...\n")
-                    continue
+                    processed_package = self.processed_packages.get(new_package)
 
-                self.write_to_file(processed_package)
-                print(f"Package '{real_package_name}' has been added to {self.notice_file_name}\n")
+                    if not processed_package:
+                        print(f"Nothing has been found for package '{real_package_name}' in {self.scanned_json_file}\n")
+                        continue
+
+                    if (
+                        "package_name" not in processed_package
+                        or "version" not in processed_package
+                        or "homepage_url" not in processed_package
+                        or "license_name" not in processed_package
+                        or "license_path" not in processed_package
+                        or "license_content" not in processed_package
+                    ):
+                        print(f"Missing data for '{real_package_name}'. Skipping...\n")
+                        continue
+
+                    self.write_to_file(processed_package)
+                    print(f"Package '{real_package_name}' has been added to {self.notice_file_name}\n")
+        else:
+            print("Invalid argument. Please choose an argument between 'fix' or 'check'")
 
     def process_package(self, required_package: str) -> None:
         """
@@ -215,7 +231,13 @@ class NoticeParser:
 
 
 if __name__ == "__main__":
+    if len(sys.argv) > 2:
+        print("You have specified too many arguments")
+        sys.exit()
+
+    argument = sys.argv[1]
+
     requirements_list: list[str] = ["requirements.txt", "requirements-lint.txt", "requirements-tests.txt"]
     scanned_file_name: str = "NOTICE.json"
 
-    np = NoticeParser(requirement_files=requirements_list, scanned_json_file=scanned_file_name)
+    np = NoticeParser(requirement_files=requirements_list, scanned_json_file=scanned_file_name, cli_argument=argument)
