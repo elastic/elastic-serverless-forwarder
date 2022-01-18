@@ -73,7 +73,7 @@ notice: ## Creates NOTICE.txt file
 	python3 tests/scripts/parse_notice.py
 
 scancode: ## Scans the project for license files
-	scancode -clpi -n 16 --ignore "*.py" --json-pp NOTICE.json .
+	scancode -clpi -n 16 --include "*LICENSE*" --include "*METADATA*" --max-depth 6 --json-pp NOTICE.json .
 
 all-requirements: requirements requirements-lint requirements-tests  ## Install all requirements on the host
 

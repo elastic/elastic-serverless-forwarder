@@ -52,15 +52,16 @@ class NoticeParser:
 
         for new_package in requirements_name_from_file:
             if self.required_packages[new_package] not in existing_packages:
+                real_package_name: str = self.required_packages[new_package]
 
-                print(f"New package found: {new_package}")
+                print(f"New package found: '{real_package_name}'")
                 self.process_package(required_package=new_package)
                 self.verify_license_in_packages()
 
                 processed_package = self.processed_packages.get(new_package)
 
                 if not processed_package:
-                    print(f"Nothing has been found for package {new_package} in the scanned file\n")
+                    print(f"Nothing has been found for package '{real_package_name}' in the scanned file\n")
                     continue
 
                 if (
@@ -71,20 +72,24 @@ class NoticeParser:
                     or "license_path" not in processed_package
                     or "license_content" not in processed_package
                 ):
-                    print(f"Missing data for {new_package}. Skipping...\n")
+                    print(f"Missing data for '{real_package_name}'. Skipping...\n")
                     continue
 
                 self.write_to_file(processed_package)
-                print(f"Package {new_package} has been added to {self.notice_file_name}\n")
+                print(f"Package '{real_package_name}' has been added to {self.notice_file_name}\n")
 
     def process_package(self, required_package: str) -> None:
+        """
+        Iterates over the json file outputted by scancode and tries to find a match between
+        the required package and the installed one and looks in the self.POSSIBLE_LICENSE_FILES
+        and self.POSSIBLE_METADATA_FILES where the important information about the package should exist
+        """
         for entry in self.scanned_results_json["files"]:
             splitted_entry_path: list[str] = entry["path"].split("/")
 
             if (
                 splitted_entry_path[-1] in NoticeParser.POSSIBLE_LICENSE_FILES
                 or splitted_entry_path[-1] in NoticeParser.POSSIBLE_METADATA_FILES
-                and len(entry["licenses"]) > 0
             ):
                 if not len(splitted_entry_path) > 6:
                     continue
@@ -94,8 +99,10 @@ class NoticeParser:
                 if package_name == required_package:
                     if package_name not in self.processed_packages:
                         self.processed_packages[package_name] = {}
-                        self.processed_packages[package_name]["license_name"] = entry["licenses"][0]["key"].upper()
                         self.processed_packages[package_name]["package_name"] = self.required_packages[required_package]
+
+                        if entry["licenses"] and len(entry["licenses"]) > 0:
+                            self.processed_packages[package_name]["license_name"] = entry["licenses"][0]["key"].upper()
 
                     if splitted_entry_path[-1] in NoticeParser.POSSIBLE_METADATA_FILES:
                         package_version: str = splitted_entry_path[5].split("-")[1].strip(".dist")
@@ -103,6 +110,10 @@ class NoticeParser:
 
                         homepage_url: str = entry["packages"][0]["homepage_url"]
                         vcs_url: str = entry["packages"][0]["vcs_url"]
+
+                        if not homepage_url and not vcs_url:
+                            print("No Homepage URL or VCS URL for the license. Skipping...")
+                            return
 
                         if "github" not in homepage_url and vcs_url and "github" in vcs_url:
                             homepage_url = vcs_url.split(" ")[-1]
@@ -113,17 +124,27 @@ class NoticeParser:
                         license_path: str = entry["path"][29:]
                         self.processed_packages[package_name]["license_path"] = license_path
 
-                        license_content: str = self.read_content_from_file(license_file_path=license_path)
+                        license_content: str = self.read_content_from_file(content_file_path=license_path)
                         self.processed_packages[package_name]["license_content"] = license_content
 
     @staticmethod
-    def read_content_from_file(license_file_path: str) -> str:
-        with open(license_file_path) as fh:
+    def read_content_from_file(content_file_path: str) -> str:
+        """
+        Reads a file and returns the string representation of its content
+        """
+        with open(content_file_path) as fh:
             license_content: str = fh.read()
 
         return license_content
 
     def read_requirements(self) -> None:
+        """
+        Reads the inputted requirements and creates the self.required_pacakges dict that contains
+        parsed package name as key and original package name as value (eg. "elastic_apm": "elastic-apm")
+
+        We need the parsed version of the package because the folder name where the package exists
+        has "_" instead "-" (eg. "venv/.../elastic_apm-6.7.2.dist-info/...)
+        """
         for requirement_file in self.requirement_files:
             with open(requirement_file) as fh:
                 req_data: list[str] = fh.readlines()
@@ -138,6 +159,10 @@ class NoticeParser:
                         self.required_packages[package_name] = original_requirement.split("=")[0].strip(">").strip("\n")
 
     def verify_license_in_packages(self) -> None:
+        """
+        Checks if the license_content exists for all packages
+        If license not found, it tries to build a URL for a possible location where the LICENSE may be found
+        """
         for processed_package in self.processed_packages:
             if "license_content" not in self.processed_packages[processed_package]:
                 try:
@@ -159,12 +184,17 @@ class NoticeParser:
                             self.processed_packages[processed_package]["license_content"] = response.text
                             self.processed_packages[processed_package]["license_path"] = github_page
                             break
+                        else:
+                            print(f"License could not be found at: {github_page}")
 
                 except Exception as e:
                     print(e)
                     self.processed_packages[processed_package]["license_content"] = ""
 
     def write_to_file(self, package_data: dict[str, str]) -> None:
+        """
+        Writes the NOTICE.txt file with the package data
+        """
         with open(self.notice_file_name, "a+") as fh:
             fh.write("\n" * 2)
             fh.write("-" * 100)
