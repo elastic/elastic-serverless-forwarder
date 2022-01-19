@@ -31,100 +31,6 @@ At a high level the deployment consists of the following steps:
 
 ## How to deploy Elastic Serverless Forwarder Lambda application from the AWS Serverless Application Repository.
 
-#### Lambda IAM permissions and policies
-A Lambda function has a policy, called an execution role, that grants it permission to access AWS services and resources. Lambda assumes the role when the function is invoked. The role is automatically created when the Function is deployed. The Execution role associated with your function can be seen in the Configuration->Permissions section and by default starts with the name “serverlessrepo-elastic-se-ElasticServerlessForward-”. You can add additional policies to grant minimum permission to the Lambda to be able to use configured continuing SQS queue, S3 buckets, Secrets manager (if using) and replay SQS queue.
-
-Verify the Lambda is given AssumeRole permission to the following `ManagedPolicyArns`. By default this is automatically created:
-`ManagedPolicyArns`:
-* `arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole`
-* `arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole`
-
-On top of this basic permission the following policies must be provided:
-* For the SQS queues resources that are reported in the `SQS_CONTINUE_URL` and `SQS_REPLAY_URL` environment variable the following action must be allowed:
-  * `sqs:SendMessage`
-
-* For SQS queue resource that you want to use as triggers of the Lambda the proper permissions are already included by `arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole`.
- Only the following extra action must be allowed:
-    * `sqs:GetQueueUrl`
-
-* For every S3 bucket resource that's reported in the `S3_CONFIG_FILE` environment variable the following action must be allowed on the S3 buckets' config file object key:
-  * `s3:GetObject`
-
-* For every S3 bucket resource that SQS queues are receiving notification from used by triggers of the Lambda the following action must be allowed on the S3 buckets' keys:
-  * `s3:GetObject`
-
-* For every Secret Manager secret that you want to refer in the yaml configuration file (see below) the following action must be allowed:
-  * `secretsmanager:GetSecretValue`
-
-* For every decrypt key that's not the default one that you used to encrypt your Secret Manager secrets with, the following action must be allowed:
-  * `kms:Decrypt`
-
-#### Sample policy:
-  ```json
-  {
-    "Version": "2012-10-17",
-    "Statement": [
-      {
-        "Sid": "VisualEditor0",
-        "Effect": "Allow",
-        "Action": "s3:GetObject",
-        ## ADAPT TO THE CONFIG FILE IN THE S3 BUCKET
-        "Resource": "arn:aws:s3:::%CONFIG_FILE_BUCKET_NAME%/%CONFIG_FILE_OBJECT_KEY%"
-      },
-      {
-        "Sid": "VisualEditor1",
-        "Effect": "Allow",
-        "Action": "sqs:SendMessage",
-        "Resource": [
-          ## ADAPT TO THE VALUE OF ENV VARIABLES `SQS_CONTINUE_URL` AND `SQS_REPLAY_URL`
-          "arn:aws:sqs:%AWS_REGION%:%AWS_ACCOUNT_ID%:%SQS_CONTINUE_URL_NAME%",
-          "arn:aws:sqs:%AWS_REGION%:%AWS_ACCOUNT_ID%:%SQS_REPLAY_URL_NAME%"
-        ]
-      },
-      {
-        "Sid": "VisualEditor0",
-        "Effect": "Allow",
-        "Action": "s3:GetObject",
-        "Resource": [
-          ## ADD FOR YOUR S3 BUCKET,
-          "arn:aws:s3:::%BUCKET_NAME%/*",
-          ...
-        ]
-      },
-      {
-        "Sid": "VisualEditor2",
-        "Effect": "Allow",
-        "Action": "sqs:GetQueueUrl",
-        "Resource": [
-          ## ADD FOR YOUR SQS QUEUES
-          "arn:aws:sqs:%AWS_REGION%:%AWS_ACCOUNT_ID%:%QUEUE_NAME%",
-          ...
-        ]
-      },
-      {
-        "Sid": "VisualEditor1",
-        "Effect": "Allow",
-        "Action": "secretsmanager:GetSecretValue",
-        "Resource": [
-          ## ADD FOR YOUR SECRET MANAGER SECRETS
-          "arn:aws:secretsmanager:%AWS_REGION%:%AWS_ACCOUNT_ID%:secret:%SECRET_NAME%",
-          ...
-        ]
-      },
-      {
-        "Sid": "VisualEditor1",
-        "Effect": "Allow",
-        "Action": "kms:Decrypt",
-        "Resource": [
-          ## ADD FOR YOUR KMS DECRYPT KEYS
-          "arn:aws:kms:%AWS_REGION%:%AWS_ACCOUNT_ID%:key/%KEY_ID%",
-          ...
-        ]
-      }
-    ]
-  }
-  ```
-
 ### AWS Console
 * Login to the AWS console
 * Navigate to the Lambda service
@@ -152,6 +58,7 @@ On top of this basic permission the following policies must be provided:
     * From "Trigger configuration" dropdown select "SQS"
     * In the "SQS queue" field chose the queue or insert the ARN of the queue you want to use as trigger for your Elastic Serverless Forwarder
       * The SQS queue you want to use as trigger must have a visibility timeout of 910 seconds, 10 seconds more than the Elastic Forwarder for Serverless Lambda timeout.
+      * IAM policy must be added before the next step as described at (Lambda IAM permissions and policies)[#lambda-iam-permissions-and-policies]
     * Click on "Add"
 
 ### Cloudformation
@@ -353,6 +260,99 @@ Resources:
     aws cloudformation update-stack --stack-name "${LAMBDA_STACK_ARN}" --template-body file://./sar-lambda.json --capabilities CAPABILITY_IAM
     ```
 
+#### Lambda IAM permissions and policies
+A Lambda function has a policy, called an execution role, that grants it permission to access AWS services and resources. Lambda assumes the role when the function is invoked. The role is automatically created when the Function is deployed. The Execution role associated with your function can be seen in the Configuration->Permissions section and by default starts with the name “serverlessrepo-elastic-se-ElasticServerlessForward-”. You can add additional policies to grant minimum permission to the Lambda to be able to use configured continuing SQS queue, S3 buckets, Secrets manager (if using) and replay SQS queue.
+
+Verify the Lambda is given AssumeRole permission to the following `ManagedPolicyArns`. By default this is automatically created:
+`ManagedPolicyArns`:
+* `arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole`
+* `arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole`
+
+On top of this basic permission the following policies must be provided:
+* For the SQS queues resources that are reported in the `SQS_CONTINUE_URL` and `SQS_REPLAY_URL` environment variable the following action must be allowed:
+  * `sqs:SendMessage`
+
+* For SQS queue resource that you want to use as triggers of the Lambda the proper permissions are already included by `arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole`.
+ Only the following extra action must be allowed:
+    * `sqs:GetQueueUrl`
+
+* For every S3 bucket resource that's reported in the `S3_CONFIG_FILE` environment variable the following action must be allowed on the S3 buckets' config file object key:
+  * `s3:GetObject`
+
+* For every S3 bucket resource that SQS queues are receiving notification from used by triggers of the Lambda the following action must be allowed on the S3 buckets' keys:
+  * `s3:GetObject`
+
+* For every Secret Manager secret that you want to refer in the yaml configuration file (see below) the following action must be allowed:
+  * `secretsmanager:GetSecretValue`
+
+* For every decrypt key that's not the default one that you used to encrypt your Secret Manager secrets with, the following action must be allowed:
+  * `kms:Decrypt`
+
+#### Sample policy:
+  ```json
+  {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Sid": "VisualEditor0",
+        "Effect": "Allow",
+        "Action": "s3:GetObject",
+        ## ADAPT TO THE CONFIG FILE IN THE S3 BUCKET
+        "Resource": "arn:aws:s3:::%CONFIG_FILE_BUCKET_NAME%/%CONFIG_FILE_OBJECT_KEY%"
+      },
+      {
+        "Sid": "VisualEditor1",
+        "Effect": "Allow",
+        "Action": "sqs:SendMessage",
+        "Resource": [
+          ## ADAPT TO THE VALUE OF ENV VARIABLES `SQS_CONTINUE_URL` AND `SQS_REPLAY_URL`
+          "arn:aws:sqs:%AWS_REGION%:%AWS_ACCOUNT_ID%:%SQS_CONTINUE_URL_NAME%",
+          "arn:aws:sqs:%AWS_REGION%:%AWS_ACCOUNT_ID%:%SQS_REPLAY_URL_NAME%"
+        ]
+      },
+      {
+        "Sid": "VisualEditor0",
+        "Effect": "Allow",
+        "Action": "s3:GetObject",
+        "Resource": [
+          ## ADD FOR YOUR S3 BUCKET,
+          "arn:aws:s3:::%BUCKET_NAME%/*",
+          ...
+        ]
+      },
+      {
+        "Sid": "VisualEditor2",
+        "Effect": "Allow",
+        "Action": "sqs:GetQueueUrl",
+        "Resource": [
+          ## ADD FOR YOUR SQS QUEUES
+          "arn:aws:sqs:%AWS_REGION%:%AWS_ACCOUNT_ID%:%QUEUE_NAME%",
+          ...
+        ]
+      },
+      {
+        "Sid": "VisualEditor1",
+        "Effect": "Allow",
+        "Action": "secretsmanager:GetSecretValue",
+        "Resource": [
+          ## ADD FOR YOUR SECRET MANAGER SECRETS
+          "arn:aws:secretsmanager:%AWS_REGION%:%AWS_ACCOUNT_ID%:secret:%SECRET_NAME%",
+          ...
+        ]
+      },
+      {
+        "Sid": "VisualEditor1",
+        "Effect": "Allow",
+        "Action": "kms:Decrypt",
+        "Resource": [
+          ## ADD FOR YOUR KMS DECRYPT KEYS
+          "arn:aws:kms:%AWS_REGION%:%AWS_ACCOUNT_ID%:key/%KEY_ID%",
+          ...
+        ]
+      }
+    ]
+  }
+  ```
 
 ## S3_CONFIG_FILE
 The Elastic Forwarder for Serverless Lambda rely on a config yaml file to be uploaded to an S3 bucket and referenced by the `S3_CONFIG_FILE` environment variable.
