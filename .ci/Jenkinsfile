@@ -49,6 +49,15 @@ pipeline {
         }
       }
     }
+    stage('Notice'){
+      steps {
+        withGithubNotify(context: "Notice") {
+          dir("${BASE_DIR}"){
+            sh(label: 'notice', script: 'make docker-notice')
+          }
+        }
+      }
+    }
     stage('Test') {
       failFast false
       steps {

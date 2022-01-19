@@ -15,10 +15,10 @@ SCANNED_FILE_NAME=$1
 
 if [[ "$2" = "check" ]]
 then
-    MODE="--check"
+    MODE="check"
 elif [[ "$2" = "fix" ]]
 then
-    MODE="--fix"
+    MODE="fix"
 else
     echo "You have to run the script with either 'check' or 'fix' args"
     exit 1
@@ -29,6 +29,9 @@ docker_pip_cache="/tmp/cache/pip"
 
 cd tests
 
+DOCKER_SCANNED_FILE="DOCKER-NOTICE.json"
+trap "rm -f ${DOCKER_SCANNED_FILE}" EXIT
+
 docker build --build-arg UID=$UID --build-arg PYTHON_IMAGE=python:3.9 -t python-linters --file Dockerfile ..
 docker run \
   -e LOCAL_USER_ID=$UID \
@@ -37,9 +40,11 @@ docker run \
   -v "$(dirname $(pwd))":/app \
   --rm python-linters \
   /bin/bash \
-  -c "python3 -m pip install -r requirements.txt
-      python3 -m pip install -r requirements-tests.txt
-      python3 -m pip install -r requirements-lint.txt
-      scancode -clpi -n 16 --include \"*LICENSE*\" --include \"*METADATA*\" --max-depth 6 --json-pp ${SCANNED_FILE_NAME} .
-      ./tests/scripts/parse_notice.sh ${SCANNED_FILE_NAME} ${MODE}
+  -c "export PATH=\${PATH}:\${HOME}/.local/bin/
+      pip install --ignore-installed --user -U pip
+      pip install --ignore-installed --user -r requirements.txt --cache-dir ${docker_pip_cache}
+      pip install --ignore-installed --user -r requirements-lint.txt --cache-dir ${docker_pip_cache}
+      pip install --ignore-installed --user -r requirements-tests.txt --cache-dir ${docker_pip_cache}
+      scancode -clpi -n 16 --include \"*LICENSE*\" --include \"*METADATA*\" --max-depth 6 --json-pp ${DOCKER_SCANNED_FILE} \${HOME}/.local/lib/
+      ./tests/scripts/parse_notice.sh ${DOCKER_SCANNED_FILE} ${MODE}
   "
