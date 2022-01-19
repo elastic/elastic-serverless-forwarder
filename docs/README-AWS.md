@@ -72,7 +72,7 @@ Resources:
     Type: AWS::Serverless::Application
     Properties:
       Location:
-        ApplicationId: 'arn:aws:serverlessrepo:%REGION%:267093732750:applications/elastic-serverless-forwarder'
+        ApplicationId: 'arn:aws:serverlessrepo:eu-central-1:267093732750:applications/elastic-serverless-forwarder'
         SemanticVersion: %VERSION%
 
 ```
