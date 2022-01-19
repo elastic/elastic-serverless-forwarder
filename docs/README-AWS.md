@@ -52,8 +52,10 @@ At a high level the deployment consists of the following steps:
       |`ELASTIC_APM_ACTIVE`       | `true` |
       |`ELASTIC_APM_SECRET_TOKEN` | token  |
       |`ELASTIC_APM_SERVER_URL`	  | url    |
-  * Add proper IAM policies before the next step, as described at [Lambda IAM permissions and policies](#lambda-iam-permissions-and-policies)
-  * Still in the "Configuration" tab select "Triggers"
+  * Still in the "Configuration" tab select "Permissions"
+    * Click on the link of the IAM role for the Lambda under *Execution role* -> *Role name*
+    * In the new window add a new policy to the role, as described at [Lambda IAM permissions and policies](#lambda-iam-permissions-and-policies)
+  * Back to the the "Configuration" tab in the Lambda window select "Triggers"
     * You can see an already defined SQS trigger for a queue with the prefix `elastic-serverless-forwarder-continuing-queue-`. This is an internal queue and should not be modified, disabled or removed.
     * Click on "Add trigger"
     * From "Trigger configuration" dropdown select "SQS"
