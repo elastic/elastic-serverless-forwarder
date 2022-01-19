@@ -409,11 +409,11 @@ Custom init arguments for the given forwarding target output
 ```yaml
 inputs:
   - type: "s3-sqs"
-    id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_text_secret"
+    id: "arn:aws:sqs:%REGION%:%ACCOUNT%:%QUEUENAME%"
     outputs:
       - type: "elasticsearch"
         args:
-          elasticsearch_url: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:es_secrets:elasticsearch_url"
+          elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_url"
           username: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:es_secrets:username"
           password: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:es_secrets:password"
           dataset: "generic"
@@ -444,7 +444,7 @@ Adding custom tags is a common way to filter and categorize items in datasets.
 ```yaml
 inputs:
   - type: "s3-sqs"
-    id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_text_secret"
+    id: "arn:aws:sqs:%REGION%:%ACCOUNT%:%QUEUENAME%"
     tags:
       - "tag1"
       - "tag2"
@@ -452,7 +452,7 @@ inputs:
     outputs:
       - type: "elasticsearch"
         args:
-          elasticsearch_url: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:es_secrets:elasticsearch_url"
+          elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_url"
           username: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:es_secrets:username"
           password: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:es_secrets:password"
           dataset: "generic"
