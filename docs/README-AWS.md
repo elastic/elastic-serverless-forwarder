@@ -2,40 +2,48 @@
 This functionality is in beta and is subject to change. The design and code is less mature than official GA features and is being provided as-is with no warranties. Beta features are not subject to the support SLA of official GA features.
 
 ## Introduction:
-The Elastic Serverless Forwarder is an AWS Lambda function that ships logs from your AWS environment to Elastic. The function can forward logs to Elastic self-managed or Elastic cloud environments. It supports the following inputs:
+The Elastic Serverless Forwarder is an AWS Lambda function that ships logs from your AWS environment to Elastic. The function can forward data to Elastic self-managed or Elastic cloud environments. It supports the following inputs:
 
-- SQS S3 Notifications
+- S3 SQS Event Notifications input
 
-The config yaml file (details described below) acts as an input where the user, based on input type, configures things like SQS queue ARN, Elasticsearch connection information and  dataset/namespace. The dataset and namespace helps map logs data to specific data streams for processing and storage. Multiple input sections can be created in the configuration file pointing to different queues that match specific log types, identified in the configuration by dataset and namespace.
+The config yaml file (details described below) acts as an input where the user, based on input type, configures things like SQS queue ARN and Elasticsearch connection information. Multiple input sections can be created in the configuration file pointing to different queues that match specific log types.
 
-A continuing SQS queue is set up and permissions set up automatically by the Lambda deployment. It is used to make sure the next invocation of the function can continue from exactly where the last function left. By default a Lambda function runs for a max of 15 minutes. When processing large log files there’s a possibility that the function may be exited by AWS in the middle of processing a log file. The code handles this scenario gracefully by keeping track of the file and offset its processing.
+A continuing SQS queue is set up by the Lambda deployment automatically. It is used to trigger a new function invocation so that Lambda can continue from exactly where the last function run was terminated. By default a Lambda function runs for a max of 15 minutes. When processing large log files there’s a possibility that the function may be exited by AWS in the middle of processing a log file. The code handles this scenario gracefully by keeping track of the file and offset its processing.
+
+Application supports automatic routing of various AWS service logs to the corresponding data streams for further processing and storage in the Elasticsearch cluster.
+
+Any exception or failure scenarios are handled by the Lambda gracefully using a replay queue. Lambda keeps track of any failed events and writes it to a replay queue that the user can consume from later on.
+
 
 As a first step users should install appropriate integrations in the Kibana UI. This sets up appropriate pre-built dashboards, ingest node configurations, and other assets that help you get the most out of the data you ingest.
 
-**SQS S3 Notifications input:**
-The Lambda function supports ingesting logs contained in the S3 bucket through an SQS notification and sending them to Elastic. The SQS queue serves as a trigger for the Lambda function. When a new log file gets written to an S3 bucket and meets the criteria (as configured including prefix/suffix), a notification to SQS is generated that triggers the Lambda function. Users will set up separate SQS queues for each type of logs (i.e. redis.log, ngnix.log and so on). A single configuration file can have many input sections, pointing to different queues that match specific log types identified in the configuration by dataset and namespace. The dataset and namespace helps the function send the logs to the corresponding data streams for further processing and storage in the Elasticsearch cluster.
+**S3 SQS Event Notifications input:**
+The Lambda function supports ingesting logs contained in the S3 bucket through an SQS notification (s3:ObjectCreated) and sends them to Elastic. The SQS queue serves as a trigger for the Lambda function. When a new log file gets written to an S3 bucket and meets the criteria (as configured including prefix/suffix), a notification to SQS is generated that triggers the Lambda function. Users will set up separate SQS queues for each type of logs (i.e. aws.vpcflow, aws.cloudtrail, aws.waf and so on). A single configuration file can have many input sections, pointing to different SQS queues that match specific log types.
+The dataset parameters in the config file are optional. Lambda supports automatic routing of various AWS service logs to the corresponding data streams for further processing and storage in the Elasticsearch cluster. It supports automatic routing of `aws.cloudtrail`, `aws.cloudwatch_logs`, `aws.elb_logs`, `aws.firewall_logs`, `aws.lambda`, `aws.sns`, `aws.s3_storage_lens`, `aws.vpcflow`, and `aws.waf` logs. For other log types the users can optionally set the dataset value in the configuration file.  If the dataset is not specified and it cannot be matched with any of the above AWS services then the `dataset` will be set to "generic".
+
 
 ### Deployment:
 At a high level the deployment consists of the following steps:
-**Step1:** Install appropriate integration(s) from the Kibana UI. This sets up appropriate pre-built dashboards, ingest node configurations, and other assets that help you get the most out of the data you ingest. To see the full list of available integrations and install appropriate integrations, go to **Management** > **Integrations** in Kibana.
-**Step2:** Browse for elastic-serverless-forwarder in SAR repository in AWS Console. Review and deploy the application and provide appropriate configuration information. Below are the detailed steps.
 
-## How to deploy Elastic Forwarder for Serverless Lambda application from the AWS Serverless Application Repository.
+**Step1:** Install appropriate integration(s) from the Kibana UI. This sets up appropriate pre-built dashboards, ingest node configurations, and other assets that help you get the most out of the data you ingest. To see the full list of available integrations and install appropriate integrations, go to **Management** > **Integrations** in Kibana UI. For example browse or search for AWS, select the AWS integration, select Settings and click Install AWS assets to install all the AWS integrations.
 
+**Step2:** Browse for elastic-serverless-forwarder in SAR repository in AWS Console. Review and deploy the application and provide appropriate configuration information.
+
+## How to deploy Elastic Serverless Forwarder Lambda application from the AWS Serverless Application Repository.
 
 ### AWS Console
 * Login to the AWS console
 * Navigate to the Lambda service
-  * Click on "Create a function"
-  * Click on "Browse serverless app repository"
+  * Click on "Create function"
+  * Select "Browse serverless app repository"
   * Select "Public applications" tab
   * In the search box type "elastic-serverless-forwarder" and submit
   * Look for "elastic-serverless-forwarder" in the results and click on it
   * Click on the "Deploy" button in the bottom right corner
-* Once on the Application page for "serverlessrepo-elastic-serverless-forwarder" loaded afterward
+* Once the Applications page for "serverlessrepo-elastic-serverless-forwarder" is loaded
   * Click on "Deployments" tab
-    * Monitor the "Deployment history" refreshing its status until the "Lambda application" "Resource type" has "Create complete" status
-* Go to "Lambda > Functions" page in the AWS console a look for the Function Name with prefix "serverlessrepo-elastic-se-ElasticServerlessForward-" and click on it
+    * Monitor the "Deployment history" refreshing its status until the Status shows as "Create complete
+* Go to "Lambda > Functions" page in the AWS console and look for the Function Name with prefix "serverlessrepo-elastic-se-ElasticServerlessForward-" and click on it
   * Go to "Configuration" tab and select "Environment Variables"
   * Click on "Edit" on the "Environment Variables" tab and add the environment variable `S3_CONFIG_FILE` with the value of the S3 url in the format "s3://bucket-name/config-file-name" point to the configuration file for your Elastic Forwarder for Serverless (see below)
   * You can additionally add the following environment variables to enable Elastic APM instrumentation to your deployment of Elastic Forwarder for Serverless
@@ -44,37 +52,16 @@ At a high level the deployment consists of the following steps:
       |`ELASTIC_APM_ACTIVE`       | `true` |
       |`ELASTIC_APM_SECRET_TOKEN` | token  |
       |`ELASTIC_APM_SERVER_URL`	  | url    |
-  * Still in the "Configuration" tab select "Triggers"
+  * Still in the "Configuration" tab select "Permissions"
+    * Click on the link of the IAM role for the Lambda under *Execution role* -> *Role name*
+    * In the new window add a new policy to the role, as described at [Lambda IAM permissions and policies](#lambda-iam-permissions-and-policies)
+  * Back to the "Configuration" tab in the Lambda window select "Triggers"
     * You can see an already defined SQS trigger for a queue with the prefix `elastic-serverless-forwarder-continuing-queue-`. This is an internal queue and should not be modified, disabled or removed.
     * Click on "Add trigger"
     * From "Trigger configuration" dropdown select "SQS"
-    * In the "SQS queue" field chose the queue or insert the ARN of the queue you want to use as trigger for your Elastic Forwarder for Serverless
+    * In the "SQS queue" field chose the queue or insert the ARN of the queue you want to use as trigger for your Elastic Serverless Forwarder
       * The SQS queue you want to use as trigger must have a visibility timeout of 910 seconds, 10 seconds more than the Elastic Forwarder for Serverless Lambda timeout.
     * Click on "Add"
-    *
-#### Lambda IAM permissions and policies
-Assure the Lambda is given AssumeRole permission to the following `ManagedPolicyArns`:
-* `arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole`
-* `arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole`
-
-On top of this basic permission the following policies must be provided:
-* For the SQS queue resource that's reported in the `SQS_CONTINUE_URL` environment variable the following action must be allowed:
-  * `sqs:SendMessage`
-
-* For every S3 bucket resource that's reported in the `S3_CONFIG_FILE` environment variable the following action must be allowed on the S3 buckets' config file object key:
-  * `s3:GetObject`
-
-* For every S3 bucket resource that SQS queues are receiving notification from used by triggers of the Lambda the following action must be allowed on the S3 buckets' keys:
-  * `s3:GetObject`
-
-* For every Secret Manager secret that you want to refer in the yaml configuration file (see below) the following action must be allowed:
-  * `secretsmanager:GetSecretValue`
-
-* For every decrypt key that's not the default one that you used to encrypt your Secret Manager secrets with, the following action must be allowed:
-  * `kms:Decrypt`
-
-* For SQS queue resource that you want to use as triggers of the Lambda the proper permission are already included by `arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole`:
-
 
 ### Cloudformation
 * Save the following yaml content as `sar-application.yaml`
@@ -85,7 +72,7 @@ Resources:
     Type: AWS::Serverless::Application
     Properties:
       Location:
-        ApplicationId: 'arn:aws:serverlessrepo:%REGION%:267093732750:applications/elastic-serverless-forwarder'
+        ApplicationId: 'arn:aws:serverlessrepo:eu-central-1:267093732750:applications/elastic-serverless-forwarder'
         SemanticVersion: %VERSION%
 
 ```
@@ -127,7 +114,7 @@ Resources:
       }
     },
     {
-      "PolicyName": "ElasticServerlessForwarderFunctionRolePolicySQSContinuingQueue", ## ADD AS IT IS FOR THE REPLAY QUEUE
+      "PolicyName": "ElasticServerlessForwarderFunctionRolePolicySQSReplayQueue", ## ADD AS IT IS FOR THE REPLAY QUEUE
       "PolicyDocument": {
         "Version": "2012-10-17",
         "Statement": [
@@ -156,6 +143,24 @@ Resources:
             "s3:GetObject"
           ],
           "Resource": "arn:aws:s3:::%CONFIG_FILE_BUCKET_NAME%/%CONFIG_FILE_OBJECT_KEY%",
+          "Effect": "Allow"
+          }
+        ]
+      }
+    },
+    {
+      "PolicyName": "ElasticServerlessForwarderFunctionRolePolicySQS", ## ADD FOR YOUR SQS QUEUE
+      "PolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+          "Action": [
+            "sqs:GetQueueUrl"
+          ],
+          "Resource": [
+            "arn:aws:sqs:%AWS_REGION%:%AWS_ACCOUNT_ID%:%QUEUE_NAME%",
+            ...
+          ],
           "Effect": "Allow"
           }
         ]
@@ -257,6 +262,99 @@ Resources:
     aws cloudformation update-stack --stack-name "${LAMBDA_STACK_ARN}" --template-body file://./sar-lambda.json --capabilities CAPABILITY_IAM
     ```
 
+#### Lambda IAM permissions and policies
+A Lambda function has a policy, called an execution role, that grants it permission to access AWS services and resources. Lambda assumes the role when the function is invoked. The role is automatically created when the Function is deployed. The Execution role associated with your function can be seen in the Configuration->Permissions section and by default starts with the name “serverlessrepo-elastic-se-ElasticServerlessForward-”. You can add additional policies to grant minimum permission to the Lambda to be able to use configured continuing SQS queue, S3 buckets, Secrets manager (if using) and replay SQS queue.
+
+Verify the Lambda is given AssumeRole permission to the following `ManagedPolicyArns`. By default this is automatically created:
+`ManagedPolicyArns`:
+* `arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole`
+* `arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole`
+
+On top of this basic permission the following policies must be provided:
+* For the SQS queues resources that are reported in the `SQS_CONTINUE_URL` and `SQS_REPLAY_URL` environment variable the following action must be allowed:
+  * `sqs:SendMessage`
+
+* For SQS queue resource that you want to use as triggers of the Lambda the proper permissions are already included by `arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole`.
+ Only the following extra action must be allowed:
+    * `sqs:GetQueueUrl`
+
+* For every S3 bucket resource that's reported in the `S3_CONFIG_FILE` environment variable the following action must be allowed on the S3 buckets' config file object key:
+  * `s3:GetObject`
+
+* For every S3 bucket resource that SQS queues are receiving notification from used by triggers of the Lambda the following action must be allowed on the S3 buckets' keys:
+  * `s3:GetObject`
+
+* For every Secret Manager secret that you want to refer in the yaml configuration file (see below) the following action must be allowed:
+  * `secretsmanager:GetSecretValue`
+
+* For every decrypt key that's not the default one that you used to encrypt your Secret Manager secrets with, the following action must be allowed:
+  * `kms:Decrypt`
+
+#### Sample policy:
+  ```json
+  {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Sid": "VisualEditor0",
+        "Effect": "Allow",
+        "Action": "s3:GetObject",
+        ## ADAPT TO THE CONFIG FILE IN THE S3 BUCKET
+        "Resource": "arn:aws:s3:::%CONFIG_FILE_BUCKET_NAME%/%CONFIG_FILE_OBJECT_KEY%"
+      },
+      {
+        "Sid": "VisualEditor1",
+        "Effect": "Allow",
+        "Action": "sqs:SendMessage",
+        "Resource": [
+          ## ADAPT TO THE VALUE OF ENV VARIABLES `SQS_CONTINUE_URL` AND `SQS_REPLAY_URL`
+          "arn:aws:sqs:%AWS_REGION%:%AWS_ACCOUNT_ID%:%SQS_CONTINUE_URL_NAME%",
+          "arn:aws:sqs:%AWS_REGION%:%AWS_ACCOUNT_ID%:%SQS_REPLAY_URL_NAME%"
+        ]
+      },
+      {
+        "Sid": "VisualEditor0",
+        "Effect": "Allow",
+        "Action": "s3:GetObject",
+        "Resource": [
+          ## ADD FOR YOUR S3 BUCKET,
+          "arn:aws:s3:::%BUCKET_NAME%/*",
+          ...
+        ]
+      },
+      {
+        "Sid": "VisualEditor2",
+        "Effect": "Allow",
+        "Action": "sqs:GetQueueUrl",
+        "Resource": [
+          ## ADD FOR YOUR SQS QUEUES
+          "arn:aws:sqs:%AWS_REGION%:%AWS_ACCOUNT_ID%:%QUEUE_NAME%",
+          ...
+        ]
+      },
+      {
+        "Sid": "VisualEditor1",
+        "Effect": "Allow",
+        "Action": "secretsmanager:GetSecretValue",
+        "Resource": [
+          ## ADD FOR YOUR SECRET MANAGER SECRETS
+          "arn:aws:secretsmanager:%AWS_REGION%:%AWS_ACCOUNT_ID%:secret:%SECRET_NAME%",
+          ...
+        ]
+      },
+      {
+        "Sid": "VisualEditor1",
+        "Effect": "Allow",
+        "Action": "kms:Decrypt",
+        "Resource": [
+          ## ADD FOR YOUR KMS DECRYPT KEYS
+          "arn:aws:kms:%AWS_REGION%:%AWS_ACCOUNT_ID%:key/%KEY_ID%",
+          ...
+        ]
+      }
+    ]
+  }
+  ```
 
 ## S3_CONFIG_FILE
 The Elastic Forwarder for Serverless Lambda rely on a config yaml file to be uploaded to an S3 bucket and referenced by the `S3_CONFIG_FILE` environment variable.
@@ -272,7 +370,7 @@ inputs:
           # either elasticsearch_url or cloud_id, elasticsearch_url takes precedence
           elasticsearch_url: "http(s)://domain.tld:port"
           cloud_id: "cloud_id:bG9jYWxob3N0OjkyMDAkMA=="
-          # either api_key or username/password, apy_key takes precedence
+          # either api_key or username/password, api_key takes precedence
           api_key: "YXBpX2tleV9pZDphcGlfa2V5X3NlY3JldAo="
           username: "username"
           password: "password"
@@ -285,7 +383,7 @@ inputs:
 A list of inputs (ie: triggers) for the Elastic Forwarder for Serverless Lambda
 
 `inputs.[].type`:
-The type of the trigger input (currently only `sqs` supported)
+The type of the trigger input (currently only `s3-sqs` supported)
 
 `inputs.[].id`:
 The arn of the trigger input according to the type. Multiple input entries can have different unique ids with the same type.
@@ -304,18 +402,18 @@ Custom init arguments for the given forwarding target output
   * `args.username`: Username of the elasticsearch instance to connect to. Mandatory in case `args.api_key` is not provided. Will be ignored if `args.api_key` is defined as well.
   * `args.password` Password of the elasticsearch instance to connect to. Mandatory in case `args.api_key` is not provided. Will be ignored if `args.api_key` is defined as well.
   * `args.api_key`:  Api key of elasticsearch endpoint in the format username(api_key_id:api_key_secret). Mandatory in case `args.username`  and `args.password ` are not provided. Will take precedence over `args.username`/`args.password` if both are defined.
-  * `args.dataset`: Dataset for the data stream where to forward the logs to. Default value: "generic"
+  * `args.dataset`: Dataset for the data stream where to forward the logs to. Lambda supports automatic routing of various AWS service logs to the corresponding data streams for further processing and storage in the Elasticsearch cluster. It supports automatic routing of `aws.cloudtrail`, `aws.cloudwatch_logs`, `aws.elb_logs`, `aws.firewall_logs`, `aws.lambda`, `aws.sns`, `aws.s3_storage_lens`, `aws.vpcflow`, and `aws.waf` logs. For other log types the users can optionally set the dataset value in the configuration file. If the dataset is not specified and it cannot be matched with any of the above AWS services then the dataset will be set to "generic".
   * `args.namespace`: Namespace for the data stream where to forward the logs to. Default value: "default"
 
 ## Secrets Manager Support
 ```yaml
 inputs:
   - type: "s3-sqs"
-    id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_text_secret"
+    id: "arn:aws:sqs:%REGION%:%ACCOUNT%:%QUEUENAME%"
     outputs:
       - type: "elasticsearch"
         args:
-          elasticsearch_url: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:es_secrets:elasticsearch_url"
+          elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_url"
           username: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:es_secrets:username"
           password: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:es_secrets:password"
           dataset: "generic"
@@ -346,7 +444,7 @@ Adding custom tags is a common way to filter and categorize items in datasets.
 ```yaml
 inputs:
   - type: "s3-sqs"
-    id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_text_secret"
+    id: "arn:aws:sqs:%REGION%:%ACCOUNT%:%QUEUENAME%"
     tags:
       - "tag1"
       - "tag2"
@@ -354,13 +452,13 @@ inputs:
     outputs:
       - type: "elasticsearch"
         args:
-          elasticsearch_url: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:es_secrets:elasticsearch_url"
+          elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_url"
           username: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:es_secrets:username"
           password: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:es_secrets:password"
           dataset: "generic"
           namespace: "default"
 ```
-Using the above configuration, the tags will be set in the following way`["preserve_original_event", "forwarded", "data-set", "tag1", "tag2", "tag3"]`
+Using the above configuration, the tags will be set in the following way`["preserve_original_event", "forwarded", "generic", "tag1", "tag2", "tag3"]`
 
 #### Notes
 - Tags must be placed at input level in the config file
@@ -390,7 +488,7 @@ The original SQS message will go back to the queue and will trigger the Lambda a
 For errors at (2) the situation is different: we have now a state for N failed events out of total X events, if we fail the whole Lambda all the X events will be processed again. While the N failed ones could now succeed, the remaining X-N will now fail, since the datastreams are append-only and we would try to recreate already ingested documents (the ID of the document is deterministic).
 
 In case any of these errors will happen the Lambda won't return a failure. However, the payload of the event that failed to be ingested will be sent to a replay SQS queue.
-The replay SQS queue is set up and permissions set up automatically by the Lambda deployment.
+The replay SQS queue is set up by the Lambda deployment automatically.
 The replay SQS queue is not set as Event Source Mapping for the Lambda by default: the user can consume the message as preferred in order to investigate the failure.
 It is possible anyway to temporarily set the replay SQS queue as Event Source Mapping for the Lambda: in this case the messages in the queue will be consumed by the Lambda and tried to be ingested again if the failure was transient.
 In case the failure will persist the affected log entry will be moved to a DLQ after three retries.
