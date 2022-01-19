@@ -27,10 +27,10 @@ fi
 pip_cache="$HOME/.cache"
 docker_pip_cache="/tmp/cache/pip"
 
-cd tests
-
 DOCKER_SCANNED_FILE="DOCKER-NOTICE.json"
-trap "rm -f ${DOCKER_SCANNED_FILE}" EXIT
+touch $DOCKER_SCANNED_FILE
+
+cd tests
 
 docker build --build-arg UID=$UID --build-arg PYTHON_IMAGE=python:3.9 -t python-linters --file Dockerfile ..
 docker run \
@@ -40,11 +40,11 @@ docker run \
   -v "$(dirname $(pwd))":/app \
   --rm python-linters \
   /bin/bash \
-  -c "export PATH=\${PATH}:\${HOME}/.local/bin/
-      pip install --ignore-installed --user -U pip
+  -c "pip install --ignore-installed --user -U pip
       pip install --ignore-installed --user -r requirements.txt --cache-dir ${docker_pip_cache}
       pip install --ignore-installed --user -r requirements-lint.txt --cache-dir ${docker_pip_cache}
       pip install --ignore-installed --user -r requirements-tests.txt --cache-dir ${docker_pip_cache}
-      scancode -clpi -n 16 --include \"*LICENSE*\" --include \"*METADATA*\" --max-depth 6 --json-pp ${DOCKER_SCANNED_FILE} \${HOME}/.local/lib/
+      export PATH=\${PATH}:\${HOME}/.local/bin/
+      scancode -clpi -n 16 --include \"*LICENSE*\" --include \"*METADATA*\" --max-depth 5 --json-pp ${DOCKER_SCANNED_FILE} \${HOME}/.local/
       ./tests/scripts/parse_notice.sh ${DOCKER_SCANNED_FILE} ${MODE}
   "

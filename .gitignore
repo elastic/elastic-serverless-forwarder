@@ -33,3 +33,4 @@ tests/elastic-serverless-forwarder-junit.xml
 .python-version
 htmlcov/
 NOTICE.json
+DOCKER-NOTICE.json

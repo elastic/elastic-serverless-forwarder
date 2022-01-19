@@ -16,7 +16,7 @@ class NoticeParser:
     POSSIBLE_LICENSE_FILES: list[str] = [
         "LICENSE",
         "LICENSE.txt",
-        "LICENSE.srt",
+        "LICENSE.rst",
         "apache-2.0.LICENSE",
         "apache-2.0.LICENSE.txt",
     ]
@@ -62,6 +62,7 @@ class NoticeParser:
                         print(f"[!] New package found: '{real_package_name}'")
 
                 print("[!] Run the script with the 'fix' argument in order to add it to the NOTICE.txt file")
+                sys.exit(1)
 
         elif self.mode == "--fix":
             if real_requirements_name == existing_packages:
@@ -99,6 +100,7 @@ class NoticeParser:
                     print(f"[+] Package '{real_package_name}' has been added to {self.notice_file_name}")
         else:
             print("[-] Invalid argument. Please choose an argument between 'fix' or 'check'")
+            sys.exit(1)
 
     def process_package(self, required_package: str) -> None:
         """
