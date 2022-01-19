@@ -43,11 +43,11 @@ On top of this basic permission the following policies must be provided:
 * For the SQS queues resources that are reported in the `SQS_CONTINUE_URL` and `SQS_REPLAY_URL` environment variable the following action must be allowed:
   * `sqs:SendMessage`
 
-* For every S3 bucket resource that's reported in the `S3_CONFIG_FILE` environment variable the following action must be allowed on the S3 buckets' config file object key:
-  * `s3:GetObject`
-
 * For every SQS queue resource that used as triggers of the Lambda the following action must be allowed:
   * `sqs:GetQueueUrl`
+
+* For every S3 bucket resource that's reported in the `S3_CONFIG_FILE` environment variable the following action must be allowed on the S3 buckets' config file object key:
+  * `s3:GetObject`
 
 * For every S3 bucket resource that SQS queues are receiving notification from used by triggers of the Lambda the following action must be allowed on the S3 buckets' keys:
   * `s3:GetObject`
