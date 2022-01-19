@@ -45,6 +45,10 @@ On top of this basic permission the following policies must be provided:
 * For every S3 bucket resource that's reported in the `S3_CONFIG_FILE` environment variable the following action must be allowed on the S3 buckets' config file object key:
   * `s3:GetObject`
 
+* For every SQS queue resource that used as triggers of the Lambda the following action must be allowed:
+  * `sqs:GetQueueUrl`
+
+
 * For every S3 bucket resource that SQS queues are receiving notification from used by triggers of the Lambda the following action must be allowed on the S3 buckets' keys:
   * `s3:GetObject`
 
@@ -109,6 +113,24 @@ On top of this basic permission the following policies must be provided:
             "s3:GetObject"
           ],
           "Resource": "arn:aws:s3:::%CONFIG_FILE_BUCKET_NAME%/%CONFIG_FILE_OBJECT_KEY%",
+          "Effect": "Allow"
+          }
+        ]
+      }
+    },
+    {
+      "PolicyName": "ElasticServerlessForwarderFunctionRolePolicyS3", ## ADD FOR YOUR SQS QUEUE
+      "PolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+          "Action": [
+            "sqs:GetQueueUrl"
+          ],
+          "Resource": [
+            "arn:aws:sqs:%AWS_REGION%:%AWS_ACCOUNT_ID%:%QUEUE_NAME%",
+            ...
+          ],
           "Effect": "Allow"
           }
         ]
