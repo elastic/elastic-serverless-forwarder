@@ -43,8 +43,9 @@ On top of this basic permission the following policies must be provided:
 * For the SQS queues resources that are reported in the `SQS_CONTINUE_URL` and `SQS_REPLAY_URL` environment variable the following action must be allowed:
   * `sqs:SendMessage`
 
-* For every SQS queue resource that used as triggers of the Lambda the following action must be allowed:
-  * `sqs:GetQueueUrl`
+* For SQS queue resource that you want to use as triggers of the Lambda the proper permissions are already included by `arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole`.
+ Only the following extra action must be allowed:
+    * `sqs:GetQueueUrl`
 
 * For every S3 bucket resource that's reported in the `S3_CONFIG_FILE` environment variable the following action must be allowed on the S3 buckets' config file object key:
   * `s3:GetObject`
@@ -57,8 +58,6 @@ On top of this basic permission the following policies must be provided:
 
 * For every decrypt key that's not the default one that you used to encrypt your Secret Manager secrets with, the following action must be allowed:
   * `kms:Decrypt`
-
-* For SQS queue resource that you want to use as triggers of the Lambda the proper permission are already included by `arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole`:
 
 #### Sample policy:
   ```json
