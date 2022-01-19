@@ -5,7 +5,6 @@
 import json
 import re
 import sys
-from colorama import Fore, Style, init
 from datetime import datetime
 from typing import Any
 
@@ -54,35 +53,35 @@ class NoticeParser:
 
         if self.mode == "--check":
             if real_requirements_name == existing_packages:
-                print(Fore.CYAN, "[!] There is no new package listed in the requirements files")
-                print(Style.RESET_ALL)
+                print("[!] There is no new package listed in the requirements files")
                 sys.exit()
             else:
                 for new_package in requirements_name_from_file:
                     if self.required_packages[new_package] not in existing_packages:
                         real_package_name: str = self.required_packages[new_package]
-                        print(Fore.CYAN, f"[!] New package found: '{real_package_name}'")
+                        print(f"[!] New package found: '{real_package_name}'")
 
-                print(Fore.CYAN, "[!] Run the script with the 'fix' argument in order to add it to the NOTICE.txt file")
+                print("[!] Run the script with the 'fix' argument in order to add it to the NOTICE.txt file")
 
         elif self.mode == "--fix":
             if real_requirements_name == existing_packages:
-                print(Fore.CYAN, "[!] There is no new package listed in the requirements files")
-                print(Style.RESET_ALL)
+                print("[!] There is no new package listed in the requirements files")
                 sys.exit()
 
             for new_package in requirements_name_from_file:
                 if self.required_packages[new_package] not in existing_packages:
                     real_package_name = self.required_packages[new_package]
 
-                    print(Fore.CYAN, f"[!] New package found: '{real_package_name}'")
+                    print(f"[!] New package found: '{real_package_name}'")
                     self.process_package(required_package=new_package)
                     self.verify_license_in_packages(processed_package=new_package)
 
                     processed_package = self.processed_packages.get(new_package)
 
                     if not processed_package:
-                        print(Fore.RED, f"[-] Nothing has been found for package '{real_package_name}' in {self.scanned_json_file}")
+                        print(
+                            f"[-] Nothing has been found for package '{real_package_name}' in {self.scanned_json_file}",
+                        )
                         continue
 
                     if (
@@ -97,11 +96,9 @@ class NoticeParser:
                         continue
 
                     self.write_to_file(processed_package)
-                    print(Fore.GREEN, f"[+] Package '{real_package_name}' has been added to {self.notice_file_name}")
+                    print(f"[+] Package '{real_package_name}' has been added to {self.notice_file_name}")
         else:
-            print(Fore.RED, "[-] Invalid argument. Please choose an argument between 'fix' or 'check'")
-
-        print(Style.RESET_ALL)
+            print("[-] Invalid argument. Please choose an argument between 'fix' or 'check'")
 
     def process_package(self, required_package: str) -> None:
         """
@@ -176,15 +173,15 @@ class NoticeParser:
                     fh.write("=" * 100)
 
                 with open("NOTICE.txt") as fh:
-                    license_content: str = fh.read()
+                    license_content = fh.read()
 
                 return license_content
             else:
                 raise
 
         except Exception as e:
-            print(Fore.RED, f"[-] {e}")
-            print(Style.RESET_ALL)
+            print(f"[-] {e}")
+            raise
         else:
             return license_content
 
@@ -209,7 +206,7 @@ class NoticeParser:
 
                         self.required_packages[package_name] = original_requirement.split("=")[0].strip(">").strip("\n")
 
-    def verify_license_in_packages(self, processed_package) -> None:
+    def verify_license_in_packages(self, processed_package: str) -> None:
         """
         Checks if the license_content exists for all packages
         If license not found, it tries to build a URL for a possible location where the LICENSE may be found
@@ -242,12 +239,10 @@ class NoticeParser:
                         self.processed_packages[processed_package]["license_path"] = github_page
                         break
                     else:
-                        print(Fore.RED, f"[-] License could not be found at: {github_page}")
-                        print(Style.RESET_ALL)
+                        print(f"[-] License could not be found at: {github_page}")
 
             except Exception as e:
-                print(Fore.RED, f"[-] {e}")
-                print(Style.RESET_ALL)
+                print(f"[-] {e}")
 
     def write_to_file(self, package_data: dict[str, str]) -> None:
         """
@@ -269,8 +264,7 @@ class NoticeParser:
 
 if __name__ == "__main__":
     if len(sys.argv) > 3:
-        print(Fore.RED, "[-] You've specified too many arguments")
-        print(Style.RESET_ALL)
+        print("[-] You've specified too many arguments")
         sys.exit()
 
     scanned_file_name = sys.argv[1]

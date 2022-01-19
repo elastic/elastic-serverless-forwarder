@@ -37,11 +37,9 @@ docker run \
   -v "$(dirname $(pwd))":/app \
   --rm python-linters \
   /bin/bash \
-  -c "pip install --user -U pip
-      export PATH=\${PATH}:\${HOME}/.local/bin/
-      pip install --user -r requirements.txt --cache-dir ${docker_pip_cache}
-      pip install --user -r requirements-tests.txt --cache-dir ${docker_pip_cache}
-      pip install --user -r requirements-lint.txt --cache-dir ${docker_pip_cache}
-      scancode -clpi -n 16 --include \"*LICENSE*\" --include \"*METADATA*\" --max-depth 6 --json-pp NOTICE.json .
-      ./tests/scripts/parse_notice.sh NOTICE.json fix
+  -c "python3 -m pip install -r requirements.txt
+      python3 -m pip install -r requirements-tests.txt
+      python3 -m pip install -r requirements-lint.txt
+      scancode -clpi -n 16 --include \"*LICENSE*\" --include \"*METADATA*\" --max-depth 6 --json-pp ${SCANNED_FILE_NAME} .
+      ./tests/scripts/parse_notice.sh ${SCANNED_FILE_NAME} ${MODE}
   "
