@@ -2,6 +2,7 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
+import argparse
 import json
 import re
 import sys
@@ -17,8 +18,28 @@ class NoticeParser:
         "LICENSE",
         "LICENSE.txt",
         "LICENSE.rst",
+        "apache-1.0.LICENSE",
+        "apache-1.0.LICENSE.txt",
+        "apache-1.1.LICENSE",
+        "apache-1.1.LICENSE.txt",
         "apache-2.0.LICENSE",
         "apache-2.0.LICENSE.txt",
+        "apple-attribution.LICENSE",
+        "apple-attribution.LICENSE.txt",
+        "bsd-zero.LICENSE",
+        "bsd-zero.LICENSE.txt",
+        "bsd-2-clause-freebsd.LICENSE",
+        "bsd-2-clause-freebsd.LICENSE.txt",
+        "bsd-2-clause-netbsd.LICENSE"
+        "bsd-2-clause-netbsd.LICENSE.txt"
+        "bsd-3-clause-no-change.LICENSE"
+        "bsd-3-clause-no-change.LICENSE.txt"
+        "bsd-3-clause-no-trademark.LICENSE"
+        "bsd-3-clause-no-trademark.LICENSE.txt"
+        "bsd-4-clause-shortened.LICENSE"
+        "bsd-4-clause-shortened.LICENSE.txt"
+        "MIT.LICENSE"
+        "MIT.LICENSE.txt",
     ]
     POSSIBLE_METADATA_FILES: list[str] = ["METADATA", "METADATA.txt"]
 
@@ -51,55 +72,48 @@ class NoticeParser:
         real_requirements_name = [requirement for requirement in self.required_packages.values()]
         real_requirements_name.sort()
 
-        if self.mode == "--check":
-            if real_requirements_name == existing_packages:
-                print("[!] There is no new package listed in the requirements files")
-                sys.exit()
-            else:
-                for new_package in requirements_name_from_file:
-                    if self.required_packages[new_package] not in existing_packages:
-                        real_package_name: str = self.required_packages[new_package]
-                        print(f"[!] New package found: '{real_package_name}'")
+        if real_requirements_name == existing_packages:
+            print("There is no new package listed in the requirements files")
+            sys.exit()
 
-                print("[!] Run the script with the 'fix' argument in order to add it to the NOTICE.txt file")
-                sys.exit(1)
-
-        elif self.mode == "--fix":
-            if real_requirements_name == existing_packages:
-                print("[!] There is no new package listed in the requirements files")
+        for package in existing_packages:
+            if package not in self.required_packages.values():
+                print(f"Package '{package}' exists in {self.notice_file_name}, but not in requirements")
                 sys.exit()
 
+        if self.mode == "check":
+            for new_package in requirements_name_from_file:
+                if self.required_packages[new_package] not in existing_packages:
+                    real_package_name: str = self.required_packages[new_package]
+                    print(f"New package found: '{real_package_name}'")
+
+            print("Run the program in 'fix' mode to add it to the NOTICE.txt file")
+            sys.exit(1)
+
+        elif self.mode == "fix":
             for new_package in requirements_name_from_file:
                 if self.required_packages[new_package] not in existing_packages:
                     real_package_name = self.required_packages[new_package]
 
-                    print(f"[!] New package found: '{real_package_name}'")
+                    print(f"New package found: '{real_package_name}'")
                     self.process_package(required_package=new_package)
                     self.verify_license_in_packages(processed_package=new_package)
-
                     processed_package = self.processed_packages.get(new_package)
 
                     if not processed_package:
                         print(
-                            f"[-] Nothing has been found for package '{real_package_name}' in {self.scanned_json_file}",
+                            f"Nothing has been found for package '{real_package_name}' in {self.scanned_json_file}",
                         )
                         continue
 
-                    if (
-                        "package_name" not in processed_package
-                        or "version" not in processed_package
-                        or "homepage_url" not in processed_package
-                        or "license_name" not in processed_package
-                        or "license_path" not in processed_package
-                        or "license_content" not in processed_package
-                    ):
+                    if "package_name" not in processed_package or "license_name" not in processed_package:
                         print(f"Missing data for '{real_package_name}'. Skipping...")
                         continue
 
                     self.write_to_file(processed_package)
-                    print(f"[+] Package '{real_package_name}' has been added to {self.notice_file_name}")
+                    print(f"Package '{real_package_name}' has been added to {self.notice_file_name}")
         else:
-            print("[-] Invalid argument. Please choose an argument between 'fix' or 'check'")
+            print("Invalid argument. Please choose a mode between 'fix' or 'check'")
             sys.exit(1)
 
     def process_package(self, required_package: str) -> None:
@@ -115,14 +129,24 @@ class NoticeParser:
                 splitted_entry_path[-1] in NoticeParser.POSSIBLE_LICENSE_FILES
                 or splitted_entry_path[-1] in NoticeParser.POSSIBLE_METADATA_FILES
             ):
-                if not len(splitted_entry_path) > 6:
+                if len(splitted_entry_path) == 5:
+                    package_name_and_version: list[str] = splitted_entry_path[3].rstrip(".dist-info").split("-")
+                elif len(splitted_entry_path) == 6:
+                    package_name_and_version = splitted_entry_path[4].rstrip(".dist-info").split("-")
+                elif len(splitted_entry_path) > 6:
+                    package_name_and_version = splitted_entry_path[5].rstrip(".dist-info").split("-")
+                else:
                     continue
 
-                package_name = splitted_entry_path[5].split("-")[0]
+                package_name = package_name_and_version[0]
+
+                if len(package_name_and_version) > 1:
+                    package_version = package_name_and_version[1]
+                else:
+                    package_version = ""
 
                 if package_name == required_package:
                     if package_name not in self.processed_packages:
-                        # print(entry)
                         self.processed_packages[package_name] = {}
                         self.processed_packages[package_name]["package_name"] = self.required_packages[required_package]
 
@@ -130,15 +154,10 @@ class NoticeParser:
                             self.processed_packages[package_name]["license_name"] = entry["licenses"][0]["key"].upper()
 
                     if splitted_entry_path[-1] in NoticeParser.POSSIBLE_METADATA_FILES:
-                        package_version: str = splitted_entry_path[5].split("-")[1].strip(".dist")
                         self.processed_packages[package_name]["version"] = package_version
 
                         homepage_url: str = entry["packages"][0]["homepage_url"]
                         vcs_url: str = entry["packages"][0]["vcs_url"]
-
-                        if not homepage_url and not vcs_url:
-                            print("No Homepage URL or VCS URL for the license. Skipping...")
-                            return
 
                         if "github" not in homepage_url and vcs_url and "github" in vcs_url:
                             homepage_url = vcs_url.split(" ")[-1]
@@ -146,7 +165,11 @@ class NoticeParser:
                         self.processed_packages[package_name]["homepage_url"] = homepage_url
 
                     if splitted_entry_path[-1] in NoticeParser.POSSIBLE_LICENSE_FILES:
-                        license_path: str = "/".join(entry["path"].split("/")[1:])
+                        license_path: str = entry["path"]
+
+                        if license_path.startswith("elastic-serverless-forwarder"):
+                            license_path = "/".join(entry["path"].split("/")[1:])
+
                         self.processed_packages[package_name]["license_path"] = license_path
 
                         license_content: str = self.read_content_from_file(content_file_path=license_path)
@@ -160,11 +183,11 @@ class NoticeParser:
         """
         try:
             with open(content_file_path) as fh:
-                license_content: str = fh.read()
+                file_content: str = fh.read()
 
         except FileNotFoundError:
             if content_file_path == self.notice_file_name:
-                with open("NOTICE.txt", "w+") as fh:
+                with open(self.notice_file_name, "w+") as fh:
                     fh.write("# Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one\n")
                     fh.write("# or more contributor license agreements. Licensed under the Elastic License 2.0;\n")
                     fh.write("# you may not use this file except in compliance with the Elastic License 2.0.\n\n")
@@ -174,18 +197,17 @@ class NoticeParser:
                     fh.write("Third party libraries used by the Elastic Serverless Forwarder project:\n")
                     fh.write("=" * 100)
 
-                with open("NOTICE.txt") as fh:
-                    license_content = fh.read()
+                with open(self.notice_file_name) as fh:
+                    file_content = fh.read()
 
-                return license_content
+                return file_content
             else:
                 raise
 
         except Exception as e:
-            print(f"[-] {e}")
-            raise
+            raise e
         else:
-            return license_content
+            return file_content
 
     def read_requirements(self) -> None:
         """
@@ -200,20 +222,24 @@ class NoticeParser:
                 req_data: list[str] = fh.readlines()
 
                 for original_requirement in req_data:
-                    package_name: str = original_requirement.split("=")[0].strip(">").strip("\n").replace("-", "_")
+                    cleaned_requirement_name: str = original_requirement.split("=")[0].strip(">").strip("\n")
+                    package_name: str = cleaned_requirement_name.replace("-", "_")
 
                     if package_name not in self.required_packages:
                         if "[" and "]" in package_name:
                             package_name = package_name.split("[")[0]
 
-                        self.required_packages[package_name] = original_requirement.split("=")[0].strip(">").strip("\n")
+                        self.required_packages[package_name] = cleaned_requirement_name
 
     def verify_license_in_packages(self, processed_package: str) -> None:
         """
         Checks if the license_content exists for all packages
         If license not found, it tries to build a URL for a possible location where the LICENSE may be found
         """
-        if "license_content" not in self.processed_packages[processed_package]:
+        if (
+            "license_content" not in self.processed_packages[processed_package]
+            and self.processed_packages[processed_package]["homepage_url"]
+        ):
             try:
                 raw_github_base_url: str = "https://raw.githubusercontent.com"
                 homepage_url: str = self.processed_packages[processed_package]["homepage_url"]
@@ -241,36 +267,61 @@ class NoticeParser:
                         self.processed_packages[processed_package]["license_path"] = github_page
                         break
                     else:
-                        print(f"[-] License could not be found at: {github_page}")
+                        print(f"License could not be found at: {github_page}")
 
             except Exception as e:
-                print(f"[-] {e}")
+                raise e
 
     def write_to_file(self, package_data: dict[str, str]) -> None:
         """
         Writes the NOTICE.txt file with the package data
         """
+        package_name = package_data["package_name"]
+        package_version = package_data.get("version")
+        package_homepage_url = package_data.get("homepage_url")
+        package_license_name = package_data["license_name"]
+        package_license_path = package_data.get("license_path")
+        package_license_content = package_data.get("license_content")
+
+        if not package_version:
+            package_version = ""
+
+        if not package_homepage_url:
+            package_homepage_url = ""
+
+        if not package_license_path:
+            package_license_path = ""
+
+        if not package_license_content:
+            package_license_content = ""
+
         with open(self.notice_file_name, "a+") as fh:
             fh.write("\n\n")
             fh.write("-" * 100)
             fh.write("\n")
-            fh.write(f"Package: {package_data['package_name']}\n")
-            fh.write(f"Version: {package_data['version']}\n")
-            fh.write(f"Homepage: {package_data['homepage_url']}\n")
+            fh.write(f"Package: {package_name}\n")
+            fh.write(f"Version: {package_version}\n")
+            fh.write(f"Homepage: {package_homepage_url}\n")
             fh.write(f"Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}\n")
-            fh.write(f"License: {package_data['license_name']}\n")
+            fh.write(f"License: {package_license_name}\n")
             fh.write("\n\n")
-            fh.write(f"Contents of probable licence file {package_data['license_path']}: \n\n")
-            fh.write(package_data["license_content"])
+            fh.write(f"Contents of probable licence file {package_license_path}: \n\n")
+            fh.write(package_license_content)
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 3:
-        print("[-] You've specified too many arguments")
-        sys.exit()
+    parser = argparse.ArgumentParser(
+        description="Check for packages' licenses listed in requirements files and add them to NOTICE.txt"
+    )
+    parser.add_argument(
+        "--scanned_file_name", "-f", help="the name of the json file outputted by scancode", required=True
+    )
+    parser.add_argument("--mode", "-m", help="two modes: check or fix", required=True)
 
-    scanned_file_name = sys.argv[1]
-    mode = sys.argv[2]
+    args = parser.parse_args()
+
+    scanned_file_name: str = args.scanned_file_name
+    mode: str = args.mode
 
     requirements_list: list[str] = ["requirements.txt", "requirements-lint.txt", "requirements-tests.txt"]
 

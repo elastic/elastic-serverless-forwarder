@@ -12,16 +12,29 @@ then
 fi
 
 SCANNED_FILE_NAME=$1
+touch $SCANNED_FILE_NAME
 
 if [[ "$2" = "check" ]]
 then
-    MODE="--check"
+    MODE="check"
 elif [[ "$2" = "fix" ]]
 then
-    MODE="--fix"
+    MODE="fix"
 else
-    echo "You have to run the script with either 'check' or 'fix' args"
+    echo "You have to run the script in either 'check' or 'fix' mode"
     exit 1
 fi
 
-python tests/scripts/parse_notice.py ${SCANNED_FILE_NAME} ${MODE}
+/bin/bash -c "
+    python -m pip install --ignore-installed --user --upgrade pip
+    python -m pip install --ignore-installed --user -r requirements.txt
+    python -m pip install --ignore-installed --user -r requirements-lint.txt
+    python -m pip install --ignore-installed --user -r requirements-tests.txt
+
+    export PATH=\${PATH}:\${HOME}/.local/bin/
+    scancode -clpi -n 16 --include \"*LICENSE*\" --include \"*METADATA*\" --max-depth 5 --json-pp ${SCANNED_FILE_NAME} \${HOME}/.local/
+
+    python tests/scripts/parse_notice.py -f ${SCANNED_FILE_NAME} -m ${MODE}
+
+    rm -rf \${HOME}/.local/
+"
