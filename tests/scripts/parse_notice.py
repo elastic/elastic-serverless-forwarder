@@ -58,9 +58,13 @@ class NoticeParser:
         if not scanned_results_data:
             raise ValueError(f"{self.scanned_json_file} is empty")
 
-        self.scanned_results_json: Any = json.loads(scanned_results_data)
+        try:
+            self.scanned_results_json: Any = json.loads(scanned_results_data)
+        except Exception as e:
+            print(e)
+            raise e
 
-        notice_file_content: str = self.read_content_from_file("NOTICE.txt")
+        notice_file_content: str = self.read_content_from_file(self.notice_file_name)
 
         package_pattern = r"(?:Package: ([^\n]+))"
         existing_packages: list[str] = re.findall(package_pattern, notice_file_content)
@@ -110,7 +114,7 @@ class NoticeParser:
                         print(f"Missing data for '{real_package_name}'. Skipping...")
                         continue
 
-                    self.write_to_file(processed_package)
+                    self.write_to_notice_file(processed_package)
                     print(f"Package '{real_package_name}' has been added to {self.notice_file_name}")
         else:
             print("Invalid argument. Please choose a mode between 'fix' or 'check'")
@@ -123,6 +127,7 @@ class NoticeParser:
         and self.POSSIBLE_METADATA_FILES where the important information about the package should exist
         """
         for entry in self.scanned_results_json["files"]:
+            # eg. entry["path"] = venv/lib/python3.9/site-packages/package_name-2.1.3.dist-info/LICENSE.txt
             splitted_entry_path: list[str] = entry["path"].split("/")
 
             if (
@@ -159,7 +164,7 @@ class NoticeParser:
                         homepage_url: str = entry["packages"][0]["homepage_url"]
                         vcs_url: str = entry["packages"][0]["vcs_url"]
 
-                        if "github" not in homepage_url and vcs_url and "github" in vcs_url:
+                        if homepage_url and "github" not in homepage_url and vcs_url and "github" in vcs_url:
                             homepage_url = vcs_url.split(" ")[-1]
 
                         self.processed_packages[package_name]["homepage_url"] = homepage_url
@@ -173,8 +178,7 @@ class NoticeParser:
                         self.processed_packages[package_name]["license_path"] = license_path
 
                         license_content: str = self.read_content_from_file(content_file_path=license_path)
-                        if not license_content:
-                            continue
+
                         self.processed_packages[package_name]["license_content"] = license_content
 
     def read_content_from_file(self, content_file_path: str) -> str:
@@ -272,7 +276,7 @@ class NoticeParser:
             except Exception as e:
                 raise e
 
-    def write_to_file(self, package_data: dict[str, str]) -> None:
+    def write_to_notice_file(self, package_data: dict[str, str]) -> None:
         """
         Writes the NOTICE.txt file with the package data
         """
