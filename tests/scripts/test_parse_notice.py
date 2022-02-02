@@ -4,12 +4,13 @@
 
 from __future__ import annotations
 
+import json
 import os
+from datetime import datetime
 from json.decoder import JSONDecodeError
 from unittest import TestCase
 
 import pytest
-import json
 
 from .parse_notice import NoticeParser
 
@@ -26,9 +27,15 @@ class TestParseNotice(TestCase):
             {
                 "files": [
                     {
-                        "path": f"{self.test_license_path}/LICENSE.txt",
+                        "path": f"{self.test_license_path}/LICENSE",
                         "licenses": [{"key": "mit"}],
-                    }
+                    },
+                    {
+                        "path": f"{self.test_license_path}/METADATA",
+                        "packages": [
+                            {"homepage_url": "https://pyyaml.org/", "vcs_url": "https://pypi.org/project/PyYAML/"}
+                        ],
+                    },
                 ]
             }
         )
@@ -42,16 +49,18 @@ class TestParseNotice(TestCase):
         with open(self.test_requirements, "w+") as fh:
             fh.write("PyYAML")
 
-        # os.makedirs(self.test_license_path+"/")
+        if not os.path.exists(self.test_license_path):
+            os.makedirs(self.test_license_path + "/")
 
-        with open(f"{self.test_license_path}/LICENSE.TXT", "w+") as fh:
+        with open(f"{self.test_license_path}/LICENSE", "w+") as fh:
             fh.write("THIS IS THE TEST LICENSE FILE CONTENT")
 
     def tearDown(self) -> None:
         os.remove(self.scanned_fn)
         os.remove(self.test_notice_fn)
         os.remove(self.test_requirements)
-        os.rmtree(self.test_license_path)
+        os.remove(f"{self.test_license_path}/LICENSE")
+        os.removedirs(self.test_license_path)
 
     def test_init_notice_parser(self) -> None:
         with self.subTest("valid init with nothing to be updated"):
@@ -120,7 +129,7 @@ class TestParseNotice(TestCase):
             with open(self.test_requirements, "a") as fh:
                 fh.write("\nlocalstack[runtime]")
 
-            requirements_files: list[str] = [self.test_requirements]
+            requirements_files = [self.test_requirements]
 
             with open(self.test_notice_fn, "a") as fh:
                 fh.write("\n\n" + "-" * 100 + "\n")
@@ -178,7 +187,7 @@ class TestParseNotice(TestCase):
                 NoticeParser(requirements_files, "FileDoesNotExist", "check", self.test_notice_fn)
 
         with self.subTest("successfully read content from scanned file"):
-            requirements_files: list[str] = []
+            requirements_files = []
 
             with open(self.scanned_fn, "+w") as fh:
                 fh.write('{"test_key": "test_value"}')
@@ -199,8 +208,12 @@ class TestParseNotice(TestCase):
             with open(self.test_notice_fn) as fh:
                 notice_file_content = fh.read()
 
-            print("NOTICE:", notice_file_content)
-            print(np.processed_packages)
+            assert np.processed_packages["PyYAML"]["package_name"] == "PyYAML"
+            assert np.processed_packages["PyYAML"]["license_name"] == "MIT"
+            assert np.processed_packages["PyYAML"]["license_path"] == f"{self.test_license_path}/LICENSE"
+            assert np.processed_packages["PyYAML"]["license_content"] == "THIS IS THE TEST LICENSE FILE CONTENT"
+            assert np.processed_packages["PyYAML"]["version"] == "5.4.1"
+            assert np.processed_packages["PyYAML"]["homepage_url"] == "https://pyyaml.org/"
             assert (
                 notice_file_content
                 == "# Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one\n"
@@ -218,6 +231,8 @@ class TestParseNotice(TestCase):
                 + "Package: PyYAML\n"
                 + "Version: 5.4.1\n"
                 + "Homepage: https://pyyaml.org/\n"
-                + "Time: 2022-01-18 21:07:16\n"
-                + "License: MIT\n"
+                + f"Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}\n"
+                + "License: MIT\n\n\n"
+                + "Contents of probable licence file THIS/IS/A/TEST/PyYAML-5.4.1.dist-info/LICENSE: \n\n"
+                + "THIS IS THE TEST LICENSE FILE CONTENT"
             )
