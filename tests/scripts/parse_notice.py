@@ -132,13 +132,13 @@ class NoticeParser:
                 splitted_entry_path[-1] in NoticeParser.POSSIBLE_LICENSE_FILES
                 or splitted_entry_path[-1] in NoticeParser.POSSIBLE_METADATA_FILES
             ):
-                if len(splitted_entry_path) == 5:
-                    package_name_and_version: list[str] = splitted_entry_path[3].rstrip(".dist-info").split("-")
-                elif len(splitted_entry_path) == 6:
-                    package_name_and_version = splitted_entry_path[4].rstrip(".dist-info").split("-")
-                elif len(splitted_entry_path) > 6:
-                    package_name_and_version = splitted_entry_path[5].rstrip(".dist-info").split("-")
-                else:
+                package_name_and_version: list[str] = []
+
+                for i in range(len(splitted_entry_path)):
+                    if required_package in splitted_entry_path[i]:
+                        package_name_and_version = splitted_entry_path[i].rstrip(".dist-info").split("-")
+
+                if not package_name_and_version:
                     continue
 
                 package_name = package_name_and_version[0]

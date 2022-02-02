@@ -199,7 +199,45 @@ class TestParseNotice(TestCase):
             self.setUp()
 
     def test_fix_mode(self) -> None:
-        with self.subTest("splitted_entry_path in licenses list"):
+        with self.subTest("successfully write to notice file"):
+            requirements_files: list[str] = [self.test_requirements]
+            os.remove(self.test_notice_fn)
+
+            np = NoticeParser(requirements_files, self.scanned_fn, "fix", self.test_notice_fn)
+
+            with open(self.test_notice_fn) as fh:
+                notice_file_content = fh.read()
+
+            assert np.processed_packages["PyYAML"]["package_name"] == "PyYAML"
+            assert np.processed_packages["PyYAML"]["license_name"] == "MIT"
+            assert np.processed_packages["PyYAML"]["license_path"] == f"{self.test_license_path}/LICENSE"
+            assert np.processed_packages["PyYAML"]["license_content"] == "THIS IS THE TEST LICENSE FILE CONTENT"
+            assert np.processed_packages["PyYAML"]["version"] == "5.4.1"
+            assert np.processed_packages["PyYAML"]["homepage_url"] == "https://pyyaml.org/"
+            assert (
+                notice_file_content
+                == "# Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one\n"
+                + "# or more contributor license agreements. Licensed under the Elastic License 2.0;\n"
+                + "# you may not use this file except in compliance with the Elastic License 2.0.\n"
+                + "\n"
+                + "Elastic Serverless Forwarder\n"
+                + 100 * "="
+                + "\n"
+                + "Third party libraries used by the Elastic Serverless Forwarder project:\n"
+                + 100 * "="
+                + "\n\n"
+                + "-" * 100
+                + "\n"
+                + "Package: PyYAML\n"
+                + "Version: 5.4.1\n"
+                + "Homepage: https://pyyaml.org/\n"
+                + f"Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}\n"
+                + "License: MIT\n\n\n"
+                + "Contents of probable licence file THIS/IS/A/TEST/PyYAML-5.4.1.dist-info/LICENSE: \n\n"
+                + "THIS IS THE TEST LICENSE FILE CONTENT"
+            )
+
+        with self.subTest("successfully write to notice file"):
             requirements_files: list[str] = [self.test_requirements]
             os.remove(self.test_notice_fn)
 

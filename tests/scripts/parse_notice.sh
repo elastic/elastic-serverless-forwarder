@@ -32,7 +32,7 @@ fi
     python -m pip install --ignore-installed --user -r requirements-tests.txt
 
     export PATH=\${PATH}:\${HOME}/.local/bin/
-    scancode -clpi -n 16 --include \"*LICENSE*\" --include \"*METADATA*\" --max-depth 5 --json-pp ${SCANNED_FILE_NAME} \${HOME}/.local/
+    scancode -clpi -n 16 --include \"*LICENSE*\" --include \"*METADATA*\" --max-depth 5 --full-root --json-pp ${SCANNED_FILE_NAME} \${HOME}/.local/
 
     python tests/scripts/parse_notice.py -f ${SCANNED_FILE_NAME} -m ${MODE}
 
