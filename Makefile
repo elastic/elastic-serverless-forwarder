@@ -76,9 +76,6 @@ license:  ## Run license validation in the project
 notice: ## Creates NOTICE.txt file
 	tests/scripts/${BASE_DIR}parse_notice.sh NOTICE.json check
 
-scancode: ## Scans the project for license files
-	scancode -clpi -n 16 --include "*LICENSE*" --include "*METADATA*" --max-depth 6 --json-pp NOTICE.json .
-
 all-requirements: requirements requirements-lint requirements-tests  ## Install all requirements on the host
 
 requirements: .makecache/requirements.txt  ## Install app requirements on the host
