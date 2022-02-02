@@ -15,7 +15,7 @@ from botocore.response import StreamingBody
 
 from storage import S3Storage, StorageReader
 
-_1M: int = 1024 ** 2
+_1M: int = 1024**2
 
 
 class MockContent:
