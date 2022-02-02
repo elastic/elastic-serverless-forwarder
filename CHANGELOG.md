@@ -1,3 +1,7 @@
+### v0.19.0 - 2022/02/02
+##### Features
+* Expose `batch_max_actions` and `batch_max_bytes` config params for ES shipper: [#65](https://github.com/elastic/elastic-serverless-forwarder/pull/65)
+
 ### v0.18.0 - 2022/01/13
 ##### Features
 * Handle batches of SQS records: [#63](https://github.com/elastic/elastic-serverless-forwarder/pull/63)
