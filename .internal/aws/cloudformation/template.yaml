@@ -57,9 +57,11 @@ Resources:
 Metadata:
   AWS::ServerlessRepo::Application:
     Name: %sarAppName%
-    Description: Elastic Forwared for Serverless
-    Author: elastic
+    Description: Send observability data from your AWS environment to Elastic.
+    Author: Elastic
+    Labels: ['s3', 'logs', 'analytics', 'observability', 'monitoring', 'Elastic']
     SemanticVersion: %semanticVersion%
     LicenseUrl: LICENSE.txt
     ReadmeUrl: README.md
     HomePageUrl: https://github.com/elastic/elastic-serverless-forwarder
+    SourceCodeUrl: https://github.com/elastic/elastic-serverless-forwarder
