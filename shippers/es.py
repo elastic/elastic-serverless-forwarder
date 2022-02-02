@@ -21,8 +21,6 @@ class ElasticsearchShipper(CommonShipper):
     This class implements concrete Elasticsearch Shipper
     """
 
-    _bulk_batch_size: int = 1000
-
     def __init__(
         self,
         elasticsearch_url: str = "",
@@ -33,16 +31,24 @@ class ElasticsearchShipper(CommonShipper):
         dataset: str = "",
         namespace: str = "",
         tags: list[str] = [],
+        batch_max_actions: int = 500,
+        batch_max_bytes: int = 100 * 1024 * 1024,
     ):
 
         self._bulk_actions: list[dict[str, Any]] = []
+
+        self._bulk_batch_size = batch_max_actions
 
         self._bulk_kwargs: dict[str, Any] = {
             "max_retries": 10,
             "stats_only": False,
             "raise_on_error": False,
             "raise_on_exception": False,
+            "max_chunk_bytes": batch_max_bytes,
         }
+
+        if batch_max_actions > 0:
+            self._bulk_kwargs["chunk_size"] = batch_max_actions
 
         es_client_kwargs: dict[str, Any] = {}
         if elasticsearch_url:
