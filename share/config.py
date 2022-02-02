@@ -46,7 +46,7 @@ class ElasticsearchOutput(Output):
         namespace: str = "",
         tags: list[str] = [],
         batch_max_actions: int = 500,
-        batch_max_bytes: int = 100*1024*1024,
+        batch_max_bytes: int = 100 * 1024 * 1024,
     ):
 
         super().__init__(output_type="elasticsearch")
