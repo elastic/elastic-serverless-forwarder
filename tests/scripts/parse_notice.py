@@ -5,7 +5,6 @@
 import argparse
 import json
 import re
-import sys
 from datetime import datetime
 from typing import Any
 
@@ -43,12 +42,14 @@ class NoticeParser:
     ]
     POSSIBLE_METADATA_FILES: list[str] = ["METADATA", "METADATA.txt"]
 
-    def __init__(self, requirement_files: list[str], scanned_json_file: str, cli_mode_argument: str) -> None:
+    def __init__(
+        self, requirement_files: list[str], scanned_json_file: str, cli_mode_argument: str, notice_fn: str
+    ) -> None:
         self.requirement_files: list[str] = requirement_files
         self.scanned_json_file: str = scanned_json_file
         self.processed_packages: dict[str, dict[str, str]] = {}
         self.required_packages: dict[str, str] = {}
-        self.notice_file_name: str = "NOTICE.txt"
+        self.notice_file_name: str = notice_fn
         self.mode: str = cli_mode_argument
 
         self.read_requirements()
@@ -78,12 +79,11 @@ class NoticeParser:
 
         if real_requirements_name == existing_packages:
             print("There is no new package listed in the requirements files")
-            sys.exit()
+            return
 
         for package in existing_packages:
             if package not in self.required_packages.values():
-                print(f"Package '{package}' exists in {self.notice_file_name}, but not in requirements")
-                sys.exit()
+                raise SystemExit(f"Package '{package}' exists in {self.notice_file_name}, but not in requirements")
 
         if self.mode == "check":
             for new_package in requirements_name_from_file:
@@ -91,8 +91,7 @@ class NoticeParser:
                     real_package_name: str = self.required_packages[new_package]
                     print(f"New package found: '{real_package_name}'")
 
-            print("Run the program in 'fix' mode to add it to the NOTICE.txt file")
-            sys.exit(1)
+            raise SystemExit("New packages found. Run the program in 'fix' mode to add it to the NOTICE.txt file")
 
         elif self.mode == "fix":
             for new_package in requirements_name_from_file:
@@ -117,8 +116,7 @@ class NoticeParser:
                     self.write_to_notice_file(processed_package)
                     print(f"Package '{real_package_name}' has been added to {self.notice_file_name}")
         else:
-            print("Invalid argument. Please choose a mode between 'fix' or 'check'")
-            sys.exit(1)
+            raise SystemExit("Invalid argument. Please choose a mode between 'fix' or 'check'")
 
     def process_package(self, required_package: str) -> None:
         """
@@ -189,7 +187,7 @@ class NoticeParser:
             with open(content_file_path) as fh:
                 file_content: str = fh.read()
 
-        except FileNotFoundError:
+        except FileNotFoundError as fnf:
             if content_file_path == self.notice_file_name:
                 with open(self.notice_file_name, "w+") as fh:
                     fh.write("# Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one\n")
@@ -206,7 +204,7 @@ class NoticeParser:
 
                 return file_content
             else:
-                raise
+                raise fnf
 
         except Exception as e:
             raise e
@@ -222,9 +220,15 @@ class NoticeParser:
         has "_" instead "-" (eg. "venv/.../elastic_apm-6.7.2.dist-info/...)
         """
         for requirement_file in self.requirement_files:
-            with open(requirement_file) as fh:
-                req_data: list[str] = fh.readlines()
+            try:
+                with open(requirement_file) as fh:
+                    req_data: list[str] = fh.readlines()
 
+            except FileNotFoundError as fnf:
+                raise fnf
+            except Exception as e:
+                raise e
+            else:
                 for original_requirement in req_data:
                     cleaned_requirement_name: str = original_requirement.split("=")[0].strip(">").strip("\n")
                     package_name: str = cleaned_requirement_name.replace("-", "_")
@@ -241,7 +245,8 @@ class NoticeParser:
         If license not found, it tries to build a URL for a possible location where the LICENSE may be found
         """
         if (
-            "license_content" not in self.processed_packages[processed_package]
+            processed_package in self.processed_packages
+            and "license_content" not in self.processed_packages[processed_package]
             and self.processed_packages[processed_package]["homepage_url"]
         ):
             try:
@@ -328,5 +333,11 @@ if __name__ == "__main__":
     mode: str = args.mode
 
     requirements_list: list[str] = ["requirements.txt", "requirements-lint.txt", "requirements-tests.txt"]
+    notice_file_name: str = "NOTICE.txt"
 
-    np = NoticeParser(requirement_files=requirements_list, scanned_json_file=scanned_file_name, cli_mode_argument=mode)
+    np = NoticeParser(
+        requirement_files=requirements_list,
+        scanned_json_file=scanned_file_name,
+        cli_mode_argument=mode,
+        notice_fn=notice_file_name,
+    )
