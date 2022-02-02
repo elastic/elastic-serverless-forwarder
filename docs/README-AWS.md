@@ -376,6 +376,8 @@ inputs:
           password: "password"
           dataset: "generic"
           namespace: "default"
+          batch_max_actions: 500
+          batch_max_bytes: 104857600
 ```
 
 #### Fields
@@ -404,6 +406,8 @@ Custom init arguments for the given forwarding target output
   * `args.api_key`:  Api key of elasticsearch endpoint in the format username(api_key_id:api_key_secret). Mandatory in case `args.username`  and `args.password ` are not provided. Will take precedence over `args.username`/`args.password` if both are defined.
   * `args.dataset`: Dataset for the data stream where to forward the logs to. Lambda supports automatic routing of various AWS service logs to the corresponding data streams for further processing and storage in the Elasticsearch cluster. It supports automatic routing of `aws.cloudtrail`, `aws.cloudwatch_logs`, `aws.elb_logs`, `aws.firewall_logs`, `aws.lambda`, `aws.sns`, `aws.s3_storage_lens`, `aws.vpcflow`, and `aws.waf` logs. For other log types the users can optionally set the dataset value in the configuration file. If the dataset is not specified and it cannot be matched with any of the above AWS services then the dataset will be set to "generic".
   * `args.namespace`: Namespace for the data stream where to forward the logs to. Default value: "default"
+  * `args.batch_max_actions`: Maximum number of actions to send in a single bulk request. Default value: "500"
+  * `args.batch_max_bytes`: Maximum size in bytes to send in a sigle bulk request. Default value: "104857600" (100MB)
 
 ## Secrets Manager Support
 ```yaml
