@@ -45,6 +45,8 @@ class ElasticsearchOutput(Output):
         dataset: str = "",
         namespace: str = "",
         tags: list[str] = [],
+        batch_max_actions: int = 500,
+        batch_max_bytes: int = 100*1024*1024,
     ):
 
         super().__init__(output_type="elasticsearch")
@@ -56,6 +58,8 @@ class ElasticsearchOutput(Output):
         self.dataset = dataset
         self.namespace = namespace
         self.tags = tags
+        self.batch_max_actions = batch_max_actions
+        self.batch_max_bytes = batch_max_bytes
 
         if not self.cloud_id and not self.elasticsearch_url:
             raise ValueError("Elasticsearch Output elasticsearch_url or cloud_id must be set")
@@ -160,6 +164,28 @@ class ElasticsearchOutput(Output):
             raise ValueError("Elasticsearch Output namespace must be of type str")
 
         self._namespace = value
+
+    @property
+    def batch_max_actions(self) -> int:
+        return self._batch_max_actions
+
+    @batch_max_actions.setter
+    def batch_max_actions(self, value: int) -> None:
+        if not isinstance(value, int):
+            raise ValueError("Elasticsearch Output batch_max_actions must be of type int")
+
+        self._batch_max_actions = value
+
+    @property
+    def batch_max_bytes(self) -> int:
+        return self._batch_max_bytes
+
+    @batch_max_bytes.setter
+    def batch_max_bytes(self, value: int) -> None:
+        if not isinstance(value, int):
+            raise ValueError("Elasticsearch Output batch_max_bytes must be of type int")
+
+        self._batch_max_bytes = value
 
 
 class Input:
