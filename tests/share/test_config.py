@@ -43,6 +43,8 @@ class TestElasticsearchOutput(TestCase):
                 password="password",
                 dataset="dataset",
                 namespace="namespace",
+                batch_max_actions=1,
+                batch_max_bytes=1,
             )
 
             assert elasticsearch.type == "elasticsearch"
@@ -54,6 +56,8 @@ class TestElasticsearchOutput(TestCase):
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
             assert elasticsearch.tags == []
+            assert elasticsearch.batch_max_actions == 1
+            assert elasticsearch.batch_max_bytes == 1
 
         with self.subTest("valid init with cloud_id and http_auth"):
             elasticsearch = ElasticsearchOutput(
@@ -62,6 +66,8 @@ class TestElasticsearchOutput(TestCase):
                 password="password",
                 dataset="dataset",
                 namespace="namespace",
+                batch_max_actions=1,
+                batch_max_bytes=1,
             )
 
             assert elasticsearch.type == "elasticsearch"
@@ -73,6 +79,8 @@ class TestElasticsearchOutput(TestCase):
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
             assert elasticsearch.tags == []
+            assert elasticsearch.batch_max_actions == 1
+            assert elasticsearch.batch_max_bytes == 1
 
         with self.subTest("valid init with elasticsearch_url and api key"):
             elasticsearch = ElasticsearchOutput(
@@ -80,6 +88,8 @@ class TestElasticsearchOutput(TestCase):
                 api_key="api_key",
                 dataset="dataset",
                 namespace="namespace",
+                batch_max_actions=1,
+                batch_max_bytes=1,
             )
 
             assert elasticsearch.type == "elasticsearch"
@@ -91,6 +101,8 @@ class TestElasticsearchOutput(TestCase):
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
             assert elasticsearch.tags == []
+            assert elasticsearch.batch_max_actions == 1
+            assert elasticsearch.batch_max_bytes == 1
 
         with self.subTest("valid init with cloud_id and api key"):
             elasticsearch = ElasticsearchOutput(
@@ -98,6 +110,8 @@ class TestElasticsearchOutput(TestCase):
                 api_key="api_key",
                 dataset="dataset",
                 namespace="namespace",
+                batch_max_actions=1,
+                batch_max_bytes=1,
             )
 
             assert elasticsearch.type == "elasticsearch"
@@ -109,6 +123,8 @@ class TestElasticsearchOutput(TestCase):
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
             assert elasticsearch.tags == []
+            assert elasticsearch.batch_max_actions == 1
+            assert elasticsearch.batch_max_bytes == 1
 
         with self.subTest("neither elasticsearch_url or cloud_id"):
             with self.assertRaisesRegex(ValueError, "Elasticsearch Output elasticsearch_url or cloud_id must be set"):
@@ -121,6 +137,8 @@ class TestElasticsearchOutput(TestCase):
                 api_key="api_key",
                 dataset="dataset",
                 namespace="namespace",
+                batch_max_actions=1,
+                batch_max_bytes=1,
             )
 
             assert elasticsearch.type == "elasticsearch"
@@ -132,6 +150,8 @@ class TestElasticsearchOutput(TestCase):
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
             assert elasticsearch.tags == []
+            assert elasticsearch.batch_max_actions == 1
+            assert elasticsearch.batch_max_bytes == 1
 
         with self.subTest("no username or api_key"):
             with self.assertRaisesRegex(
@@ -151,6 +171,8 @@ class TestElasticsearchOutput(TestCase):
                 password="password",
                 dataset="dataset",
                 namespace="namespace",
+                batch_max_actions=1,
+                batch_max_bytes=1,
             )
 
             assert elasticsearch.type == "elasticsearch"
@@ -162,6 +184,8 @@ class TestElasticsearchOutput(TestCase):
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
             assert elasticsearch.tags == []
+            assert elasticsearch.batch_max_actions == 1
+            assert elasticsearch.batch_max_bytes == 1
 
         with self.subTest("with tags"):
             elasticsearch = ElasticsearchOutput(
@@ -171,6 +195,8 @@ class TestElasticsearchOutput(TestCase):
                 password="password",
                 dataset="dataset",
                 tags=["tag1", "tag2", "tag3"],
+                batch_max_actions=1,
+                batch_max_bytes=1,
             )
 
             assert elasticsearch.type == "elasticsearch"
@@ -182,6 +208,8 @@ class TestElasticsearchOutput(TestCase):
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "default"
             assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
+            assert elasticsearch.batch_max_actions == 1
+            assert elasticsearch.batch_max_bytes == 1
 
         with self.subTest("empty password"):
             with self.assertRaisesRegex(ValueError, "Elasticsearch Output password must be set when using username"):
@@ -200,6 +228,8 @@ class TestElasticsearchOutput(TestCase):
                 username="username",
                 password="password",
                 namespace="namespace",
+                batch_max_actions=1,
+                batch_max_bytes=1,
             )
 
             assert elasticsearch.type == "elasticsearch"
@@ -211,6 +241,8 @@ class TestElasticsearchOutput(TestCase):
             assert elasticsearch.dataset == ""
             assert elasticsearch.namespace == "namespace"
             assert elasticsearch.tags == []
+            assert elasticsearch.batch_max_actions == 1
+            assert elasticsearch.batch_max_bytes == 1
 
         with self.subTest("empty namespace"):
             elasticsearch = ElasticsearchOutput(
@@ -219,6 +251,8 @@ class TestElasticsearchOutput(TestCase):
                 username="username",
                 password="password",
                 dataset="dataset",
+                batch_max_actions=1,
+                batch_max_bytes=1,
             )
 
             assert elasticsearch.type == "elasticsearch"
@@ -230,6 +264,8 @@ class TestElasticsearchOutput(TestCase):
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "default"
             assert elasticsearch.tags == []
+            assert elasticsearch.batch_max_actions == 1
+            assert elasticsearch.batch_max_bytes == 1
 
         with self.subTest("empty tags"):
             elasticsearch = ElasticsearchOutput(
@@ -238,6 +274,8 @@ class TestElasticsearchOutput(TestCase):
                 username="username",
                 password="password",
                 dataset="dataset",
+                batch_max_actions=1,
+                batch_max_bytes=1,
             )
 
             assert elasticsearch.type == "elasticsearch"
@@ -249,6 +287,50 @@ class TestElasticsearchOutput(TestCase):
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "default"
             assert elasticsearch.tags == []
+            assert elasticsearch.batch_max_actions == 1
+            assert elasticsearch.batch_max_bytes == 1
+
+        with self.subTest("empty batch_max_actions"):
+            elasticsearch = ElasticsearchOutput(
+                cloud_id="cloud_id",
+                api_key="api_key",
+                username="username",
+                password="password",
+                dataset="dataset",
+                batch_max_bytes=1,
+            )
+
+            assert elasticsearch.type == "elasticsearch"
+            assert elasticsearch.cloud_id == "cloud_id"
+            assert elasticsearch.api_key == "api_key"
+            assert not elasticsearch.elasticsearch_url
+            assert not elasticsearch.username
+            assert not elasticsearch.password
+            assert elasticsearch.namespace == "default"
+            assert elasticsearch.tags == []
+            assert elasticsearch.batch_max_actions == 500
+            assert elasticsearch.batch_max_bytes == 1
+
+        with self.subTest("empty batch_max_bytes"):
+            elasticsearch = ElasticsearchOutput(
+                cloud_id="cloud_id",
+                api_key="api_key",
+                username="username",
+                password="password",
+                dataset="dataset",
+                batch_max_actions=1,
+            )
+
+            assert elasticsearch.type == "elasticsearch"
+            assert elasticsearch.cloud_id == "cloud_id"
+            assert elasticsearch.api_key == "api_key"
+            assert not elasticsearch.elasticsearch_url
+            assert not elasticsearch.username
+            assert not elasticsearch.password
+            assert elasticsearch.namespace == "default"
+            assert elasticsearch.tags == []
+            assert elasticsearch.batch_max_actions == 1
+            assert elasticsearch.batch_max_bytes == 104857600
 
         with self.subTest("elasticsearch_url not str"):
             with self.assertRaisesRegex(
@@ -321,6 +403,26 @@ class TestElasticsearchOutput(TestCase):
                     namespace=0,  # type:ignore
                 )
 
+        with self.subTest("batch_max_actions not int"):
+            with self.assertRaisesRegex(ValueError, "Elasticsearch Output batch_max_actions must be of type int"):
+                ElasticsearchOutput(
+                    elasticsearch_url="elasticsearch_url",
+                    username="username",
+                    password="password",
+                    dataset="dataset",
+                    batch_max_actions="test",  # type:ignore
+                )
+
+        with self.subTest("batch_max_bytes not int"):
+            with self.assertRaisesRegex(ValueError, "Elasticsearch Output batch_max_bytes must be of type int"):
+                ElasticsearchOutput(
+                    elasticsearch_url="elasticsearch_url",
+                    username="username",
+                    password="password",
+                    dataset="dataset",
+                    batch_max_bytes="test",  # type:ignore
+                )
+
 
 @pytest.mark.unit
 class TestInput(TestCase):
@@ -374,6 +476,8 @@ class TestInput(TestCase):
                 password="password",
                 dataset="dataset",
                 namespace="namespace",
+                batch_max_actions=1,
+                batch_max_bytes=1,
             )
 
             assert isinstance(input_sqs.get_output_by_type(output_type="elasticsearch"), ElasticsearchOutput)
@@ -388,6 +492,8 @@ class TestInput(TestCase):
                 password="password",
                 dataset="dataset",
                 namespace="namespace",
+                batch_max_actions=1,
+                batch_max_bytes=1,
             )
 
             assert isinstance(input_sqs.get_output_by_type(output_type="elasticsearch"), ElasticsearchOutput)
@@ -411,6 +517,8 @@ class TestInput(TestCase):
                 password="password",
                 dataset="dataset",
                 namespace="namespace",
+                batch_max_actions=1,
+                batch_max_bytes=1,
             )
 
             with self.assertRaisesRegex(ValueError, "Duplicated Output elasticsearch"):
@@ -421,6 +529,8 @@ class TestInput(TestCase):
                     password="password",
                     dataset="dataset",
                     namespace="namespace",
+                    batch_max_actions=1,
+                    batch_max_bytes=1,
                 )
 
     def test_get_output_types(self) -> None:
@@ -437,6 +547,8 @@ class TestInput(TestCase):
                 password="password",
                 dataset="dataset",
                 namespace="namespace",
+                batch_max_actions=1,
+                batch_max_bytes=1,
             )
 
             assert input_sqs.get_output_types() == ["elasticsearch"]
@@ -451,6 +563,8 @@ class TestInput(TestCase):
                 password="password",
                 dataset="dataset",
                 namespace="namespace",
+                batch_max_actions=1,
+                batch_max_bytes=1,
             )
 
             input_sqs.delete_output_by_type("elasticsearch")
@@ -664,6 +778,42 @@ class TestParseConfig(TestCase):
             """
                 )
 
+        with self.subTest("batch_max_actions not int"):
+            with self.assertRaisesRegex(ValueError, "batch_max_actions must be of type int"):
+                parse_config(
+                    config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      dataset: "dataset"
+                      namespace: "namespace"
+                      batch_max_actions: "test"
+            """
+                )
+
+        with self.subTest("batch_max_bytes not int"):
+            with self.assertRaisesRegex(ValueError, "batch_max_bytes must be of type int"):
+                parse_config(
+                    config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      dataset: "dataset"
+                      namespace: "namespace"
+                      batch_max_bytes: "test"
+            """
+                )
+
         with self.subTest("tags not list"):
             with self.assertRaisesRegex(ValueError, "Tags must be of type list"):
                 parse_config(
@@ -722,6 +872,166 @@ class TestParseConfig(TestCase):
             """
                 )
 
+        with self.subTest("valid input valid elasticsearch output with elasticsearch_url and http auth"):
+            config = parse_config(
+                config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                tags:
+                  - "tag1"
+                  - "tag2"
+                  - "tag3"
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      elasticsearch_url: "elasticsearch_url"
+                      username: "username"
+                      password: "password"
+                      dataset: "dataset"
+                      namespace: "namespace"
+            """
+            )
+
+            input_sqs = config.get_input_by_type_and_id(input_type="s3-sqs", input_id="id")
+            assert input_sqs is not None
+            assert input_sqs.type == "s3-sqs"
+            assert input_sqs.id == "id"
+            assert input_sqs.tags == ["tag1", "tag2", "tag3"]
+
+            elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
+
+            assert elasticsearch is not None
+            assert isinstance(elasticsearch, ElasticsearchOutput)
+            assert elasticsearch.type == "elasticsearch"
+            assert elasticsearch.elasticsearch_url == "elasticsearch_url"
+            assert elasticsearch.username == "username"
+            assert elasticsearch.password == "password"
+            assert elasticsearch.dataset == "dataset"
+            assert elasticsearch.namespace == "namespace"
+            assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
+            assert elasticsearch.batch_max_actions == 500
+            assert elasticsearch.batch_max_bytes == 104857600
+
+        with self.subTest("valid input valid elasticsearch output with elasticsearch_url and api key"):
+            config = parse_config(
+                config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                tags:
+                  - "tag1"
+                  - "tag2"
+                  - "tag3"
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      elasticsearch_url: "elasticsearch_url"
+                      api_key: "api_key"
+                      dataset: "dataset"
+                      namespace: "namespace"
+            """
+            )
+
+            input_sqs = config.get_input_by_type_and_id(input_type="s3-sqs", input_id="id")
+            assert input_sqs is not None
+            assert input_sqs.type == "s3-sqs"
+            assert input_sqs.id == "id"
+            assert input_sqs.tags == ["tag1", "tag2", "tag3"]
+
+            elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
+
+            assert elasticsearch is not None
+            assert isinstance(elasticsearch, ElasticsearchOutput)
+            assert elasticsearch.type == "elasticsearch"
+            assert elasticsearch.elasticsearch_url == "elasticsearch_url"
+            assert elasticsearch.api_key == "api_key"
+            assert elasticsearch.dataset == "dataset"
+            assert elasticsearch.namespace == "namespace"
+            assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
+            assert elasticsearch.batch_max_actions == 500
+            assert elasticsearch.batch_max_bytes == 104857600
+
+        with self.subTest("valid input valid elasticsearch output with cloud id and http auth"):
+            config = parse_config(
+                config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                tags:
+                  - "tag1"
+                  - "tag2"
+                  - "tag3"
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      username: "username"
+                      password: "password"
+                      dataset: "dataset"
+                      namespace: "namespace"
+            """
+            )
+
+            input_sqs = config.get_input_by_type_and_id(input_type="s3-sqs", input_id="id")
+            assert input_sqs is not None
+            assert input_sqs.type == "s3-sqs"
+            assert input_sqs.id == "id"
+            assert input_sqs.tags == ["tag1", "tag2", "tag3"]
+
+            elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
+
+            assert elasticsearch is not None
+            assert isinstance(elasticsearch, ElasticsearchOutput)
+            assert elasticsearch.type == "elasticsearch"
+            assert elasticsearch.cloud_id == "cloud_id"
+            assert elasticsearch.username == "username"
+            assert elasticsearch.password == "password"
+            assert elasticsearch.dataset == "dataset"
+            assert elasticsearch.namespace == "namespace"
+            assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
+            assert elasticsearch.batch_max_actions == 500
+            assert elasticsearch.batch_max_bytes == 104857600
+
+        with self.subTest("valid input valid elasticsearch output cloud_id and api key"):
+            config = parse_config(
+                config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                tags:
+                  - "tag1"
+                  - "tag2"
+                  - "tag3"
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      dataset: "dataset"
+                      namespace: "namespace"
+            """
+            )
+
+            input_sqs = config.get_input_by_type_and_id(input_type="s3-sqs", input_id="id")
+            assert input_sqs is not None
+            assert input_sqs.type == "s3-sqs"
+            assert input_sqs.id == "id"
+            assert input_sqs.tags == ["tag1", "tag2", "tag3"]
+
+            elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
+
+            assert elasticsearch is not None
+            assert isinstance(elasticsearch, ElasticsearchOutput)
+            assert elasticsearch.type == "elasticsearch"
+            assert elasticsearch.cloud_id == "cloud_id"
+            assert elasticsearch.api_key == "api_key"
+            assert elasticsearch.dataset == "dataset"
+            assert elasticsearch.namespace == "namespace"
+            assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
+            assert elasticsearch.batch_max_actions == 500
+            assert elasticsearch.batch_max_bytes == 104857600
+
         with self.subTest("tags added at output level"):
             config = parse_config(
                 config_yaml="""
@@ -758,6 +1068,8 @@ class TestParseConfig(TestCase):
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
             assert elasticsearch.tags == []
+            assert elasticsearch.batch_max_actions == 500
+            assert elasticsearch.batch_max_bytes == 104857600
 
         with self.subTest("tags added at input level and output level"):
             config = parse_config(
@@ -798,6 +1110,8 @@ class TestParseConfig(TestCase):
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
             assert elasticsearch.tags == ["input_tag1", "input_tag2"]
+            assert elasticsearch.batch_max_actions == 500
+            assert elasticsearch.batch_max_bytes == 104857600
 
         with self.subTest("valid tags"):
             config = parse_config(
@@ -835,132 +1149,15 @@ class TestParseConfig(TestCase):
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
             assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
+            assert elasticsearch.batch_max_actions == 500
+            assert elasticsearch.batch_max_bytes == 104857600
 
-        with self.subTest("valid input valid elasticsearch output with elasticsearch_url and http auth"):
+        with self.subTest("batch_max_actions not default"):
             config = parse_config(
                 config_yaml="""
             inputs:
               - type: s3-sqs
                 id: id
-                tags:
-                  - "tag1"
-                  - "tag2"
-                  - "tag3"
-                outputs:
-                  - type: elasticsearch
-                    args:
-                      elasticsearch_url: "elasticsearch_url"
-                      username: "username"
-                      password: "password"
-                      dataset: "dataset"
-                      namespace: "namespace"
-            """
-            )
-
-            input_sqs = config.get_input_by_type_and_id(input_type="s3-sqs", input_id="id")
-            assert input_sqs is not None
-            assert input_sqs.type == "s3-sqs"
-            assert input_sqs.id == "id"
-            assert input_sqs.tags == ["tag1", "tag2", "tag3"]
-
-            elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
-
-            assert elasticsearch is not None
-            assert isinstance(elasticsearch, ElasticsearchOutput)
-            assert elasticsearch.type == "elasticsearch"
-            assert elasticsearch.elasticsearch_url == "elasticsearch_url"
-            assert elasticsearch.username == "username"
-            assert elasticsearch.password == "password"
-            assert elasticsearch.dataset == "dataset"
-            assert elasticsearch.namespace == "namespace"
-            assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
-
-        with self.subTest("valid input valid elasticsearch output with elasticsearch_url and api key"):
-            config = parse_config(
-                config_yaml="""
-            inputs:
-              - type: s3-sqs
-                id: id
-                tags:
-                  - "tag1"
-                  - "tag2"
-                  - "tag3"
-                outputs:
-                  - type: elasticsearch
-                    args:
-                      elasticsearch_url: "elasticsearch_url"
-                      api_key: "api_key"
-                      dataset: "dataset"
-                      namespace: "namespace"
-            """
-            )
-
-            input_sqs = config.get_input_by_type_and_id(input_type="s3-sqs", input_id="id")
-            assert input_sqs is not None
-            assert input_sqs.type == "s3-sqs"
-            assert input_sqs.id == "id"
-            assert input_sqs.tags == ["tag1", "tag2", "tag3"]
-
-            elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
-
-            assert elasticsearch is not None
-            assert isinstance(elasticsearch, ElasticsearchOutput)
-            assert elasticsearch.type == "elasticsearch"
-            assert elasticsearch.elasticsearch_url == "elasticsearch_url"
-            assert elasticsearch.api_key == "api_key"
-            assert elasticsearch.dataset == "dataset"
-            assert elasticsearch.namespace == "namespace"
-            assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
-
-        with self.subTest("valid input valid elasticsearch output with cloud id and http auth"):
-            config = parse_config(
-                config_yaml="""
-            inputs:
-              - type: s3-sqs
-                id: id
-                tags:
-                  - "tag1"
-                  - "tag2"
-                  - "tag3"
-                outputs:
-                  - type: elasticsearch
-                    args:
-                      cloud_id: "cloud_id"
-                      username: "username"
-                      password: "password"
-                      dataset: "dataset"
-                      namespace: "namespace"
-            """
-            )
-
-            input_sqs = config.get_input_by_type_and_id(input_type="s3-sqs", input_id="id")
-            assert input_sqs is not None
-            assert input_sqs.type == "s3-sqs"
-            assert input_sqs.id == "id"
-            assert input_sqs.tags == ["tag1", "tag2", "tag3"]
-
-            elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
-
-            assert elasticsearch is not None
-            assert isinstance(elasticsearch, ElasticsearchOutput)
-            assert elasticsearch.type == "elasticsearch"
-            assert elasticsearch.cloud_id == "cloud_id"
-            assert elasticsearch.username == "username"
-            assert elasticsearch.password == "password"
-            assert elasticsearch.dataset == "dataset"
-            assert elasticsearch.namespace == "namespace"
-            assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
-
-        with self.subTest("valid input valid elasticsearch output cloud_id and api key"):
-            config = parse_config(
-                config_yaml="""
-            inputs:
-              - type: s3-sqs
-                id: id
-                tags:
-                  - "tag1"
-                  - "tag2"
-                  - "tag3"
                 outputs:
                   - type: elasticsearch
                     args:
@@ -968,6 +1165,7 @@ class TestParseConfig(TestCase):
                       api_key: "api_key"
                       dataset: "dataset"
                       namespace: "namespace"
+                      batch_max_actions: 1
             """
             )
 
@@ -975,7 +1173,7 @@ class TestParseConfig(TestCase):
             assert input_sqs is not None
             assert input_sqs.type == "s3-sqs"
             assert input_sqs.id == "id"
-            assert input_sqs.tags == ["tag1", "tag2", "tag3"]
+            assert input_sqs.tags == []
 
             elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
 
@@ -986,4 +1184,42 @@ class TestParseConfig(TestCase):
             assert elasticsearch.api_key == "api_key"
             assert elasticsearch.dataset == "dataset"
             assert elasticsearch.namespace == "namespace"
-            assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
+            assert elasticsearch.tags == []
+            assert elasticsearch.batch_max_actions == 1
+            assert elasticsearch.batch_max_bytes == 104857600
+
+        with self.subTest("batch_max_bytes not default"):
+            config = parse_config(
+                config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      dataset: "dataset"
+                      namespace: "namespace"
+                      batch_max_bytes: 1
+            """
+            )
+
+            input_sqs = config.get_input_by_type_and_id(input_type="s3-sqs", input_id="id")
+            assert input_sqs is not None
+            assert input_sqs.type == "s3-sqs"
+            assert input_sqs.id == "id"
+            assert input_sqs.tags == []
+
+            elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
+
+            assert elasticsearch is not None
+            assert isinstance(elasticsearch, ElasticsearchOutput)
+            assert elasticsearch.type == "elasticsearch"
+            assert elasticsearch.cloud_id == "cloud_id"
+            assert elasticsearch.api_key == "api_key"
+            assert elasticsearch.dataset == "dataset"
+            assert elasticsearch.namespace == "namespace"
+            assert elasticsearch.tags == []
+            assert elasticsearch.batch_max_actions == 500
+            assert elasticsearch.batch_max_bytes == 1

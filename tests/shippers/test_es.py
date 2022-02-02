@@ -122,7 +122,6 @@ class TestElasticsearchShipper(TestCase):
     @mock.patch("shippers.es.es_bulk", mock_bulk)
     @mock.patch("shippers.es.Elasticsearch", new=MockClient)
     def test_send(self) -> None:
-        ElasticsearchShipper._bulk_batch_size = 0
         shipper = ElasticsearchShipper(
             elasticsearch_url="elasticsearch_url",
             username="username",
@@ -130,6 +129,7 @@ class TestElasticsearchShipper(TestCase):
             dataset="data.set",
             namespace="namespace",
             tags=["tag1", "tag2", "tag3"],
+            batch_max_actions=0,
         )
         es_event = deepcopy(_dummy_event)
         shipper.discover_dataset(es_event)
@@ -189,7 +189,6 @@ class TestElasticsearchShipper(TestCase):
     @mock.patch("shippers.es.es_bulk", mock_bulk)
     @mock.patch("shippers.es.Elasticsearch", new=MockClient)
     def test_flush(self) -> None:
-        ElasticsearchShipper._bulk_batch_size = 2
         shipper = ElasticsearchShipper(
             elasticsearch_url="elasticsearch_url",
             username="username",
@@ -197,6 +196,7 @@ class TestElasticsearchShipper(TestCase):
             dataset="data.set",
             namespace="namespace",
             tags=["tag1", "tag2", "tag3"],
+            batch_max_actions=2,
         )
         es_event = deepcopy(_dummy_event)
         shipper.discover_dataset(es_event)
@@ -241,13 +241,13 @@ class TestElasticsearchShipper(TestCase):
     @mock.patch("shippers.es.es_bulk", mock_bulk)
     @mock.patch("shippers.es.Elasticsearch", new=MockClient)
     def test_discover_dataset(self) -> None:
-        ElasticsearchShipper._bulk_batch_size = 0
         shipper = ElasticsearchShipper(
             elasticsearch_url="elasticsearch_url",
             username="username",
             password="password",
             namespace="namespace",
             tags=["tag1", "tag2", "tag3"],
+            batch_max_actions=0,
         )
         es_event = deepcopy(_dummy_event)
         lambda_event = deepcopy(_dummy_lambda_event)
