@@ -688,7 +688,7 @@ class TestLambdaHandlerSuccess(TestCase):
         )
 
         self._elastic_container = docker_client.containers.run(
-            "docker.elastic.co/elasticsearch/elasticsearch:7.16.2",
+            "docker.elastic.co/elasticsearch/elasticsearch:7.17.0",
             detach=True,
             environment=[
                 "ES_JAVA_OPTS=-Xms1g -Xmx1g",
