@@ -330,7 +330,7 @@ class TestElasticsearchOutput(TestCase):
             assert elasticsearch.namespace == "default"
             assert elasticsearch.tags == []
             assert elasticsearch.batch_max_actions == 1
-            assert elasticsearch.batch_max_bytes == 104857600
+            assert elasticsearch.batch_max_bytes == 10485760
 
         with self.subTest("elasticsearch_url not str"):
             with self.assertRaisesRegex(
@@ -911,7 +911,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch.namespace == "namespace"
             assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
             assert elasticsearch.batch_max_actions == 500
-            assert elasticsearch.batch_max_bytes == 104857600
+            assert elasticsearch.batch_max_bytes == 10485760
 
         with self.subTest("valid input valid elasticsearch output with elasticsearch_url and api key"):
             config = parse_config(
@@ -950,7 +950,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch.namespace == "namespace"
             assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
             assert elasticsearch.batch_max_actions == 500
-            assert elasticsearch.batch_max_bytes == 104857600
+            assert elasticsearch.batch_max_bytes == 10485760
 
         with self.subTest("valid input valid elasticsearch output with cloud id and http auth"):
             config = parse_config(
@@ -991,7 +991,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch.namespace == "namespace"
             assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
             assert elasticsearch.batch_max_actions == 500
-            assert elasticsearch.batch_max_bytes == 104857600
+            assert elasticsearch.batch_max_bytes == 10485760
 
         with self.subTest("valid input valid elasticsearch output cloud_id and api key"):
             config = parse_config(
@@ -1030,7 +1030,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch.namespace == "namespace"
             assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
             assert elasticsearch.batch_max_actions == 500
-            assert elasticsearch.batch_max_bytes == 104857600
+            assert elasticsearch.batch_max_bytes == 10485760
 
         with self.subTest("tags added at output level"):
             config = parse_config(
@@ -1069,7 +1069,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch.namespace == "namespace"
             assert elasticsearch.tags == []
             assert elasticsearch.batch_max_actions == 500
-            assert elasticsearch.batch_max_bytes == 104857600
+            assert elasticsearch.batch_max_bytes == 10485760
 
         with self.subTest("tags added at input level and output level"):
             config = parse_config(
@@ -1111,7 +1111,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch.namespace == "namespace"
             assert elasticsearch.tags == ["input_tag1", "input_tag2"]
             assert elasticsearch.batch_max_actions == 500
-            assert elasticsearch.batch_max_bytes == 104857600
+            assert elasticsearch.batch_max_bytes == 10485760
 
         with self.subTest("valid tags"):
             config = parse_config(
@@ -1150,7 +1150,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch.namespace == "namespace"
             assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
             assert elasticsearch.batch_max_actions == 500
-            assert elasticsearch.batch_max_bytes == 104857600
+            assert elasticsearch.batch_max_bytes == 10485760
 
         with self.subTest("batch_max_actions not default"):
             config = parse_config(
@@ -1186,7 +1186,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch.namespace == "namespace"
             assert elasticsearch.tags == []
             assert elasticsearch.batch_max_actions == 1
-            assert elasticsearch.batch_max_bytes == 104857600
+            assert elasticsearch.batch_max_bytes == 10485760
 
         with self.subTest("batch_max_bytes not default"):
             config = parse_config(

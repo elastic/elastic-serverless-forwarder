@@ -32,7 +32,7 @@ class ElasticsearchShipper(CommonShipper):
         namespace: str = "",
         tags: list[str] = [],
         batch_max_actions: int = 500,
-        batch_max_bytes: int = 100 * 1024 * 1024,
+        batch_max_bytes: int = 10 * 1024 * 1024,
     ):
 
         self._bulk_actions: list[dict[str, Any]] = []
