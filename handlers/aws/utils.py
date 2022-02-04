@@ -31,14 +31,6 @@ def get_sqs_client() -> BotoBaseClient:
     return boto3.client("sqs")
 
 
-def get_kinesis_client() -> BotoBaseClient:
-    """
-    Getter for kinesis client
-    Extracted for mocking
-    """
-    return boto3.client("kinesis")
-
-
 def capture_serverless(
     func: Callable[[dict[str, Any], context_.Context], str]
 ) -> Callable[[dict[str, Any], context_.Context], str]:
