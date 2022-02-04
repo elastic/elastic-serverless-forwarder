@@ -139,7 +139,6 @@ class TestElasticsearchShipper(TestCase):
             [
                 {
                     "@timestamp": _now,
-                    "_id": "59273c1036-000000000010",
                     "_index": "logs-data.set-namespace",
                     "_op_type": "create",
                     "data_stream": {"dataset": "data.set", "namespace": "namespace", "type": "logs"},
@@ -205,7 +204,6 @@ class TestElasticsearchShipper(TestCase):
         assert shipper._bulk_actions == [
             {
                 "@timestamp": _now,
-                "_id": "59273c1036-000000000010",
                 "_index": "logs-data.set-namespace",
                 "_op_type": "create",
                 "data_stream": {"dataset": "data.set", "namespace": "namespace", "type": "logs"},
@@ -260,7 +258,6 @@ class TestElasticsearchShipper(TestCase):
         assert _documents[0] == [
             {
                 "@timestamp": _now,
-                "_id": "59273c1036-000000000010",
                 "_index": "logs-generic-namespace",
                 "_op_type": "create",
                 "data_stream": {"dataset": "generic", "namespace": "namespace", "type": "logs"},
