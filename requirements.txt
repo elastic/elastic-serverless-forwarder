@@ -1,6 +1,6 @@
 elastic-apm>=6.6.0,<7.0
 ecs_logging>=1,<2
 boto3>=1.18,<1.19
-elasticsearch>=7.16,<8.0
+elasticsearch>=7.15,<7.16
 PyYAML>=6.0,<6.1
 aws_lambda_typing>=2,<2.1
