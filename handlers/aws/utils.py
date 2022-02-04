@@ -2,8 +2,10 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
+import hashlib
+import json
 import os
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 import boto3
 from aws_lambda_typing import context as context_
@@ -11,10 +13,11 @@ from botocore.client import BaseClient as BotoBaseClient
 from elasticapm import Client, get_client
 from elasticapm.contrib.serverless.aws import capture_serverless as apm_capture_serverless  # noqa: F401
 
-from share import shared_logger
+from share import Config, Input, Output, shared_logger
+from shippers import CompositeShipper, ElasticsearchShipper, ShipperFactory
 from storage import CommonStorage, StorageFactory
 
-_available_triggers: dict[str, str] = {"aws:sqs": "s3-sqs"}
+_available_triggers: dict[str, str] = {"aws:sqs": "s3-sqs", "aws:kinesis": "kinesis-data-stream"}
 
 CONFIG_FROM_PAYLOAD: str = "CONFIG_FROM_PAYLOAD"
 CONFIG_FROM_S3FILE: str = "CONFIG_FROM_S3FILE"
@@ -26,6 +29,14 @@ def get_sqs_client() -> BotoBaseClient:
     Extracted for mocking
     """
     return boto3.client("sqs")
+
+
+def get_kinesis_client() -> BotoBaseClient:
+    """
+    Getter for kinesis client
+    Extracted for mocking
+    """
+    return boto3.client("kinesis")
 
 
 def capture_serverless(
@@ -111,6 +122,46 @@ def wrap_try_except(
     return wrapper
 
 
+def get_shipper_and_input(
+    config: Config, config_yaml: str, trigger_type: str, lambda_event: dict[str, Any]
+) -> tuple[CompositeShipper, Input]:
+
+    event_input = config.get_input_by_type_and_id(trigger_type, lambda_event["Records"][0]["eventSourceARN"])
+    if not event_input:
+        shared_logger.error(f'no input set for {lambda_event["Records"][0]["eventSourceARN"]}')
+
+        raise InputConfigException("not input set")
+
+    shared_logger.info("input", extra={"type": event_input.type, "id": event_input.id})
+
+    composite_shipper: CompositeShipper = CompositeShipper()
+
+    for output_type in event_input.get_output_types():
+        if output_type == "elasticsearch":
+            shared_logger.info("setting ElasticSearch shipper")
+            output: Optional[Output] = event_input.get_output_by_type("elasticsearch")
+            if output is None:
+                raise OutputConfigException("no available output for elasticsearch type")
+
+            try:
+                shipper: ElasticsearchShipper = ShipperFactory.create_from_output(
+                    output_type="elasticsearch", output=output
+                )
+                shipper.discover_dataset(event=lambda_event)
+                composite_shipper.add_shipper(shipper=shipper)
+                replay_handler = ReplayEventHandler(config_yaml=config_yaml, event_input=event_input)
+                composite_shipper.set_replay_handler(replay_handler=replay_handler.replay_handler)
+
+                if trigger_type == "s3-sqs":
+                    composite_shipper.set_event_id_generator(event_id_generator=s3_object_id)
+                elif trigger_type == "kinesis-data-stream":
+                    composite_shipper.set_event_id_generator(event_id_generator=kinesis_record_id)
+            except Exception as e:
+                raise OutputConfigException(e)
+
+    return composite_shipper, event_input
+
+
 def config_yaml_from_payload(lambda_event: dict[str, Any]) -> str:
     """
     Extract the config yaml from sqs record message attributes.
@@ -171,6 +222,16 @@ def get_bucket_name_from_arn(bucket_arn: str) -> str:
     return bucket_arn.split(":")[-1]
 
 
+def get_kinesis_stream_name_type_and_region_from_arn(kinesis_stream_arn: str) -> tuple[str, str, str]:
+    """
+    Helpers for extracting stream name and type and region from a kinesis stream ARN
+    """
+
+    arn_components = kinesis_stream_arn.split(":")
+    stream_componets = arn_components[-1].split("/")
+    return stream_componets[0], stream_componets[1], arn_components[3]
+
+
 def get_trigger_type_and_config_source(event: dict[str, Any]) -> tuple[str, str]:
     """
     Determines the trigger type according to the payload of the trigger event
@@ -193,6 +254,13 @@ def get_trigger_type_and_config_source(event: dict[str, Any]) -> tuple[str, str]
         raise Exception("Not supported trigger")
 
     trigger_type = _available_triggers[event_source]
+    if (
+        trigger_type == "kinesis-data-stream"
+        and "kinesis" not in event["Records"][0]
+        and "data" not in event["Records"][0]["kinesis"]
+    ):
+        raise Exception("Not supported trigger")
+
     if trigger_type != "s3-sqs":
         return trigger_type, CONFIG_FROM_S3FILE
 
@@ -203,3 +271,64 @@ def get_trigger_type_and_config_source(event: dict[str, Any]) -> tuple[str, str]
         return trigger_type, CONFIG_FROM_S3FILE
 
     return "s3-sqs", CONFIG_FROM_PAYLOAD
+
+
+class ReplayEventHandler:
+    def __init__(self, config_yaml: str, event_input: Input):
+        self._config_yaml: str = config_yaml
+        self._event_input_id: str = event_input.id
+        self._event_input_type: str = event_input.type
+
+    def replay_handler(self, output_type: str, output_args: dict[str, Any], event_payload: dict[str, Any]) -> None:
+        sqs_replay_queue = os.environ["SQS_REPLAY_URL"]
+
+        sqs_client = get_sqs_client()
+
+        message_payload: dict[str, Any] = {
+            "output_type": output_type,
+            "output_args": output_args,
+            "event_payload": event_payload,
+            "event_input_id": self._event_input_id,
+            "event_input_type": self._event_input_type,
+        }
+
+        sqs_client.send_message(
+            QueueUrl=sqs_replay_queue,
+            MessageBody=json.dumps(message_payload),
+            MessageAttributes={
+                "config": {"StringValue": self._config_yaml, "DataType": "String"},
+            },
+        )
+
+        shared_logger.warning("sent to replay queue", extra=message_payload)
+
+
+def s3_object_id(event_payload: dict[str, Any]) -> str:
+    """
+    Port of
+    https://github.com/elastic/beats/blob/21dca31b6296736fa90fae39bff71f063522420f/x-pack/filebeat/input/awss3/s3_objects.go#L364-L371
+    https://github.com/elastic/beats/blob/21dca31b6296736fa90fae39bff71f063522420f/x-pack/filebeat/input/awss3/s3_objects.go#L356-L358
+    """
+    offset: int = event_payload["fields"]["log"]["offset"]
+    bucket_arn: str = event_payload["fields"]["aws"]["s3"]["bucket"]["arn"]
+    object_key: str = event_payload["fields"]["aws"]["s3"]["object"]["key"]
+
+    src: str = f"{bucket_arn}{object_key}"
+    hex_prefix = hashlib.sha256(src.encode("UTF-8")).hexdigest()[:10]
+
+    return f"{hex_prefix}-{offset:012d}"
+
+
+def kinesis_record_id(event_payload: dict[str, Any]) -> str:
+    """
+    Generates a unique event id given the payload of an event from a kinesis stream
+    """
+    offset: int = event_payload["fields"]["log"]["offset"]
+    stream_type: str = event_payload["fields"]["aws"]["kinesis"]["type"]
+    stream_name: str = event_payload["fields"]["aws"]["kinesis"]["name"]
+    sequence_number: str = event_payload["fields"]["aws"]["kinesis"]["sequence_number"]
+
+    src: str = f"{stream_type}{stream_name}-{sequence_number}"
+    hex_prefix = hashlib.sha256(src.encode("UTF-8")).hexdigest()[:10]
+
+    return f"{hex_prefix}-{offset:012d}"
