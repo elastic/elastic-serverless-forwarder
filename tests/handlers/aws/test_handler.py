@@ -891,7 +891,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(TestCase):
                     assert (
                         res["hits"]["hits"][2]["_source"]["fields"]["message"]
                         == '{"@timestamp":"2022-02-02T12:40:45.690Z","log.level":"warning","message":"no namespace set '
-                            'in config: using `default`","ecs":{"version":"1.6.0"} }'
+                        'in config: using `default`","ecs":{"version":"1.6.0"} }'
                     )
 
                     assert res["hits"]["hits"][2]["_source"]["fields"]["log"] == {
