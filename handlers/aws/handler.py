@@ -9,22 +9,21 @@ from typing import Any, Callable, Optional
 import elasticapm  # noqa: F401
 from aws_lambda_typing import context as context_
 
-from share import Config, Output, parse_config, shared_logger
+from share import Config, parse_config, shared_logger
 from share.secretsmanager import aws_sm_expander
-from shippers import CompositeShipper, ElasticsearchShipper, ShipperFactory
 
-from .replay import ReplayEventHandler, _handle_replay_event
+from .kinesis_trigger import _handle_kinesis_record
+from .replay_trigger import _handle_replay_event
 from .sqs_trigger import _delete_sqs_record, _handle_sqs_continuation, _handle_sqs_event
 from .utils import (
     CONFIG_FROM_PAYLOAD,
     CONFIG_FROM_S3FILE,
     ConfigFileException,
-    InputConfigException,
-    OutputConfigException,
     TriggerTypeException,
     capture_serverless,
     config_yaml_from_payload,
     config_yaml_from_s3,
+    get_shipper_and_input,
     get_trigger_type_and_config_source,
     wrap_try_except,
 )
@@ -35,7 +34,7 @@ _expanders: list[Callable[[str], str]] = [aws_sm_expander]
 
 @capture_serverless
 @wrap_try_except
-def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Context) -> str:
+def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Context) -> Any:
     """
     AWS Lambda handler in handler.aws package
     Parses the config and acts as front controller for inputs
@@ -74,6 +73,8 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
     except Exception as e:
         raise ConfigFileException(e)
 
+    assert config is not None
+
     if trigger_type == "replay":
         for replay_record in lambda_event["Records"]:
             event = json.loads(replay_record["body"])
@@ -92,37 +93,48 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
         return "replayed"
 
-    assert config is not None
+    sent_event: int = 0
+    composite_shipper, event_input = get_shipper_and_input(config, config_yaml, trigger_type, lambda_event)
+
+    if trigger_type == "kinesis-data-stream":
+
+        all_sequence_numbers: dict[str, str] = {}
+        ret: dict[Any, list[dict[str, str]]] = {"batchItemFailures": []}
+
+        for kinesis_record in lambda_event["Records"]:
+            all_sequence_numbers[kinesis_record["kinesis"]["sequenceNumber"]] = kinesis_record["kinesis"][
+                "sequenceNumber"
+            ]
+
+        for kinesis_record_n, kinesis_record in enumerate(lambda_event["Records"]):
+            for es_event, last_ending_offset, _, _ in _handle_kinesis_record(kinesis_record):
+                shared_logger.debug("es_event", extra={"es_event": es_event})
+
+                composite_shipper.send(es_event)
+                sent_event += 1
+
+            del all_sequence_numbers[lambda_event["Records"][kinesis_record_n]["kinesis"]["sequenceNumber"]]
+
+            if lambda_context is not None and lambda_context.get_remaining_time_in_millis() < _completion_grace_period:
+                composite_shipper.flush()
+
+                shared_logger.info(
+                    "lambda is going to shutdown, failing unprocessed sequence numbers",
+                    extra={"sequence_numbers": ", ".join(all_sequence_numbers.keys())},
+                )
+
+                shared_logger.info("lambda processed all the events", extra={"sent_event": sent_event})
+                for sequence_number in all_sequence_numbers:
+                    ret["batchItemFailures"].append({"itemIdentifier": sequence_number})
+
+                return ret
+
+            composite_shipper.flush()
+            shared_logger.info("lambda processed all the events", extra={"sent_event": sent_event})
+
+            return ret
+
     if trigger_type == "s3-sqs":
-        event_input = config.get_input_by_type_and_id("s3-sqs", lambda_event["Records"][0]["eventSourceARN"])
-        if not event_input:
-            shared_logger.error(f'no input set for {lambda_event["Records"][0]["eventSourceARN"]}')
-
-            raise InputConfigException("not input set")
-
-        shared_logger.info("input", extra={"type": event_input.type, "id": event_input.id})
-
-        sent_event: int = 0
-        composite_shipper: CompositeShipper = CompositeShipper()
-
-        for output_type in event_input.get_output_types():
-            if output_type == "elasticsearch":
-                shared_logger.info("setting ElasticSearch shipper")
-                output: Optional[Output] = event_input.get_output_by_type("elasticsearch")
-                if output is None:
-                    raise OutputConfigException("no available output for elasticsearch type")
-
-                try:
-                    shipper: ElasticsearchShipper = ShipperFactory.create_from_output(
-                        output_type="elasticsearch", output=output
-                    )
-                    shipper.discover_dataset(event=lambda_event)
-                    composite_shipper.add_shipper(shipper=shipper)
-                    replay_handler = ReplayEventHandler(config_yaml=config_yaml, event_input=event_input)
-                    composite_shipper.set_replay_handler(replay_handler=replay_handler.replay_handler)
-                except Exception as e:
-                    raise OutputConfigException(e)
-
         previous_sqs_record: int = 0
         for es_event, last_ending_offset, current_sqs_record, current_s3_record in _handle_sqs_event(
             config, lambda_event
