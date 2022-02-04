@@ -42,6 +42,8 @@ class ShipperFactory:
                 dataset=output.dataset,
                 namespace=output.namespace,
                 tags=output.tags,
+                batch_max_actions=output.batch_max_actions,
+                batch_max_bytes=output.batch_max_bytes,
             )
 
         raise ValueError(
