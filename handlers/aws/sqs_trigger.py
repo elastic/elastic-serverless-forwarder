@@ -148,9 +148,11 @@ def _handle_sqs_event(config: Config, event: dict[str, Any]) -> Iterator[tuple[d
                     bucket_name, aws_region, object_key
                 )
 
-                es_event["fields"]["aws"]["s3"] = {
-                    "bucket": {"name": bucket_name, "arn": bucket_arn},
-                    "object": {"key": object_key},
+                es_event["fields"]["aws"] = {
+                    "s3": {
+                        "bucket": {"name": bucket_name, "arn": bucket_arn},
+                        "object": {"key": object_key},
+                    }
                 }
 
                 es_event["fields"]["cloud"]["region"] = aws_region
