@@ -111,6 +111,7 @@ class MockClient(elasticsearch.Elasticsearch):
 _documents = []
 _failures = []
 
+
 def mock_bulk(client: Any, actions: list[dict[str, Any]], **kwargs: Any) -> tuple[int, list[dict[str, Any]]]:
     global _documents
     _documents = [actions]
@@ -190,6 +191,7 @@ class TestElasticsearchShipper(TestCase):
         )
         es_event = deepcopy(_dummy_event)
         shipper.discover_dataset(es_event)
+
         def event_id_generator(event: dict[str, Any]) -> str:
             return "_id"
 

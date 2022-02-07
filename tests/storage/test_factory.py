@@ -7,16 +7,14 @@ from unittest import TestCase
 
 import pytest
 
-from storage import CommonStorage, PayloadStorage, S3Storage, StorageFactory
+from storage import PayloadStorage, S3Storage, StorageFactory
 
 
 @pytest.mark.unit
 class TestStorageFactory(TestCase):
     def test_create(self) -> None:
         with self.subTest("create s3 storage success"):
-            storage: CommonStorage = StorageFactory.create(
-                storage_type="s3", bucket_name="bucket_name", object_key="object_key"
-            )
+            storage = StorageFactory.create(storage_type="s3", bucket_name="bucket_name", object_key="object_key")
 
             assert isinstance(storage, S3Storage)
 
@@ -41,9 +39,7 @@ class TestStorageFactory(TestCase):
                 StorageFactory.create(storage_type="s3", bucket_name="", object_key="")
 
         with self.subTest("create payload storage success"):
-            storage: CommonStorage = StorageFactory.create(
-                storage_type="payload", payload="payload"
-            )
+            storage = StorageFactory.create(storage_type="payload", payload="payload")
 
             assert isinstance(storage, PayloadStorage)
 
@@ -51,8 +47,7 @@ class TestStorageFactory(TestCase):
             with self.assertRaisesRegex(
                 ValueError,
                 re.escape(
-                    "You must provide the following not empty init kwargs for"
-                    + " payload: payload. (provided: {})"
+                    "You must provide the following not empty init kwargs for" + " payload: payload. (provided: {})"
                 ),
             ):
                 StorageFactory.create(storage_type="payload")

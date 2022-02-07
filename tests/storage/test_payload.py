@@ -22,8 +22,8 @@ class MockContent:
     f_size_plain: int = 0
     f_content_gzip: str = ""
     f_content_plain: str = ""
-    f_stream_gzip: Optional[io.BytesIO] = None
-    f_stream_plain: Optional[io.BytesIO] = None
+    f_stream_gzip: Optional[Union[io.BytesIO, io.StringIO]] = None
+    f_stream_plain: Optional[Union[io.BytesIO, io.StringIO]] = None
 
     @staticmethod
     def rewind() -> None:
@@ -56,27 +56,24 @@ class MockContent:
         MockContent.f_size_gzip = len(MockContent.f_content_gzip)
         MockContent.f_size_plain = len(MockContent.f_content_plain)
 
+
 @pytest.mark.unit
 class TestPayloadStorage(TestCase):
     def test_get_as_string(self) -> None:
         newline: str = "\n"
         MockContent.init_content(newline)
 
-        with self.subTest(f"testing with plain"):
+        with self.subTest("testing with plain"):
             payload_storage = PayloadStorage(payload=MockContent.f_content_plain)
-            content: str = payload_storage.get_as_string()
-            original: str = base64.b64decode(MockContent.f_content_plain).decode("utf-8")
+            content = payload_storage.get_as_string()
+            original = base64.b64decode(MockContent.f_content_plain).decode("utf-8")
             assert content == original
             assert len(content) == len(original)
 
-        with self.subTest(f"testing with gzip"):
+        with self.subTest("testing with gzip"):
             payload_storage = PayloadStorage(payload=MockContent.f_content_gzip)
-            content: str = payload_storage.get_as_string()
-            original: str = gzip.decompress(
-                base64.b64decode(
-                    MockContent.f_content_gzip.encode("utf-8")
-                )
-            ).decode("utf-8")
+            content = payload_storage.get_as_string()
+            original = gzip.decompress(base64.b64decode(MockContent.f_content_gzip.encode("utf-8"))).decode("utf-8")
 
             assert content == original
             assert len(content) == len(original)
@@ -104,10 +101,7 @@ class TestPayloadStorage(TestCase):
                 assert plain_full == gzip_full
                 assert gzip_full[-1][1] == original_length
                 assert plain_full[-1][1] == original_length
-                assert (
-                    newline.join([x[0].decode("UTF-8") for x in plain_full])
-                    == original
-                )
+                assert newline.join([x[0].decode("UTF-8") for x in plain_full]) == original
 
                 if len(newline) == 0:
                     continue

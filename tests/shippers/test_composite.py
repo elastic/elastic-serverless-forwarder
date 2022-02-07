@@ -50,7 +50,7 @@ class TestCompositeShipper(TestCase):
         composite_shipper.add_shipper(dummy_shipper)
 
         def event_id_generator(event: dict[str, Any]) -> str:
-            return
+            return ""
 
         composite_shipper.set_event_id_generator(event_id_generator=event_id_generator)
         assert dummy_shipper._event_id_generator == event_id_generator
