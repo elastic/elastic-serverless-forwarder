@@ -1,3 +1,7 @@
+### v0.20.0 - 2022/02/07
+##### Features
+* Add support for `kinesis-data-stream` input: [#66](https://github.com/elastic/elastic-serverless-forwarder/pull/66)
+
 ### v0.19.0 - 2022/02/02
 ##### Features
 * Expose `batch_max_actions` and `batch_max_bytes` config params for ES shipper: [#65](https://github.com/elastic/elastic-serverless-forwarder/pull/65)
