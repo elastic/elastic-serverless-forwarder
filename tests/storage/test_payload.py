@@ -62,11 +62,24 @@ class TestPayloadStorage(TestCase):
         newline: str = "\n"
         MockContent.init_content(newline)
 
-        payload_storage = PayloadStorage(payload=MockContent.f_content_plain)
-        content: str = payload_storage.get_as_string()
-        original: str = base64.b64decode(MockContent.f_content_plain).decode("utf-8")
-        assert content == original
-        assert len(content) == len(original)
+        with self.subTest(f"testing with plain"):
+            payload_storage = PayloadStorage(payload=MockContent.f_content_plain)
+            content: str = payload_storage.get_as_string()
+            original: str = base64.b64decode(MockContent.f_content_plain).decode("utf-8")
+            assert content == original
+            assert len(content) == len(original)
+
+        with self.subTest(f"testing with gzip"):
+            payload_storage = PayloadStorage(payload=MockContent.f_content_gzip)
+            content: str = payload_storage.get_as_string()
+            original: str = gzip.decompress(
+                base64.b64decode(
+                    MockContent.f_content_gzip.encode("utf-8")
+                )
+            ).decode("utf-8")
+
+            assert content == original
+            assert len(content) == len(original)
 
     def test_get_by_lines(self) -> None:
         for newline in ["", "\n", "\r\n"]:
