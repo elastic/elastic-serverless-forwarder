@@ -3,5 +3,6 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 from .factory import StorageFactory
+from .payload import PayloadStorage
 from .s3 import S3Storage
 from .storage import CHUNK_SIZE, CommonStorage, StorageReader
