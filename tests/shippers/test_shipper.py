@@ -37,6 +37,14 @@ class TestCommonShipper(TestCase):
         with self.assertRaises(NotImplementedError):
             CommonShipper.send(DummyShipper(), {})
 
+    def test_set_event_id_generator(self) -> None:
+        with self.assertRaises(NotImplementedError):
+
+            def event_id_generator(event: dict[str, Any]) -> str:
+                return ""
+
+            CommonShipper.set_event_id_generator(DummyShipper(), event_id_generator=event_id_generator)
+
     def test_set_replay_handler(self) -> None:
         with self.assertRaises(NotImplementedError):
 
