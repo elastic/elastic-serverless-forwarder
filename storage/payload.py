@@ -52,7 +52,7 @@ class PayloadStorage(CommonStorage):
         content_type = "plain/text"
 
         base64_decoded = base64.b64decode(self._payload)
-        if base64_decoded.startswith(b"\037\213\010"):  # gzip compression method
+        if base64_decoded.startswith(b"\037\213"):  # gzip compression method
             content_type = "application/x-gzip"
             range_start = 0
 
