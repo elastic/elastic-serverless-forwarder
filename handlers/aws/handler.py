@@ -120,10 +120,9 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
                 shared_logger.info(
                     "lambda is going to shutdown, failing unprocessed sequence numbers",
-                    extra={"sequence_numbers": ", ".join(all_sequence_numbers.keys())},
+                    extra={"sent_event": sent_event, "sequence_numbers": ", ".join(all_sequence_numbers.keys())},
                 )
 
-                shared_logger.info("lambda processed all the events", extra={"sent_event": sent_event})
                 for sequence_number in all_sequence_numbers:
                     ret["batchItemFailures"].append({"itemIdentifier": sequence_number})
 
