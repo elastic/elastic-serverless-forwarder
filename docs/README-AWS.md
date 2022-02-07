@@ -552,7 +552,7 @@ There are two kind of errors that can happen during the execution of the Lambda:
 2. Errors during the ingestion phase
 
 For errors at (1), the Lambda will return a failure: these errors are mostly due to misconfiguration, improper permission on the AWS resources, etc. Most importantly when an error occurs at this stage we don’t have any state yet about the events that are ingested, so there’s no consistency to keep and we can safely let the Lambda return a failure.
-In the case of SQS message and Kinesis data stream record both, of them will go back to the queue and will trigger the Lambda again with the same payload.
+In the case of SQS message and Kinesis data stream record, both of them will go back to the queue and will trigger the Lambda again with the same payload.
 
 For errors at (2) the situation is different: we have now a state for N failed events out of total X events, if we fail the whole Lambda all the X events will be processed again. While the N failed ones could now succeed, the remaining X-N will now fail, since the datastreams are append-only and we would try to recreate already ingested documents (the ID of the document is deterministic).
 
