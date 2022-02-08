@@ -166,42 +166,45 @@ class ElasticsearchShipper(CommonShipper):
 
     def discover_dataset(self, event: Dict[str, Any]) -> None:
         if self._dataset == "":
-            body: str = event["Records"][0]["body"]
-            json_body: Dict[str, Any] = json.loads(body)
-            s3_object_key: str = ""
-
-            if "Records" in json_body and len(json_body["Records"]) > 0:
-                if "s3" in json_body["Records"][0]:
-                    s3_object_key = json_body["Records"][0]["s3"]["object"]["key"]
-
-            if s3_object_key == "":
-                shared_logger.warning("s3 object key is empty, dataset set to `generic`")
+            if "body" not in event["Records"][0]:
                 self._dataset = "generic"
             else:
-                if (
-                    "/CloudTrail/" in s3_object_key
-                    or "/CloudTrail-Digest/" in s3_object_key
-                    or "/CloudTrail-Insight/" in s3_object_key
-                ):
-                    self._dataset = "aws.cloudtrail"
-                elif "exportedlogs" in s3_object_key or "awslogs" in s3_object_key:
-                    self._dataset = "aws.cloudwatch_logs"
-                elif "/elasticloadbalancing/" in s3_object_key:
-                    self._dataset = "aws.elb_logs"
-                elif "/network-firewall/" in s3_object_key:
-                    self._dataset = "aws.firewall_logs"
-                elif "lambda" in s3_object_key:
-                    self._dataset = "aws.lambda"
-                elif "/SMSUsageReports/" in s3_object_key:
-                    self._dataset = "aws.sns"
-                elif "/StorageLens/" in s3_object_key:
-                    self._dataset = "aws.s3_storage_lens"
-                elif "/vpcflowlogs/" in s3_object_key:
-                    self._dataset = "aws.vpcflow"
-                elif "/WAFLogs/" in s3_object_key:
-                    self._dataset = "aws.waf"
-                else:
+                body: str = event["Records"][0]["body"]
+                json_body: Dict[str, Any] = json.loads(body)
+                s3_object_key: str = ""
+
+                if "Records" in json_body and len(json_body["Records"]) > 0:
+                    if "s3" in json_body["Records"][0]:
+                        s3_object_key = json_body["Records"][0]["s3"]["object"]["key"]
+
+                if s3_object_key == "":
+                    shared_logger.warning("s3 object key is empty, dataset set to `generic`")
                     self._dataset = "generic"
+                else:
+                    if (
+                        "/CloudTrail/" in s3_object_key
+                        or "/CloudTrail-Digest/" in s3_object_key
+                        or "/CloudTrail-Insight/" in s3_object_key
+                    ):
+                        self._dataset = "aws.cloudtrail"
+                    elif "exportedlogs" in s3_object_key or "awslogs" in s3_object_key:
+                        self._dataset = "aws.cloudwatch_logs"
+                    elif "/elasticloadbalancing/" in s3_object_key:
+                        self._dataset = "aws.elb_logs"
+                    elif "/network-firewall/" in s3_object_key:
+                        self._dataset = "aws.firewall_logs"
+                    elif "lambda" in s3_object_key:
+                        self._dataset = "aws.lambda"
+                    elif "/SMSUsageReports/" in s3_object_key:
+                        self._dataset = "aws.sns"
+                    elif "/StorageLens/" in s3_object_key:
+                        self._dataset = "aws.s3_storage_lens"
+                    elif "/vpcflowlogs/" in s3_object_key:
+                        self._dataset = "aws.vpcflow"
+                    elif "/WAFLogs/" in s3_object_key:
+                        self._dataset = "aws.waf"
+                    else:
+                        self._dataset = "generic"
 
         shared_logger.debug("dataset", extra={"dataset": self._dataset})
 

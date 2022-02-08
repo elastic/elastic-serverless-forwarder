@@ -683,7 +683,6 @@ class TestLambdaHandlerSuccessKinesisDataStream(TestCase):
                   username: "{self._secret_arn}:username"
                   password: "{self._secret_arn}:password"
                   namespace: "default"
-                  dataset: "aws.cloudwatch_logs"
                 """
 
         _upload_content_to_bucket(
@@ -811,10 +810,10 @@ class TestLambdaHandlerSuccessKinesisDataStream(TestCase):
                         "batchItemFailures": [{"itemIdentifier": event["Records"][1]["kinesis"]["sequenceNumber"]}]
                     }
 
-                    self._es_client.indices.refresh(index="logs-aws.cloudwatch_logs-default")
-                    assert self._es_client.count(index="logs-aws.cloudwatch_logs-default")["count"] == 2
+                    self._es_client.indices.refresh(index="logs-generic-default")
+                    assert self._es_client.count(index="logs-generic-default")["count"] == 2
 
-                    res = self._es_client.search(index="logs-aws.cloudwatch_logs-default", sort="_seq_no")
+                    res = self._es_client.search(index="logs-generic-default", sort="_seq_no")
                     assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
 
                     assert (
@@ -840,7 +839,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(TestCase):
                     assert res["hits"]["hits"][0]["_source"]["tags"] == [
                         "preserve_original_event",
                         "forwarded",
-                        "aws-cloudwatch_logs",
+                        "generic",
                         "tag1",
                         "tag2",
                         "tag3",
@@ -871,7 +870,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(TestCase):
                     assert res["hits"]["hits"][1]["_source"]["tags"] == [
                         "preserve_original_event",
                         "forwarded",
-                        "aws-cloudwatch_logs",
+                        "generic",
                         "tag1",
                         "tag2",
                         "tag3",
@@ -882,10 +881,10 @@ class TestLambdaHandlerSuccessKinesisDataStream(TestCase):
 
                     assert second_call == {"batchItemFailures": []}
 
-                    self._es_client.indices.refresh(index="logs-aws.cloudwatch_logs-default")
-                    assert self._es_client.count(index="logs-aws.cloudwatch_logs-default")["count"] == 3
+                    self._es_client.indices.refresh(index="logs-generic-default")
+                    assert self._es_client.count(index="logs-generic-default")["count"] == 3
 
-                    res = self._es_client.search(index="logs-aws.cloudwatch_logs-default", sort="_seq_no")
+                    res = self._es_client.search(index="logs-generic-default", sort="_seq_no")
                     assert res["hits"]["total"] == {"value": 3, "relation": "eq"}
 
                     assert (
@@ -913,7 +912,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(TestCase):
                     assert res["hits"]["hits"][2]["_source"]["tags"] == [
                         "preserve_original_event",
                         "forwarded",
-                        "aws-cloudwatch_logs",
+                        "generic",
                         "tag1",
                         "tag2",
                         "tag3",
