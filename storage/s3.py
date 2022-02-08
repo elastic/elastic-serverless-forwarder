@@ -71,14 +71,16 @@ class S3Storage(CommonStorage):
             },
         )
 
-        if content_type == "application/x-gzip":
+        file_content: BytesIO = BytesIO(b"")
+        self._s3_client.download_fileobj(self._bucket_name, self._object_key, file_content)
+
+        file_content.flush()
+        file_content.seek(0, SEEK_SET)
+        if file_content.readline().startswith(b"\037\213"):  # gzip compression method
+            content_type = "application/x-gzip"
             range_start = 0
 
         if content_type == "application/x-gzip" or original_range_start < content_length:
-            file_content: BytesIO = BytesIO(b"")
-            self._s3_client.download_fileobj(self._bucket_name, self._object_key, file_content)
-
-            file_content.flush()
             file_content.seek(range_start, SEEK_SET)
 
             for log_event, line_ending_offset, newline_length in self._generate(
