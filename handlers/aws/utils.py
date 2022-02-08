@@ -236,7 +236,7 @@ def get_trigger_type_and_config_source(event: dict[str, Any]) -> tuple[str, str]
     if "body" in event["Records"][0]:
         event_body = event["Records"][0]["body"]
         if "output_type" in event_body and "output_args" in event_body and "event_payload" in event_body:
-            return "replay", CONFIG_FROM_PAYLOAD
+            return "replay-sqs", CONFIG_FROM_PAYLOAD
 
     if "eventSource" not in event["Records"][0]:
         raise Exception("Not supported trigger")
