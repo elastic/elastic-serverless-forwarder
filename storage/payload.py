@@ -77,7 +77,7 @@ class PayloadStorage(CommonStorage):
         shared_logger.debug("get_as_string", extra={"payload": self._payload[0:11]})
 
         base64_decoded = base64.b64decode(self._payload)
-        if base64_decoded.startswith(b"\037\213\010"):  # gzip compression method
+        if base64_decoded.startswith(b"\037\213"):  # gzip compression method
             return gzip.decompress(base64_decoded).decode("utf-8")
 
         return base64_decoded.decode("utf-8")

@@ -22,8 +22,8 @@ class MockContent:
     f_size_plain: int = 0
     f_content_gzip: str = ""
     f_content_plain: str = ""
-    f_stream_gzip: Optional[Union[io.BytesIO, io.StringIO]] = None
-    f_stream_plain: Optional[Union[io.BytesIO, io.StringIO]] = None
+    f_stream_gzip: Optional[io.StringIO] = None
+    f_stream_plain: Optional[io.StringIO] = None
 
     @staticmethod
     def rewind() -> None:
