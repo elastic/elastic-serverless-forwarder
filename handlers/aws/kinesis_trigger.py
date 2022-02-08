@@ -29,6 +29,7 @@ def _handle_kinesis_record(kinesis_record: dict[str, Any]) -> Iterator[tuple[dic
 
     events = storage.get_by_lines(range_start=0)
 
+    ignored_value = -1
     for log_event, ending_offset, newline_length in events:
         assert isinstance(log_event, bytes)
 
@@ -49,4 +50,4 @@ def _handle_kinesis_record(kinesis_record: dict[str, Any]) -> Iterator[tuple[dic
 
         es_event["fields"]["cloud"]["region"] = aws_region
 
-        yield es_event, ending_offset, -1, -1
+        yield es_event, ending_offset, ignored_value, ignored_value
