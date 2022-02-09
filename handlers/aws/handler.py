@@ -107,7 +107,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             ]
 
         for kinesis_record_n, kinesis_record in enumerate(lambda_event["Records"]):
-            for es_event, last_ending_offset, _, _ in _handle_kinesis_record(kinesis_record):
+            for es_event, last_ending_offset in _handle_kinesis_record(kinesis_record):
                 shared_logger.debug("es_event", extra={"es_event": es_event})
 
                 composite_shipper.send(es_event)

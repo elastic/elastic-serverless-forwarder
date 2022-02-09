@@ -13,7 +13,7 @@ from .event import _default_event
 from .utils import get_kinesis_stream_name_type_and_region_from_arn
 
 
-def _handle_kinesis_record(kinesis_record: dict[str, Any]) -> Iterator[tuple[dict[str, Any], int, int, int]]:
+def _handle_kinesis_record(kinesis_record: dict[str, Any]) -> Iterator[tuple[dict[str, Any], int]]:
     """
     Handler for kinesis data stream inputs.
     It iterates through kinesis records in the kinesis trigger and process
@@ -29,7 +29,6 @@ def _handle_kinesis_record(kinesis_record: dict[str, Any]) -> Iterator[tuple[dic
 
     events = storage.get_by_lines(range_start=0)
 
-    ignored_value = -1
     for log_event, ending_offset, newline_length in events:
         assert isinstance(log_event, bytes)
 
@@ -50,4 +49,4 @@ def _handle_kinesis_record(kinesis_record: dict[str, Any]) -> Iterator[tuple[dic
 
         es_event["fields"]["cloud"]["region"] = aws_region
 
-        yield es_event, ending_offset, ignored_value, ignored_value
+        yield es_event, ending_offset
