@@ -7,12 +7,15 @@ from unittest import TestCase
 
 import pytest
 
-from shippers import CommonShipper, ReplayHandlerCallable
+from shippers import CommonShipper, EventIdGeneratorCallable, ReplayHandlerCallable
 
 
 class DummyShipper(CommonShipper):
     def send(self, event: dict[str, Any]) -> Any:
         return
+
+    def set_event_id_generator(self, event_id_generator: EventIdGeneratorCallable) -> None:
+        pass
 
     def set_replay_handler(self, replay_handler: ReplayHandlerCallable) -> None:
         pass
@@ -33,6 +36,14 @@ class TestCommonShipper(TestCase):
     def test_send(self) -> None:
         with self.assertRaises(NotImplementedError):
             CommonShipper.send(DummyShipper(), {})
+
+    def test_set_event_id_generator(self) -> None:
+        with self.assertRaises(NotImplementedError):
+
+            def event_id_generator(event: dict[str, Any]) -> str:
+                return ""
+
+            CommonShipper.set_event_id_generator(DummyShipper(), event_id_generator=event_id_generator)
 
     def test_set_replay_handler(self) -> None:
         with self.assertRaises(NotImplementedError):

@@ -5,11 +5,13 @@
 import json
 from typing import Any, Callable
 
+from .payload import PayloadStorage
 from .s3 import S3Storage
 from .storage import CommonStorage
 
 _init_definition_by_storage_type: dict[str, dict[str, Any]] = {
-    "s3": {"class": S3Storage, "kwargs": ["bucket_name", "object_key"]}
+    "s3": {"class": S3Storage, "kwargs": ["bucket_name", "object_key"]},
+    "payload": {"class": PayloadStorage, "kwargs": ["payload"]},
 }
 
 

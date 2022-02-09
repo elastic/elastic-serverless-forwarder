@@ -14,17 +14,7 @@ _default_event: dict[str, Any] = {
                 "path": "",
             },
         },
-        "aws": {
-            "s3": {
-                "bucket": {
-                    "name": "",
-                    "arn": "",
-                },
-                "object": {
-                    "key": "",
-                },
-            },
-        },
+        "aws": {},
         "cloud": {
             "provider": "aws",
             "region": "",

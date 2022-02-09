@@ -109,12 +109,19 @@ class MockClient(elasticsearch.Elasticsearch):
 
 
 _documents = []
+_failures = []
 
 
 def mock_bulk(client: Any, actions: list[dict[str, Any]], **kwargs: Any) -> tuple[int, list[dict[str, Any]]]:
     global _documents
     _documents = [actions]
     return len(actions), []
+
+
+def mock_bulk_failure(client: Any, actions: list[dict[str, Any]], **kwargs: Any) -> tuple[int, list[dict[str, Any]]]:
+    global _failures
+    _failures = list(map(lambda action: {"create": {"_id": action["_id"]}}, actions))
+    return len(actions), _failures
 
 
 @pytest.mark.unit
@@ -139,7 +146,6 @@ class TestElasticsearchShipper(TestCase):
             [
                 {
                     "@timestamp": _now,
-                    "_id": "59273c1036-000000000010",
                     "_index": "logs-data.set-namespace",
                     "_op_type": "create",
                     "data_stream": {"dataset": "data.set", "namespace": "namespace", "type": "logs"},
@@ -169,6 +175,30 @@ class TestElasticsearchShipper(TestCase):
                 }
             ]
         ]
+        assert shipper._bulk_actions == []
+
+    @mock.patch("shippers.es.es_bulk", mock_bulk_failure)
+    @mock.patch("shippers.es.Elasticsearch", new=MockClient)
+    def test_send_with_failure(self) -> None:
+        shipper = ElasticsearchShipper(
+            elasticsearch_url="elasticsearch_url",
+            username="username",
+            password="",
+            dataset="data.set",
+            namespace="namespace",
+            tags=["tag1", "tag2", "tag3"],
+            batch_max_actions=0,
+        )
+        es_event = deepcopy(_dummy_event)
+        shipper.discover_dataset(es_event)
+
+        def event_id_generator(event: dict[str, Any]) -> str:
+            return "_id"
+
+        shipper.set_event_id_generator(event_id_generator=event_id_generator)
+        shipper.send(es_event)
+
+        assert _failures == [{"create": {"_id": "_id"}}]
         assert shipper._bulk_actions == []
 
     @mock.patch("shippers.es.es_bulk", mock_bulk)
@@ -205,7 +235,6 @@ class TestElasticsearchShipper(TestCase):
         assert shipper._bulk_actions == [
             {
                 "@timestamp": _now,
-                "_id": "59273c1036-000000000010",
                 "_index": "logs-data.set-namespace",
                 "_op_type": "create",
                 "data_stream": {"dataset": "data.set", "namespace": "namespace", "type": "logs"},
@@ -260,7 +289,6 @@ class TestElasticsearchShipper(TestCase):
         assert _documents[0] == [
             {
                 "@timestamp": _now,
-                "_id": "59273c1036-000000000010",
                 "_index": "logs-generic-namespace",
                 "_op_type": "create",
                 "data_stream": {"dataset": "generic", "namespace": "namespace", "type": "logs"},

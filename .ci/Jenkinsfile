@@ -3,7 +3,7 @@
 @Library('apm@current') _
 
 pipeline {
-  agent { label 'ubuntu-20 && immutable' }
+  agent { label 'ubuntu-20 && immutable && gobld/machineType:c2-standard-8' }
   environment {
     REPO = "elastic-serverless-forwarder"
     BASE_DIR = "src/github.com/elastic/${env.REPO}"

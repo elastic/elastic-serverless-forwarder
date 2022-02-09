@@ -5,6 +5,7 @@ This functionality is in beta and is subject to change. The design and code is l
 The Elastic Serverless Forwarder is an AWS Lambda function that ships logs from your AWS environment to Elastic. The function can forward data to Elastic self-managed or Elastic cloud environments. It supports the following inputs:
 
 - S3 SQS Event Notifications input
+- Kinesis Data Stream input
 
 The config yaml file (details described below) acts as an input where the user, based on input type, configures things like SQS queue ARN and Elasticsearch connection information. Multiple input sections can be created in the configuration file pointing to different queues that match specific log types.
 
@@ -20,6 +21,9 @@ As a first step users should install appropriate integrations in the Kibana UI. 
 **S3 SQS Event Notifications input:**
 The Lambda function supports ingesting logs contained in the S3 bucket through an SQS notification (s3:ObjectCreated) and sends them to Elastic. The SQS queue serves as a trigger for the Lambda function. When a new log file gets written to an S3 bucket and meets the criteria (as configured including prefix/suffix), a notification to SQS is generated that triggers the Lambda function. Users will set up separate SQS queues for each type of logs (i.e. aws.vpcflow, aws.cloudtrail, aws.waf and so on). A single configuration file can have many input sections, pointing to different SQS queues that match specific log types.
 The dataset parameters in the config file are optional. Lambda supports automatic routing of various AWS service logs to the corresponding data streams for further processing and storage in the Elasticsearch cluster. It supports automatic routing of `aws.cloudtrail`, `aws.cloudwatch_logs`, `aws.elb_logs`, `aws.firewall_logs`, `aws.lambda`, `aws.sns`, `aws.s3_storage_lens`, `aws.vpcflow`, and `aws.waf` logs. For other log types the users can optionally set the dataset value in the configuration file.  If the dataset is not specified and it cannot be matched with any of the above AWS services then the `dataset` will be set to "generic".
+
+**Kinesis Data Stream input:**
+The Lambda function supports ingesting logs contained in the payload of a Kinesis data stream record and sends them to Elastic. The Kinesis data stream serves as a trigger for the Lambda function. When a new record gets written to a Kinesis data stream the Lambda function gets triggered. Users will set up separate Kinesis data streams for each type of logs, the type of logs must be defined with the `dataset` configuration param in the output of the Kinesis data stream. A single configuration file can have many input sections, pointing to different Kinesis data streams that match specific log types.
 
 
 ### Deployment:
@@ -166,6 +170,28 @@ Resources:
         ]
       }
     },
+      {
+      "PolicyName": "ElasticServerlessForwarderFunctionRolePolicyKinesis", ## ADD FOR YOUR KINESIS STREAM
+      "PolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+          "Action": [
+            "kinesis:GetRecords",
+            "kinesis:GetShardIterator",
+            "kinesis:DescribeStream",
+            "kinesis:ListShards",
+            "kinesis:ListStreams"
+          ],
+          "Resource": [
+          "arn:aws:kinesis:%AWS_REGION%:%AWS_ACCOUNT_ID%:stream/%STREAM_NAME%",
+            ...
+          ],
+          "Effect": "Allow"
+          }
+        ]
+      }
+    },
     {
       "PolicyName": "ElasticServerlessForwarderFunctionRolePolicyS3", ## ADD FOR YOUR S3 BUCKET
       "PolicyDocument": {
@@ -274,9 +300,16 @@ On top of this basic permission the following policies must be provided:
 * For the SQS queues resources that are reported in the `SQS_CONTINUE_URL` and `SQS_REPLAY_URL` environment variable the following action must be allowed:
   * `sqs:SendMessage`
 
-* For SQS queue resource that you want to use as triggers of the Lambda the proper permissions are already included by `arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole`.
+* For SQS queue resources that you want to use as triggers of the Lambda the proper permissions are already included by `arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole`.
  Only the following extra action must be allowed:
     * `sqs:GetQueueUrl`
+
+* For Kinesis data stream resources that you want to use as triggers of the Lambda the following action must be allowed on the Kinesis data streams:
+  * `kinesis:GetRecords`
+  * `kinesis:GetShardIterator`
+  * `kinesis:DescribeStream`
+  * `kinesis:ListShards`
+  * `kinesis:ListStreams`
 
 * For every S3 bucket resource that's reported in the `S3_CONFIG_FILE` environment variable the following action must be allowed on the S3 buckets' config file object key:
   * `s3:GetObject`
@@ -333,6 +366,22 @@ On top of this basic permission the following policies must be provided:
         ]
       },
       {
+        "Sid": "VisualEditor2",
+        "Effect": "Allow",
+        "Action": [
+            "kinesis:GetRecords",
+            "kinesis:GetShardIterator",
+            "kinesis:DescribeStream",
+            "kinesis:ListShards",
+            "kinesis:ListStreams"
+        ],
+        "Resource": [
+          ## ADD FOR YOUR KINESIS DATA STREAMS
+          "arn:aws:kinesis:%AWS_REGION%:%AWS_ACCOUNT_ID%:stream/%STREAM_NAME%",
+          ...
+        ]
+      },
+      {
         "Sid": "VisualEditor1",
         "Effect": "Allow",
         "Action": "secretsmanager:GetSecretValue",
@@ -378,6 +427,22 @@ inputs:
           namespace: "default"
           batch_max_actions: 500
           batch_max_bytes: 10485760
+  - type: "kinesis-data-stream"
+    id: "arn:aws:kinesis:%REGION%:%ACCOUNT%:stream/%STREAMNAME%"
+    outputs:
+      - type: "elasticsearch"
+        args:
+          # either elasticsearch_url or cloud_id, elasticsearch_url takes precedence
+          elasticsearch_url: "http(s)://domain.tld:port"
+          cloud_id: "cloud_id:bG9jYWxob3N0OjkyMDAkMA=="
+          # either api_key or username/password, api_key takes precedence
+          api_key: "YXBpX2tleV9pZDphcGlfa2V5X3NlY3JldAo="
+          username: "username"
+          password: "password"
+          dataset: "generic"
+          namespace: "default"
+          batch_max_actions: 500
+          batch_max_bytes: 10485760
 ```
 
 #### Fields
@@ -385,7 +450,7 @@ inputs:
 A list of inputs (ie: triggers) for the Elastic Forwarder for Serverless Lambda
 
 `inputs.[].type`:
-The type of the trigger input (currently only `s3-sqs` supported)
+The type of the trigger input (currently `kinesis-data-stream` and `s3-sqs` supported)
 
 `inputs.[].id`:
 The arn of the trigger input according to the type. Multiple input entries can have different unique ids with the same type.
@@ -479,7 +544,7 @@ In order to set up an S3 event notification to SQS please look at the official d
 
 The event type to set up in the notification should be `s3:ObjectCreated:*`
 
-The Elastic Forwarder for Serverless Lambda doesn't need to be provided extra IAM policies in order to access S3 and SQS resources in your account: the policies to grant only the minimum required permissions for the Lambda to run are already defined in the SAM template when creating the Lamda from the Serverless Application Repository.
+The Elastic Forwarder for Serverless Lambda doesn't need to be provided extra IAM policies in order to access S3 and SQS resources in your account: the policies to grant only the minimum required permissions for the Lambda to run are already defined in the SAM template when creating the Lambda from the Serverless Application Repository.
 
 ## Error handling
 There are two kind of errors that can happen during the execution of the Lambda:
@@ -487,7 +552,7 @@ There are two kind of errors that can happen during the execution of the Lambda:
 2. Errors during the ingestion phase
 
 For errors at (1), the Lambda will return a failure: these errors are mostly due to misconfiguration, improper permission on the AWS resources, etc. Most importantly when an error occurs at this stage we don’t have any state yet about the events that are ingested, so there’s no consistency to keep and we can safely let the Lambda return a failure.
-The original SQS message will go back to the queue and will trigger the Lambda again with the same payload.
+In the case of SQS message and Kinesis data stream record, both of them will go back to the queue and will trigger the Lambda again with the same payload.
 
 For errors at (2) the situation is different: we have now a state for N failed events out of total X events, if we fail the whole Lambda all the X events will be processed again. While the N failed ones could now succeed, the remaining X-N will now fail, since the datastreams are append-only and we would try to recreate already ingested documents (the ID of the document is deterministic).
 
@@ -498,3 +563,8 @@ It is possible anyway to temporarily set the replay SQS queue as Event Source Ma
 In case the failure will persist the affected log entry will be moved to a DLQ after three retries.
 
 Every other error occurring during the execution of the Lambda is silently ignored and reported to the APM server is instrumentation is enabled.
+
+## Execution timeout
+There is a grace period of 2 minutes before the timeout of the Lambda where no more ingestion will happen. Instead, during this grace period the Lambda will collect and handle any unprocessed payload in the batch of the input used as trigger.
+In case of an S3 SQS Event Notifications input, the unprocessed batch will be sent to the SQS continuing queue.
+In case of a Kinesis Data Stream input the Lambda will return the sequence numbers of the unprocessed batch in the `batchItemFailures` response: allowing the affected records to be included in following batches that will trigger the Lambda. It is therefore important to set enough number of retry attempts and/or lower the size of the batches in order for the whole batch to be able to be processed at most during a single execution of the Lambda and/or giving some extra retry attemps for the whole content to be processed by multiple executions of the Lambda.

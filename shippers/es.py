@@ -2,7 +2,6 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
-import hashlib
 import json
 from typing import Any, Dict, Optional, Union
 
@@ -12,7 +11,7 @@ from elasticsearch.helpers import bulk as es_bulk
 
 from share import shared_logger
 
-from .shipper import CommonShipper, ReplayHandlerCallable
+from .shipper import CommonShipper, EventIdGeneratorCallable, ReplayHandlerCallable
 
 
 class ElasticsearchShipper(CommonShipper):
@@ -70,6 +69,7 @@ class ElasticsearchShipper(CommonShipper):
 
         self._es_client = self._elasticsearch_client(**es_client_kwargs)
         self._replay_handler: Optional[ReplayHandlerCallable] = None
+        self._event_id_generator: Optional[EventIdGeneratorCallable] = None
 
         self._dataset = dataset
         self._namespace = namespace
@@ -86,22 +86,6 @@ class ElasticsearchShipper(CommonShipper):
         es_client_kwargs["max_retries"] = 10
         es_client_kwargs["retry_on_timeout"] = True
         return Elasticsearch(**es_client_kwargs)
-
-    @staticmethod
-    def _s3_object_id(event_payload: dict[str, Any]) -> str:
-        """
-        Port of
-        https://github.com/elastic/beats/blob/21dca31b6296736fa90fae39bff71f063522420f/x-pack/filebeat/input/awss3/s3_objects.go#L364-L371
-        https://github.com/elastic/beats/blob/21dca31b6296736fa90fae39bff71f063522420f/x-pack/filebeat/input/awss3/s3_objects.go#L356-L358
-        """
-        offset: int = event_payload["fields"]["log"]["offset"]
-        bucket_arn: str = event_payload["fields"]["aws"]["s3"]["bucket"]["arn"]
-        object_key: str = event_payload["fields"]["aws"]["s3"]["object"]["key"]
-
-        src: str = f"{bucket_arn}{object_key}"
-        hex_prefix = hashlib.sha256(src.encode("UTF-8")).hexdigest()[:10]
-
-        return f"{hex_prefix}-{offset:012d}"
 
     def _enrich_event(self, event_payload: dict[str, Any]) -> None:
         """
@@ -138,6 +122,9 @@ class ElasticsearchShipper(CommonShipper):
 
         return
 
+    def set_event_id_generator(self, event_id_generator: EventIdGeneratorCallable) -> None:
+        self._event_id_generator = event_id_generator
+
     def set_replay_handler(self, replay_handler: ReplayHandlerCallable) -> None:
         self._replay_handler = replay_handler
 
@@ -154,9 +141,8 @@ class ElasticsearchShipper(CommonShipper):
         if "_index" not in event:
             event["_index"] = self._es_index
 
-        if "_id" not in event:
-            # TODO: leaking concrete storage in shipper, refactor to use an abstract callback
-            event["_id"] = self._s3_object_id(event)
+        if "_id" not in event and self._event_id_generator is not None:
+            event["_id"] = self._event_id_generator(event)
 
         self._bulk_actions.append(event)
 
@@ -180,42 +166,45 @@ class ElasticsearchShipper(CommonShipper):
 
     def discover_dataset(self, event: Dict[str, Any]) -> None:
         if self._dataset == "":
-            body: str = event["Records"][0]["body"]
-            json_body: Dict[str, Any] = json.loads(body)
-            s3_object_key: str = ""
-
-            if "Records" in json_body and len(json_body["Records"]) > 0:
-                if "s3" in json_body["Records"][0]:
-                    s3_object_key = json_body["Records"][0]["s3"]["object"]["key"]
-
-            if s3_object_key == "":
-                shared_logger.warning("s3 object key is empty, dataset set to `generic`")
+            if "body" not in event["Records"][0]:
                 self._dataset = "generic"
             else:
-                if (
-                    "/CloudTrail/" in s3_object_key
-                    or "/CloudTrail-Digest/" in s3_object_key
-                    or "/CloudTrail-Insight/" in s3_object_key
-                ):
-                    self._dataset = "aws.cloudtrail"
-                elif "exportedlogs" in s3_object_key or "awslogs" in s3_object_key:
-                    self._dataset = "aws.cloudwatch_logs"
-                elif "/elasticloadbalancing/" in s3_object_key:
-                    self._dataset = "aws.elb_logs"
-                elif "/network-firewall/" in s3_object_key:
-                    self._dataset = "aws.firewall_logs"
-                elif "lambda" in s3_object_key:
-                    self._dataset = "aws.lambda"
-                elif "/SMSUsageReports/" in s3_object_key:
-                    self._dataset = "aws.sns"
-                elif "/StorageLens/" in s3_object_key:
-                    self._dataset = "aws.s3_storage_lens"
-                elif "/vpcflowlogs/" in s3_object_key:
-                    self._dataset = "aws.vpcflow"
-                elif "/WAFLogs/" in s3_object_key:
-                    self._dataset = "aws.waf"
-                else:
+                body: str = event["Records"][0]["body"]
+                json_body: Dict[str, Any] = json.loads(body)
+                s3_object_key: str = ""
+
+                if "Records" in json_body and len(json_body["Records"]) > 0:
+                    if "s3" in json_body["Records"][0]:
+                        s3_object_key = json_body["Records"][0]["s3"]["object"]["key"]
+
+                if s3_object_key == "":
+                    shared_logger.warning("s3 object key is empty, dataset set to `generic`")
                     self._dataset = "generic"
+                else:
+                    if (
+                        "/CloudTrail/" in s3_object_key
+                        or "/CloudTrail-Digest/" in s3_object_key
+                        or "/CloudTrail-Insight/" in s3_object_key
+                    ):
+                        self._dataset = "aws.cloudtrail"
+                    elif "exportedlogs" in s3_object_key or "awslogs" in s3_object_key:
+                        self._dataset = "aws.cloudwatch_logs"
+                    elif "/elasticloadbalancing/" in s3_object_key:
+                        self._dataset = "aws.elb_logs"
+                    elif "/network-firewall/" in s3_object_key:
+                        self._dataset = "aws.firewall_logs"
+                    elif "lambda" in s3_object_key:
+                        self._dataset = "aws.lambda"
+                    elif "/SMSUsageReports/" in s3_object_key:
+                        self._dataset = "aws.sns"
+                    elif "/StorageLens/" in s3_object_key:
+                        self._dataset = "aws.s3_storage_lens"
+                    elif "/vpcflowlogs/" in s3_object_key:
+                        self._dataset = "aws.vpcflow"
+                    elif "/WAFLogs/" in s3_object_key:
+                        self._dataset = "aws.waf"
+                    else:
+                        self._dataset = "generic"
 
         shared_logger.debug("dataset", extra={"dataset": self._dataset})
 

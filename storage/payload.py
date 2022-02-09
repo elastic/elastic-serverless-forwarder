@@ -1,14 +1,10 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
-
+import base64
+import gzip
 from io import SEEK_SET, BytesIO
 from typing import Any, Iterator, Union
-
-import boto3
-import botocore.client
-import elasticapm  # noqa: F401
-from botocore.response import StreamingBody
 
 from share import shared_logger
 
@@ -16,19 +12,15 @@ from .decorator import by_lines, inflate
 from .storage import CHUNK_SIZE, CommonStorage, StorageReader
 
 
-class S3Storage(CommonStorage):
+class PayloadStorage(CommonStorage):
     """
-    S3 Storage.
-    This class implements concrete S3 Storage
+    PayloadStorage Storage.
+    This class implements concrete Payload Storage.
+    The payload might be base64 and gzip encoded
     """
 
-    _s3_client = boto3.client(
-        "s3", config=botocore.client.Config(retries={"total_max_attempts": 10, "mode": "standard"})
-    )
-
-    def __init__(self, bucket_name: str, object_key: str):
-        self._bucket_name: str = bucket_name
-        self._object_key: str = object_key
+    def __init__(self, payload: str):
+        self._payload: str = payload
 
     @by_lines
     @inflate
@@ -57,30 +49,18 @@ class S3Storage(CommonStorage):
     def get_by_lines(self, range_start: int) -> Iterator[tuple[Union[StorageReader, bytes], int, int]]:
         original_range_start: int = range_start
 
-        s3_object_head = self._s3_client.head_object(Bucket=self._bucket_name, Key=self._object_key)
+        content_type = "plain/text"
 
-        content_type: str = s3_object_head["ContentType"]
-        content_length: int = s3_object_head["ContentLength"]
-        shared_logger.debug(
-            "get_by_lines",
-            extra={
-                "content_type": content_type,
-                "range_start": range_start,
-                "bucket_name": self._bucket_name,
-                "object_key": self._object_key,
-            },
-        )
-
-        file_content: BytesIO = BytesIO(b"")
-        self._s3_client.download_fileobj(self._bucket_name, self._object_key, file_content)
-
-        file_content.flush()
-        file_content.seek(0, SEEK_SET)
-        if file_content.readline().startswith(b"\037\213"):  # gzip compression method
+        base64_decoded = base64.b64decode(self._payload)
+        if base64_decoded.startswith(b"\037\213"):  # gzip compression method
             content_type = "application/x-gzip"
             range_start = 0
 
+        content_length = len(base64_decoded)
         if content_type == "application/x-gzip" or original_range_start < content_length:
+            file_content: BytesIO = BytesIO(base64_decoded)
+
+            file_content.flush()
             file_content.seek(range_start, SEEK_SET)
 
             for log_event, line_ending_offset, newline_length in self._generate(
@@ -91,11 +71,13 @@ class S3Storage(CommonStorage):
             ):
                 yield log_event, line_ending_offset, newline_length
         else:
-            shared_logger.info(f"requested file content from {range_start}, file size {content_length}: skip it")
+            shared_logger.info(f"requested payload content from {range_start}, payload size {content_length}: skip it")
 
     def get_as_string(self) -> str:
-        shared_logger.debug("get_as_string", extra={"bucket_name": self._bucket_name, "object_key": self._object_key})
-        s3_object = self._s3_client.get_object(Bucket=self._bucket_name, Key=self._object_key, Range="bytes=0-")
+        shared_logger.debug("get_as_string", extra={"payload": self._payload[0:11]})
 
-        body: StreamingBody = s3_object["Body"]
-        return str(body.read(s3_object["ContentLength"]).decode("UTF-8"))
+        base64_decoded = base64.b64decode(self._payload)
+        if base64_decoded.startswith(b"\037\213"):  # gzip compression method
+            return gzip.decompress(base64_decoded).decode("utf-8")
+
+        return base64_decoded.decode("utf-8")

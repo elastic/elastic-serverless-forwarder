@@ -6,6 +6,7 @@ from abc import ABCMeta, abstractmethod
 from typing import Any, Callable, TypeVar
 
 ReplayHandlerCallable = Callable[[str, dict[str, Any], dict[str, Any]], None]
+EventIdGeneratorCallable = Callable[[dict[str, Any]], str]
 
 
 class CommonShipper(metaclass=ABCMeta):
@@ -21,6 +22,14 @@ class CommonShipper(metaclass=ABCMeta):
     def send(self, event: dict[str, Any]) -> Any:
         """
         Interface for sending the event by the shipper
+        """
+
+        raise NotImplementedError
+
+    @abstractmethod
+    def set_event_id_generator(self, event_id_generator: EventIdGeneratorCallable) -> None:
+        """
+        Interface for setting the event id generator of the shipper
         """
 
         raise NotImplementedError

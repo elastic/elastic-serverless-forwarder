@@ -2,44 +2,12 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
-import json
-import os
 from typing import Any, Optional
 
 from share import Config, ElasticsearchOutput, Input, Output, shared_logger
 from shippers import ElasticsearchShipper, ShipperFactory
 
-from .utils import InputConfigException, OutputConfigException, get_sqs_client
-
-
-class ReplayEventHandler:
-    def __init__(self, config_yaml: str, event_input: Input):
-        self._config_yaml: str = config_yaml
-        self._event_input_id: str = event_input.id
-        self._event_input_type: str = event_input.type
-
-    def replay_handler(self, output_type: str, output_args: dict[str, Any], event_payload: dict[str, Any]) -> None:
-        sqs_replay_queue = os.environ["SQS_REPLAY_URL"]
-
-        sqs_client = get_sqs_client()
-
-        message_payload: dict[str, Any] = {
-            "output_type": output_type,
-            "output_args": output_args,
-            "event_payload": event_payload,
-            "event_input_id": self._event_input_id,
-            "event_input_type": self._event_input_type,
-        }
-
-        sqs_client.send_message(
-            QueueUrl=sqs_replay_queue,
-            MessageBody=json.dumps(message_payload),
-            MessageAttributes={
-                "config": {"StringValue": self._config_yaml, "DataType": "String"},
-            },
-        )
-
-        shared_logger.warning("sent to replay queue", extra=message_payload)
+from .utils import InputConfigException, OutputConfigException
 
 
 def _handle_replay_event(
