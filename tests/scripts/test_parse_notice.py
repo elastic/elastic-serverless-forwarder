@@ -83,7 +83,7 @@ class TestParseNotice(TestCase):
             assert np.mode == "check"
 
         with self.subTest("empty scanned file"):
-            with self.assertRaisesRegex(ValueError, f"{self.scanned_fn} is empty"):
+            with self.assertRaises(JSONDecodeError):
                 requirements_files = ["requirements.txt", "requirements-lint.txt", "requirements-tests.txt"]
                 with open(self.scanned_fn, "w+") as fh:
                     fh.write("")
@@ -162,7 +162,7 @@ class TestParseNotice(TestCase):
     def test_check_mode(self) -> None:
         with self.subTest("new packages found"):
             with self.assertRaisesRegex(
-                SystemExit, "New packages found. Run the program in 'fix' mode to add it to the NOTICE.txt file"
+                SystemExit, "New packages found. Run the program in 'fix' mode to add it to the TEST_NOTICE.txt file"
             ):
                 requirements_files = ["requirements.txt", "requirements-lint.txt", "requirements-tests.txt"]
                 NoticeParser(requirements_files, self.scanned_fn, "check", self.test_notice_fn)

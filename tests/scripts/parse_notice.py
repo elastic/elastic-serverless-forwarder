@@ -27,17 +27,21 @@ class NoticeParser:
 
         self.read_requirements()
 
-        scanned_results_data = self.read_content_from_file(self.scanned_json_file)
-
-        if not scanned_results_data:
-            raise ValueError(f"{self.scanned_json_file} is empty")
+        try:
+            scanned_results_data = self.read_content_from_file(self.scanned_json_file)
+        except FileNotFoundError as e:
+            raise e
 
         try:
             self.scanned_results_json: Any = json.loads(scanned_results_data)
         except Exception as e:
             raise e
 
-        notice_file_content: str = self.read_content_from_file(self.notice_file_name)
+        try:
+            notice_file_content: str = self.read_content_from_file(self.notice_file_name)
+        except FileNotFoundError:
+            self.apply_elasticsearch_license_header()
+            notice_file_content = self.read_content_from_file(self.notice_file_name)
 
         package_pattern = r"(?:Package: ([^\n]+))"
         existing_packages: list[str] = re.findall(package_pattern, notice_file_content)
@@ -64,33 +68,46 @@ class NoticeParser:
                     print(f"New package found: '{real_package_name}'")
 
             raise SystemExit(
-                f"New packages found. Run the program in 'fix' mode to add it to the {notice_file_name} file"
+                f"New packages found. Run the program in 'fix' mode to add it to the {self.notice_file_name} file"
             )
 
         elif self.mode == "fix":
+            # overwrites the existing notice file
+            self.apply_elasticsearch_license_header()
+
             for new_package in requirements_name_from_file:
-                if self.required_packages[new_package] not in existing_packages:
-                    real_package_name = self.required_packages[new_package]
+                real_package_name = self.required_packages[new_package]
 
-                    print(f"New package found: '{real_package_name}'")
-                    self.process_package(required_package=new_package)
-                    self.verify_license_in_packages(processed_package=new_package)
-                    processed_package = self.processed_packages.get(new_package)
+                print(f"New package found: '{real_package_name}'")
+                self.process_package(required_package=new_package)
+                self.verify_license_in_packages(processed_package=new_package)
+                processed_package = self.processed_packages.get(new_package)
 
-                    if not processed_package:
-                        print(
-                            f"Missing data for '{real_package_name}' in {self.scanned_json_file}",
-                        )
-                        continue
+                if not processed_package:
+                    print(
+                        f"Missing data for '{real_package_name}' in {self.scanned_json_file}",
+                    )
+                    continue
 
-                    if "package_name" not in processed_package or "license_name" not in processed_package:
-                        print(f"Missing data for '{real_package_name}'. Skipping...")
-                        continue
+                if "package_name" not in processed_package or "license_name" not in processed_package:
+                    print(f"Missing data for '{real_package_name}'. Skipping...")
+                    continue
 
-                    self.write_to_notice_file(processed_package)
-                    print(f"Package '{real_package_name}' has been added to {self.notice_file_name}")
+                self.write_to_notice_file(processed_package)
+                print(f"Package '{real_package_name}' has been added to {self.notice_file_name}")
         else:
             raise SystemExit("Invalid argument. Please choose a mode between 'fix' or 'check'")
+
+    def apply_elasticsearch_license_header(self):
+        with open(self.notice_file_name, "w+") as fh:
+            fh.write("# Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one\n")
+            fh.write("# or more contributor license agreements. Licensed under the Elastic License 2.0;\n")
+            fh.write("# you may not use this file except in compliance with the Elastic License 2.0.\n\n")
+            fh.write("Elastic Serverless Forwarder\n")
+            fh.write("=" * 100)
+            fh.write("\n")
+            fh.write("Third party libraries used by the Elastic Serverless Forwarder project:\n")
+            fh.write("=" * 100)
 
     def process_package(self, required_package: str) -> None:
         """
@@ -134,33 +151,14 @@ class NoticeParser:
                         scancode_url: str = entry["licenses"][0].get("scancode_text_url")
                         self.processed_packages[package_name]["scancode_url"] = scancode_url
 
-    def read_content_from_file(self, content_file_path: str) -> str:
+    @staticmethod
+    def read_content_from_file(content_file_path: str) -> str:
         """
         Reads a file and returns the string representation of its content
         """
         try:
             with open(content_file_path) as fh:
                 file_content: str = fh.read()
-
-        except FileNotFoundError as fnf:
-            if content_file_path == self.notice_file_name:
-                with open(self.notice_file_name, "w+") as fh:
-                    fh.write("# Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one\n")
-                    fh.write("# or more contributor license agreements. Licensed under the Elastic License 2.0;\n")
-                    fh.write("# you may not use this file except in compliance with the Elastic License 2.0.\n\n")
-                    fh.write("Elastic Serverless Forwarder\n")
-                    fh.write("=" * 100)
-                    fh.write("\n")
-                    fh.write("Third party libraries used by the Elastic Serverless Forwarder project:\n")
-                    fh.write("=" * 100)
-
-                with open(self.notice_file_name) as fh:
-                    file_content = fh.read()
-
-                return file_content
-            else:
-                raise fnf
-
         except Exception as e:
             raise e
         else:
