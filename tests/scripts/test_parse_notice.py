@@ -10,9 +10,18 @@ from datetime import datetime
 from json.decoder import JSONDecodeError
 from unittest import TestCase
 
+import mock
 import pytest
+from mock import MagicMock
 
 from .parse_notice import NoticeParser
+
+
+def mock_license_content(_: str) -> MagicMock:
+    response = MagicMock()
+    response.text = "THIS IS THE TEST LICENSE FILE CONTENT"
+    response.status_code = 200
+    return response
 
 
 @pytest.mark.unit
@@ -27,14 +36,15 @@ class TestParseNotice(TestCase):
             {
                 "files": [
                     {
-                        "path": f"{self.test_license_path}/LICENSE",
-                        "licenses": [{"key": "mit"}],
-                    },
-                    {
                         "path": f"{self.test_license_path}/METADATA",
-                        "packages": [
-                            {"homepage_url": "https://pyyaml.org/", "vcs_url": "https://pypi.org/project/PyYAML/"}
+                        "licenses": [
+                            {
+                                "key": "mit",
+                                "scancode_text_url": "https://github.com/nexB/scancode-toolkit/tree/develop/src/"
+                                "licensedcode/data/licenses/mit.LICENSE",
+                            },
                         ],
+                        "packages": [{"homepage_url": "https://pyyaml.org/"}],
                     },
                 ]
             }
@@ -198,6 +208,7 @@ class TestParseNotice(TestCase):
             self.tearDown()
             self.setUp()
 
+    @mock.patch("tests.scripts.parse_notice.requests.get", new=mock_license_content)
     def test_fix_mode(self) -> None:
         with self.subTest("successfully write to notice file"):
             requirements_files: list[str] = [self.test_requirements]
@@ -209,8 +220,7 @@ class TestParseNotice(TestCase):
                 notice_file_content = fh.read()
 
             assert np.processed_packages["PyYAML"]["package_name"] == "PyYAML"
-            assert np.processed_packages["PyYAML"]["license_name"] == "MIT"
-            assert np.processed_packages["PyYAML"]["license_path"] == f"{self.test_license_path}/LICENSE"
+            assert np.processed_packages["PyYAML"]["license_name"] == "mit"
             assert np.processed_packages["PyYAML"]["license_content"] == "THIS IS THE TEST LICENSE FILE CONTENT"
             assert np.processed_packages["PyYAML"]["version"] == "5.4.1"
             assert np.processed_packages["PyYAML"]["homepage_url"] == "https://pyyaml.org/"
@@ -232,7 +242,7 @@ class TestParseNotice(TestCase):
                 + "Version: 5.4.1\n"
                 + "Homepage: https://pyyaml.org/\n"
                 + f"Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}\n"
-                + "License: MIT\n\n\n"
-                + "Contents of probable licence file THIS/IS/A/TEST/PyYAML-5.4.1.dist-info/LICENSE: \n\n"
-                + "THIS IS THE TEST LICENSE FILE CONTENT"
+                + "License: mit\n\n\n"
+                + "Contents of the licence https://github.com/nexB/scancode-toolkit/tree/develop/src/licensedcode/data/"
+                "licenses/mit.LICENSE: \n\n" + "THIS IS THE TEST LICENSE FILE CONTENT"
             )

@@ -13,33 +13,6 @@ from requests import Response
 
 
 class NoticeParser:
-    POSSIBLE_LICENSE_FILES: list[str] = [
-        "LICENSE",
-        "LICENSE.txt",
-        "LICENSE.rst",
-        "apache-1.0.LICENSE",
-        "apache-1.0.LICENSE.txt",
-        "apache-1.1.LICENSE",
-        "apache-1.1.LICENSE.txt",
-        "apache-2.0.LICENSE",
-        "apache-2.0.LICENSE.txt",
-        "apple-attribution.LICENSE",
-        "apple-attribution.LICENSE.txt",
-        "bsd-zero.LICENSE",
-        "bsd-zero.LICENSE.txt",
-        "bsd-2-clause-freebsd.LICENSE",
-        "bsd-2-clause-freebsd.LICENSE.txt",
-        "bsd-2-clause-netbsd.LICENSE"
-        "bsd-2-clause-netbsd.LICENSE.txt"
-        "bsd-3-clause-no-change.LICENSE"
-        "bsd-3-clause-no-change.LICENSE.txt"
-        "bsd-3-clause-no-trademark.LICENSE"
-        "bsd-3-clause-no-trademark.LICENSE.txt"
-        "bsd-4-clause-shortened.LICENSE"
-        "bsd-4-clause-shortened.LICENSE.txt"
-        "MIT.LICENSE"
-        "MIT.LICENSE.txt",
-    ]
     POSSIBLE_METADATA_FILES: list[str] = ["METADATA", "METADATA.txt"]
 
     def __init__(
@@ -62,7 +35,6 @@ class NoticeParser:
         try:
             self.scanned_results_json: Any = json.loads(scanned_results_data)
         except Exception as e:
-            print(e)
             raise e
 
         notice_file_content: str = self.read_content_from_file(self.notice_file_name)
@@ -91,7 +63,9 @@ class NoticeParser:
                     real_package_name: str = self.required_packages[new_package]
                     print(f"New package found: '{real_package_name}'")
 
-            raise SystemExit("New packages found. Run the program in 'fix' mode to add it to the NOTICE.txt file")
+            raise SystemExit(
+                f"New packages found. Run the program in 'fix' mode to add it to the {notice_file_name} file"
+            )
 
         elif self.mode == "fix":
             for new_package in requirements_name_from_file:
@@ -105,7 +79,7 @@ class NoticeParser:
 
                     if not processed_package:
                         print(
-                            f"Nothing has been found for package '{real_package_name}' in {self.scanned_json_file}",
+                            f"Missing data for '{real_package_name}' in {self.scanned_json_file}",
                         )
                         continue
 
@@ -125,13 +99,10 @@ class NoticeParser:
         and self.POSSIBLE_METADATA_FILES where the important information about the package should exist
         """
         for entry in self.scanned_results_json["files"]:
-            # eg. entry["path"] = venv/lib/python3.9/site-packages/package_name-2.1.3.dist-info/LICENSE.txt
+            # eg. entry["path"] = venv/lib/python3.9/site-packages/package_name-2.1.3.dist-info/METADATA
             splitted_entry_path: list[str] = entry["path"].split("/")
 
-            if (
-                splitted_entry_path[-1] in NoticeParser.POSSIBLE_LICENSE_FILES
-                or splitted_entry_path[-1] in NoticeParser.POSSIBLE_METADATA_FILES
-            ):
+            if splitted_entry_path[-1] in NoticeParser.POSSIBLE_METADATA_FILES:
                 package_name_and_version: list[str] = []
 
                 for i in range(len(splitted_entry_path)):
@@ -152,32 +123,16 @@ class NoticeParser:
                     if package_name not in self.processed_packages:
                         self.processed_packages[package_name] = {}
                         self.processed_packages[package_name]["package_name"] = self.required_packages[required_package]
-
-                        if entry["licenses"] and len(entry["licenses"]) > 0:
-                            self.processed_packages[package_name]["license_name"] = entry["licenses"][0]["key"].upper()
-
-                    if splitted_entry_path[-1] in NoticeParser.POSSIBLE_METADATA_FILES:
                         self.processed_packages[package_name]["version"] = package_version
 
+                    if splitted_entry_path[-1] in NoticeParser.POSSIBLE_METADATA_FILES:
+                        self.processed_packages[package_name]["license_name"] = entry["licenses"][0]["key"]
+
                         homepage_url: str = entry["packages"][0]["homepage_url"]
-                        vcs_url: str = entry["packages"][0]["vcs_url"]
-
-                        if homepage_url and "github" not in homepage_url and vcs_url and "github" in vcs_url:
-                            homepage_url = vcs_url.split(" ")[-1]
-
                         self.processed_packages[package_name]["homepage_url"] = homepage_url
 
-                    if splitted_entry_path[-1] in NoticeParser.POSSIBLE_LICENSE_FILES:
-                        license_path: str = entry["path"]
-
-                        if license_path.startswith("elastic-serverless-forwarder"):
-                            license_path = "/".join(entry["path"].split("/")[1:])
-
-                        self.processed_packages[package_name]["license_path"] = license_path
-
-                        license_content: str = self.read_content_from_file(content_file_path=license_path)
-
-                        self.processed_packages[package_name]["license_content"] = license_content
+                        scancode_url: str = entry["licenses"][0].get("scancode_text_url")
+                        self.processed_packages[package_name]["scancode_url"] = scancode_url
 
     def read_content_from_file(self, content_file_path: str) -> str:
         """
@@ -242,41 +197,32 @@ class NoticeParser:
     def verify_license_in_packages(self, processed_package: str) -> None:
         """
         Checks if the license_content exists for all packages
-        If license not found, it tries to build a URL for a possible location where the LICENSE may be found
+        If license not found, it builds the url for the raw github text and fetches the license content
         """
         if (
             processed_package in self.processed_packages
             and "license_content" not in self.processed_packages[processed_package]
-            and self.processed_packages[processed_package]["homepage_url"]
         ):
             try:
                 raw_github_base_url: str = "https://raw.githubusercontent.com"
-                homepage_url: str = self.processed_packages[processed_package]["homepage_url"]
-                possible_github_project: str = ""
+                scancode_url: str = self.processed_packages[processed_package]["scancode_url"]
+                scancode_license_content_url: str = ""
 
-                if "github" in homepage_url:
-                    possible_github_project = "/".join(homepage_url.split("/")[3:])
+                if scancode_url:
+                    splitted_scancode_url: list[str] = scancode_url.split("/")
 
-                github_license_pages: list[str] = [
-                    f"{raw_github_base_url}/{possible_github_project}/master/LICENSE",
-                    f"{raw_github_base_url}/{possible_github_project}/master/LICENSE.txt",
-                    f"{raw_github_base_url}/{possible_github_project}/main/LICENSE",
-                    f"{raw_github_base_url}/{possible_github_project}/main/LICENSE.txt",
-                    f"{raw_github_base_url}/{processed_package}/master/LICENSE",
-                    f"{raw_github_base_url}/{processed_package}/master/LICENSE.txt",
-                    f"{raw_github_base_url}/{processed_package}/main/LICENSE",
-                    f"{raw_github_base_url}/{processed_package}/main/LICENSE.txt",
-                ]
+                    if "tree" in splitted_scancode_url:
+                        splitted_scancode_url.remove("tree")
 
-                for github_page in github_license_pages:
-                    response: Response = requests.get(github_page)
+                    scancode_license_content_url = f"{raw_github_base_url}/{'/'.join(splitted_scancode_url[3:])}"
 
-                    if response.status_code == 200:
-                        self.processed_packages[processed_package]["license_content"] = response.text
-                        self.processed_packages[processed_package]["license_path"] = github_page
-                        break
-                    else:
-                        print(f"License could not be found at: {github_page}")
+                response: Response = requests.get(scancode_license_content_url)
+
+                if response.status_code == 200:
+                    self.processed_packages[processed_package]["license_content"] = response.text
+                    self.processed_packages[processed_package]["license_path"] = scancode_url
+                else:
+                    print(f"License could not be found at: {scancode_url}")
 
             except Exception as e:
                 raise e
@@ -314,7 +260,7 @@ class NoticeParser:
             fh.write(f"Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}\n")
             fh.write(f"License: {package_license_name}\n")
             fh.write("\n\n")
-            fh.write(f"Contents of probable licence file {package_license_path}: \n\n")
+            fh.write(f"Contents of the licence {package_license_path}: \n\n")
             fh.write(package_license_content)
 
 
