@@ -16,4 +16,4 @@ docker run \
   -v "$(dirname $(pwd))":/app \
   --rm python-notice \
   /bin/bash \
-  -c "./tests/scripts/parse_notice.sh DOCKER-NOTICE.json check"
+  -c "./tests/scripts/notice_generator.sh DOCKER-NOTICE.json check"

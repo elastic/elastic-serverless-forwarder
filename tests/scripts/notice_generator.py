@@ -12,7 +12,7 @@ import requests
 from requests import Response
 
 
-class NoticeParser:
+class NoticeGenerator:
     POSSIBLE_METADATA_FILES: list[str] = ["METADATA", "METADATA.txt"]
 
     def __init__(
@@ -119,7 +119,7 @@ class NoticeParser:
             # eg. entry["path"] = venv/lib/python3.9/site-packages/package_name-2.1.3.dist-info/METADATA
             splitted_entry_path: list[str] = entry["path"].split("/")
 
-            if splitted_entry_path[-1] in NoticeParser.POSSIBLE_METADATA_FILES:
+            if splitted_entry_path[-1] in NoticeGenerator.POSSIBLE_METADATA_FILES:
                 package_name_and_version: list[str] = []
 
                 for i in range(len(splitted_entry_path)):
@@ -142,7 +142,7 @@ class NoticeParser:
                         self.processed_packages[package_name]["package_name"] = self.required_packages[required_package]
                         self.processed_packages[package_name]["version"] = package_version
 
-                    if splitted_entry_path[-1] in NoticeParser.POSSIBLE_METADATA_FILES:
+                    if splitted_entry_path[-1] in NoticeGenerator.POSSIBLE_METADATA_FILES:
                         self.processed_packages[package_name]["license_name"] = entry["licenses"][0]["key"]
 
                         homepage_url: str = entry["packages"][0]["homepage_url"]
@@ -270,16 +270,19 @@ if __name__ == "__main__":
         "--scanned_file_name", "-f", help="the name of the json file outputted by scancode", required=True
     )
     parser.add_argument("--mode", "-m", help="two modes: check or fix", required=True)
+    parser.add_argument("--list-req", "-r", help="list of requirements files", nargs="+", required=True)
+    parser.add_argument(
+        "--notice-file-name", "-n", help="notice file name, default NOTICE.txt", required=False, default="NOTICE.txt"
+    )
 
     args = parser.parse_args()
 
     scanned_file_name: str = args.scanned_file_name
     mode: str = args.mode
+    requirements_list: list[str] = args.list_req
+    notice_file_name: str = args.notice_file_name
 
-    requirements_list: list[str] = ["requirements.txt", "requirements-lint.txt", "requirements-tests.txt"]
-    notice_file_name: str = "NOTICE.txt"
-
-    np = NoticeParser(
+    np = NoticeGenerator(
         requirement_files=requirements_list,
         scanned_json_file=scanned_file_name,
         cli_mode_argument=mode,

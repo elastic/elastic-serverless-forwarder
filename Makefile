@@ -66,15 +66,15 @@ docker-mypy:  ## Run mypy in the project on docker
 docker-mypy: BASE_DIR=docker/
 docker-mypy: mypy
 
-docker-notice:  ## Run notice in the project on docker
-docker-notice: BASE_DIR=docker/
-docker-notice: notice
+docker-notice-generator:  ## Run notice-generator in the project on docker
+docker-notice-generator: BASE_DIR=docker/
+docker-notice-generator: notice-generator
 
 license:  ## Run license validation in the project
 	tests/scripts/license_headers_check.sh check
 
-notice: ## Creates NOTICE.txt file
-	tests/scripts/${BASE_DIR}parse_notice.sh NOTICE.json check
+notice-generator: ## Creates NOTICE.txt file
+	tests/scripts/${BASE_DIR}notice_generator.sh NOTICE.json check
 
 all-requirements: requirements requirements-lint requirements-tests  ## Install all requirements on the host
 

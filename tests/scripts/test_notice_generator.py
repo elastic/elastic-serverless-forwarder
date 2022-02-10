@@ -14,7 +14,7 @@ import mock
 import pytest
 from mock import MagicMock
 
-from .parse_notice import NoticeParser
+from .notice_generator import NoticeGenerator
 
 
 def mock_license_content(_: str) -> MagicMock:
@@ -76,7 +76,7 @@ class TestParseNotice(TestCase):
         with self.subTest("valid init with nothing to be updated"):
             requirements_files: list[str] = []
 
-            np = NoticeParser(requirements_files, self.scanned_fn, "check", self.test_notice_fn)
+            np = NoticeGenerator(requirements_files, self.scanned_fn, "check", self.test_notice_fn)
 
             assert np.notice_file_name == self.test_notice_fn
             assert np.requirement_files == requirements_files
@@ -88,7 +88,7 @@ class TestParseNotice(TestCase):
                 with open(self.scanned_fn, "w+") as fh:
                     fh.write("")
 
-                NoticeParser(requirements_files, self.scanned_fn, "check", self.test_notice_fn)
+                NoticeGenerator(requirements_files, self.scanned_fn, "check", self.test_notice_fn)
 
             # revert self.scanned_fn to original setup
             self.tearDown()
@@ -100,7 +100,7 @@ class TestParseNotice(TestCase):
                 with open(self.scanned_fn, "w+") as fh:
                     fh.write("not_a_json")
 
-                NoticeParser(requirements_files, self.scanned_fn, "check", self.test_notice_fn)
+                NoticeGenerator(requirements_files, self.scanned_fn, "check", self.test_notice_fn)
 
             self.tearDown()
             self.setUp()
@@ -119,7 +119,7 @@ class TestParseNotice(TestCase):
                     fh.write("Time: 2022-01-18 21:07:16\n")
                     fh.write("License: MIT\n")
 
-                NoticeParser(requirements_files, self.scanned_fn, "check", self.test_notice_fn)
+                NoticeGenerator(requirements_files, self.scanned_fn, "check", self.test_notice_fn)
 
             self.tearDown()
             self.setUp()
@@ -127,13 +127,13 @@ class TestParseNotice(TestCase):
         with self.subTest("invalid mode type"):
             with self.assertRaisesRegex(SystemExit, "Invalid argument. Please choose a mode between 'fix' or 'check'"):
                 requirements_files = ["requirements.txt"]
-                NoticeParser(requirements_files, self.scanned_fn, "NOT_A_VALID_MODE", self.test_notice_fn)
+                NoticeGenerator(requirements_files, self.scanned_fn, "NOT_A_VALID_MODE", self.test_notice_fn)
 
     def test_read_requirements(self) -> None:
         with self.subTest("requirements file does not exist"):
             with self.assertRaises(FileNotFoundError):
                 requirements_files: list[str] = ["requirements_not_exist.txt"]
-                NoticeParser(requirements_files, self.scanned_fn, "check", self.test_notice_fn)
+                NoticeGenerator(requirements_files, self.scanned_fn, "check", self.test_notice_fn)
 
         with self.subTest("succesfully read package from requirements"):
             with open(self.test_requirements, "a") as fh:
@@ -155,7 +155,7 @@ class TestParseNotice(TestCase):
                 fh.write("Time: 2022-01-18 21:07:16\n")
                 fh.write("License: APACHE-2.0\n")
 
-            np = NoticeParser(requirements_files, self.scanned_fn, "check", self.test_notice_fn)
+            np = NoticeGenerator(requirements_files, self.scanned_fn, "check", self.test_notice_fn)
 
             assert np.required_packages == {"PyYAML": "PyYAML", "localstack": "localstack[runtime]"}
 
@@ -165,7 +165,7 @@ class TestParseNotice(TestCase):
                 SystemExit, "New packages found. Run the program in 'fix' mode to add it to the TEST_NOTICE.txt file"
             ):
                 requirements_files = ["requirements.txt", "requirements-lint.txt", "requirements-tests.txt"]
-                NoticeParser(requirements_files, self.scanned_fn, "check", self.test_notice_fn)
+                NoticeGenerator(requirements_files, self.scanned_fn, "check", self.test_notice_fn)
 
     def test_read_content_from_file(self) -> None:
         with self.subTest("notice file not found and populate it with the header"):
@@ -173,7 +173,7 @@ class TestParseNotice(TestCase):
 
             os.remove(self.test_notice_fn)
 
-            NoticeParser(requirements_files, self.scanned_fn, "check", self.test_notice_fn)
+            NoticeGenerator(requirements_files, self.scanned_fn, "check", self.test_notice_fn)
             with open(self.test_notice_fn) as fh:
                 notice_file_content = fh.read()
 
@@ -194,7 +194,7 @@ class TestParseNotice(TestCase):
             with self.assertRaises(FileNotFoundError):
                 requirements_files = []
 
-                NoticeParser(requirements_files, "FileDoesNotExist", "check", self.test_notice_fn)
+                NoticeGenerator(requirements_files, "FileDoesNotExist", "check", self.test_notice_fn)
 
         with self.subTest("successfully read content from scanned file"):
             requirements_files = []
@@ -202,19 +202,19 @@ class TestParseNotice(TestCase):
             with open(self.scanned_fn, "+w") as fh:
                 fh.write('{"test_key": "test_value"}')
 
-            np = NoticeParser(requirements_files, self.scanned_fn, "check", self.test_notice_fn)
+            np = NoticeGenerator(requirements_files, self.scanned_fn, "check", self.test_notice_fn)
             assert np.scanned_results_json == {"test_key": "test_value"}
 
             self.tearDown()
             self.setUp()
 
-    @mock.patch("tests.scripts.parse_notice.requests.get", new=mock_license_content)
+    @mock.patch("tests.scripts.notice_generator.requests.get", new=mock_license_content)
     def test_fix_mode(self) -> None:
         with self.subTest("successfully write to notice file"):
             requirements_files: list[str] = [self.test_requirements]
             os.remove(self.test_notice_fn)
 
-            np = NoticeParser(requirements_files, self.scanned_fn, "fix", self.test_notice_fn)
+            np = NoticeGenerator(requirements_files, self.scanned_fn, "fix", self.test_notice_fn)
 
             with open(self.test_notice_fn) as fh:
                 notice_file_content = fh.read()
