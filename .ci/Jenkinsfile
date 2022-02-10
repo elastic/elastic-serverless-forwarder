@@ -53,7 +53,7 @@ pipeline {
       steps {
         withGithubNotify(context: "Notice") {
           dir("${BASE_DIR}"){
-            sh(label: 'notice', script: 'make docker-notice')
+            sh(label: 'notice-generator', script: 'make docker-notice-generator')
           }
         }
       }
