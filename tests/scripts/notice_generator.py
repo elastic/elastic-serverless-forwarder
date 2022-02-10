@@ -98,7 +98,7 @@ class NoticeGenerator:
         else:
             raise SystemExit("Invalid argument. Please choose a mode between 'fix' or 'check'")
 
-    def apply_elasticsearch_license_header(self):
+    def apply_elasticsearch_license_header(self) -> None:
         with open(self.notice_file_name, "w+") as fh:
             fh.write("# Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one\n")
             fh.write("# or more contributor license agreements. Licensed under the Elastic License 2.0;\n")
