@@ -43,7 +43,7 @@ class MockContent:
             mock_content = newline.join(
                 [
                     "".join(random.choices(string.ascii_letters + string.digits, k=random.randint(0, 20)))
-                    for _ in range(0, _1M)
+                    for _ in range(1, _1M)
                 ]
             ).encode("UTF-8")
 
@@ -84,7 +84,7 @@ class TestPayloadStorage(TestCase):
                 MockContent.init_content(newline)
 
                 original: str = base64.b64decode(MockContent.f_content_plain).decode("utf-8")
-                original_length: int = len(original) + len(newline)
+                original_length: int = len(original)
 
                 payload_storage = PayloadStorage(payload=MockContent.f_content_gzip)
                 gzip_full: list[tuple[Union[StorageReader, bytes], int, int]] = list(

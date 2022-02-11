@@ -58,6 +58,9 @@ def by_lines(func: GetByLinesCallable[CommonStorageType]) -> GetByLinesCallable[
         if len(unfinished_line) > 0:
             offset += len(unfinished_line)
 
+            if newline_length > 0 and not unfinished_line.endswith(newline):
+                newline_length = 0
+
             unfinished_line = unfinished_line.rstrip(newline)
 
             shared_logger.debug("by_line unfinished_line", extra={"offset": offset})
