@@ -133,8 +133,7 @@ class TestElasticsearchShipper(TestCase):
             elasticsearch_url="elasticsearch_url",
             username="username",
             password="",
-            dataset="data.set",
-            namespace="namespace",
+            es_index_or_datastream_name="logs-data.set-namespace",
             tags=["tag1", "tag2", "tag3"],
             batch_max_actions=0,
         )
@@ -184,8 +183,7 @@ class TestElasticsearchShipper(TestCase):
             elasticsearch_url="elasticsearch_url",
             username="username",
             password="",
-            dataset="data.set",
-            namespace="namespace",
+            es_index_or_datastream_name="data.set",
             tags=["tag1", "tag2", "tag3"],
             batch_max_actions=0,
         )
@@ -208,7 +206,6 @@ class TestElasticsearchShipper(TestCase):
             elasticsearch_url="elasticsearch_url",
             username="username",
             password="password",
-            namespace="namespace",
             tags=["tag1", "tag2", "tag3"],
         )
         es_event = deepcopy(_dummy_event)
@@ -223,8 +220,7 @@ class TestElasticsearchShipper(TestCase):
             elasticsearch_url="elasticsearch_url",
             username="username",
             password="",
-            dataset="data.set",
-            namespace="namespace",
+            es_index_or_datastream_name="logs-data.set-namespace",
             tags=["tag1", "tag2", "tag3"],
             batch_max_actions=2,
         )
@@ -270,52 +266,158 @@ class TestElasticsearchShipper(TestCase):
     @mock.patch("shippers.es.es_bulk", mock_bulk)
     @mock.patch("shippers.es.Elasticsearch", new=MockClient)
     def test_discover_dataset(self) -> None:
-        shipper = ElasticsearchShipper(
-            elasticsearch_url="elasticsearch_url",
-            username="username",
-            password="password",
-            namespace="namespace",
-            tags=["tag1", "tag2", "tag3"],
-            batch_max_actions=0,
-        )
-        es_event = deepcopy(_dummy_event)
-        lambda_event = deepcopy(_dummy_lambda_event)
-        shipper.discover_dataset(lambda_event)
-        shipper.send(es_event)
+        with self.subTest("empty es_index_or_datastream_name"):
+            shipper = ElasticsearchShipper(
+                elasticsearch_url="elasticsearch_url",
+                username="username",
+                password="password",
+                tags=["tag1", "tag2", "tag3"],
+                batch_max_actions=0,
+            )
+            es_event = deepcopy(_dummy_event)
+            lambda_event = deepcopy(_dummy_lambda_event)
+            shipper.discover_dataset(lambda_event)
+            shipper.send(es_event)
 
-        assert shipper._dataset == "generic"
-        assert shipper._es_index == "logs-generic-namespace"
+            assert shipper._dataset == "generic"
+            assert shipper._namespace == "default"
+            assert shipper._es_index == "logs-generic-default"
 
-        assert _documents[0] == [
-            {
-                "@timestamp": _now,
-                "_index": "logs-generic-namespace",
-                "_op_type": "create",
-                "data_stream": {"dataset": "generic", "namespace": "namespace", "type": "logs"},
-                "event": {"dataset": "generic", "original": "A dummy message"},
-                "fields": {
-                    "aws": {
-                        "s3": {
-                            "bucket": {"arn": "bucket_name", "name": "arn:aws:s3:::bucket_name"},
-                            "object": {"key": "file.key"},
-                        }
+            assert _documents[0] == [
+                {
+                    "@timestamp": _now,
+                    "_index": "logs-generic-default",
+                    "_op_type": "create",
+                    "data_stream": {"dataset": "generic", "namespace": "default", "type": "logs"},
+                    "event": {"dataset": "generic", "original": "A dummy message"},
+                    "fields": {
+                        "aws": {
+                            "s3": {
+                                "bucket": {"arn": "bucket_name", "name": "arn:aws:s3:::bucket_name"},
+                                "object": {"key": "file.key"},
+                            }
+                        },
+                        "cloud": {"provider": "aws", "region": "aws-region"},
+                        "log": {
+                            "file": {"path": "https://bucket_name.s3.aws-region.amazonaws.com/file.key"},
+                            "offset": 10,
+                        },
+                        "message": "A dummy message",
                     },
-                    "cloud": {"provider": "aws", "region": "aws-region"},
-                    "log": {"file": {"path": "https://bucket_name.s3.aws-region.amazonaws.com/file.key"}, "offset": 10},
-                    "message": "A dummy message",
-                },
-                "tags": [
-                    "preserve_original_event",
-                    "forwarded",
-                    "generic",
-                    "tag1",
-                    "tag2",
-                    "tag3",
-                ],
-            }
-        ]
+                    "tags": [
+                        "preserve_original_event",
+                        "forwarded",
+                        "generic",
+                        "tag1",
+                        "tag2",
+                        "tag3",
+                    ],
+                }
+            ]
 
-        assert shipper._bulk_actions == []
+            assert shipper._bulk_actions == []
+
+        with self.subTest("es_index_or_datastream_name as `logs-unit-test"):
+            shipper = ElasticsearchShipper(
+                elasticsearch_url="elasticsearch_url",
+                username="username",
+                password="password",
+                es_index_or_datastream_name="logs-unit-test",
+                tags=["tag1", "tag2", "tag3"],
+                batch_max_actions=0,
+            )
+            es_event = deepcopy(_dummy_event)
+            lambda_event = deepcopy(_dummy_lambda_event)
+            shipper.discover_dataset(lambda_event)
+            shipper.send(es_event)
+
+            assert shipper._dataset == "unit"
+            assert shipper._namespace == "test"
+            assert shipper._es_index == "logs-unit-test"
+
+            assert _documents[0] == [
+                {
+                    "@timestamp": _now,
+                    "_index": "logs-unit-test",
+                    "_op_type": "create",
+                    "data_stream": {"dataset": "unit", "namespace": "test", "type": "logs"},
+                    "event": {"dataset": "unit", "original": "A dummy message"},
+                    "fields": {
+                        "aws": {
+                            "s3": {
+                                "bucket": {"arn": "bucket_name", "name": "arn:aws:s3:::bucket_name"},
+                                "object": {"key": "file.key"},
+                            }
+                        },
+                        "cloud": {"provider": "aws", "region": "aws-region"},
+                        "log": {
+                            "file": {"path": "https://bucket_name.s3.aws-region.amazonaws.com/file.key"},
+                            "offset": 10,
+                        },
+                        "message": "A dummy message",
+                    },
+                    "tags": [
+                        "preserve_original_event",
+                        "forwarded",
+                        "unit",
+                        "tag1",
+                        "tag2",
+                        "tag3",
+                    ],
+                }
+            ]
+
+            assert shipper._bulk_actions == []
+
+        with self.subTest("es_index_or_datastream_name not matching logs datastream naming conventation"):
+            shipper = ElasticsearchShipper(
+                elasticsearch_url="elasticsearch_url",
+                username="username",
+                password="password",
+                es_index_or_datastream_name="es_index_or_datastream_name",
+                tags=["tag1", "tag2", "tag3"],
+                batch_max_actions=0,
+            )
+            es_event = deepcopy(_dummy_event)
+            lambda_event = deepcopy(_dummy_lambda_event)
+            shipper.discover_dataset(lambda_event)
+            shipper.send(es_event)
+
+            assert shipper._dataset == ""
+            assert shipper._namespace == ""
+            assert shipper._es_index == "es_index_or_datastream_name"
+
+            assert _documents[0] == [
+                {
+                    "@timestamp": _now,
+                    "_index": "es_index_or_datastream_name",
+                    "_op_type": "create",
+                    "event": {"original": "A dummy message"},
+                    "fields": {
+                        "aws": {
+                            "s3": {
+                                "bucket": {"arn": "bucket_name", "name": "arn:aws:s3:::bucket_name"},
+                                "object": {"key": "file.key"},
+                            }
+                        },
+                        "cloud": {"provider": "aws", "region": "aws-region"},
+                        "log": {
+                            "file": {"path": "https://bucket_name.s3.aws-region.amazonaws.com/file.key"},
+                            "offset": 10,
+                        },
+                        "message": "A dummy message",
+                    },
+                    "tags": [
+                        "preserve_original_event",
+                        "forwarded",
+                        "tag1",
+                        "tag2",
+                        "tag3",
+                    ],
+                }
+            ]
+
+            assert shipper._bulk_actions == []
 
 
 @pytest.mark.unit
@@ -325,8 +427,7 @@ class TestDiscoverDataset(TestCase):
             elasticsearch_url="elasticsearch_url",
             username="username",
             password="password",
-            namespace="namespace",
-            dataset="dataset",
+            es_index_or_datastream_name="logs-dataset-namespace",
             tags=["tag1", "tag2", "tag3"],
         )
 
@@ -335,6 +436,7 @@ class TestDiscoverDataset(TestCase):
         shipper.discover_dataset(lambda_event)
 
         assert shipper._dataset == "dataset"
+        assert shipper._namespace == "namespace"
         assert shipper._es_index == "logs-dataset-namespace"
 
     def test_aws_cloudtrail_dataset(self) -> None:
@@ -342,7 +444,6 @@ class TestDiscoverDataset(TestCase):
             elasticsearch_url="elasticsearch_url",
             username="username",
             password="password",
-            namespace="namespace",
             tags=["tag1", "tag2", "tag3"],
         )
 
@@ -357,14 +458,14 @@ class TestDiscoverDataset(TestCase):
         shipper.discover_dataset(lambda_event)
 
         assert shipper._dataset == "aws.cloudtrail"
-        assert shipper._es_index == "logs-aws.cloudtrail-namespace"
+        assert shipper._namespace == "default"
+        assert shipper._es_index == "logs-aws.cloudtrail-default"
 
     def test_aws_cloudtrail_digest_dataset(self) -> None:
         shipper = ElasticsearchShipper(
             elasticsearch_url="elasticsearch_url",
             username="username",
             password="password",
-            namespace="namespace",
             tags=["tag1", "tag2", "tag3"],
         )
 
@@ -379,14 +480,14 @@ class TestDiscoverDataset(TestCase):
         shipper.discover_dataset(lambda_event)
 
         assert shipper._dataset == "aws.cloudtrail"
-        assert shipper._es_index == "logs-aws.cloudtrail-namespace"
+        assert shipper._namespace == "default"
+        assert shipper._es_index == "logs-aws.cloudtrail-default"
 
     def test_aws_cloudtrail_insight_dataset(self) -> None:
         shipper = ElasticsearchShipper(
             elasticsearch_url="elasticsearch_url",
             username="username",
             password="password",
-            namespace="namespace",
             tags=["tag1", "tag2", "tag3"],
         )
 
@@ -401,14 +502,14 @@ class TestDiscoverDataset(TestCase):
         shipper.discover_dataset(lambda_event)
 
         assert shipper._dataset == "aws.cloudtrail"
-        assert shipper._es_index == "logs-aws.cloudtrail-namespace"
+        assert shipper._namespace == "default"
+        assert shipper._es_index == "logs-aws.cloudtrail-default"
 
     def test_aws_cloudwatch_logs_dataset(self) -> None:
         shipper = ElasticsearchShipper(
             elasticsearch_url="elasticsearch_url",
             username="username",
             password="password",
-            namespace="namespace",
             tags=["tag1", "tag2", "tag3"],
         )
 
@@ -420,14 +521,14 @@ class TestDiscoverDataset(TestCase):
         shipper.discover_dataset(lambda_event)
 
         assert shipper._dataset == "aws.cloudwatch_logs"
-        assert shipper._es_index == "logs-aws.cloudwatch_logs-namespace"
+        assert shipper._namespace == "default"
+        assert shipper._es_index == "logs-aws.cloudwatch_logs-default"
 
     def test_aws_elb_logs_dataset(self) -> None:
         shipper = ElasticsearchShipper(
             elasticsearch_url="elasticsearch_url",
             username="username",
             password="password",
-            namespace="namespace",
             tags=["tag1", "tag2", "tag3"],
         )
 
@@ -442,14 +543,14 @@ class TestDiscoverDataset(TestCase):
         shipper.discover_dataset(lambda_event)
 
         assert shipper._dataset == "aws.elb_logs"
-        assert shipper._es_index == "logs-aws.elb_logs-namespace"
+        assert shipper._namespace == "default"
+        assert shipper._es_index == "logs-aws.elb_logs-default"
 
     def test_aws_network_firewall_logs_dataset(self) -> None:
         shipper = ElasticsearchShipper(
             elasticsearch_url="elasticsearch_url",
             username="username",
             password="password",
-            namespace="namespace",
             tags=["tag1", "tag2", "tag3"],
         )
 
@@ -463,14 +564,14 @@ class TestDiscoverDataset(TestCase):
         shipper.discover_dataset(lambda_event)
 
         assert shipper._dataset == "aws.firewall_logs"
-        assert shipper._es_index == "logs-aws.firewall_logs-namespace"
+        assert shipper._namespace == "default"
+        assert shipper._es_index == "logs-aws.firewall_logs-default"
 
     def test_aws_lambda_logs_dataset(self) -> None:
         shipper = ElasticsearchShipper(
             elasticsearch_url="elasticsearch_url",
             username="username",
             password="password",
-            namespace="namespace",
             tags=["tag1", "tag2", "tag3"],
         )
 
@@ -482,14 +583,14 @@ class TestDiscoverDataset(TestCase):
         shipper.discover_dataset(lambda_event)
 
         assert shipper._dataset == "aws.lambda"
-        assert shipper._es_index == "logs-aws.lambda-namespace"
+        assert shipper._namespace == "default"
+        assert shipper._es_index == "logs-aws.lambda-default"
 
     def test_aws_sns_dataset(self) -> None:
         shipper = ElasticsearchShipper(
             elasticsearch_url="elasticsearch_url",
             username="username",
             password="password",
-            namespace="namespace",
             tags=["tag1", "tag2", "tag3"],
         )
 
@@ -503,14 +604,14 @@ class TestDiscoverDataset(TestCase):
         shipper.discover_dataset(lambda_event)
 
         assert shipper._dataset == "aws.sns"
-        assert shipper._es_index == "logs-aws.sns-namespace"
+        assert shipper._namespace == "default"
+        assert shipper._es_index == "logs-aws.sns-default"
 
     def test_aws_s3_storage_lens_dataset(self) -> None:
         shipper = ElasticsearchShipper(
             elasticsearch_url="elasticsearch_url",
             username="username",
             password="password",
-            namespace="namespace",
             tags=["tag1", "tag2", "tag3"],
         )
 
@@ -525,14 +626,14 @@ class TestDiscoverDataset(TestCase):
         shipper.discover_dataset(lambda_event)
 
         assert shipper._dataset == "aws.s3_storage_lens"
-        assert shipper._es_index == "logs-aws.s3_storage_lens-namespace"
+        assert shipper._namespace == "default"
+        assert shipper._es_index == "logs-aws.s3_storage_lens-default"
 
     def test_aws_waf_logs_dataset(self) -> None:
         shipper = ElasticsearchShipper(
             elasticsearch_url="elasticsearch_url",
             username="username",
             password="password",
-            namespace="namespace",
             tags=["tag1", "tag2", "tag3"],
         )
 
@@ -546,14 +647,14 @@ class TestDiscoverDataset(TestCase):
         shipper.discover_dataset(lambda_event)
 
         assert shipper._dataset == "aws.waf"
-        assert shipper._es_index == "logs-aws.waf-namespace"
+        assert shipper._namespace == "default"
+        assert shipper._es_index == "logs-aws.waf-default"
 
     def test_aws_vpcflow_logs_dataset(self) -> None:
         shipper = ElasticsearchShipper(
             elasticsearch_url="elasticsearch_url",
             username="username",
             password="password",
-            namespace="namespace",
             tags=["tag1", "tag2", "tag3"],
         )
 
@@ -567,14 +668,14 @@ class TestDiscoverDataset(TestCase):
         shipper.discover_dataset(lambda_event)
 
         assert shipper._dataset == "aws.vpcflow"
-        assert shipper._es_index == "logs-aws.vpcflow-namespace"
+        assert shipper._namespace == "default"
+        assert shipper._es_index == "logs-aws.vpcflow-default"
 
     def test_unknown_dataset(self) -> None:
         shipper = ElasticsearchShipper(
             elasticsearch_url="elasticsearch_url",
             username="username",
             password="password",
-            namespace="namespace",
             tags=["tag1", "tag2", "tag3"],
         )
 
@@ -586,14 +687,14 @@ class TestDiscoverDataset(TestCase):
         shipper.discover_dataset(lambda_event)
 
         assert shipper._dataset == "generic"
-        assert shipper._es_index == "logs-generic-namespace"
+        assert shipper._namespace == "default"
+        assert shipper._es_index == "logs-generic-default"
 
     def test_records_not_in_event(self) -> None:
         shipper = ElasticsearchShipper(
             elasticsearch_url="elasticsearch_url",
             username="username",
             password="password",
-            namespace="namespace",
             tags=["tag1", "tag2", "tag3"],
         )
 
@@ -606,14 +707,14 @@ class TestDiscoverDataset(TestCase):
         shipper.discover_dataset(lambda_event)
 
         assert shipper._dataset == "generic"
-        assert shipper._es_index == "logs-generic-namespace"
+        assert shipper._namespace == "default"
+        assert shipper._es_index == "logs-generic-default"
 
     def test_s3_key_not_in_records(self) -> None:
         shipper = ElasticsearchShipper(
             elasticsearch_url="elasticsearch_url",
             username="username",
             password="password",
-            namespace="namespace",
             tags=["tag1", "tag2", "tag3"],
         )
 
@@ -622,14 +723,14 @@ class TestDiscoverDataset(TestCase):
         shipper.discover_dataset(lambda_event)
 
         assert shipper._dataset == "generic"
-        assert shipper._es_index == "logs-generic-namespace"
+        assert shipper._namespace == "default"
+        assert shipper._es_index == "logs-generic-default"
 
     def test_empty_s3_key(self) -> None:
         shipper = ElasticsearchShipper(
             elasticsearch_url="elasticsearch_url",
             username="username",
             password="password",
-            namespace="namespace",
             tags=["tag1", "tag2", "tag3"],
         )
 
@@ -641,4 +742,5 @@ class TestDiscoverDataset(TestCase):
         shipper.discover_dataset(lambda_event)
 
         assert shipper._dataset == "generic"
-        assert shipper._es_index == "logs-generic-namespace"
+        assert shipper._namespace == "default"
+        assert shipper._es_index == "logs-generic-default"

@@ -27,8 +27,7 @@ class ElasticsearchShipper(CommonShipper):
         password: str = "",
         cloud_id: str = "",
         api_key: str = "",
-        dataset: str = "",
-        namespace: str = "",
+        es_index_or_datastream_name: str = "",
         tags: list[str] = [],
         batch_max_actions: int = 500,
         batch_max_bytes: int = 10 * 1024 * 1024,
@@ -71,9 +70,12 @@ class ElasticsearchShipper(CommonShipper):
         self._replay_handler: Optional[ReplayHandlerCallable] = None
         self._event_id_generator: Optional[EventIdGeneratorCallable] = None
 
-        self._dataset = dataset
-        self._namespace = namespace
+        self._es_index_or_datastream_name = es_index_or_datastream_name
         self._tags = tags
+
+        self._es_index = ""
+        self._dataset = ""
+        self._namespace = ""
 
     @staticmethod
     def _elasticsearch_client(**es_client_kwargs: Any) -> Elasticsearch:
@@ -90,18 +92,23 @@ class ElasticsearchShipper(CommonShipper):
     def _enrich_event(self, event_payload: dict[str, Any]) -> None:
         """
         This method enrich with default metadata the ES event payload.
-        Currently hardcoded for logs type
+        Currently, hardcoded for logs type
         """
 
-        event_payload["data_stream"] = {
-            "type": "logs",
-            "dataset": self._dataset,
-            "namespace": self._namespace,
-        }
+        event_payload["tags"] = ["preserve_original_event", "forwarded"]
+        event_payload["event"] = {"original": event_payload["fields"]["message"]}
 
-        event_payload["event"] = {"dataset": self._dataset, "original": event_payload["fields"]["message"]}
+        if self._dataset != "":
+            event_payload["data_stream"] = {
+                "type": "logs",
+                "dataset": self._dataset,
+                "namespace": self._namespace,
+            }
 
-        event_payload["tags"] = ["preserve_original_event", "forwarded", self._dataset.replace(".", "-")] + self._tags
+            event_payload["event"]["dataset"] = self._dataset
+            event_payload["tags"] += [self._dataset.replace(".", "-")]
+
+        event_payload["tags"] += self._tags
 
     def _handle_outcome(self, errors: tuple[int, Union[int, list[Any]]]) -> None:
         assert isinstance(errors[1], list)
@@ -129,7 +136,7 @@ class ElasticsearchShipper(CommonShipper):
         self._replay_handler = replay_handler
 
     def send(self, event: dict[str, Any]) -> Any:
-        self._replay_args["dataset"] = self._dataset
+        self._replay_args["es_index_or_datastream_name"] = self._es_index_or_datastream_name
 
         self._enrich_event(event_payload=event)
 
@@ -165,7 +172,27 @@ class ElasticsearchShipper(CommonShipper):
         return
 
     def discover_dataset(self, event: Dict[str, Any]) -> None:
-        if self._dataset == "":
+        if self._es_index_or_datastream_name != "":
+            if self._es_index_or_datastream_name.startswith("logs-"):
+                datastream_components = self._es_index_or_datastream_name.split("-")
+                if len(datastream_components) == 3:
+                    self._dataset = datastream_components[1]
+                    self._namespace = datastream_components[2]
+                else:
+                    shared_logger.debug(
+                        "es_index_or_datastream_name not matching logs datastream pattern, no dataset "
+                        "and namespace set"
+                    )
+            else:
+                shared_logger.debug(
+                    "es_index_or_datastream_name not matching logs datastream pattern, no dataset and namespace set"
+                )
+
+            self._es_index = self._es_index_or_datastream_name
+            return
+        else:
+            self._namespace = "default"
+
             if "body" not in event["Records"][0]:
                 self._dataset = "generic"
             else:
@@ -178,7 +205,7 @@ class ElasticsearchShipper(CommonShipper):
                         s3_object_key = json_body["Records"][0]["s3"]["object"]["key"]
 
                 if s3_object_key == "":
-                    shared_logger.warning("s3 object key is empty, dataset set to `generic`")
+                    shared_logger.info("s3 object key is empty, dataset set to `generic`")
                     self._dataset = "generic"
                 else:
                     if (
@@ -209,3 +236,4 @@ class ElasticsearchShipper(CommonShipper):
         shared_logger.debug("dataset", extra={"dataset": self._dataset})
 
         self._es_index = f"logs-{self._dataset}-{self._namespace}"
+        self._es_index_or_datastream_name = self._es_index

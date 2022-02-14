@@ -17,8 +17,7 @@ class TestShipperFactory(TestCase):
                 elasticsearch_url="elasticsearch_url",
                 username="username",
                 password="password",
-                dataset="dataset",
-                namespace="namespace",
+                es_index_or_datastream_name="es_index_or_datastream_name",
             )
 
             assert isinstance(shipper, ElasticsearchShipper)
@@ -28,8 +27,7 @@ class TestShipperFactory(TestCase):
                 output_type="elasticsearch",
                 elasticsearch_url="elasticsearch_url",
                 api_key="api_key",
-                dataset="dataset",
-                namespace="namespace",
+                es_index_or_datastream_name="es_index_or_datastream_name",
             )
 
             assert isinstance(shipper, ElasticsearchShipper)
@@ -40,8 +38,7 @@ class TestShipperFactory(TestCase):
                 cloud_id="cloud_id:bG9jYWxob3N0OjkyMDAkMA==",
                 username="username",
                 password="password",
-                dataset="dataset",
-                namespace="namespace",
+                es_index_or_datastream_name="es_index_or_datastream_name",
             )
 
             assert isinstance(shipper, ElasticsearchShipper)
@@ -51,8 +48,7 @@ class TestShipperFactory(TestCase):
                 output_type="elasticsearch",
                 cloud_id="cloud_id:bG9jYWxob3N0OjkyMDAkMA==",
                 api_key="api_key",
-                dataset="dataset",
-                namespace="namespace",
+                es_index_or_datastream_name="es_index_or_datastream_name",
             )
 
             assert isinstance(shipper, ElasticsearchShipper)
@@ -87,8 +83,7 @@ class TestShipperFactory(TestCase):
             elasticsearch_url="elasticsearch_url",
             username="username",
             password="password",
-            dataset="dataset",
-            namespace="namespace",
+            es_index_or_datastream_name="es_index_or_datastream_name",
         )
 
         with self.subTest("create output type elasticsearch"):
