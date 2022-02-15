@@ -44,7 +44,7 @@ class MockContent:
             MockContent.f_content_plain = newline.join(
                 [
                     "".join(random.choices(string.ascii_letters + string.digits, k=random.randint(0, 20)))
-                    for _ in range(0, _1M)
+                    for _ in range(1, _1M)
                 ]
             ).encode("UTF-8")
 
@@ -53,8 +53,8 @@ class MockContent:
         MockContent.f_stream_plain = io.BytesIO(MockContent.f_content_plain)
         MockContent.rewind()
 
-        MockContent.f_size_gzip = len(MockContent.f_content_gzip) + len(newline)
-        MockContent.f_size_plain = len(MockContent.f_content_plain) + len(newline)
+        MockContent.f_size_gzip = len(MockContent.f_content_gzip)
+        MockContent.f_size_plain = len(MockContent.f_content_plain)
 
     @staticmethod
     def s3_client_head_object(Bucket: str, Key: str) -> dict[str, Any]:

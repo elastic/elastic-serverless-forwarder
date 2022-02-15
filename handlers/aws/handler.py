@@ -75,7 +75,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
     assert config is not None
 
-    if trigger_type == "replay":
+    if trigger_type == "replay-sqs":
         for replay_record in lambda_event["Records"]:
             event = json.loads(replay_record["body"])
             _handle_replay_event(

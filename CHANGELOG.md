@@ -1,3 +1,7 @@
+### v0.20.1 - 2022/02/08
+##### Bug fixes
+* Set HTTP compression always on and max retries to not exceed 15 mins in the ES client [#69](https://github.com/elastic/elastic-serverless-forwarder/pull/69)
+
 ### v0.20.0 - 2022/02/07
 ##### Features
 * Add support for `kinesis-data-stream` input: [#66](https://github.com/elastic/elastic-serverless-forwarder/pull/66)
