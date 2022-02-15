@@ -1083,7 +1083,7 @@ class TestLambdaHandlerSuccessS3SQS(TestCase):
             '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}\n'
             '{"ecs": {"version": "1.6.0"}, "log": {"logger": '
             '"root", "origin": {"file": {"line": 30, "name": "handler.py"}, "function": "lambda_handler"}, '
-            '"original": "trigger"}}'
+            '"original": "trigger"}}\n'
         ).encode("UTF-8")
 
         _upload_content_to_bucket(

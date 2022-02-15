@@ -1,7 +1,10 @@
-### v0.21.0 - 2022/02/07
+### v0.21.0 - 2022/02/15
 ##### Breaking changes
 * Add support for sending data to an index or alias on top of datastream for the Elasticsearch output (`dataset` and `namespace` config params replaced by `es_index_or_datastream_name`): [#73](https://github.com/elastic/elastic-serverless-forwarder/pull/73)
 
+### v0.20.1 - 2022/02/08
+##### Bug fixes
+* Set HTTP compression always on and max retries to not exceed 15 mins in the ES client [#69](https://github.com/elastic/elastic-serverless-forwarder/pull/69)
 
 ### v0.20.0 - 2022/02/07
 ##### Features

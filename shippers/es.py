@@ -38,7 +38,7 @@ class ElasticsearchShipper(CommonShipper):
         self._bulk_batch_size = batch_max_actions
 
         self._bulk_kwargs: dict[str, Any] = {
-            "max_retries": 10,
+            "max_retries": 4,
             "stats_only": False,
             "raise_on_error": False,
             "raise_on_exception": False,
@@ -85,8 +85,10 @@ class ElasticsearchShipper(CommonShipper):
         """
 
         es_client_kwargs["timeout"] = 30
-        es_client_kwargs["max_retries"] = 10
+        es_client_kwargs["max_retries"] = 4
+        es_client_kwargs["http_compress"] = True
         es_client_kwargs["retry_on_timeout"] = True
+
         return Elasticsearch(**es_client_kwargs)
 
     def _enrich_event(self, event_payload: dict[str, Any]) -> None:
