@@ -93,8 +93,7 @@ class TestAWSSecretsManager(TestCase):
                             elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                             username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
                             password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                            dataset: "dataset"
-                            namespace: "namespace"
+                            es_index_or_datastream_name: "es_index_or_datastream_name"
             """
 
             with self.assertRaisesRegex(
@@ -116,8 +115,7 @@ class TestAWSSecretsManager(TestCase):
                             elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                             username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
                             password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                            dataset: "dataset"
-                            namespace: "namespace"
+                            es_index_or_datastream_name: "es_index_or_datastream_name"
             """
             with self.assertRaisesRegex(
                 ValueError, "Must be provided region in arn: arn:aws:secretsmanager::123-456-789:secret:plain_secret"
@@ -136,8 +134,7 @@ class TestAWSSecretsManager(TestCase):
                             elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                             username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
                             password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                            dataset: "dataset"
-                            namespace: "namespace"
+                            es_index_or_datastream_name: "es_index_or_datastream_name"
             """
             with self.assertRaisesRegex(
                 ValueError,
@@ -157,8 +154,7 @@ class TestAWSSecretsManager(TestCase):
                             elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:"
                             username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
                             password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                            dataset: "dataset"
-                            namespace: "namespace"
+                            es_index_or_datastream_name: "es_index_or_datastream_name"
             """
             with self.assertRaisesRegex(
                 ValueError,
@@ -179,8 +175,7 @@ class TestAWSSecretsManager(TestCase):
                             elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                             username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets"
                             password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                            dataset: "dataset"
-                            namespace: "namespace"
+                            es_index_or_datastream_name: "es_index_or_datastream_name"
             """
 
             with self.assertRaisesRegex(
@@ -201,8 +196,7 @@ class TestAWSSecretsManager(TestCase):
                             elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                             username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                             password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                            dataset: "dataset"
-                            namespace: "namespace"
+                            es_index_or_datastream_name: "es_index_or_datastream_name"
             """
 
             with self.assertRaises(ClientError):
@@ -219,8 +213,7 @@ class TestAWSSecretsManager(TestCase):
                             elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                             username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                             password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                            dataset: "dataset"
-                            namespace: "namespace"
+                            es_index_or_datastream_name: "es_index_or_datastream_name"
             """
 
             with self.assertRaisesRegex(
@@ -240,8 +233,7 @@ class TestAWSSecretsManager(TestCase):
                             elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                             username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                             password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                            dataset: "dataset"
-                            namespace: "namespace"
+                            es_index_or_datastream_name: "es_index_or_datastream_name"
             """
 
             with self.assertRaisesRegex(
@@ -262,8 +254,7 @@ class TestAWSSecretsManager(TestCase):
                             elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                             username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                             password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                            dataset: "dataset"
-                            namespace: "namespace"
+                            es_index_or_datastream_name: "es_index_or_datastream_name"
             """
 
             with self.assertRaisesRegex(
@@ -285,8 +276,7 @@ class TestAWSSecretsManager(TestCase):
                             elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                             username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                             password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                            dataset: "dataset"
-                            namespace: "namespace"
+                            es_index_or_datastream_name: "es_index_or_datastream_name"
             """
 
             with self.assertRaisesRegex(
@@ -307,8 +297,7 @@ class TestAWSSecretsManager(TestCase):
                             elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                             username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                             password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                            dataset: "dataset"
-                            namespace: "namespace"
+                            es_index_or_datastream_name: "es_index_or_datastream_name"
             """
 
             with self.assertRaisesRegex(
@@ -329,8 +318,7 @@ class TestAWSSecretsManager(TestCase):
                             elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                             username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                             password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                            dataset: "dataset"
-                            namespace: "namespace"
+                            es_index_or_datastream_name: "es_index_or_datastream_name"
             """
 
             with self.assertRaisesRegex(
@@ -353,8 +341,7 @@ class TestAWSSecretsManager(TestCase):
                             elasticsearch_url: "arn:aws:secrets_manager:eu-central-1:123-456-789:secret:es_secrets:url"
                             username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
                             password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                            dataset: "dataset"
-                            namespace: "namespace"
+                            es_index_or_datastream_name: "es_index_or_datastream_name"
             """
             mock_fetched_data = aws_sm_expander(config_yaml)
 
@@ -368,8 +355,7 @@ class TestAWSSecretsManager(TestCase):
                             elasticsearch_url: "arn:aws:secrets_manager:eu-central-1:123-456-789:secret:es_secrets:url"
                             username: "mock_elastic_username"
                             password: "mock_elastic_password"
-                            dataset: "dataset"
-                            namespace: "namespace"
+                            es_index_or_datastream_name: "es_index_or_datastream_name"
             """
 
             assert mock_fetched_data == parsed_config_yaml
@@ -386,8 +372,7 @@ class TestAWSSecretsManager(TestCase):
                             elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                             username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
                             password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                            dataset: "dataset"
-                            namespace: "namespace"
+                            es_index_or_datastream_name: "es_index_or_datastream_name"
             """
             mock_fetched_data = aws_sm_expander(config_yaml)
 
@@ -401,40 +386,37 @@ class TestAWSSecretsManager(TestCase):
                             elasticsearch_url: "mock_elastic_url"
                             username: "mock_elastic_username"
                             password: "mock_elastic_password"
-                            dataset: "dataset"
-                            namespace: "namespace"
+                            es_index_or_datastream_name: "es_index_or_datastream_name"
             """
 
             assert mock_fetched_data == parsed_config_yaml
 
         with self.subTest("config successfully parsed"):
             config_yaml = """
-                inputs:
-                  - type: s3-sqs
-                    id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret"
-                    outputs:
-                      - type: elasticsearch
-                        args:
-                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
-                            username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
-                            password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                            dataset: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:binary_secret"
-                            namespace: "namespace"
+              inputs:
+                - type: s3-sqs
+                  id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret"
+                  outputs:
+                    - type: elasticsearch
+                      args:
+                        elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
+                        username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
+                        password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                        es_index_or_datastream_name: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:binary_secret"
             """
             mock_fetched_data = aws_sm_expander(config_yaml)
 
             parsed_config_yaml = """
-                inputs:
-                  - type: s3-sqs
-                    id: "mock_plain_text_sqs_arn"
-                    outputs:
-                      - type: elasticsearch
-                        args:
-                            elasticsearch_url: "mock_elastic_url"
-                            username: "mock_elastic_username"
-                            password: "mock_elastic_password"
-                            dataset: "mock_nginx.log"
-                            namespace: "namespace"
+              inputs:
+                - type: s3-sqs
+                  id: "mock_plain_text_sqs_arn"
+                  outputs:
+                    - type: elasticsearch
+                      args:
+                        elasticsearch_url: "mock_elastic_url"
+                        username: "mock_elastic_username"
+                        password: "mock_elastic_password"
+                        es_index_or_datastream_name: "mock_nginx.log"
             """
 
             assert mock_fetched_data == parsed_config_yaml

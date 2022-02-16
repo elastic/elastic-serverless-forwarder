@@ -191,8 +191,7 @@ class TestLambdaHandlerFailure(TestCase):
                               elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                               username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
                               password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                              dataset: "redis.log"
-                              namespace: "default"
+                              es_index_or_datastream_name: "logs-redis.log-default"
                 """
                 event = deepcopy(event_with_config)
                 event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
@@ -216,8 +215,7 @@ class TestLambdaHandlerFailure(TestCase):
                               elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets"
                               username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
                               password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                              dataset: "redis.log"
-                              namespace: "default"
+                              es_index_or_datastream_name: "logs-redis.log-default"
                 """
 
                 event = deepcopy(event_with_config)
@@ -243,8 +241,7 @@ class TestLambdaHandlerFailure(TestCase):
                               elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets"
                               username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
                               password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                              dataset: "redis.log"
-                              namespace: "default"
+                              es_index_or_datastream_name: "logs-redis.log-default"
                 """
 
                 event = deepcopy(event_with_config)
@@ -270,8 +267,7 @@ class TestLambdaHandlerFailure(TestCase):
                               elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets"
                               username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
                               password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                              dataset: "redis.log"
-                              namespace: "default"
+                              es_index_or_datastream_name: "logs-redis.log-default"
                 """
 
                 event = deepcopy(event_with_config)
@@ -298,8 +294,7 @@ class TestLambdaHandlerFailure(TestCase):
                               elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:"
                               username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
                               password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                              dataset: "redis.log"
-                              namespace: "default"
+                              es_index_or_datastream_name: "logs-redis.log-default"
                 """
 
                 event = deepcopy(event_with_config)
@@ -324,8 +319,7 @@ class TestLambdaHandlerFailure(TestCase):
                               elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                               username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
                               password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                              dataset: "redis.log"
-                              namespace: "default"
+                              es_index_or_datastream_name: "logs-redis.log-default"
                 """
 
                 event = deepcopy(event_with_config)
@@ -351,8 +345,7 @@ class TestLambdaHandlerFailure(TestCase):
                               elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                               username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
                               password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                              dataset: "redis.log"
-                              namespace: "default"
+                              es_index_or_datastream_name: "logs-redis.log-default"
                 """
 
                 event = deepcopy(event_with_config)
@@ -378,8 +371,7 @@ class TestLambdaHandlerFailure(TestCase):
                               elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                               username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
                               password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                              dataset: "redis.log"
-                              namespace: "default"
+                              es_index_or_datastream_name: "logs-redis.log-default"
                 """
 
                 event = deepcopy(event_with_config)
@@ -405,8 +397,7 @@ class TestLambdaHandlerFailure(TestCase):
                               elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                               username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
                               password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                              dataset: "redis.log"
-                              namespace: "default"
+                              es_index_or_datastream_name: "logs-redis.log-default"
                 """
 
                 event = deepcopy(event_with_config)
@@ -432,8 +423,7 @@ class TestLambdaHandlerFailure(TestCase):
                               elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                               username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
                               password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                              dataset: "redis.log"
-                              namespace: "default"
+                              es_index_or_datastream_name: "logs-redis.log-default"
                 """
 
                 event = deepcopy(event_with_config)
@@ -459,8 +449,7 @@ class TestLambdaHandlerFailure(TestCase):
                               elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                               username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
                               password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                              dataset: "redis.log"
-                              namespace: "default"
+                              es_index_or_datastream_name: "logs-redis.log-default"
                 """
 
                 event = deepcopy(event_with_config)
@@ -485,8 +474,7 @@ class TestLambdaHandlerFailure(TestCase):
                               elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                               username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
                               password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                              dataset: "redis.log"
-                              namespace: "default"
+                              es_index_or_datastream_name: "logs-redis.log-default"
                 """
 
                 event = deepcopy(event_with_config)
@@ -508,8 +496,7 @@ class TestLambdaHandlerFailure(TestCase):
                               elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                               username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
                               password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                              dataset: "redis.log"
-                              namespace: "default"
+                              es_index_or_datastream_name: "logs-redis.log-default"
                 """
 
                 event = deepcopy(event_with_config)
@@ -536,8 +523,7 @@ class TestLambdaHandlerFailure(TestCase):
                               elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
                               username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
                               password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                              dataset: "redis.log"
-                              namespace: "default"
+                              es_index_or_datastream_name: "logs-redis.log-default"
                 """
 
                 event = deepcopy(event_with_config)
@@ -682,7 +668,6 @@ class TestLambdaHandlerSuccessKinesisDataStream(TestCase):
                   elasticsearch_url: "http://127.0.0.1:{self._ES_HOST_PORT}"
                   username: "{self._secret_arn}:username"
                   password: "{self._secret_arn}:password"
-                  namespace: "default"
                 """
 
         _upload_content_to_bucket(
@@ -1085,7 +1070,6 @@ class TestLambdaHandlerSuccessS3SQS(TestCase):
                   elasticsearch_url: "http://127.0.0.1:{self._ES_HOST_PORT}"
                   username: "{self._secret_arn}:username"
                   password: "{self._secret_arn}:password"
-                  namespace: "default"
                 """
 
         _upload_content_to_bucket(

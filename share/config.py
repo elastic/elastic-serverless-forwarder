@@ -42,8 +42,7 @@ class ElasticsearchOutput(Output):
         username: str = "",
         password: str = "",
         api_key: str = "",
-        dataset: str = "",
-        namespace: str = "",
+        es_index_or_datastream_name: str = "",
         tags: list[str] = [],
         batch_max_actions: int = 500,
         batch_max_bytes: int = 10 * 1024 * 1024,
@@ -55,8 +54,7 @@ class ElasticsearchOutput(Output):
         self.username = username
         self.password = password
         self.api_key = api_key
-        self.dataset = dataset
-        self.namespace = namespace
+        self.es_index_or_datastream_name = es_index_or_datastream_name
         self.tags = tags
         self.batch_max_actions = batch_max_actions
         self.batch_max_bytes = batch_max_bytes
@@ -79,12 +77,8 @@ class ElasticsearchOutput(Output):
         if self.username and not self.password:
             raise ValueError("Elasticsearch Output password must be set when using username")
 
-        if not self.dataset:
-            shared_logger.info("no dataset set in config")
-
-        if not self.namespace:
-            shared_logger.warning("no namespace set in config: using `default`")
-            self.namespace = "default"
+        if not self.es_index_or_datastream_name:
+            shared_logger.info("no es_index_or_datastream_name set in config")
 
         shared_logger.debug("tags: ", extra={"tags": self.tags})
 
@@ -144,26 +138,15 @@ class ElasticsearchOutput(Output):
         self._api_key = value
 
     @property
-    def dataset(self) -> str:
-        return self._dataset
+    def es_index_or_datastream_name(self) -> str:
+        return self._es_index_or_datastream_name
 
-    @dataset.setter
-    def dataset(self, value: str) -> None:
+    @es_index_or_datastream_name.setter
+    def es_index_or_datastream_name(self, value: str) -> None:
         if not isinstance(value, str):
-            raise ValueError("Elasticsearch Output dataset must be of type str")
+            raise ValueError("Elasticsearch Output es_index_or_datastream_name must be of type str")
 
-        self._dataset = value
-
-    @property
-    def namespace(self) -> str:
-        return self._namespace
-
-    @namespace.setter
-    def namespace(self, value: str) -> None:
-        if not isinstance(value, str):
-            raise ValueError("Elasticsearch Output namespace must be of type str")
-
-        self._namespace = value
+        self._es_index_or_datastream_name = value
 
     @property
     def batch_max_actions(self) -> int:

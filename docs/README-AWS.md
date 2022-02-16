@@ -20,10 +20,10 @@ As a first step users should install appropriate integrations in the Kibana UI. 
 
 **S3 SQS Event Notifications input:**
 The Lambda function supports ingesting logs contained in the S3 bucket through an SQS notification (s3:ObjectCreated) and sends them to Elastic. The SQS queue serves as a trigger for the Lambda function. When a new log file gets written to an S3 bucket and meets the criteria (as configured including prefix/suffix), a notification to SQS is generated that triggers the Lambda function. Users will set up separate SQS queues for each type of logs (i.e. aws.vpcflow, aws.cloudtrail, aws.waf and so on). A single configuration file can have many input sections, pointing to different SQS queues that match specific log types.
-The dataset parameters in the config file are optional. Lambda supports automatic routing of various AWS service logs to the corresponding data streams for further processing and storage in the Elasticsearch cluster. It supports automatic routing of `aws.cloudtrail`, `aws.cloudwatch_logs`, `aws.elb_logs`, `aws.firewall_logs`, `aws.lambda`, `aws.sns`, `aws.s3_storage_lens`, `aws.vpcflow`, and `aws.waf` logs. For other log types the users can optionally set the dataset value in the configuration file.  If the dataset is not specified and it cannot be matched with any of the above AWS services then the `dataset` will be set to "generic".
+The `es_index_or_datastream_name` parameter in the config file is optional. Lambda supports automatic routing of various AWS service logs to the corresponding data streams for further processing and storage in the Elasticsearch cluster. It supports automatic routing of `aws.cloudtrail`, `aws.cloudwatch_logs`, `aws.elb_logs`, `aws.firewall_logs`, `aws.lambda`, `aws.sns`, `aws.s3_storage_lens`, `aws.vpcflow`, and `aws.waf` logs. For other log types the users can optionally set the `es_index_or_datastream_name` value in the configuration file according to the naming convention of Elasticsearch datastream and existing integrations.  If the `es_index_or_datastream_name` is not specified and it cannot be matched with any of the above AWS services then the dataset will be set to "generic" and the namespace to "default" pointing to the data stream name "logs-generic-default".
 
 **Kinesis Data Stream input:**
-The Lambda function supports ingesting logs contained in the payload of a Kinesis data stream record and sends them to Elastic. The Kinesis data stream serves as a trigger for the Lambda function. When a new record gets written to a Kinesis data stream the Lambda function gets triggered. Users will set up separate Kinesis data streams for each type of logs, the type of logs must be defined with the `dataset` configuration param in the output of the Kinesis data stream. A single configuration file can have many input sections, pointing to different Kinesis data streams that match specific log types.
+The Lambda function supports ingesting logs contained in the payload of a Kinesis data stream record and sends them to Elastic. The Kinesis data stream serves as a trigger for the Lambda function. When a new record gets written to a Kinesis data stream the Lambda function gets triggered. Users will set up separate Kinesis data streams for each type of logs, The config param for Elasticsearch output `es_index_or_datastream_name` is mandatory. If the value is set to an Elasticsearch datastream, the type of logs must be defined with proper value configuration param. A single configuration file can have many input sections, pointing to different Kinesis data streams that match specific log types.
 
 
 ### Deployment:
@@ -423,8 +423,7 @@ inputs:
           api_key: "YXBpX2tleV9pZDphcGlfa2V5X3NlY3JldAo="
           username: "username"
           password: "password"
-          dataset: "generic"
-          namespace: "default"
+          es_index_or_datastream_name: "logs-generic-default"
           batch_max_actions: 500
           batch_max_bytes: 10485760
   - type: "kinesis-data-stream"
@@ -439,8 +438,7 @@ inputs:
           api_key: "YXBpX2tleV9pZDphcGlfa2V5X3NlY3JldAo="
           username: "username"
           password: "password"
-          dataset: "generic"
-          namespace: "default"
+          es_index_or_datastream_name: "logs-generic-default"
           batch_max_actions: 500
           batch_max_bytes: 10485760
 ```
@@ -469,8 +467,7 @@ Custom init arguments for the given forwarding target output
   * `args.username`: Username of the elasticsearch instance to connect to. Mandatory in case `args.api_key` is not provided. Will be ignored if `args.api_key` is defined as well.
   * `args.password` Password of the elasticsearch instance to connect to. Mandatory in case `args.api_key` is not provided. Will be ignored if `args.api_key` is defined as well.
   * `args.api_key`:  Api key of elasticsearch endpoint in the format username(api_key_id:api_key_secret). Mandatory in case `args.username`  and `args.password ` are not provided. Will take precedence over `args.username`/`args.password` if both are defined.
-  * `args.dataset`: Dataset for the data stream where to forward the logs to. Lambda supports automatic routing of various AWS service logs to the corresponding data streams for further processing and storage in the Elasticsearch cluster. It supports automatic routing of `aws.cloudtrail`, `aws.cloudwatch_logs`, `aws.elb_logs`, `aws.firewall_logs`, `aws.lambda`, `aws.sns`, `aws.s3_storage_lens`, `aws.vpcflow`, and `aws.waf` logs. For other log types the users can optionally set the dataset value in the configuration file. If the dataset is not specified and it cannot be matched with any of the above AWS services then the dataset will be set to "generic".
-  * `args.namespace`: Namespace for the data stream where to forward the logs to. Default value: "default"
+  * `args.es_index_or_datastream_name`: Name of the index or data stream where to forward the logs to. Lambda supports automatic routing of various AWS service logs to the corresponding data streams for further processing and storage in the Elasticsearch cluster. It supports automatic routing of `aws.cloudtrail`, `aws.cloudwatch_logs`, `aws.elb_logs`, `aws.firewall_logs`, `aws.lambda`, `aws.sns`, `aws.s3_storage_lens`, `aws.vpcflow`, and `aws.waf` logs. For other log types, if using data stream, the users can optionally set its value in the configuration file according to the naming convention for data streams and available integrations. If the `es_index_or_datastream_name` is not specified and it cannot be matched with any of the above AWS services then the value will be set to "logs-generic-default".
   * `args.batch_max_actions`: Maximum number of actions to send in a single bulk request. Default value: 500
   * `args.batch_max_bytes`: Maximum size in bytes to send in a sigle bulk request. Default value: 10485760 (10MB)
 
@@ -485,8 +482,7 @@ inputs:
           elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_url"
           username: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:es_secrets:username"
           password: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:es_secrets:password"
-          dataset: "generic"
-          namespace: "default"
+          es_index_or_datastream_name: "logs-generic-default"
 ```
 There are 2 types of secrets that can be used:
 - SecretString (plain text or key/value pairs)
@@ -509,7 +505,7 @@ It supports secrets from different regions.
 - Empty value for a given key is not allowed
 
 ## Tags support
-Adding custom tags is a common way to filter and categorize items in datasets.
+Adding custom tags is a common way to filter and categorize items in events.
 ```yaml
 inputs:
   - type: "s3-sqs"
@@ -524,8 +520,7 @@ inputs:
           elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_url"
           username: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:es_secrets:username"
           password: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:es_secrets:password"
-          dataset: "generic"
-          namespace: "default"
+          es_index_or_datastream_name: "logs-generic-default"
 ```
 Using the above configuration, the tags will be set in the following way`["preserve_original_event", "forwarded", "generic", "tag1", "tag2", "tag3"]`
 
@@ -535,9 +530,9 @@ Using the above configuration, the tags will be set in the following way`["prese
 - Each tag must be a string
 
 ## Routing support for AWS Services Logs
-If the `dataset` field is empty or not set in the config file, the ESF Lambda will try to guess where the logs came from
+If the `es_index_or_datastream_name` field is empty or not set in the config file, the ESF Lambda will try to guess where the logs came from
 
-If the origin is unknown, or it cannot be matched with any of the following `aws.cloudtrail`, `aws.cloudwatch_logs`, `aws.elb_logs`, `aws.firewall_logs`, `aws.lambda`, `aws.sns`, `aws.s3_storage_lens`, `aws.vpcflow`, `aws.waf`, then the `dataset` will be set to **"generic"**
+If the origin is unknown, or it cannot be matched with any of the following `aws.cloudtrail`, `aws.cloudwatch_logs`, `aws.elb_logs`, `aws.firewall_logs`, `aws.lambda`, `aws.sns`, `aws.s3_storage_lens`, `aws.vpcflow`, `aws.waf`, then the `es_index_or_datastream_name` will be set to **"logs-generic-default"**
 
 ## S3 event notification to SQS
 In order to set up an S3 event notification to SQS please look at the official documentation: https://docs.aws.amazon.com/AmazonS3/latest/userguide/NotificationHowTo.html
