@@ -5,3 +5,4 @@ isort
 mypy
 types-PyYAML
 types-mock
+scancode-toolkit

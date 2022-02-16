@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
+# or more contributor license agreements. Licensed under the Elastic License 2.0;
+# you may not use this file except in compliance with the Elastic License 2.0.
+
+pip_cache="$HOME/.cache"
+docker_pip_cache="/tmp/cache/pip"
+
+cd tests
+
+docker build --build-arg UID=$UID --build-arg PYTHON_IMAGE=python:3.9 -t python-notice --file Dockerfile ..
+docker run \
+  -e LOCAL_USER_ID=$UID \
+  -e PIP_CACHE=${docker_pip_cache} \
+  -v ${pip_cache}:$(dirname ${docker_pip_cache}) \
+  -v "$(dirname $(pwd))":/app \
+  --rm python-notice \
+  /bin/bash \
+  -c "./tests/scripts/notice_generator.sh DOCKER-NOTICE.json check"
