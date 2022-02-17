@@ -28,7 +28,7 @@ flake8:  ## Run flake8 in the project on the host
 isort:  ## Run isort in the project on the host
 	tests/scripts/${BASE_DIR}isort.sh diff
 
-mypy: # # Run mypy in the project on the host
+mypy: ## Run mypy in the project on the host
 	tests/scripts/${BASE_DIR}mypy.sh
 
 docker-test:  ## Run tests on docker
