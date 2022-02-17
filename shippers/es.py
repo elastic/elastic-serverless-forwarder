@@ -222,8 +222,6 @@ class ElasticsearchShipper(CommonShipper):
                         self._dataset = "aws.elb_logs"
                     elif "/network-firewall/" in s3_object_key:
                         self._dataset = "aws.firewall_logs"
-                    elif "lambda" in s3_object_key:
-                        self._dataset = "aws.lambda"
                     elif "/vpcflowlogs/" in s3_object_key:
                         self._dataset = "aws.vpcflow"
                     elif "/WAFLogs/" in s3_object_key:

@@ -567,25 +567,6 @@ class TestDiscoverDataset(TestCase):
         assert shipper._namespace == "default"
         assert shipper._es_index == "logs-aws.firewall_logs-default"
 
-    def test_aws_lambda_logs_dataset(self) -> None:
-        shipper = ElasticsearchShipper(
-            elasticsearch_url="elasticsearch_url",
-            username="username",
-            password="password",
-            tags=["tag1", "tag2", "tag3"],
-        )
-
-        lambda_event = deepcopy(_dummy_lambda_event)
-        lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
-        lambda_event_body["Records"][0]["s3"]["object"]["key"] = "prefix/111-222-333/lambda/2021-12-28/hash/file.gz"
-        lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
-
-        shipper.discover_dataset(lambda_event)
-
-        assert shipper._dataset == "aws.lambda"
-        assert shipper._namespace == "default"
-        assert shipper._es_index == "logs-aws.lambda-default"
-
     def test_aws_waf_logs_dataset(self) -> None:
         shipper = ElasticsearchShipper(
             elasticsearch_url="elasticsearch_url",
