@@ -1,3 +1,8 @@
+### v0.21.1 - 2022/02/17
+##### Bug fixes
+* Removes `aws.sns` and `aws.s3_storage_lens` metrics datasets auto-discovery [#82](https://github.com/elastic/elastic-serverless-forwarder/pull/82)
+
+
 ### v0.21.0 - 2022/02/15
 ##### Breaking changes
 * Add support for sending data to an index or alias on top of datastream for the Elasticsearch output (`dataset` and `namespace` config params replaced by `es_index_or_datastream_name`): [#73](https://github.com/elastic/elastic-serverless-forwarder/pull/73)
