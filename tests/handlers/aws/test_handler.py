@@ -16,13 +16,10 @@ import docker
 import localstack.utils.aws.aws_stack
 import mock
 import pytest
+from botocore.client import BaseClient as BotoBaseClient
 from botocore.exceptions import ClientError
 from docker.models.containers import Container
 from elasticsearch import Elasticsearch
-from localstack.services.kinesis.kinesis_starter import check_kinesis
-from localstack.services.s3.s3_starter import check_s3
-from localstack.services.secretsmanager.secretsmanager_starter import check_secretsmanager
-from localstack.services.sqs.sqs_starter import check_sqs
 from localstack.utils import testutil
 from localstack.utils.aws import aws_stack
 
@@ -532,6 +529,13 @@ class TestLambdaHandlerFailure(TestCase):
                 handler(event, ctx)  # type:ignore
 
 
+def _mock_awsclient(service_name: str, region_name: str = "") -> BotoBaseClient:
+    if not region_name:
+        return aws_stack.connect_to_service(service_name)
+
+    return aws_stack.connect_to_service(service_name, region_name=region_name)
+
+
 def _wait_for_container(container: Container, port: str) -> None:
     while port not in container.ports or len(container.ports[port]) == 0 or "HostPort" not in container.ports[port][0]:
         container.reload()
@@ -542,7 +546,7 @@ def _wait_for_localstack_service(wait_callback: Callable[[], None]) -> None:
     while True:
         try:
             wait_callback()
-        except AssertionError:
+        except Exception:
             time.sleep(1)
         else:
             break
@@ -579,27 +583,25 @@ class TestLambdaHandlerSuccessKinesisDataStream(TestCase):
 
         _wait_for_container(self._localstack_container, "4566/tcp")
 
-        self._TEST_KINESIS_URL = os.environ["TEST_KINESIS_URL"]
-        self._TEST_S3_URL = os.environ["TEST_S3_URL"]
-        self._TEST_SQS_URL = os.environ["TEST_SQS_URL"]
+        self._KINESIS_BACKEND = os.environ.get("KINESIS_BACKEND", "")
+        self._S3_BACKEND = os.environ.get("S3_BACKEND", "")
+        self._SQS_BACKEND = os.environ.get("SQS_BACKEND", "")
+        self._SECRETSMANAGER_BACKEND = os.environ.get("SECRETSMANAGER_BACKEND", "")
 
         self._LOCALSTACK_HOST_PORT: str = self._localstack_container.ports["4566/tcp"][0]["HostPort"]
 
-        os.environ["TEST_KINESIS_URL"] = f"http://localhost:{self._LOCALSTACK_HOST_PORT}"
-        os.environ["TEST_S3_URL"] = f"http://localhost:{self._LOCALSTACK_HOST_PORT}"
-        os.environ["TEST_SQS_URL"] = f"http://localhost:{self._LOCALSTACK_HOST_PORT}"
+        os.environ["KINESIS_BACKEND"] = f"http://localhost:{self._LOCALSTACK_HOST_PORT}"
+        os.environ["S3_BACKEND"] = f"http://localhost:{self._LOCALSTACK_HOST_PORT}"
+        os.environ["SQS_BACKEND"] = f"http://localhost:{self._LOCALSTACK_HOST_PORT}"
+        os.environ["SECRETSMANAGER_BACKEND"] = f"http://localhost:{self._LOCALSTACK_HOST_PORT}"
 
-        with mock.patch("localstack.services.kinesis.kinesis_starter.PORT_KINESIS_BACKEND", self._LOCALSTACK_HOST_PORT):
-            _wait_for_localstack_service(check_kinesis)
+        _wait_for_localstack_service(aws_stack.connect_to_service(service_name="kinesis").list_streams)
 
-        with mock.patch("localstack.services.sqs.sqs_starter.PORT_SQS_BACKEND", self._LOCALSTACK_HOST_PORT):
-            _wait_for_localstack_service(check_sqs)
+        _wait_for_localstack_service(aws_stack.connect_to_service(service_name="s3").list_buckets)
 
-        with mock.patch(
-            "localstack.services.secretsmanager.secretsmanager_starter.PORT_SECRETS_MANAGER_BACKEND",
-            self._LOCALSTACK_HOST_PORT,
-        ):
-            _wait_for_localstack_service(check_secretsmanager)
+        _wait_for_localstack_service(aws_stack.connect_to_service(service_name="sqs").list_queues)
+
+        _wait_for_localstack_service(aws_stack.connect_to_service(service_name="secretsmanager").list_secrets)
 
         self._ELASTIC_USER: str = "elastic"
         self._ELASTIC_PASSWORD: str = "password"
@@ -712,9 +714,9 @@ class TestLambdaHandlerSuccessKinesisDataStream(TestCase):
         os.environ["SQS_REPLAY_URL"] = self._replay_queue_info["QueueUrl"]
 
     def tearDown(self) -> None:
-        os.environ["TEST_KINESIS_URL"] = self._TEST_KINESIS_URL
-        os.environ["TEST_S3_URL"] = self._TEST_S3_URL
-        os.environ["TEST_SQS_URL"] = self._TEST_SQS_URL
+        os.environ["KINESIS_BACKEND"] = self._KINESIS_BACKEND
+        os.environ["S3_BACKEND"] = self._S3_BACKEND
+        os.environ["SQS_BACKEND"] = self._SQS_BACKEND
 
         del os.environ["S3_CONFIG_FILE"]
         del os.environ["SQS_CONTINUE_URL"]
@@ -750,16 +752,13 @@ class TestLambdaHandlerSuccessKinesisDataStream(TestCase):
         return dict(Records=new_records)
 
     def test_lambda_handler_kinesis(self) -> None:
-        with mock.patch("storage.S3Storage._s3_client", aws_stack.connect_to_service("s3")):
-            with mock.patch("handlers.aws.sqs_trigger.get_sqs_client", lambda: aws_stack.connect_to_service("sqs")):
+        with mock.patch("storage.S3Storage._s3_client", _mock_awsclient(service_name="s3")):
+            with mock.patch("handlers.aws.sqs_trigger.get_sqs_client", lambda: _mock_awsclient(service_name="sqs")):
                 with mock.patch(
                     "share.secretsmanager._get_aws_sm_client",
-                    lambda region_name: aws_stack.connect_to_service(
-                        "secretsmanager",
-                        endpoint_url=f"http://localhost:{self._LOCALSTACK_HOST_PORT}",
-                        region_name=region_name,
-                    ),
+                    lambda region_name: _mock_awsclient(service_name="secretsmanager", region_name=region_name),
                 ):
+
                     shards_paginator = self._kinesis_client.get_paginator("list_shards")
                     shards_available = [
                         shard
@@ -986,25 +985,21 @@ class TestLambdaHandlerSuccessS3SQS(TestCase):
 
         _wait_for_container(self._localstack_container, "4566/tcp")
 
-        self._TEST_S3_URL = os.environ["TEST_S3_URL"]
-        self._TEST_SQS_URL = os.environ["TEST_SQS_URL"]
+        self._S3_BACKEND = os.environ.get("S3_BACKEND", "")
+        self._SQS_BACKEND = os.environ.get("SQS_BACKEND", "")
+        self._SECRETSMANAGER_BACKEND = os.environ.get("SECRETSMANAGER_BACKEND", "")
 
         self._LOCALSTACK_HOST_PORT: str = self._localstack_container.ports["4566/tcp"][0]["HostPort"]
 
-        os.environ["TEST_S3_URL"] = f"http://localhost:{self._LOCALSTACK_HOST_PORT}"
-        os.environ["TEST_SQS_URL"] = f"http://localhost:{self._LOCALSTACK_HOST_PORT}"
+        os.environ["S3_BACKEND"] = f"http://localhost:{self._LOCALSTACK_HOST_PORT}"
+        os.environ["SQS_BACKEND"] = f"http://localhost:{self._LOCALSTACK_HOST_PORT}"
+        os.environ["SECRETSMANAGER_BACKEND"] = f"http://localhost:{self._LOCALSTACK_HOST_PORT}"
 
-        with mock.patch("localstack.services.s3.s3_starter.s3_listener.PORT_S3_BACKEND", self._LOCALSTACK_HOST_PORT):
-            _wait_for_localstack_service(check_s3)
+        _wait_for_localstack_service(aws_stack.connect_to_service(service_name="s3").list_buckets)
 
-        with mock.patch("localstack.services.sqs.sqs_starter.PORT_SQS_BACKEND", self._LOCALSTACK_HOST_PORT):
-            _wait_for_localstack_service(check_sqs)
+        _wait_for_localstack_service(aws_stack.connect_to_service(service_name="sqs").list_queues)
 
-        with mock.patch(
-            "localstack.services.secretsmanager.secretsmanager_starter.PORT_SECRETS_MANAGER_BACKEND",
-            self._LOCALSTACK_HOST_PORT,
-        ):
-            _wait_for_localstack_service(check_secretsmanager)
+        _wait_for_localstack_service(aws_stack.connect_to_service(service_name="secretsmanager").list_secrets)
 
         self._ELASTIC_USER: str = "elastic"
         self._ELASTIC_PASSWORD: str = "password"
@@ -1098,8 +1093,9 @@ class TestLambdaHandlerSuccessS3SQS(TestCase):
         os.environ["SQS_REPLAY_URL"] = self._replay_queue_info["QueueUrl"]
 
     def tearDown(self) -> None:
-        os.environ["TEST_S3_URL"] = self._TEST_S3_URL
-        os.environ["TEST_SQS_URL"] = self._TEST_SQS_URL
+        os.environ["S3_BACKEND"] = self._S3_BACKEND
+        os.environ["SQS_BACKEND"] = self._SQS_BACKEND
+        os.environ["SECRETSMANAGER_BACKEND"] = self._SECRETSMANAGER_BACKEND
 
         del os.environ["S3_CONFIG_FILE"]
         del os.environ["SQS_CONTINUE_URL"]
@@ -1114,16 +1110,12 @@ class TestLambdaHandlerSuccessS3SQS(TestCase):
     @mock.patch("handlers.aws.handler._completion_grace_period", 1)
     def test_lambda_handler_replay(self) -> None:
         filename: str = "exportedlogs/uuid/yyyy-mm-dd-[$LATEST]hash/000000.gz"
-        with mock.patch("storage.S3Storage._s3_client", aws_stack.connect_to_service("s3")):
-            with mock.patch("handlers.aws.utils.get_sqs_client", lambda: aws_stack.connect_to_service("sqs")):
-                with mock.patch("handlers.aws.sqs_trigger.get_sqs_client", lambda: aws_stack.connect_to_service("sqs")):
+        with mock.patch("storage.S3Storage._s3_client", _mock_awsclient(service_name="s3")):
+            with mock.patch("handlers.aws.utils.get_sqs_client", lambda: _mock_awsclient(service_name="sqs")):
+                with mock.patch("handlers.aws.sqs_trigger.get_sqs_client", lambda: _mock_awsclient(service_name="sqs")):
                     with mock.patch(
                         "share.secretsmanager._get_aws_sm_client",
-                        lambda region_name: aws_stack.connect_to_service(
-                            "secretsmanager",
-                            endpoint_url=f"http://localhost:{self._LOCALSTACK_HOST_PORT}",
-                            region_name=region_name,
-                        ),
+                        lambda region_name: _mock_awsclient(service_name="secretsmanager", region_name=region_name),
                     ):
 
                         # Create an expected id so that es.send will fail
@@ -1226,15 +1218,11 @@ class TestLambdaHandlerSuccessS3SQS(TestCase):
 
     def test_lambda_handler_continuing(self) -> None:
         filename: str = "exportedlogs/uuid/yyyy-mm-dd-[$LATEST]hash/000000.gz"
-        with mock.patch("storage.S3Storage._s3_client", aws_stack.connect_to_service("s3")):
-            with mock.patch("handlers.aws.sqs_trigger.get_sqs_client", lambda: aws_stack.connect_to_service("sqs")):
+        with mock.patch("storage.S3Storage._s3_client", _mock_awsclient(service_name="s3")):
+            with mock.patch("handlers.aws.sqs_trigger.get_sqs_client", lambda: _mock_awsclient(service_name="sqs")):
                 with mock.patch(
                     "share.secretsmanager._get_aws_sm_client",
-                    lambda region_name: aws_stack.connect_to_service(
-                        "secretsmanager",
-                        endpoint_url=f"http://localhost:{self._LOCALSTACK_HOST_PORT}",
-                        region_name=region_name,
-                    ),
+                    lambda region_name: _mock_awsclient(service_name="secretsmanager", region_name=region_name),
                 ):
 
                     ctx = ContextMock()
