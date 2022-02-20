@@ -69,7 +69,7 @@ docker-mypy: mypy
 license:  ## Run license validation in the project
 	tests/scripts/license_headers_check.sh check
 
-all-requirements: requirements requirements-lint requirements-tests  ## Install all requirements on the host
+all-requirements: requirements-lint requirements-tests requirements ## Install all requirements on the host
 
 requirements: .makecache/requirements.txt  ## Install app requirements on the host
 
