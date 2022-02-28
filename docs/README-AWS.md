@@ -298,30 +298,30 @@ Resources:
     * Adding an Event Source Mapping when using Kinesis input
       ```json
       "KinesisStreamEventSource": {
-          "Type": "AWS::Lambda::EventSourceMapping",
-          "Properties": {
-              "FunctionName": {
-              "Ref": "ElasticServerlessForwarderFunction"
-          },
-          "Enabled": true,
-          "EventSourceArn": "arn:aws:kinesis:%AWS_REGION%:%AWS_ACCOUNT_ID%:stream/%STREAM_NAME%", ## ADD YOUR KINESIS ARN
-          "StartingPosition": "TRIM_HORIZON"
-          }
+        "Type": "AWS::Lambda::EventSourceMapping",
+        "Properties": {
+          "FunctionName": {
+          "Ref": "ElasticServerlessForwarderFunction"
+        },
+        "Enabled": true,
+        "EventSourceArn": "arn:aws:kinesis:%AWS_REGION%:%AWS_ACCOUNT_ID%:stream/%STREAM_NAME%", ## ADD YOUR KINESIS ARN
+        "StartingPosition": "TRIM_HORIZON"
+        }
       }
       ```
 
     * Adding an Event Source Mapping when using the SQS replay queue
       ```json
       "ESFREplayQueueEventSource": {
-            "Type": "AWS::Lambda::EventSourceMapping",
-            "Properties": {
-              "Enabled": true,
-              "FunctionName": {
-                "Ref": "ElasticServerlessForwarderFunction"
-              },
-              "EventSourceArn": "%ESF_REPLAY_QUEUE_ARN%"
-            }
-          }
+        "Type": "AWS::Lambda::EventSourceMapping",
+        "Properties": {
+          "Enabled": true,
+          "FunctionName": {
+            "Ref": "ElasticServerlessForwarderFunction"
+          },
+          "EventSourceArn": "%ESF_REPLAY_QUEUE_ARN%"
+        }
+      }
       ```           
 
 * Update the stack running the following command:
