@@ -301,11 +301,11 @@ Resources:
         "Type": "AWS::Lambda::EventSourceMapping",
         "Properties": {
           "FunctionName": {
-          "Ref": "ElasticServerlessForwarderFunction"
-        },
-        "Enabled": true,
-        "EventSourceArn": "arn:aws:kinesis:%AWS_REGION%:%AWS_ACCOUNT_ID%:stream/%STREAM_NAME%", ## ADD YOUR KINESIS ARN
-        "StartingPosition": "TRIM_HORIZON"
+            "Ref": "ElasticServerlessForwarderFunction"
+          },
+          "Enabled": true,
+          "EventSourceArn": "arn:aws:kinesis:%AWS_REGION%:%AWS_ACCOUNT_ID%:stream/%STREAM_NAME%", ## ADD YOUR KINESIS ARN
+          "StartingPosition": "TRIM_HORIZON"
         }
       }
       ```
