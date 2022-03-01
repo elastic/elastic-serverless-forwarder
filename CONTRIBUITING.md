@@ -45,21 +45,21 @@ The process for contributing to any of the Elastic repositories is similar.
    * `mypy`                 Run mypy in the project on the host
    * `license`              Run license validation in the project
    * `test`                 Run all tests on the host
-   * `integration-test`     Run tests on docker
+   * `integration-test`     Run integration tests on the host
    * `unit-test`            Run unit tests on the host
    * `coverage`             Run tests on the host with coverage
 
-4. A subset of the previous tasks can be run in docker (that's the method used in CI), these are the equivalent `make` targe provided:
+4. A subset of the previous tasks can be run in docker (that's the method used in CI), these are the equivalent `make` targets provided:
    * `docker-lint`          Lint the project on docker
    * `docker-black`         Run black in the project on docker
    * `docker-isort`         Run isort in the project on docker
    * `docker-mypy`          Run mypy in the project on docker
    * `docker-test`          Run tests on docker
-   * `docker-integration-test` Run tests on docker
-   * `docker-unit-test`     Run tests on docker
+   * `docker-integration-test` Run integration tests on docker
+   * `docker-unit-test`     Run unit tests on docker
    * `docker-coverage`      Run tests on docker with coverage
 
-5. Scripts for automated fixes of linting and license are provided where available. They are the following:
+5. Scripts for automated fix of linting and license are provided where available. They are the following:
     * `./tests/scripts/black.sh fix`
     * `./tests/scripts/isort.sh fix`
     * `./tests/scripts/license_headers_check.sh fix`
