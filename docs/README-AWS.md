@@ -19,10 +19,14 @@ Any exception or failure scenarios are handled by the Lambda gracefully using a 
 As a first step users should install appropriate integrations in the Kibana UI. This sets up appropriate pre-built dashboards, ingest node configurations, and other assets that help you get the most out of the data you ingest.
 
 **S3 SQS Event Notifications input:**
+
 The Lambda function supports ingesting logs contained in the S3 bucket through an SQS notification (s3:ObjectCreated) and sends them to Elastic. The SQS queue serves as a trigger for the Lambda function. When a new log file gets written to an S3 bucket and meets the criteria (as configured including prefix/suffix), a notification to SQS is generated that triggers the Lambda function. Users will set up separate SQS queues for each type of logs (i.e. aws.vpcflow, aws.cloudtrail, aws.waf and so on). A single configuration file can have many input sections, pointing to different SQS queues that match specific log types.
 The `es_index_or_datastream_name` parameter in the config file is optional. Lambda supports automatic routing of various AWS service logs to the corresponding data streams for further processing and storage in the Elasticsearch cluster. It supports automatic routing of `aws.cloudtrail`, `aws.cloudwatch_logs`, `aws.elb_logs`, `aws.firewall_logs`, `aws.vpcflow`, and `aws.waf` logs. For other log types the users can optionally set the `es_index_or_datastream_name` value in the configuration file according to the naming convention of Elasticsearch datastream and existing integrations.  If the `es_index_or_datastream_name` is not specified and it cannot be matched with any of the above AWS services then the dataset will be set to "generic" and the namespace to "default" pointing to the data stream name "logs-generic-default".
 
+For more information, read the AWS [documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/ways-to-add-notification-config-to-bucket.html) about creating an SQS event notifications for S3 buckets.
+
 **Kinesis Data Stream input:**
+
 The Lambda function supports ingesting logs contained in the payload of a Kinesis data stream record and sends them to Elastic. The Kinesis data stream serves as a trigger for the Lambda function. When a new record gets written to a Kinesis data stream the Lambda function gets triggered. Users will set up separate Kinesis data streams for each type of logs, The config param for Elasticsearch output `es_index_or_datastream_name` is mandatory. If the value is set to an Elasticsearch datastream, the type of logs must be defined with proper value configuration param. A single configuration file can have many input sections, pointing to different Kinesis data streams that match specific log types.
 
 
@@ -62,12 +66,22 @@ At a high level the deployment consists of the following steps:
   * Back to the "Configuration" tab in the Lambda window select "Triggers"
     * You can see an already defined SQS trigger for a queue with the prefix `elastic-serverless-forwarder-continuing-queue-`. This is an internal queue and should not be modified, disabled or removed.
     * Click on "Add trigger"
-    * From "Trigger configuration" dropdown select "SQS"
-    * In the "SQS queue" field chose the queue or insert the ARN of the queue you want to use as trigger for your Elastic Serverless Forwarder
-      * The SQS queue you want to use as trigger must have a visibility timeout of 910 seconds, 10 seconds more than the Elastic Forwarder for Serverless Lambda timeout.
+      - When using S3 SQS event notification input:
+        * From "Trigger configuration" dropdown select "SQS"
+        * In the "SQS queue" field chose the queue or insert the ARN of the queue you want to use as trigger for your Elastic Serverless Forwarder
+        * The SQS queue you want to use as trigger must have a visibility timeout of 910 seconds, 10 seconds more than the Elastic Forwarder for Serverless Lambda timeout.
+      - When using kinesis input:
+        * From "Trigger configuration" dropdown select "Kinesis"
+        * In the "Kinesis stream" field chose the stream name you want to use as trigger for your Elastic Serverless Forwarder    
     * Click on "Add"
 
 ### Cloudformation
+
+* Get the latest application semantic version
+```
+aws serverlessrepo list-application-versions --application-id arn:aws:serverlessrepo:eu-central-1:267093732750:applications/elastic-serverless-forwarder
+```
+
 * Save the following yaml content as `sar-application.yaml`
 ```yaml
 Transform: AWS::Serverless-2016-10-31
@@ -77,9 +91,9 @@ Resources:
     Properties:
       Location:
         ApplicationId: 'arn:aws:serverlessrepo:eu-central-1:267093732750:applications/elastic-serverless-forwarder'
-        SemanticVersion: %VERSION%
-
+        SemanticVersion: '%SEMANTICVERSION%'  ## UPDATE USING THE SEMANTIC VERSION
 ```
+
 
 * Deploy the Lambda from SAR running the following command:
   * ```commandline
@@ -88,7 +102,7 @@ Resources:
 
 * Import json template from deployed stack running the following commands:
   * ```commandline
-    PARENT_STACK_ARN=$(aws cloudformation describe-stacks --stack-name esf-cloudformation-deployment --query Stacks[0].StackId --output text)
+    PARENT_STACK_ARN=$(aws cloudformation describe-stacks --stack-name esf-cloudformation-deployment --query "Stacks[0].StackId" --output text)
     LAMBDA_STACK_ARN=$(aws cloudformation list-stacks --stack-status-filter CREATE_COMPLETE --query "StackSummaries[?ParentId==\`${PARENT_STACK_ARN}\`].StackId" --output text)
     aws cloudformation get-template --stack-name "${LAMBDA_STACK_ARN}" --query TemplateBody > sar-lambda.json
     ```
@@ -268,20 +282,47 @@ Resources:
         }
       },
       ```
-    * Adding an Event Source Mapping: add a new resource in the template
+    * Adding an Event Source Mapping when using S3 input with SQS
       ```json
-      "CustomSQSEvent": {
+      "S3SQSEventSource": {
         "Type": "AWS::Lambda::EventSourceMapping",
         "Properties": {
-          "BatchSize": 1,
           "Enabled": true,
-          "FunctionName": { # You must reference to `ElasticServerlessForwarderFunction` resource
+          "FunctionName": { 
             "Ref": "ElasticServerlessForwarderFunction"
           },
-          "EventSourceArn": "%SQS_ARN%"
+          "EventSourceArn": "%SQS_ARN%" ## ADD YOUR SQS QUEUE USED WITH S3
         }
       }
       ```
+    * Adding an Event Source Mapping when using Kinesis input
+      ```json
+      "KinesisStreamEventSource": {
+        "Type": "AWS::Lambda::EventSourceMapping",
+        "Properties": {
+          "FunctionName": {
+          "Ref": "ElasticServerlessForwarderFunction"
+        },
+        "Enabled": true,
+        "EventSourceArn": "arn:aws:kinesis:%AWS_REGION%:%AWS_ACCOUNT_ID%:stream/%STREAM_NAME%", ## ADD YOUR KINESIS ARN
+        "StartingPosition": "TRIM_HORIZON"
+        }
+      }
+      ```
+
+    * Adding an Event Source Mapping when using the SQS replay queue
+      ```json
+      "ESFREplayQueueEventSource": {
+        "Type": "AWS::Lambda::EventSourceMapping",
+        "Properties": {
+          "Enabled": true,
+          "FunctionName": {
+            "Ref": "ElasticServerlessForwarderFunction"
+          },
+          "EventSourceArn": "%ESF_REPLAY_QUEUE_ARN%"
+        }
+      }
+      ```           
 
 * Update the stack running the following command:
   * ```commandline
@@ -329,14 +370,14 @@ On top of this basic permission the following policies must be provided:
     "Version": "2012-10-17",
     "Statement": [
       {
-        "Sid": "VisualEditor0",
+        "Sid": "AllowReadESFConfigFile",
         "Effect": "Allow",
         "Action": "s3:GetObject",
         ## ADAPT TO THE CONFIG FILE IN THE S3 BUCKET
         "Resource": "arn:aws:s3:::%CONFIG_FILE_BUCKET_NAME%/%CONFIG_FILE_OBJECT_KEY%"
       },
       {
-        "Sid": "VisualEditor1",
+        "Sid": "AllowWriteMessagesInSQS",
         "Effect": "Allow",
         "Action": "sqs:SendMessage",
         "Resource": [
@@ -346,7 +387,7 @@ On top of this basic permission the following policies must be provided:
         ]
       },
       {
-        "Sid": "VisualEditor0",
+        "Sid": "AllowAccessS3DataSources",
         "Effect": "Allow",
         "Action": "s3:GetObject",
         "Resource": [
@@ -356,7 +397,7 @@ On top of this basic permission the following policies must be provided:
         ]
       },
       {
-        "Sid": "VisualEditor2",
+        "Sid": "AllowAccessS3-SQSQueue",
         "Effect": "Allow",
         "Action": "sqs:GetQueueUrl",
         "Resource": [
@@ -366,7 +407,7 @@ On top of this basic permission the following policies must be provided:
         ]
       },
       {
-        "Sid": "VisualEditor2",
+        "Sid": "AllowAccessKinesisDataSources",
         "Effect": "Allow",
         "Action": [
             "kinesis:GetRecords",
@@ -382,7 +423,7 @@ On top of this basic permission the following policies must be provided:
         ]
       },
       {
-        "Sid": "VisualEditor1",
+        "Sid": "AllowAccessSecrets",
         "Effect": "Allow",
         "Action": "secretsmanager:GetSecretValue",
         "Resource": [
@@ -392,7 +433,7 @@ On top of this basic permission the following policies must be provided:
         ]
       },
       {
-        "Sid": "VisualEditor1",
+        "Sid": "AllowAccessKMSKey",
         "Effect": "Allow",
         "Action": "kms:Decrypt",
         "Resource": [
