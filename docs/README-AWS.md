@@ -53,7 +53,7 @@ At a high level the deployment consists of the following steps:
     * Monitor the "Deployment history" refreshing its status until the Status shows as "Create complete
 * Go to "Lambda > Functions" page in the AWS console and look for the Function Name with prefix "serverlessrepo-elastic-se-ElasticServerlessForward-" and click on it
   * Go to "Configuration" tab and select "Environment Variables"
-  * Click on "Edit" on the "Environment Variables" tab and add the environment variable `S3_CONFIG_FILE` with the value of the S3 url in the format "s3://bucket-name/config-file-name" point to the configuration file for your Elastic Forwarder for Serverless (see below)
+  * Click on "Edit" on the "Environment Variables" tab and fill the environment variable `S3_CONFIG_FILE` with the value of the S3 url in the format "s3://bucket-name/config-file-name" point to the configuration file for your Elastic Forwarder for Serverless (see below)
   * You can additionally add the following environment variables to enable Elastic APM instrumentation to your deployment of Elastic Forwarder for Serverless
     * | Key                       | Value  |
       |---------------------------|--------|
@@ -352,7 +352,7 @@ On top of this basic permission the following policies must be provided:
   * `kinesis:ListShards`
   * `kinesis:ListStreams`
 
-* For every S3 bucket resource that's reported in the `S3_CONFIG_FILE` environment variable the following action must be allowed on the S3 buckets' config file object key:
+* For the S3 bucket resource that's reported in the `S3_CONFIG_FILE` environment variable the following action must be allowed on the S3 buckets' config file object key:
   * `s3:GetObject`
 
 * For every S3 bucket resource that SQS queues are receiving notification from used by triggers of the Lambda the following action must be allowed on the S3 buckets' keys:
