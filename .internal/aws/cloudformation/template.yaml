@@ -58,7 +58,7 @@ Metadata:
   AWS::ServerlessRepo::Application:
     Name: %sarAppName%
     Description: Send observability data from your AWS environment to Elastic.
-    Author: Elastic
+    Author: %sarAuthorName%
     Labels: ['s3', 'logs', 'analytics', 'observability', 'monitoring', 'Elastic']
     SemanticVersion: %semanticVersion%
     LicenseUrl: LICENSE.txt
