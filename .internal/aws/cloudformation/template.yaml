@@ -45,6 +45,7 @@ Resources:
       Handler: main_aws.handler
       Environment:
           Variables:
+              S3_CONFIG_FILE: "s3://"
               SQS_CONTINUE_URL: !Ref ElasticServerlessForwarderContinuingQueue
               SQS_REPLAY_URL: !Ref ElasticServerlessForwarderReplayQueue
       Events:

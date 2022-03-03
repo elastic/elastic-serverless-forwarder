@@ -1,3 +1,7 @@
+### v0.22.0 - 2022/03/03
+##### Features
+* Set default `S3_CONFIG_FILE` env variable to "s3://": [#90](https://github.com/elastic/elastic-serverless-forwarder/pull/90)
+
 ### v0.21.1 - 2022/02/17
 ##### Bug fixes
 * Remove `aws.lambda`, `aws.sns` and `aws.s3_storage_lens` metrics datasets auto-discovery [#82](https://github.com/elastic/elastic-serverless-forwarder/pull/82)
