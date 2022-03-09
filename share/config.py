@@ -8,7 +8,7 @@ import yaml
 
 from .logger import logger as shared_logger
 
-_available_input_types: list[str] = ["s3-sqs", "kinesis-data-stream"]
+_available_input_types: list[str] = ["s3-sqs", "sqs", "kinesis-data-stream"]
 _available_output_types: list[str] = ["elasticsearch"]
 
 
