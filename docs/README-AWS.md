@@ -4,6 +4,7 @@ This functionality is in beta and is subject to change. The design and code is l
 ## Introduction:
 The Elastic Serverless Forwarder is an AWS Lambda function that ships logs from your AWS environment to Elastic. The function can forward data to Elastic self-managed or Elastic cloud environments. It supports the following inputs:
 
+- Direct SQS message payload input
 - S3 SQS Event Notifications input
 - Kinesis Data Stream input
 
@@ -17,6 +18,10 @@ Any exception or failure scenarios are handled by the Lambda gracefully using a 
 
 
 As a first step users should install appropriate integrations in the Kibana UI. This sets up appropriate pre-built dashboards, ingest node configurations, and other assets that help you get the most out of the data you ingest.
+
+**Direct SQS message payload input:**
+
+The Lambda function supports ingesting logs contained in the payload of a SQS body record and sends them to Elastic. The SQS queue serves as a trigger for the Lambda function. When a new record gets written to an SQS queue the Lambda function gets triggered. Users will set up separate SQS queues for each type of logs, The config param for Elasticsearch output `es_index_or_datastream_name` is mandatory. If the value is set to an Elasticsearch datastream, the type of logs must be defined with proper value configuration param. A single configuration file can have many input sections, pointing to different SQS queues that match specific log types.
 
 **S3 SQS Event Notifications input:**
 
@@ -66,13 +71,13 @@ At a high level the deployment consists of the following steps:
   * Back to the "Configuration" tab in the Lambda window select "Triggers"
     * You can see an already defined SQS trigger for a queue with the prefix `elastic-serverless-forwarder-continuing-queue-`. This is an internal queue and should not be modified, disabled or removed.
     * Click on "Add trigger"
-      - When using S3 SQS event notification input:
+      - When using S3 SQS event notification or direct SQS message payload input:
         * From "Trigger configuration" dropdown select "SQS"
         * In the "SQS queue" field chose the queue or insert the ARN of the queue you want to use as trigger for your Elastic Serverless Forwarder
         * The SQS queue you want to use as trigger must have a visibility timeout of 910 seconds, 10 seconds more than the Elastic Forwarder for Serverless Lambda timeout.
       - When using kinesis input:
         * From "Trigger configuration" dropdown select "Kinesis"
-        * In the "Kinesis stream" field chose the stream name you want to use as trigger for your Elastic Serverless Forwarder    
+        * In the "Kinesis stream" field chose the stream name you want to use as trigger for your Elastic Serverless Forwarder
     * Click on "Add"
 
 ### Cloudformation
@@ -167,7 +172,7 @@ Resources:
       }
     },
     {
-      "PolicyName": "ElasticServerlessForwarderFunctionRolePolicySQS", ## ADD FOR YOUR SQS QUEUE
+      "PolicyName": "ElasticServerlessForwarderFunctionRolePolicySQS", ## ADD FOR YOUR SQS QUEUES
       "PolicyDocument": {
         "Version": "2012-10-17",
         "Statement": [
@@ -185,7 +190,7 @@ Resources:
       }
     },
       {
-      "PolicyName": "ElasticServerlessForwarderFunctionRolePolicyKinesis", ## ADD FOR YOUR KINESIS STREAM
+      "PolicyName": "ElasticServerlessForwarderFunctionRolePolicyKinesis", ## ADD FOR YOUR KINESIS STREAMS
       "PolicyDocument": {
         "Version": "2012-10-17",
         "Statement": [
@@ -207,7 +212,7 @@ Resources:
       }
     },
     {
-      "PolicyName": "ElasticServerlessForwarderFunctionRolePolicyS3", ## ADD FOR YOUR S3 BUCKET
+      "PolicyName": "ElasticServerlessForwarderFunctionRolePolicyS3", ## ADD FOR YOUR S3 BUCKETS
       "PolicyDocument": {
         "Version": "2012-10-17",
         "Statement": [
@@ -225,7 +230,7 @@ Resources:
       }
     },
     {
-      "PolicyName": "ElasticServerlessForwarderFunctionRolePolicySM", ## ADD FOR YOUR SECRET MANAGER SECRET
+      "PolicyName": "ElasticServerlessForwarderFunctionRolePolicySM", ## ADD FOR YOUR SECRET MANAGER SECRETS
       "PolicyDocument": {
         "Version": "2012-10-17",
         "Statement": [
@@ -243,7 +248,7 @@ Resources:
       }
     },
     {
-      "PolicyName": "ElasticServerlessForwarderFunctionRolePolicyKMS", ## ADD FOR YOUR KMS DECRYPT KEY
+      "PolicyName": "ElasticServerlessForwarderFunctionRolePolicyKMS", ## ADD FOR YOUR KMS DECRYPT KEYS
       "PolicyDocument": {
         "Version": "2012-10-17",
         "Statement": [
@@ -282,16 +287,16 @@ Resources:
         }
       },
       ```
-    * Adding an Event Source Mapping when using S3 input with SQS
+    * Adding an Event Source Mapping when using S3 SQS Event Notifications or direct SQS message payload input:
       ```json
       "S3SQSEventSource": {
         "Type": "AWS::Lambda::EventSourceMapping",
         "Properties": {
           "Enabled": true,
-          "FunctionName": { 
+          "FunctionName": {
             "Ref": "ElasticServerlessForwarderFunction"
           },
-          "EventSourceArn": "%SQS_ARN%" ## ADD YOUR SQS QUEUE USED WITH S3
+          "EventSourceArn": "%SQS_ARN%" ## ADD YOUR SQS QUEUE
         }
       }
       ```
@@ -322,7 +327,7 @@ Resources:
           "EventSourceArn": "%ESF_REPLAY_QUEUE_ARN%"
         }
       }
-      ```           
+      ```
 
 * Update the stack running the following command:
   * ```commandline
@@ -467,6 +472,21 @@ inputs:
           es_index_or_datastream_name: "logs-generic-default"
           batch_max_actions: 500
           batch_max_bytes: 10485760
+  - type: "sqs"
+    id: "arn:aws:sqs:%REGION%:%ACCOUNT%:%QUEUENAME%"
+    outputs:
+      - type: "elasticsearch"
+        args:
+          # either elasticsearch_url or cloud_id, elasticsearch_url takes precedence
+          elasticsearch_url: "http(s)://domain.tld:port"
+          cloud_id: "cloud_id:bG9jYWxob3N0OjkyMDAkMA=="
+          # either api_key or username/password, api_key takes precedence
+          api_key: "YXBpX2tleV9pZDphcGlfa2V5X3NlY3JldAo="
+          username: "username"
+          password: "password"
+          es_index_or_datastream_name: "logs-generic-default"
+          batch_max_actions: 500
+          batch_max_bytes: 10485760
   - type: "kinesis-data-stream"
     id: "arn:aws:kinesis:%REGION%:%ACCOUNT%:stream/%STREAMNAME%"
     outputs:
@@ -489,7 +509,7 @@ inputs:
 A list of inputs (ie: triggers) for the Elastic Forwarder for Serverless Lambda
 
 `inputs.[].type`:
-The type of the trigger input (currently `kinesis-data-stream` and `s3-sqs` supported)
+The type of the trigger input (currently `kinesis-data-stream`, `sqs` and`s3-sqs` supported)
 
 `inputs.[].id`:
 The arn of the trigger input according to the type. Multiple input entries can have different unique ids with the same type.
@@ -580,7 +600,7 @@ In order to set up an S3 event notification to SQS please look at the official d
 
 The event type to set up in the notification should be `s3:ObjectCreated:*`
 
-The Elastic Forwarder for Serverless Lambda doesn't need to be provided extra IAM policies in order to access S3 and SQS resources in your account: the policies to grant only the minimum required permissions for the Lambda to run are already defined in the SAM template when creating the Lambda from the Serverless Application Repository.
+The Elastic Forwarder for Serverless Lambda needs to be provided extra IAM policies in order to access S3 and SQS resources in your account: please refer to [Lambda IAM permissions and policies](#lambda-iam-permissions-and-policies).
 
 ## Error handling
 There are two kind of errors that can happen during the execution of the Lambda:
@@ -602,5 +622,5 @@ Every other error occurring during the execution of the Lambda is silently ignor
 
 ## Execution timeout
 There is a grace period of 2 minutes before the timeout of the Lambda where no more ingestion will happen. Instead, during this grace period the Lambda will collect and handle any unprocessed payload in the batch of the input used as trigger.
-In case of an S3 SQS Event Notifications input, the unprocessed batch will be sent to the SQS continuing queue.
+In case of an S3 SQS Event Notifications input and direct SQS message payload input, the unprocessed batch will be sent to the SQS continuing queue.
 In case of a Kinesis Data Stream input the Lambda will return the sequence numbers of the unprocessed batch in the `batchItemFailures` response: allowing the affected records to be included in following batches that will trigger the Lambda. It is therefore important to set enough number of retry attempts and/or lower the size of the batches in order for the whole batch to be able to be processed at most during a single execution of the Lambda and/or giving some extra retry attemps for the whole content to be processed by multiple executions of the Lambda.
