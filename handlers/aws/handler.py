@@ -6,7 +6,6 @@ import json
 import os
 from typing import Any, Callable, Optional
 
-import elasticapm  # noqa: F401
 from aws_lambda_typing import context as context_
 
 from share import Config, parse_config, shared_logger
@@ -14,7 +13,8 @@ from share.secretsmanager import aws_sm_expander
 
 from .kinesis_trigger import _handle_kinesis_record
 from .replay_trigger import _handle_replay_event
-from .sqs_trigger import _delete_sqs_record, _handle_sqs_continuation, _handle_sqs_event
+from .s3_sqs_trigger import _handle_s3_sqs_continuation, _handle_s3_sqs_event
+from .sqs_trigger import _handle_sqs_continuation, _handle_sqs_event
 from .utils import (
     CONFIG_FROM_PAYLOAD,
     CONFIG_FROM_S3FILE,
@@ -23,6 +23,7 @@ from .utils import (
     capture_serverless,
     config_yaml_from_payload,
     config_yaml_from_s3,
+    delete_sqs_record,
     get_shipper_and_input,
     get_trigger_type_and_config_source,
     wrap_try_except,
@@ -39,6 +40,10 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
     AWS Lambda handler in handler.aws package
     Parses the config and acts as front controller for inputs
     """
+
+    shared_logger.debug(
+        "lambda triggered", extra={"event": lambda_event, "invoked_function_arn": lambda_context.invoked_function_arn}
+    )
 
     try:
         trigger_type, config_source = get_trigger_type_and_config_source(lambda_event)
@@ -87,7 +92,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 event_payload=event["event_payload"],
             )
 
-            _delete_sqs_record(replay_record["eventSourceARN"], replay_record["receiptHandle"])
+            delete_sqs_record(replay_record["eventSourceARN"], replay_record["receiptHandle"])
             if lambda_context is not None and lambda_context.get_remaining_time_in_millis() < _completion_grace_period:
                 shared_logger.info("lambda is going to shutdown")
 
@@ -97,7 +102,6 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
     composite_shipper, event_input = get_shipper_and_input(config, config_yaml, trigger_type, lambda_event)
 
     if trigger_type == "kinesis-data-stream":
-
         all_sequence_numbers: dict[str, str] = {}
         ret: dict[Any, list[dict[str, str]]] = {"batchItemFailures": []}
 
@@ -133,11 +137,9 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
             return ret
 
-    if trigger_type == "s3-sqs":
-        previous_sqs_record: int = 0
-        for es_event, last_ending_offset, current_sqs_record, current_s3_record in _handle_sqs_event(
-            config, lambda_event
-        ):
+    if trigger_type == "sqs":
+        previous_sqs_record = 0
+        for es_event, last_ending_offset, current_sqs_record in _handle_sqs_event(config, lambda_event):
             shared_logger.debug("es_event", extra={"es_event": es_event})
 
             composite_shipper.send(es_event)
@@ -145,7 +147,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
             if current_sqs_record > previous_sqs_record:
                 sqs_record = lambda_event["Records"][previous_sqs_record]
-                _delete_sqs_record(trigger_event_source_arn, sqs_record["receiptHandle"])
+                delete_sqs_record(trigger_event_source_arn, sqs_record["receiptHandle"])
 
             previous_sqs_record = current_sqs_record
 
@@ -160,6 +162,47 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 composite_shipper.flush()
 
                 _handle_sqs_continuation(
+                    trigger_event_source_arn=trigger_event_source_arn,
+                    sqs_continuing_queue=sqs_continuing_queue,
+                    last_ending_offset=last_ending_offset,
+                    lambda_event=lambda_event,
+                    event_input_id=event_input.id,
+                    current_sqs_record=current_sqs_record,
+                    config_yaml=config_yaml,
+                )
+
+                return "continuing"
+
+        composite_shipper.flush()
+        shared_logger.info("lambda processed all the events", extra={"sent_event": sent_event})
+
+    if trigger_type == "s3-sqs":
+        previous_sqs_record = 0
+        for es_event, last_ending_offset, current_sqs_record, current_s3_record in _handle_s3_sqs_event(
+            config, lambda_event
+        ):
+            shared_logger.debug("es_event", extra={"es_event": es_event})
+
+            composite_shipper.send(es_event)
+            sent_event += 1
+
+            if current_sqs_record > previous_sqs_record:
+                sqs_record = lambda_event["Records"][previous_sqs_record]
+                delete_sqs_record(trigger_event_source_arn, sqs_record["receiptHandle"])
+
+            previous_sqs_record = current_sqs_record
+
+            if lambda_context is not None and lambda_context.get_remaining_time_in_millis() < _completion_grace_period:
+                sqs_continuing_queue = os.environ["SQS_CONTINUE_URL"]
+
+                shared_logger.info(
+                    "lambda is going to shutdown, continuing on dedicated sqs queue",
+                    extra={"sqs_queue": sqs_continuing_queue, "sent_event": sent_event},
+                )
+
+                composite_shipper.flush()
+
+                _handle_s3_sqs_continuation(
                     trigger_event_source_arn=trigger_event_source_arn,
                     sqs_continuing_queue=sqs_continuing_queue,
                     lambda_event=lambda_event,
