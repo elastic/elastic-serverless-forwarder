@@ -37,7 +37,7 @@ class MockContent:
     def init_content(newline: str) -> None:
         if len(newline) == 0:
             MockContent.f_content_plain = "".join(
-                random.choices(string.ascii_letters + string.digits, k=random.randint(0, 20))
+                random.choices(string.ascii_letters + string.digits, k=random.randint(1, 20))
             ).encode("UTF-8")
         else:
             # every line is from 0 to 20 chars, repeated for 1M: a few megabytes of content
@@ -47,6 +47,14 @@ class MockContent:
                     for _ in range(1, _1M)
                 ]
             ).encode("UTF-8")
+
+            if MockContent.f_content_plain.endswith(newline.encode("utf-8")):
+                MockContent.f_content_plain = MockContent.f_content_plain[: 0 - len(newline.encode("utf-8"))]
+
+            if len(MockContent.f_content_plain) == 0:
+                MockContent.f_content_plain = "".join(
+                    random.choices(string.ascii_letters + string.digits, k=random.randint(1, 20))
+                ).encode("UTF-8")
 
         MockContent.f_content_gzip = gzip.compress(MockContent.f_content_plain)
         MockContent.f_stream_gzip = io.BytesIO(MockContent.f_content_gzip)
@@ -127,10 +135,12 @@ class TestS3Storage(TestCase):
                 assert plain_full == gzip_full
                 assert gzip_full[-1][1] == MockContent.f_size_plain
                 assert plain_full[-1][1] == MockContent.f_size_plain
-                assert (
-                    newline.join([x[0].decode("UTF-8") for x in plain_full]).encode("UTF-8")
-                    == MockContent.f_content_plain
-                )
+
+                joined = newline.join([x[0].decode("UTF-8") for x in plain_full]).encode("UTF-8")
+                if MockContent.f_content_plain.endswith(newline.encode("UTF-8")):
+                    joined += newline.encode("UTF-8")
+
+                assert joined == MockContent.f_content_plain
 
                 if len(newline) == 0:
                     continue
@@ -162,12 +172,16 @@ class TestS3Storage(TestCase):
                 assert plain_full_01 + plain_full_02 == plain_full
                 assert gzip_full_02[-1][1] == MockContent.f_size_plain
                 assert plain_full_02[-1][1] == MockContent.f_size_plain
-                assert (
+
+                joined = (
                     newline.join([x[0].decode("UTF-8") for x in plain_full_01]).encode("UTF-8")
                     + newline.encode("UTF-8")
                     + newline.join([x[0].decode("UTF-8") for x in plain_full_02]).encode("UTF-8")
-                    == MockContent.f_content_plain
                 )
+                if MockContent.f_content_plain.endswith(newline.encode("UTF-8")):
+                    joined += newline.encode("UTF-8")
+
+                assert joined == MockContent.f_content_plain
 
                 MockContent.rewind()
 
@@ -196,14 +210,18 @@ class TestS3Storage(TestCase):
                 assert plain_full_01 + plain_full_02 + plain_full_03 == plain_full
                 assert gzip_full_03[-1][1] == MockContent.f_size_plain
                 assert plain_full_03[-1][1] == MockContent.f_size_plain
-                assert (
+
+                joined = (
                     newline.join([x[0].decode("UTF-8") for x in plain_full_01]).encode("UTF-8")
                     + newline.encode("UTF-8")
                     + newline.join([x[0].decode("UTF-8") for x in plain_full_02]).encode("UTF-8")
                     + newline.encode("UTF-8")
                     + newline.join([x[0].decode("UTF-8") for x in plain_full_03]).encode("UTF-8")
-                    == MockContent.f_content_plain
                 )
+                if MockContent.f_content_plain.endswith(newline.encode("UTF-8")):
+                    joined += newline.encode("UTF-8")
+
+                assert joined == MockContent.f_content_plain
 
                 MockContent.rewind()
 

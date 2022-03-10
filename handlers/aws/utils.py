@@ -17,7 +17,7 @@ from share import Config, Input, Output, shared_logger
 from shippers import CompositeShipper, ElasticsearchShipper, ShipperFactory
 from storage import CommonStorage, StorageFactory
 
-_available_triggers: dict[str, str] = {"aws:sqs": "s3-sqs", "aws:kinesis": "kinesis-data-stream"}
+_available_triggers: dict[str, str] = {"aws:s3": "s3-sqs", "aws:sqs": "sqs", "aws:kinesis": "kinesis-data-stream"}
 
 CONFIG_FROM_PAYLOAD: str = "CONFIG_FROM_PAYLOAD"
 CONFIG_FROM_S3FILE: str = "CONFIG_FROM_S3FILE"
@@ -144,7 +144,9 @@ def get_shipper_and_input(
                 replay_handler = ReplayEventHandler(config_yaml=config_yaml, event_input=event_input)
                 composite_shipper.set_replay_handler(replay_handler=replay_handler.replay_handler)
 
-                if trigger_type == "s3-sqs":
+                if trigger_type == "sqs":
+                    composite_shipper.set_event_id_generator(event_id_generator=sqs_object_id)
+                elif trigger_type == "s3-sqs":
                     composite_shipper.set_event_id_generator(event_id_generator=s3_object_id)
                 elif trigger_type == "kinesis-data-stream":
                     composite_shipper.set_event_id_generator(event_id_generator=kinesis_record_id)
@@ -224,6 +226,15 @@ def get_kinesis_stream_name_type_and_region_from_arn(kinesis_stream_arn: str) ->
     return stream_componets[0], stream_componets[1], arn_components[3]
 
 
+def get_sqs_queue_name_and_region_from_arn(sqs_queue_arn: str) -> tuple[str, str]:
+    """
+    Helpers for extracting queue name and region from a sqs queue ARN
+    """
+
+    arn_components = sqs_queue_arn.split(":")
+    return arn_components[-1], arn_components[3]
+
+
 def get_trigger_type_and_config_source(event: dict[str, Any]) -> tuple[str, str]:
     """
     Determines the trigger type according to the payload of the trigger event
@@ -233,15 +244,32 @@ def get_trigger_type_and_config_source(event: dict[str, Any]) -> tuple[str, str]
     if "Records" not in event or len(event["Records"]) < 1:
         raise Exception("Not supported trigger")
 
+    event_source = ""
     if "body" in event["Records"][0]:
         event_body = event["Records"][0]["body"]
         if "output_type" in event_body and "output_args" in event_body and "event_payload" in event_body:
             return "replay-sqs", CONFIG_FROM_PAYLOAD
 
-    if "eventSource" not in event["Records"][0]:
-        raise Exception("Not supported trigger")
+        try:
+            body = json.loads(event["Records"][0]["body"])
+            if (
+                isinstance(body, dict)
+                and "Records" in body
+                and len(body["Records"]) > 0
+                and "eventSource" in body["Records"][0]
+            ):
+                event_source = body["Records"][0]["eventSource"]
+        except Exception:
+            if "eventSource" not in event["Records"][0]:
+                raise Exception("Not supported trigger")
 
-    event_source = event["Records"][0]["eventSource"]
+            event_source = event["Records"][0]["eventSource"]
+    else:
+        if "eventSource" not in event["Records"][0]:
+            raise Exception("Not supported trigger")
+
+        event_source = event["Records"][0]["eventSource"]
+
     if event_source not in _available_triggers:
         raise Exception("Not supported trigger")
 
@@ -253,16 +281,13 @@ def get_trigger_type_and_config_source(event: dict[str, Any]) -> tuple[str, str]
     ):
         raise Exception("Not supported trigger")
 
-    if trigger_type != "s3-sqs":
-        return trigger_type, CONFIG_FROM_S3FILE
-
     if "messageAttributes" not in event["Records"][0]:
         return trigger_type, CONFIG_FROM_S3FILE
 
     if "originalEventSource" not in event["Records"][0]["messageAttributes"]:
         return trigger_type, CONFIG_FROM_S3FILE
 
-    return "s3-sqs", CONFIG_FROM_PAYLOAD
+    return trigger_type, CONFIG_FROM_PAYLOAD
 
 
 class ReplayEventHandler:
@@ -295,6 +320,36 @@ class ReplayEventHandler:
         shared_logger.warning("sent to replay queue", extra=message_payload)
 
 
+def get_queue_url_from_sqs_arn(sqs_arn: str) -> str:
+    """
+    Return sqs queue url given an sqs queue arn
+    """
+    arn_components = sqs_arn.split(":")
+    account_id = arn_components[4]
+    queue_name = arn_components[5]
+
+    sqs_client = get_sqs_client()
+
+    queue_info = sqs_client.get_queue_url(QueueName=queue_name, QueueOwnerAWSAccountId=account_id)
+    assert isinstance(queue_info["QueueUrl"], str)
+
+    return queue_info["QueueUrl"]
+
+
+def delete_sqs_record(sqs_arn: str, receipt_handle: str) -> None:
+    """
+    Sqs records can be batched, we should delete the successful one:
+    otherwise if a failure happens the whole batch will go back to the queue
+    """
+    queue_url = get_queue_url_from_sqs_arn(sqs_arn)
+
+    sqs_client = get_sqs_client()
+
+    sqs_client.delete_message(QueueUrl=queue_url, ReceiptHandle=receipt_handle)
+
+    shared_logger.info("delete processed sqs message", extra={"queue_url": queue_url})
+
+
 def s3_object_id(event_payload: dict[str, Any]) -> str:
     """
     Port of
@@ -306,6 +361,21 @@ def s3_object_id(event_payload: dict[str, Any]) -> str:
     object_key: str = event_payload["fields"]["aws"]["s3"]["object"]["key"]
 
     src: str = f"{bucket_arn}{object_key}"
+    hex_prefix = hashlib.sha256(src.encode("UTF-8")).hexdigest()[:10]
+
+    return f"{hex_prefix}-{offset:012d}"
+
+
+def sqs_object_id(event_payload: dict[str, Any]) -> str:
+    """
+    Generates a unique event id given the payload of an event from an sqs queue
+    """
+
+    offset: int = event_payload["fields"]["log"]["offset"]
+    queue_name: str = event_payload["fields"]["aws"]["sqs"]["name"]
+    message_id: str = event_payload["fields"]["aws"]["sqs"]["message_id"]
+
+    src: str = f"{queue_name}{message_id}"
     hex_prefix = hashlib.sha256(src.encode("UTF-8")).hexdigest()[:10]
 
     return f"{hex_prefix}-{offset:012d}"

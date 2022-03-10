@@ -15,6 +15,8 @@ RUN apt-get -qq update && apt-get -qq -y --no-install-recommends install \
 ARG UID={${UID}:-1001}
 ENV USER_ID=${LOCAL_USER_ID:-${UID}}
 
+RUN echo '{"storage-driver": "vfs"}' > /etc/docker/daemon.json
+
 # setup user
 RUN useradd --shell /bin/bash -u $USER_ID --gid 0 --non-unique --comment "" --create-home user
 RUN usermod -a -G sudo user

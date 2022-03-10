@@ -372,14 +372,26 @@ class TestElasticsearchOutput(TestCase):
 @pytest.mark.unit
 class TestInput(TestCase):
     def test_init(self) -> None:
-        with self.subTest("valid init"):
+        with self.subTest("valid s3-sqs init"):
             input_sqs = Input(input_type="s3-sqs", input_id="id")
             assert input_sqs.type == "s3-sqs"
             assert input_sqs.id == "id"
             assert input_sqs.tags == []
 
+        with self.subTest("valid sqs init"):
+            input_sqs = Input(input_type="sqs", input_id="id")
+            assert input_sqs.type == "sqs"
+            assert input_sqs.id == "id"
+            assert input_sqs.tags == []
+
+        with self.subTest("valid kinesis-data-stream init"):
+            input_sqs = Input(input_type="kinesis-data-stream", input_id="id")
+            assert input_sqs.type == "kinesis-data-stream"
+            assert input_sqs.id == "id"
+            assert input_sqs.tags == []
+
         with self.subTest("not valid type"):
-            with self.assertRaisesRegex(ValueError, "Input type must be one of s3-sqs"):
+            with self.assertRaisesRegex(ValueError, "^Input type must be one of s3-sqs,sqs,kinesis-data-stream$"):
                 Input(input_type="type", input_id="id")
 
         with self.subTest("type not str"):

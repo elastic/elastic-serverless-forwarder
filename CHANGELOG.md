@@ -1,3 +1,7 @@
+### v0.23.0 - 2022/03/09
+##### Features
+* Add support for direct `sqs` input: [#91](https://github.com/elastic/elastic-serverless-forwarder/pull/91)
+
 ### v0.22.0 - 2022/03/03
 ##### Features
 * Set default `S3_CONFIG_FILE` env variable to "s3://": [#90](https://github.com/elastic/elastic-serverless-forwarder/pull/90)

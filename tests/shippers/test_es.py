@@ -422,6 +422,21 @@ class TestElasticsearchShipper(TestCase):
 
 @pytest.mark.unit
 class TestDiscoverDataset(TestCase):
+    def test_no_datastream(self) -> None:
+        shipper = ElasticsearchShipper(
+            elasticsearch_url="elasticsearch_url",
+            username="username",
+            password="password",
+            es_index_or_datastream_name="logs-es-index-no-datastream",
+            tags=["tag1", "tag2", "tag3"],
+        )
+
+        lambda_event = deepcopy(_dummy_lambda_event)
+
+        shipper.discover_dataset(lambda_event)
+
+        assert shipper._es_index == "logs-es-index-no-datastream"
+
     def test_custom_dataset(self) -> None:
         shipper = ElasticsearchShipper(
             elasticsearch_url="elasticsearch_url",

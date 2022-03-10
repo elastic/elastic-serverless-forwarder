@@ -199,12 +199,15 @@ class ElasticsearchShipper(CommonShipper):
                 self._dataset = "generic"
             else:
                 body: str = event["Records"][0]["body"]
-                json_body: Dict[str, Any] = json.loads(body)
                 s3_object_key: str = ""
+                try:
+                    json_body: Dict[str, Any] = json.loads(body)
 
-                if "Records" in json_body and len(json_body["Records"]) > 0:
-                    if "s3" in json_body["Records"][0]:
-                        s3_object_key = json_body["Records"][0]["s3"]["object"]["key"]
+                    if isinstance(json_body, dict) and "Records" in json_body and len(json_body["Records"]) > 0:
+                        if "s3" in json_body["Records"][0]:
+                            s3_object_key = json_body["Records"][0]["s3"]["object"]["key"]
+                except Exception:
+                    pass
 
                 if s3_object_key == "":
                     shared_logger.info("s3 object key is empty, dataset set to `generic`")

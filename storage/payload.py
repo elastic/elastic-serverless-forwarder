@@ -2,6 +2,7 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 import base64
+import binascii
 import gzip
 from io import SEEK_SET, BytesIO
 from typing import Any, Iterator, Union
@@ -51,7 +52,11 @@ class PayloadStorage(CommonStorage):
 
         content_type = "plain/text"
 
-        base64_decoded = base64.b64decode(self._payload)
+        try:
+            base64_decoded = base64.b64decode(self._payload)
+        except binascii.Error:
+            base64_decoded = self._payload.encode("utf-8")
+
         if base64_decoded.startswith(b"\037\213"):  # gzip compression method
             content_type = "application/x-gzip"
             range_start = 0
@@ -76,7 +81,11 @@ class PayloadStorage(CommonStorage):
     def get_as_string(self) -> str:
         shared_logger.debug("get_as_string", extra={"payload": self._payload[0:11]})
 
-        base64_decoded = base64.b64decode(self._payload)
+        try:
+            base64_decoded = base64.b64decode(self._payload)
+        except binascii.Error:
+            base64_decoded = self._payload.encode("utf-8")
+
         if base64_decoded.startswith(b"\037\213"):  # gzip compression method
             return gzip.decompress(base64_decoded).decode("utf-8")
 

@@ -36,7 +36,7 @@ class MockContent:
     def init_content(newline: str) -> None:
         if len(newline) == 0:
             mock_content = "".join(
-                random.choices(string.ascii_letters + string.digits, k=random.randint(0, 20))
+                random.choices(string.ascii_letters + string.digits, k=random.randint(1, 20))
             ).encode("UTF-8")
         else:
             # every line is from 0 to 20 chars, repeated for 1M: a few megabytes of content
@@ -46,6 +46,11 @@ class MockContent:
                     for _ in range(1, _1M)
                 ]
             ).encode("UTF-8")
+
+            if len(mock_content) == 0:
+                mock_content = "".join(
+                    random.choices(string.ascii_letters + string.digits, k=random.randint(1, 20))
+                ).encode("UTF-8")
 
         MockContent.f_content_gzip = base64.b64encode(gzip.compress(mock_content)).decode("utf-8")
         MockContent.f_content_plain = base64.b64encode(mock_content).decode("utf-8")
@@ -64,6 +69,13 @@ class TestPayloadStorage(TestCase):
         MockContent.init_content(newline)
 
         with self.subTest("testing with plain"):
+            original = base64.b64decode(MockContent.f_content_plain).decode("utf-8")
+            payload_storage = PayloadStorage(payload=original)
+            content = payload_storage.get_as_string()
+            assert content == original
+            assert len(content) == len(original)
+
+        with self.subTest("testing with base64"):
             payload_storage = PayloadStorage(payload=MockContent.f_content_plain)
             content = payload_storage.get_as_string()
             original = base64.b64decode(MockContent.f_content_plain).decode("utf-8")
@@ -101,7 +113,12 @@ class TestPayloadStorage(TestCase):
                 assert plain_full == gzip_full
                 assert gzip_full[-1][1] == original_length
                 assert plain_full[-1][1] == original_length
-                assert newline.join([x[0].decode("UTF-8") for x in plain_full]) == original
+
+                joined = newline.join([x[0].decode("UTF-8") for x in plain_full])
+                if original.endswith(newline):
+                    joined += newline
+
+                assert joined == original
 
                 if len(newline) == 0:
                     continue
@@ -133,12 +150,16 @@ class TestPayloadStorage(TestCase):
                 assert plain_full_01 + plain_full_02 == plain_full
                 assert gzip_full_02[-1][1] == original_length
                 assert plain_full_02[-1][1] == original_length
-                assert (
+
+                joined = (
                     newline.join([x[0].decode("UTF-8") for x in plain_full_01])
                     + newline
                     + newline.join([x[0].decode("UTF-8") for x in plain_full_02])
-                    == original
                 )
+                if original.endswith(newline):
+                    joined += newline
+
+                assert joined == original
 
                 MockContent.rewind()
 
@@ -167,14 +188,18 @@ class TestPayloadStorage(TestCase):
                 assert plain_full_01 + plain_full_02 + plain_full_03 == plain_full
                 assert gzip_full_03[-1][1] == original_length
                 assert plain_full_03[-1][1] == original_length
-                assert (
+
+                joined = (
                     newline.join([x[0].decode("UTF-8") for x in plain_full_01])
                     + newline
                     + newline.join([x[0].decode("UTF-8") for x in plain_full_02])
                     + newline
                     + newline.join([x[0].decode("UTF-8") for x in plain_full_03])
-                    == original
                 )
+                if original.endswith(newline):
+                    joined += newline
+
+                assert joined == original
 
                 MockContent.rewind()
 
