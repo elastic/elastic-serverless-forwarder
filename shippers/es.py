@@ -195,7 +195,7 @@ class ElasticsearchShipper(CommonShipper):
         else:
             self._namespace = "default"
 
-            if "body" not in event["Records"][0]:
+            if "Records" not in event or len(event["Records"]) < 1 or "body" not in event["Records"][0]:
                 self._dataset = "generic"
             else:
                 body: str = event["Records"][0]["body"]
