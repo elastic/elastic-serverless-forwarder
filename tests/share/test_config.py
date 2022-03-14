@@ -385,13 +385,21 @@ class TestInput(TestCase):
             assert input_sqs.tags == []
 
         with self.subTest("valid kinesis-data-stream init"):
-            input_sqs = Input(input_type="kinesis-data-stream", input_id="id")
-            assert input_sqs.type == "kinesis-data-stream"
-            assert input_sqs.id == "id"
-            assert input_sqs.tags == []
+            input_kinesis_data_stream = Input(input_type="kinesis-data-stream", input_id="id")
+            assert input_kinesis_data_stream.type == "kinesis-data-stream"
+            assert input_kinesis_data_stream.id == "id"
+            assert input_kinesis_data_stream.tags == []
+
+        with self.subTest("valid cloudwatch-logs init"):
+            input_cloudwatch_logs = Input(input_type="cloudwatch-logs", input_id="id")
+            assert input_cloudwatch_logs.type == "cloudwatch-logs"
+            assert input_cloudwatch_logs.id == "id"
+            assert input_cloudwatch_logs.tags == []
 
         with self.subTest("not valid type"):
-            with self.assertRaisesRegex(ValueError, "^Input type must be one of s3-sqs,sqs,kinesis-data-stream$"):
+            with self.assertRaisesRegex(
+                ValueError, "^Input type must be one of cloudwatch-logs,s3-sqs,sqs,kinesis-data-stream$"
+            ):
                 Input(input_type="type", input_id="id")
 
         with self.subTest("type not str"):
@@ -628,7 +636,9 @@ class TestParseConfig(TestCase):
             )
 
         with self.subTest("no valid input type"):
-            with self.assertRaisesRegex(ValueError, "Input type must be one of s3-sqs"):
+            with self.assertRaisesRegex(
+                ValueError, "^Input type must be one of cloudwatch-logs,s3-sqs,sqs,kinesis-data-stream$"
+            ):
                 parse_config(
                     config_yaml="""
             inputs:
