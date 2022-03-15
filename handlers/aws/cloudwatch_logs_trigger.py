@@ -7,11 +7,12 @@ import json
 from copy import deepcopy
 from typing import Any, Iterator
 
+from botocore.client import BaseClient as BotoBaseClient
+
 from share import shared_logger
 from storage import CommonStorage, StorageFactory
 
 from .event import _default_event
-from .utils import get_sqs_client
 
 
 def _from_awslogs_data_to_event(awslogs_data: str) -> Any:
@@ -24,6 +25,7 @@ def _from_awslogs_data_to_event(awslogs_data: str) -> Any:
 
 
 def _handle_cloudwatch_logs_continuation(
+    sqs_client: BotoBaseClient,
     sqs_continuing_queue: str,
     last_ending_offset: int,
     cloudwatch_logs_event: dict[str, Any],
@@ -43,8 +45,6 @@ def _handle_cloudwatch_logs_continuation(
     log_stream_name = cloudwatch_logs_event["logStream"]
     logs_events = cloudwatch_logs_event["logEvents"][current_log_event:]
 
-    sqs_client = get_sqs_client()
-
     for log_event in logs_events:
         sqs_client.send_message(
             QueueUrl=sqs_continuing_queue,
@@ -52,7 +52,7 @@ def _handle_cloudwatch_logs_continuation(
             MessageAttributes={
                 "config": {"StringValue": config_yaml, "DataType": "String"},
                 "originalEventId": {"StringValue": log_event["id"], "DataType": "String"},
-                "originalEventSource": {"StringValue": event_input_id, "DataType": "String"},
+                "originalEventSourceARN": {"StringValue": event_input_id, "DataType": "String"},
                 "originalLogGroup": {"StringValue": log_group_name, "DataType": "String"},
                 "originalLogStream": {"StringValue": log_stream_name, "DataType": "String"},
                 "originalLastEndingOffset": {"StringValue": str(last_ending_offset), "DataType": "Number"},
