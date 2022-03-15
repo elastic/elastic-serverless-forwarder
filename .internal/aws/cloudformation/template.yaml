@@ -53,7 +53,7 @@ Resources:
           Type: SQS
           Properties:
             Queue: !GetAtt ElasticServerlessForwarderContinuingQueue.Arn
-            BatchSize: 1
+            BatchSize: 10
             Enabled: true
 Metadata:
   AWS::ServerlessRepo::Application:
