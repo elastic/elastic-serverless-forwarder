@@ -13,7 +13,7 @@ from botocore.client import BaseClient as BotoBaseClient
 from elasticapm import Client, get_client
 from elasticapm.contrib.serverless.aws import capture_serverless as apm_capture_serverless  # noqa: F401
 
-from share import Config, Input, Output, shared_logger
+from share import Input, Output, shared_logger
 from shippers import CompositeShipper, ElasticsearchShipper, ShipperFactory
 from storage import CommonStorage, StorageFactory
 
@@ -122,18 +122,9 @@ def wrap_try_except(
     return wrapper
 
 
-def get_shipper_and_input(
-    config: Config, config_yaml: str, trigger_type: str, lambda_event: dict[str, Any], input_id: str
-) -> tuple[CompositeShipper, Input]:
-
-    event_input = config.get_input_by_type_and_id(trigger_type, input_id)
-    if not event_input:
-        shared_logger.error(f"no input set for {input_id}")
-
-        raise InputConfigException("not input set")
-
-    shared_logger.info("input", extra={"type": event_input.type, "id": event_input.id})
-
+def get_shipper_from_input(
+    event_input: Input, lambda_event: dict[str, Any], at_record: int, config_yaml: str
+) -> CompositeShipper:
     composite_shipper: CompositeShipper = CompositeShipper()
 
     for output_type in event_input.get_output_types():
@@ -147,23 +138,23 @@ def get_shipper_and_input(
                 shipper: ElasticsearchShipper = ShipperFactory.create_from_output(
                     output_type="elasticsearch", output=output
                 )
-                shipper.discover_dataset(event=lambda_event)
+                shipper.discover_dataset(event=lambda_event, at_record=at_record)
                 composite_shipper.add_shipper(shipper=shipper)
                 replay_handler = ReplayEventHandler(config_yaml=config_yaml, event_input=event_input)
                 composite_shipper.set_replay_handler(replay_handler=replay_handler.replay_handler)
 
-                if trigger_type == "cloudwatch-logs":
+                if event_input.type == "cloudwatch-logs":
                     composite_shipper.set_event_id_generator(event_id_generator=cloudwatch_logs_object_id)
-                elif trigger_type == "sqs":
+                elif event_input.type == "sqs":
                     composite_shipper.set_event_id_generator(event_id_generator=sqs_object_id)
-                elif trigger_type == "s3-sqs":
+                elif event_input.type == "s3-sqs":
                     composite_shipper.set_event_id_generator(event_id_generator=s3_object_id)
-                elif trigger_type == "kinesis-data-stream":
+                elif event_input.type == "kinesis-data-stream":
                     composite_shipper.set_event_id_generator(event_id_generator=kinesis_record_id)
             except Exception as e:
                 raise OutputConfigException(e)
 
-    return composite_shipper, event_input
+    return composite_shipper
 
 
 def config_yaml_from_payload(lambda_event: dict[str, Any]) -> str:
@@ -245,21 +236,18 @@ def get_sqs_queue_name_and_region_from_arn(sqs_queue_arn: str) -> tuple[str, str
     return arn_components[-1], arn_components[3]
 
 
-def is_continuing_of_cloudwatch_logs(event: dict[str, Any], at_record: int = 0) -> bool:
+def is_continuing_of_cloudwatch_logs(sqs_record: dict[str, Any]) -> bool:
     """
     Determines if the event is the continue queue payload of a cloudwatch logs
     """
 
-    if "Records" not in event or len(event["Records"]) < 1:
+    if "messageAttributes" not in sqs_record:
         return False
 
-    if "messageAttributes" not in event["Records"][at_record]:
+    if "originalEventSourceARN" not in sqs_record["messageAttributes"]:
         return False
 
-    if "originalEventSource" not in event["Records"][at_record]["messageAttributes"]:
-        return False
-
-    original_event_source: str = event["Records"][at_record]["messageAttributes"]["originalEventSource"]["stringValue"]
+    original_event_source: str = sqs_record["messageAttributes"]["originalEventSourceARN"]["stringValue"]
 
     return original_event_source.startswith("arn:aws:logs")
 
@@ -316,7 +304,7 @@ def get_trigger_type_and_config_source(event: dict[str, Any], at_record: int = 0
     if "messageAttributes" not in event["Records"][at_record]:
         return trigger_type, CONFIG_FROM_S3FILE
 
-    if "originalEventSource" not in event["Records"][at_record]["messageAttributes"]:
+    if "originalEventSourceARN" not in event["Records"][at_record]["messageAttributes"]:
         return trigger_type, CONFIG_FROM_S3FILE
 
     return trigger_type, CONFIG_FROM_PAYLOAD
