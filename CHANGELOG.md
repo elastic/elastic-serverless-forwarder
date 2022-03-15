@@ -1,4 +1,4 @@
-### v0.26.0 - 2022/03/15
+### v0.25.0 - 2022/03/15
 ##### Features
 * Support handling of continuing queue with batch size greater than 1: [#95](https://github.com/elastic/elastic-serverless-forwarder/pull/95)
 
