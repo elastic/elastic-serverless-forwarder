@@ -7,11 +7,11 @@ The Elastic Serverless Forwarder is an AWS Lambda function that ships logs from 
 - Direct SQS message payload input
 - S3 SQS Event Notifications input
 - Kinesis Data Stream input
-- Cloudwatch logs events input
+- CloudWatch Logs subscription filter input
 
 The config yaml file (details described below) acts as an input where the user, based on input type, configures things like SQS queue ARN and Elasticsearch connection information. Multiple input sections can be created in the configuration file pointing to different queues that match specific log types.
 
-A continuing SQS queue is set up by the Lambda deployment automatically. It is used to trigger a new function invocation so that Lambda can continue from exactly where the last function run was terminated. By default a Lambda function runs for a max of 15 minutes. When processing large log files, sqs drect message payload or cloudwatch logs events there’s a possibility that the function may be exited by AWS in the middle of processing a log file. The code handles this scenario gracefully by keeping track of the last offset it processed.
+A continuing SQS queue is set up by the Lambda deployment automatically. It is used to trigger a new function invocation so that Lambda can continue from exactly where the last function run was terminated. By default a Lambda function runs for a max of 15 minutes. When processing large log files, sqs direct message payload or cloudwatch logs events there’s a possibility that the function may be exited by AWS in the middle of processing. The code handles this scenario gracefully by keeping track of the last offset it processed.
 
 Application supports automatic routing of various AWS service logs to the corresponding data streams for further processing and storage in the Elasticsearch cluster.
 
@@ -35,8 +35,8 @@ For more information, read the AWS [documentation](https://docs.aws.amazon.com/A
 
 The Lambda function supports ingesting logs contained in the payload of a Kinesis data stream record and sends them to Elastic. The Kinesis data stream serves as a trigger for the Lambda function. When a new record gets written to a Kinesis data stream the Lambda function gets triggered. Users will set up separate Kinesis data streams for each type of logs, The config param for Elasticsearch output `es_index_or_datastream_name` is mandatory. If the value is set to an Elasticsearch datastream, the type of logs must be defined with proper value configuration param. A single configuration file can have many input sections, pointing to different Kinesis data streams that match specific log types.
 
-**Cloudwatch logs events input:**
-The Lambda function supports ingesting logs contained in the message payload of Cloudwatch logs evetns. The Cloudwatch logs serves as a trigger for the Lambda function. Users will set up separate Cloudwatch log groups for each type of logs, The config param for Elasticsearch output `es_index_or_datastream_name` is mandatory. If the value is set to an Elasticsearch datastream, the type of logs must be defined with proper value configuration param. A single configuration file can have many input sections, pointing to different Cloudwatch logs log groups that match specific log types.
+**CloudWatch Logs subscription filter input:**
+The Lambda function supports ingesting logs contained in the message payload of Cloudwatch logs events. The Cloudwatch logs serves as a trigger for the Lambda function. Users will set up separate Cloudwatch log groups for each type of logs, The config param for Elasticsearch output `es_index_or_datastream_name` is mandatory. If the value is set to an Elasticsearch datastream, the type of logs must be defined with proper value configuration param. A single configuration file can have many input sections, pointing to different Cloudwatch logs log groups that match specific log types.
 
 
 ### Deployment:
@@ -349,7 +349,7 @@ Resources:
         }
       }
       ```
-    * Adding a subscription filter when using Cloudwatch logs events input
+    * Adding a subscription filter when using CloudWatch Logs subscription filter input
       ```json
       "CloudwatchLogsSubscriptionFilter": {
         "Type": "AWS::Logs::SubscriptionFilter",
@@ -503,8 +503,8 @@ On top of this basic permission the following policies must be provided:
   }
   ```
 
-#### Lambda Resource-based policy for Cloudwatch logs events input
-* For Cloudwatch logs events log group resources that you want to use as triggers of the Lambda the following must be allowed as Resource-based policy in separated Policy statements:
+#### Lambda Resource-based policy for CloudWatch Logs subscription filter input
+* For CloudWatch Logs subscription filter log group resources that you want to use as triggers of the Lambda the following must be allowed as Resource-based policy in separated Policy statements:
   * Principal: `logs.%AWS_REGION%.amazonaws.com`
   * Action: `lambda:InvokeFunction`
   * Source ARN: `arn:aws:logs:%AWS_REGION%:%AWS_ACCOUNT_ID%:log-group:%LOG_GROUP_NAME%:*`
