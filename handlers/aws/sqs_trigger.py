@@ -59,7 +59,9 @@ def _handle_sqs_continuation(
         )
 
 
-def _handle_sqs_event(config: Config, event: dict[str, Any]) -> Iterator[tuple[dict[str, Any], int, int]]:
+def _handle_sqs_event(
+    config: Config, event: dict[str, Any], is_continuation_of_cloudwatch_logs: bool
+) -> Iterator[tuple[dict[str, Any], int, int]]:
     """
     Handler for sqs inputs.
     It iterates through sqs records in the sqs trigger and process
@@ -69,7 +71,10 @@ def _handle_sqs_event(config: Config, event: dict[str, Any]) -> Iterator[tuple[d
     """
 
     for sqs_record_n, sqs_record in enumerate(event["Records"]):
-        event_input = config.get_input_by_type_and_id("sqs", sqs_record["eventSourceARN"])
+        input_type = "sqs"
+        if is_continuation_of_cloudwatch_logs:
+            input_type = "cloudwatch-logs"
+        event_input = config.get_input_by_type_and_id(input_type, sqs_record["eventSourceARN"])
         if not event_input:
             return None
 
@@ -97,19 +102,43 @@ def _handle_sqs_event(config: Config, event: dict[str, Any]) -> Iterator[tuple[d
             es_event["fields"]["message"] = log_event.decode("UTF-8")
             es_event["fields"]["log"]["offset"] = ending_offset - (len(log_event) + newline_length)
 
-            es_event["fields"]["log"]["file"]["path"] = get_queue_url_from_sqs_arn(sqs_record["eventSourceARN"])
+            if is_continuation_of_cloudwatch_logs:
+                event_id = ""
+                log_group_name = ""
+                log_stream_name = ""
 
-            message_id = sqs_record["messageId"]
+                if "originalEventId" in payload:
+                    event_id = payload["originalEventId"]["stringValue"]
 
-            if "originalMessageId" in payload:
-                message_id = payload["originalMessageId"]["stringValue"]
+                if "originalLogGroup" in payload:
+                    log_group_name = payload["originalLogGroup"]["stringValue"]
 
-            es_event["fields"]["aws"] = {
-                "sqs": {
-                    "name": queue_name,
-                    "message_id": message_id,
+                if "originalLogStream" in payload:
+                    log_stream_name = payload["originalLogStream"]["stringValue"]
+
+                es_event["fields"]["log"]["file"]["path"] = f"{log_group_name}/{log_stream_name}"
+
+                es_event["fields"]["aws"] = {
+                    "cloudwatch_logs": {
+                        "group_name": log_group_name,
+                        "stream_name": log_stream_name,
+                        "event_id": event_id,
+                    }
                 }
-            }
+            else:
+                es_event["fields"]["log"]["file"]["path"] = get_queue_url_from_sqs_arn(sqs_record["eventSourceARN"])
+
+                message_id = sqs_record["messageId"]
+
+                if "originalMessageId" in payload:
+                    message_id = payload["originalMessageId"]["stringValue"]
+
+                es_event["fields"]["aws"] = {
+                    "sqs": {
+                        "name": queue_name,
+                        "message_id": message_id,
+                    }
+                }
 
             es_event["fields"]["cloud"]["region"] = aws_region
 

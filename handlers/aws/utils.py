@@ -31,6 +31,14 @@ def get_sqs_client() -> BotoBaseClient:
     return boto3.client("sqs")
 
 
+def get_cloudwatch_logs_client() -> BotoBaseClient:
+    """
+    Getter for cloudwatch logs client
+    Extracted for mocking
+    """
+    return boto3.client("logs")
+
+
 def capture_serverless(
     func: Callable[[dict[str, Any], context_.Context], str]
 ) -> Callable[[dict[str, Any], context_.Context], str]:
@@ -115,12 +123,12 @@ def wrap_try_except(
 
 
 def get_shipper_and_input(
-    config: Config, config_yaml: str, trigger_type: str, lambda_event: dict[str, Any]
+    config: Config, config_yaml: str, trigger_type: str, lambda_event: dict[str, Any], input_id: str
 ) -> tuple[CompositeShipper, Input]:
 
-    event_input = config.get_input_by_type_and_id(trigger_type, lambda_event["Records"][0]["eventSourceARN"])
+    event_input = config.get_input_by_type_and_id(trigger_type, input_id)
     if not event_input:
-        shared_logger.error(f'no input set for {lambda_event["Records"][0]["eventSourceARN"]}')
+        shared_logger.error(f"no input set for {input_id}")
 
         raise InputConfigException("not input set")
 
@@ -144,7 +152,9 @@ def get_shipper_and_input(
                 replay_handler = ReplayEventHandler(config_yaml=config_yaml, event_input=event_input)
                 composite_shipper.set_replay_handler(replay_handler=replay_handler.replay_handler)
 
-                if trigger_type == "sqs":
+                if trigger_type == "cloudwatch-logs":
+                    composite_shipper.set_event_id_generator(event_id_generator=cloudwatch_logs_object_id)
+                elif trigger_type == "sqs":
                     composite_shipper.set_event_id_generator(event_id_generator=sqs_object_id)
                 elif trigger_type == "s3-sqs":
                     composite_shipper.set_event_id_generator(event_id_generator=s3_object_id)
@@ -235,23 +245,45 @@ def get_sqs_queue_name_and_region_from_arn(sqs_queue_arn: str) -> tuple[str, str
     return arn_components[-1], arn_components[3]
 
 
-def get_trigger_type_and_config_source(event: dict[str, Any]) -> tuple[str, str]:
+def is_continuing_of_cloudwatch_logs(event: dict[str, Any], at_record: int = 0) -> bool:
+    """
+    Determines if the event is the continue queue payload of a cloudwatch logs
+    """
+
+    if "Records" not in event or len(event["Records"]) < 1:
+        return False
+
+    if "messageAttributes" not in event["Records"][at_record]:
+        return False
+
+    if "originalEventSource" not in event["Records"][at_record]["messageAttributes"]:
+        return False
+
+    original_event_source: str = event["Records"][at_record]["messageAttributes"]["originalEventSource"]["stringValue"]
+
+    return original_event_source.startswith("arn:aws:logs")
+
+
+def get_trigger_type_and_config_source(event: dict[str, Any], at_record: int = 0) -> tuple[str, str]:
     """
     Determines the trigger type according to the payload of the trigger event
     and if the config must be read from attributes or from S3 file in env
     """
 
+    if "event" in event and "awslogs" in event["event"] and "data" in event["event"]["awslogs"]:
+        return "cloudwatch-logs", CONFIG_FROM_S3FILE
+
     if "Records" not in event or len(event["Records"]) < 1:
         raise Exception("Not supported trigger")
 
     event_source = ""
-    if "body" in event["Records"][0]:
-        event_body = event["Records"][0]["body"]
+    if "body" in event["Records"][at_record]:
+        event_body = event["Records"][at_record]["body"]
         if "output_type" in event_body and "output_args" in event_body and "event_payload" in event_body:
             return "replay-sqs", CONFIG_FROM_PAYLOAD
 
         try:
-            body = json.loads(event["Records"][0]["body"])
+            body = json.loads(event["Records"][at_record]["body"])
             if (
                 isinstance(body, dict)
                 and "Records" in body
@@ -260,15 +292,15 @@ def get_trigger_type_and_config_source(event: dict[str, Any]) -> tuple[str, str]
             ):
                 event_source = body["Records"][0]["eventSource"]
         except Exception:
-            if "eventSource" not in event["Records"][0]:
+            if "eventSource" not in event["Records"][at_record]:
                 raise Exception("Not supported trigger")
 
-            event_source = event["Records"][0]["eventSource"]
+            event_source = event["Records"][at_record]["eventSource"]
     else:
-        if "eventSource" not in event["Records"][0]:
+        if "eventSource" not in event["Records"][at_record]:
             raise Exception("Not supported trigger")
 
-        event_source = event["Records"][0]["eventSource"]
+        event_source = event["Records"][at_record]["eventSource"]
 
     if event_source not in _available_triggers:
         raise Exception("Not supported trigger")
@@ -276,15 +308,15 @@ def get_trigger_type_and_config_source(event: dict[str, Any]) -> tuple[str, str]
     trigger_type = _available_triggers[event_source]
     if (
         trigger_type == "kinesis-data-stream"
-        and "kinesis" not in event["Records"][0]
-        and "data" not in event["Records"][0]["kinesis"]
+        and "kinesis" not in event["Records"][at_record]
+        and "data" not in event["Records"][at_record]["kinesis"]
     ):
         raise Exception("Not supported trigger")
 
-    if "messageAttributes" not in event["Records"][0]:
+    if "messageAttributes" not in event["Records"][at_record]:
         return trigger_type, CONFIG_FROM_S3FILE
 
-    if "originalEventSource" not in event["Records"][0]["messageAttributes"]:
+    if "originalEventSource" not in event["Records"][at_record]["messageAttributes"]:
         return trigger_type, CONFIG_FROM_S3FILE
 
     return trigger_type, CONFIG_FROM_PAYLOAD
@@ -336,6 +368,26 @@ def get_queue_url_from_sqs_arn(sqs_arn: str) -> str:
     return queue_info["QueueUrl"]
 
 
+def get_log_group_arn_and_region_from_log_group_name(log_group_name: str) -> tuple[str, str]:
+    """
+    Return cloudwatch log group arn given a log group name
+    """
+    logs_client = get_cloudwatch_logs_client()
+
+    log_groups = logs_client.describe_log_groups(logGroupNamePrefix=log_group_name)
+
+    assert "logGroups" in log_groups
+
+    for log_group in log_groups["logGroups"]:
+        if "logGroupName" in log_group and log_group["logGroupName"] == log_group_name:
+            log_group_arn = log_group["arn"]
+            region = log_group_arn.split(":")[3]
+
+            return log_group_arn, region
+
+    raise ValueError("Cannot find cloudwatch log group ARN")
+
+
 def delete_sqs_record(sqs_arn: str, receipt_handle: str) -> None:
     """
     Sqs records can be batched, we should delete the successful one:
@@ -361,6 +413,22 @@ def s3_object_id(event_payload: dict[str, Any]) -> str:
     object_key: str = event_payload["fields"]["aws"]["s3"]["object"]["key"]
 
     src: str = f"{bucket_arn}{object_key}"
+    hex_prefix = hashlib.sha256(src.encode("UTF-8")).hexdigest()[:10]
+
+    return f"{hex_prefix}-{offset:012d}"
+
+
+def cloudwatch_logs_object_id(event_payload: dict[str, Any]) -> str:
+    """
+    Generates a unique event id given the payload of an event from an sqs queue
+    """
+
+    offset: int = event_payload["fields"]["log"]["offset"]
+    group_name: str = event_payload["fields"]["aws"]["cloudwatch_logs"]["group_name"]
+    stream_name: str = event_payload["fields"]["aws"]["cloudwatch_logs"]["stream_name"]
+    event_id: str = event_payload["fields"]["aws"]["cloudwatch_logs"]["event_id"]
+
+    src: str = f"{group_name}{stream_name}{event_id}"
     hex_prefix = hashlib.sha256(src.encode("UTF-8")).hexdigest()[:10]
 
     return f"{hex_prefix}-{offset:012d}"
