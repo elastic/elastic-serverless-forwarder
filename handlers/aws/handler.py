@@ -218,8 +218,6 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             processing_sent_event += 1
 
             if lambda_context is not None and lambda_context.get_remaining_time_in_millis() < _completion_grace_period:
-                processing_composing_shipper.flush()
-
                 return True, processing_sent_event
 
             return False, processing_sent_event
@@ -288,7 +286,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 continue
 
             if event_input.id in composite_shipper_cache:
-                composite_shipper = composite_shipper_cache[event_input.id]
+                composite_shipper = composite_shipper_cache[input_id]
             else:
                 composite_shipper = get_shipper_from_input(
                     event_input=event_input,
@@ -310,6 +308,9 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                     )
 
                     if timeout:
+                        for composite_shipper in composite_shipper_cache.values():
+                            composite_shipper.flush()
+
                         handle_timeout(
                             remaining_sqs_records=lambda_event["Records"][current_sqs_record:],
                             timeout_input_type=input_type,
@@ -328,6 +329,9 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                         processing_sent_event=sent_event,
                     )
                     if timeout:
+                        for composite_shipper in composite_shipper_cache.values():
+                            composite_shipper.flush()
+
                         handle_timeout(
                             remaining_sqs_records=lambda_event["Records"][current_sqs_record:],
                             timeout_input_type=input_type,
