@@ -164,7 +164,7 @@ class ElasticsearchShipper(CommonShipper):
 
         return
 
-    def flush(self) -> Any:
+    def flush(self) -> None:
         if len(self._bulk_actions) > 0:
             errors = es_bulk(self._es_client, self._bulk_actions, **self._bulk_kwargs)
             self._handle_outcome(errors=errors)

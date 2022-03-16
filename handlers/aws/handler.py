@@ -10,6 +10,7 @@ from aws_lambda_typing import context as context_
 
 from share import parse_config, shared_logger
 from share.secretsmanager import aws_sm_expander
+from shippers import CompositeShipper
 
 from .cloudwatch_logs_trigger import (
     _from_awslogs_data_to_event,
@@ -204,17 +205,20 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             return ret
 
     if trigger_type == "s3-sqs" or trigger_type == "sqs":
+        composite_shipper_cache: dict[str, CompositeShipper] = {}
 
         def event_processing_callback(
-            processing_es_event: dict[str, Any], processing_sent_event: int
+            processing_composing_shipper: CompositeShipper,
+            processing_es_event: dict[str, Any],
+            processing_sent_event: int,
         ) -> tuple[bool, int]:
             shared_logger.debug("es_event", extra={"es_event": processing_es_event})
 
-            composite_shipper.send(processing_es_event)
+            processing_composing_shipper.send(processing_es_event)
             processing_sent_event += 1
 
             if lambda_context is not None and lambda_context.get_remaining_time_in_millis() < _completion_grace_period:
-                composite_shipper.flush()
+                processing_composing_shipper.flush()
 
                 return True, processing_sent_event
 
@@ -283,20 +287,28 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 shared_logger.warning("no input defined", extra={"input_type": input_type, "input_id": input_id})
                 continue
 
-            composite_shipper = get_shipper_from_input(
-                event_input=event_input,
-                lambda_event=lambda_event,
-                at_record=current_sqs_record,
-                config_yaml=config_yaml,
-            )
+            if event_input.id in composite_shipper_cache:
+                composite_shipper = composite_shipper_cache[event_input.id]
+            else:
+                composite_shipper = get_shipper_from_input(
+                    event_input=event_input,
+                    lambda_event=lambda_event,
+                    at_record=current_sqs_record,
+                    config_yaml=config_yaml,
+                )
+
+                composite_shipper_cache[event_input.id] = composite_shipper
 
             if input_type == "sqs" or input_type == "cloudwatch-logs":
                 for es_event, last_ending_offset in _handle_sqs_event(
                     sqs_record, is_continuation_of_cloudwatch_logs, input_id
                 ):
                     timeout, sent_event = event_processing_callback(
-                        processing_es_event=es_event, processing_sent_event=sent_event
+                        processing_composing_shipper=composite_shipper,
+                        processing_es_event=es_event,
+                        processing_sent_event=sent_event,
                     )
+
                     if timeout:
                         handle_timeout(
                             remaining_sqs_records=lambda_event["Records"][current_sqs_record:],
@@ -311,7 +323,9 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             elif input_type == "s3-sqs":
                 for es_event, last_ending_offset, current_s3_record in _handle_s3_sqs_event(sqs_record):
                     timeout, sent_event = event_processing_callback(
-                        processing_es_event=es_event, processing_sent_event=sent_event
+                        processing_composing_shipper=composite_shipper,
+                        processing_es_event=es_event,
+                        processing_sent_event=sent_event,
                     )
                     if timeout:
                         handle_timeout(
@@ -325,6 +339,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                         )
                         return "continuing"
 
+        for composite_shipper in composite_shipper_cache.values():
             composite_shipper.flush()
 
         shared_logger.info("lambda processed all the events", extra={"sent_event": sent_event})
