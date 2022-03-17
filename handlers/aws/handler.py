@@ -207,7 +207,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
     if trigger_type == "s3-sqs" or trigger_type == "sqs":
         composite_shipper_cache: dict[str, CompositeShipper] = {}
 
-        def event_processing_callback(
+        def event_processing(
             processing_composing_shipper: CompositeShipper,
             processing_es_event: dict[str, Any],
             processing_sent_event: int,
@@ -301,7 +301,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 for es_event, last_ending_offset in _handle_sqs_event(
                     sqs_record, is_continuation_of_cloudwatch_logs, input_id
                 ):
-                    timeout, sent_event = event_processing_callback(
+                    timeout, sent_event = event_processing(
                         processing_composing_shipper=composite_shipper,
                         processing_es_event=es_event,
                         processing_sent_event=sent_event,
@@ -323,7 +323,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
             elif input_type == "s3-sqs":
                 for es_event, last_ending_offset, current_s3_record in _handle_s3_sqs_event(sqs_record):
-                    timeout, sent_event = event_processing_callback(
+                    timeout, sent_event = event_processing(
                         processing_composing_shipper=composite_shipper,
                         processing_es_event=es_event,
                         processing_sent_event=sent_event,
