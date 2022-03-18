@@ -164,7 +164,7 @@ class ElasticsearchShipper(CommonShipper):
 
         return
 
-    def flush(self) -> Any:
+    def flush(self) -> None:
         if len(self._bulk_actions) > 0:
             errors = es_bulk(self._es_client, self._bulk_actions, **self._bulk_kwargs)
             self._handle_outcome(errors=errors)
@@ -173,7 +173,7 @@ class ElasticsearchShipper(CommonShipper):
 
         return
 
-    def discover_dataset(self, event: Dict[str, Any]) -> None:
+    def discover_dataset(self, event: Dict[str, Any], at_record: int = 0) -> None:
         if self._es_index_or_datastream_name != "":
             if self._es_index_or_datastream_name.startswith("logs-"):
                 datastream_components = self._es_index_or_datastream_name.split("-")
@@ -195,10 +195,10 @@ class ElasticsearchShipper(CommonShipper):
         else:
             self._namespace = "default"
 
-            if "Records" not in event or len(event["Records"]) < 1 or "body" not in event["Records"][0]:
+            if "Records" not in event or len(event["Records"]) < at_record or "body" not in event["Records"][at_record]:
                 self._dataset = "generic"
             else:
-                body: str = event["Records"][0]["body"]
+                body: str = event["Records"][at_record]["body"]
                 s3_object_key: str = ""
                 try:
                     json_body: Dict[str, Any] = json.loads(body)

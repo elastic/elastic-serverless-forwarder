@@ -369,7 +369,7 @@ Resources:
 
     * Adding an Event Source Mapping when using the SQS replay queue
       ```json
-      "ESFREplayQueueEventSource": {
+      "ESFReplayQueueEventSource": {
         "Type": "AWS::Lambda::EventSourceMapping",
         "Properties": {
           "Enabled": true,
