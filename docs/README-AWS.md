@@ -7,10 +7,11 @@ The Elastic Serverless Forwarder is an AWS Lambda function that ships logs from 
 - Direct SQS message payload input
 - S3 SQS Event Notifications input
 - Kinesis Data Stream input
+- CloudWatch Logs subscription filter input
 
 The config yaml file (details described below) acts as an input where the user, based on input type, configures things like SQS queue ARN and Elasticsearch connection information. Multiple input sections can be created in the configuration file pointing to different queues that match specific log types.
 
-A continuing SQS queue is set up by the Lambda deployment automatically. It is used to trigger a new function invocation so that Lambda can continue from exactly where the last function run was terminated. By default a Lambda function runs for a max of 15 minutes. When processing large log files there’s a possibility that the function may be exited by AWS in the middle of processing a log file. The code handles this scenario gracefully by keeping track of the file and offset its processing.
+A continuing SQS queue is set up by the Lambda deployment automatically. It is used to trigger a new function invocation so that Lambda can continue from exactly where the last function run was terminated. By default a Lambda function runs for a max of 15 minutes. When processing large log files, sqs direct message payload or CloudWatch Logs events there’s a possibility that the function may be exited by AWS in the middle of processing. The code handles this scenario gracefully by keeping track of the last offset it processed.
 
 Application supports automatic routing of various AWS service logs to the corresponding data streams for further processing and storage in the Elasticsearch cluster.
 
@@ -33,6 +34,9 @@ For more information, read the AWS [documentation](https://docs.aws.amazon.com/A
 **Kinesis Data Stream input:**
 
 The Lambda function supports ingesting logs contained in the payload of a Kinesis data stream record and sends them to Elastic. The Kinesis data stream serves as a trigger for the Lambda function. When a new record gets written to a Kinesis data stream the Lambda function gets triggered. Users will set up separate Kinesis data streams for each type of logs, The config param for Elasticsearch output `es_index_or_datastream_name` is mandatory. If the value is set to an Elasticsearch datastream, the type of logs must be defined with proper value configuration param. A single configuration file can have many input sections, pointing to different Kinesis data streams that match specific log types.
+
+**CloudWatch Logs subscription filter input:**
+The Lambda function supports ingesting logs contained in the message payload of CloudWatch Logs events. The CloudWatch Logs serves as a trigger for the Lambda function. Users will set up separate Cloudwatch log groups for each type of logs, The config param for Elasticsearch output `es_index_or_datastream_name` is mandatory. If the value is set to an Elasticsearch datastream, the type of logs must be defined with proper value configuration param. A single configuration file can have many input sections, pointing to different CloudWatch Logs log groups that match specific log types.
 
 
 ### Deployment:
@@ -75,9 +79,12 @@ At a high level the deployment consists of the following steps:
         * From "Trigger configuration" dropdown select "SQS"
         * In the "SQS queue" field chose the queue or insert the ARN of the queue you want to use as trigger for your Elastic Serverless Forwarder
         * The SQS queue you want to use as trigger must have a visibility timeout of 910 seconds, 10 seconds more than the Elastic Forwarder for Serverless Lambda timeout.
-      - When using kinesis input:
+      - When using Kinesis data stream input:
         * From "Trigger configuration" dropdown select "Kinesis"
         * In the "Kinesis stream" field chose the stream name you want to use as trigger for your Elastic Serverless Forwarder
+      - When using CloudWatch Logs events input:
+        * From "Trigger configuration" dropdown select "CloudWatch Logs"
+        * In the "Log group" field chose the log group you want to use as trigger for your Elastic Serverless Forwarder
     * Click on "Add"
 
 ### Cloudformation
@@ -112,8 +119,8 @@ Resources:
     aws cloudformation get-template --stack-name "${LAMBDA_STACK_ARN}" --query TemplateBody > sar-lambda.json
     ```
 
-* Edit sar-lambda.json to add required IAM permissions for the Lambda to run:
-  * Add `Policies` to Resources.`ElasticServerlessForwarderFunctionRole.Properties`
+* Edit sar-lambda.json to add required permissions for the Lambda to run:
+  * Add `Policies` to `Resources.ElasticServerlessForwarderFunctionRole.Properties`
   ```json
    "Policies": [
     {
@@ -268,6 +275,34 @@ Resources:
   ]
   ```
 
+  * Add an `AWS::Lambda::Permission` entry to `Resources` for every CloudWatch Logs log group you will use as trigger:
+  ```json
+  "ElasticServerlessForwarderCloudWatchPolicy1": {
+    "Type": "AWS::Lambda::Permission",
+    "Properties": {
+      "FunctionName": {
+        "Ref": "ElasticServerlessForwarderFunction"
+      },
+      "Action": "lambda:InvokeFunction",
+      "Principal": "logs.%AWS_REGION%.amazonaws.com",
+      "SourceAccount": "%AWS_ACCOUNT_ID%",
+      "SourceArn": "arn:aws:logs:%AWS_REGION%:%AWS_ACCOUNT_ID%:log-group:%LOG_GROUP_NAME_1%:*"
+      }
+  },
+  "ElasticServerlessForwarderCloudWatchPolicy2": {
+    "Type": "AWS::Lambda::Permission",
+    "Properties": {
+      "FunctionName": {
+        "Ref": "ElasticServerlessForwarderFunction"
+      },
+      "Action": "lambda:InvokeFunction",
+      "Principal": "logs.%AWS_REGION%.amazonaws.com",
+      "SourceAccount": "%AWS_ACCOUNT_ID%",
+      "SourceArn": "arn:aws:logs:%AWS_REGION%:%AWS_ACCOUNT_ID%:log-group:%LOG_GROUP_NAME_2%:*"
+      }
+  }
+  ```
+
 * Edit sar-lambda.json to further customise your deployment of Elastic Forwarder for Serverless
   * Examples:
     * Adding environment variables: add entries in `Resources.ElasticServerlessForwarderFunction.Environment.Variables`
@@ -300,7 +335,7 @@ Resources:
         }
       }
       ```
-    * Adding an Event Source Mapping when using Kinesis input
+    * Adding an Event Source Mapping when using Kinesis data stream input
       ```json
       "KinesisStreamEventSource": {
         "Type": "AWS::Lambda::EventSourceMapping",
@@ -314,10 +349,27 @@ Resources:
         }
       }
       ```
+    * Adding a subscription filter when using CloudWatch Logs subscription filter input
+      ```json
+      "CloudwatchLogsSubscriptionFilter": {
+        "Type": "AWS::Logs::SubscriptionFilter",
+        "Properties": {
+          "DestinationArn": {
+            "Fn::GetAtt": [
+              "ElasticServerlessForwarderFunction",
+              "Arn"
+            ]
+          },
+          "FilterPattern": "", ## CUSTOMISE IF YOU NEED TO FILTER EVENTS
+          "LogGroupName": "%LOG_GROUP_NAME%", ## ADD YOUR CLOUDWATCH LOGS LOG GROUP NAME
+          "StartingPosition": "TRIM_HORIZON"
+        }
+      }
+      ```
 
     * Adding an Event Source Mapping when using the SQS replay queue
       ```json
-      "ESFREplayQueueEventSource": {
+      "ESFReplayQueueEventSource": {
         "Type": "AWS::Lambda::EventSourceMapping",
         "Properties": {
           "Enabled": true,
@@ -451,6 +503,13 @@ On top of this basic permission the following policies must be provided:
   }
   ```
 
+#### Lambda Resource-based policy for CloudWatch Logs subscription filter input
+* For CloudWatch Logs subscription filter log group resources that you want to use as triggers of the Lambda the following must be allowed as Resource-based policy in separated Policy statements:
+  * Principal: `logs.%AWS_REGION%.amazonaws.com`
+  * Action: `lambda:InvokeFunction`
+  * Source ARN: `arn:aws:logs:%AWS_REGION%:%AWS_ACCOUNT_ID%:log-group:%LOG_GROUP_NAME%:*`
+
+
 ## S3_CONFIG_FILE
 The Elastic Forwarder for Serverless Lambda rely on a config yaml file to be uploaded to an S3 bucket and referenced by the `S3_CONFIG_FILE` environment variable.
 
@@ -502,6 +561,21 @@ inputs:
           es_index_or_datastream_name: "logs-generic-default"
           batch_max_actions: 500
           batch_max_bytes: 10485760
+  - type: "cloudwatch-logs"
+    id: "arn:aws:logs:%AWS_REGION%:%AWS_ACCOUNT_ID%:log-group:%LOG_GROUP_NAME%"
+    outputs:
+      - type: "elasticsearch"
+        args:
+          # either elasticsearch_url or cloud_id, elasticsearch_url takes precedence
+          elasticsearch_url: "http(s)://domain.tld:port"
+          cloud_id: "cloud_id:bG9jYWxob3N0OjkyMDAkMA=="
+          # either api_key or username/password, api_key takes precedence
+          api_key: "YXBpX2tleV9pZDphcGlfa2V5X3NlY3JldAo="
+          username: "username"
+          password: "password"
+          es_index_or_datastream_name: "logs-generic-default"
+          batch_max_actions: 500
+          batch_max_bytes: 10485760
 ```
 
 #### Fields
@@ -509,7 +583,7 @@ inputs:
 A list of inputs (ie: triggers) for the Elastic Forwarder for Serverless Lambda
 
 `inputs.[].type`:
-The type of the trigger input (currently `kinesis-data-stream`, `sqs` and`s3-sqs` supported)
+The type of the trigger input (currently `cloudwatch-logs`, `kinesis-data-stream`, `sqs` and`s3-sqs` supported)
 
 `inputs.[].id`:
 The arn of the trigger input according to the type. Multiple input entries can have different unique ids with the same type.
@@ -622,5 +696,5 @@ Every other error occurring during the execution of the Lambda is silently ignor
 
 ## Execution timeout
 There is a grace period of 2 minutes before the timeout of the Lambda where no more ingestion will happen. Instead, during this grace period the Lambda will collect and handle any unprocessed payload in the batch of the input used as trigger.
-In case of an S3 SQS Event Notifications input and direct SQS message payload input, the unprocessed batch will be sent to the SQS continuing queue.
+In case of an CloudWatch Logs event input, S3 SQS Event Notifications input and direct SQS message payload input, the unprocessed batch will be sent to the SQS continuing queue.
 In case of a Kinesis Data Stream input the Lambda will return the sequence numbers of the unprocessed batch in the `batchItemFailures` response: allowing the affected records to be included in following batches that will trigger the Lambda. It is therefore important to set enough number of retry attempts and/or lower the size of the batches in order for the whole batch to be able to be processed at most during a single execution of the Lambda and/or giving some extra retry attemps for the whole content to be processed by multiple executions of the Lambda.
