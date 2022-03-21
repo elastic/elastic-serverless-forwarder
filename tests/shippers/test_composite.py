@@ -7,6 +7,7 @@ from unittest import TestCase
 
 import pytest
 
+from share import IncludeExcludeFilter, IncludeExcludeRule
 from shippers import CommonShipper, CompositeShipper, EventIdGeneratorCallable, ReplayHandlerCallable
 
 
@@ -37,12 +38,29 @@ class TestCompositeShipper(TestCase):
         composite_shipper.add_shipper(dummy_shipper)
         assert composite_shipper._shippers == [dummy_shipper]
 
+    def test_add_include_exclude_filter(self) -> None:
+        composite_shipper = CompositeShipper()
+        include_exclude_filter = IncludeExcludeFilter()
+        composite_shipper.add_include_exclude_filter(include_exclude_filter)
+        assert composite_shipper._include_exclude_filter == include_exclude_filter
+
     def test_send(self) -> None:
         dummy_shipper = DummyShipper()
         composite_shipper = CompositeShipper()
         composite_shipper.add_shipper(dummy_shipper)
         composite_shipper.send({})
         assert dummy_shipper._sent == [{}]
+
+    def test_send_with_include_exclude_filter(self) -> None:
+        dummy_shipper = DummyShipper()
+        composite_shipper = CompositeShipper()
+        include_exclude_filter = IncludeExcludeFilter(
+            include_patterns=[IncludeExcludeRule(path_key="key", pattern="match")]
+        )
+        composite_shipper.add_include_exclude_filter(include_exclude_filter)
+        composite_shipper.add_shipper(dummy_shipper)
+        composite_shipper.send({"key": "value"})
+        assert dummy_shipper._sent == []
 
     def test_set_event_id_generator(self) -> None:
         dummy_shipper = DummyShipper()
