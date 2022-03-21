@@ -6,6 +6,7 @@ from typing import Any, Callable, Optional
 
 import yaml
 
+from .include_exlude import IncludeExcludeFilter, IncludeExcludeRule
 from .logger import logger as shared_logger
 
 _available_input_types: list[str] = ["cloudwatch-logs", "s3-sqs", "sqs", "kinesis-data-stream"]
@@ -181,6 +182,7 @@ class Input:
         self.id = input_id
         self._tags: list[str] = []
         self._outputs: dict[str, Output] = {}
+        self._include_exclude_filter: Optional[IncludeExcludeFilter] = None
 
     @property
     def type(self) -> str:
@@ -225,6 +227,17 @@ class Input:
         self._tags = [value for value in values if isinstance(value, str)]
         if len(self._tags) != len(values):
             raise ValueError(f"Each tag must be of type str, given: {values}")
+
+    @property
+    def include_exclude_filter(self) -> Optional[IncludeExcludeFilter]:
+        return self._include_exclude_filter
+
+    @include_exclude_filter.setter
+    def include_exclude_filter(self, value: IncludeExcludeFilter) -> None:
+        if not isinstance(value, IncludeExcludeFilter):
+            raise ValueError("An error occurred while setting include and exclude filter")
+
+        self._include_exclude_filter = value
 
     def get_output_by_type(self, output_type: str) -> Optional[Output]:
         """
@@ -333,6 +346,47 @@ def parse_config(config_yaml: str, expanders: list[Callable[[str], str]] = []) -
 
         if "tags" in input_config:
             current_input.tags = input_config["tags"]
+
+        include_rules: list[IncludeExcludeRule] = []
+        if "include" in input_config:
+            include_rules_from_config = input_config["include"]
+            if not isinstance(include_rules_from_config, list):
+                raise ValueError("Must be provided list type for include")
+
+            for i, include_rule in enumerate(include_rules_from_config):
+                if not isinstance(include_rule, dict) or "key" not in include_rule or "pattern" not in include_rule:
+                    raise ValueError(f"Must be provided dict with `key` and `pattern` fields for include rule #{i}")
+
+                if not isinstance(include_rule["key"], str):
+                    raise ValueError(f"Must be provided str type for `key` field for include rule #{i}")
+
+                if not isinstance(include_rule["pattern"], str):
+                    raise ValueError(f"Must be provided str type for `pattern` field for include rule #{i}")
+
+                include_rules.append(IncludeExcludeRule(path_key=include_rule["key"], pattern=include_rule["pattern"]))
+
+        exclude_rules: list[IncludeExcludeRule] = []
+        if "exclude" in input_config:
+            exclude_rules_from_config = input_config["exclude"]
+            if not isinstance(exclude_rules_from_config, list):
+                raise ValueError("Must be provided list type for exclude")
+
+            for i, exclude_rule in enumerate(exclude_rules_from_config):
+                if not isinstance(exclude_rule, dict) or "key" not in exclude_rule or "pattern" not in exclude_rule:
+                    raise ValueError(f"Must be provided dict with `key` and `pattern` fields for exclude rule #{i}")
+
+                if not isinstance(exclude_rule["key"], str):
+                    raise ValueError(f"Must be provided str type for `key` field for exclude rule #{i}")
+
+                if not isinstance(exclude_rule["pattern"], str):
+                    raise ValueError(f"Must be provided str type for `pattern` field for exclude rule #{i}")
+
+                exclude_rules.append(IncludeExcludeRule(path_key=exclude_rule["key"], pattern=exclude_rule["pattern"]))
+
+        if len(include_rules) > 0 or len(exclude_rules) > 0:
+            current_input.include_exclude_filter = IncludeExcludeFilter(
+                include_patterns=include_rules, exclude_patterns=exclude_rules
+            )
 
         if "outputs" not in input_config or not isinstance(input_config["outputs"], list):
             raise ValueError("No valid outputs for input")
