@@ -2,14 +2,12 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
-from __future__ import annotations
-
 import re
 from unittest import TestCase
 
 import pytest
 
-from share import Config, ElasticsearchOutput, Input, Output, parse_config
+from share import Config, ElasticsearchOutput, IncludeExcludeFilter, IncludeExcludeRule, Input, Output, parse_config
 
 
 class DummyOutput(Output):
@@ -426,6 +424,19 @@ class TestInput(TestCase):
             input_sqs = Input(input_type="s3-sqs", input_id="id")
             with self.assertRaisesRegex(ValueError, "Each tag must be of type str, given: \\['tag1', 2, 'tag3'\\]"):
                 input_sqs.tags = ["tag1", 2, "tag3"]  # type:ignore
+
+    def test_input_include_exclude_filter(self) -> None:
+        with self.subTest("valid include_exclude_filter"):
+            input_sqs = Input(input_type="s3-sqs", input_id="id")
+            include_exclude_filter = IncludeExcludeFilter()
+            input_sqs.include_exclude_filter = include_exclude_filter
+
+            assert input_sqs.include_exclude_filter == include_exclude_filter
+
+        with self.subTest("include_exclude_filter not IncludeExcludeFilter"):
+            input_sqs = Input(input_type="s3-sqs", input_id="id")
+            with self.assertRaisesRegex(ValueError, "An error occurred while setting include and exclude filter"):
+                input_sqs.include_exclude_filter = "wrong type"  # type:ignore
 
     def test_get_output_by_type(self) -> None:
         with self.subTest("none output"):
@@ -1093,6 +1104,327 @@ class TestParseConfig(TestCase):
             assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
             assert elasticsearch.batch_max_actions == 500
             assert elasticsearch.batch_max_bytes == 10485760
+
+        with self.subTest("valid include_exclude_filter"):
+            config = parse_config(
+                config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                include:
+                  - key: include_key1
+                    pattern: include_pattern1
+                  - key: include_key2
+                    pattern: include_pattern2
+                exclude:
+                  - key: exclude_key1
+                    pattern: exclude_pattern1
+                  - key: exclude_key2
+                    pattern: exclude_pattern2
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      es_index_or_datastream_name: "es_index_or_datastream_name"
+            """
+            )
+
+            input_sqs = config.get_input_by_type_and_id(input_type="s3-sqs", input_id="id")
+            assert input_sqs is not None
+            assert input_sqs.type == "s3-sqs"
+            assert input_sqs.id == "id"
+            assert input_sqs.include_exclude_filter == IncludeExcludeFilter(
+                include_patterns=[
+                    IncludeExcludeRule(path_key="include_key1", pattern="include_pattern1"),
+                    IncludeExcludeRule(path_key="include_key2", pattern="include_pattern2"),
+                ],
+                exclude_patterns=[
+                    IncludeExcludeRule(path_key="exclude_key1", pattern="exclude_pattern1"),
+                    IncludeExcludeRule(path_key="exclude_key2", pattern="exclude_pattern2"),
+                ],
+            )
+
+            elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
+
+            assert elasticsearch is not None
+            assert isinstance(elasticsearch, ElasticsearchOutput)
+            assert elasticsearch.type == "elasticsearch"
+            assert elasticsearch.cloud_id == "cloud_id"
+            assert elasticsearch.api_key == "api_key"
+            assert elasticsearch.es_index_or_datastream_name == "es_index_or_datastream_name"
+            assert elasticsearch.tags == []
+            assert elasticsearch.batch_max_actions == 500
+            assert elasticsearch.batch_max_bytes == 10485760
+
+        with self.subTest("no list for include"):
+            with self.assertRaisesRegex(ValueError, "Must be provided list type for include"):
+                config = parse_config(
+                    config_yaml="""
+                inputs:
+                  - type: s3-sqs
+                    id: id
+                    include:
+                      key: include_key1
+                      pattern: include_pattern1
+                    exclude:
+                      - key: exclude_key1
+                        pattern: exclude_pattern1
+                      - key: exclude_key2
+                        pattern: exclude_pattern2
+                    outputs:
+                      - type: elasticsearch
+                        args:
+                          cloud_id: "cloud_id"
+                          api_key: "api_key"
+                          es_index_or_datastream_name: "es_index_or_datastream_name"
+                """
+                )
+
+        with self.subTest("no key in include"):
+            with self.assertRaisesRegex(
+                ValueError, "Must be provided dict with `key` and `pattern` fields for include rule #1"
+            ):
+                config = parse_config(
+                    config_yaml="""
+                inputs:
+                  - type: s3-sqs
+                    id: id
+                    include:
+                      - key: include_key1
+                        pattern: include_pattern1
+                      - pattern: include_pattern2
+                    exclude:
+                      - key: exclude_key1
+                        pattern: exclude_pattern1
+                      - key: exclude_key2
+                        pattern: exclude_pattern2
+                    outputs:
+                      - type: elasticsearch
+                        args:
+                          cloud_id: "cloud_id"
+                          api_key: "api_key"
+                          es_index_or_datastream_name: "es_index_or_datastream_name"
+                """
+                )
+
+        with self.subTest("no pattern in include"):
+            with self.assertRaisesRegex(
+                ValueError, "Must be provided dict with `key` and `pattern` fields for include rule #1"
+            ):
+                config = parse_config(
+                    config_yaml="""
+                inputs:
+                  - type: s3-sqs
+                    id: id
+                    include:
+                      - key: include_key1
+                        pattern: include_pattern1
+                      - key: include_key2
+                    exclude:
+                      - key: exclude_key1
+                        pattern: exclude_pattern1
+                      - key: exclude_key2
+                        pattern: exclude_pattern2
+                    outputs:
+                      - type: elasticsearch
+                        args:
+                          cloud_id: "cloud_id"
+                          api_key: "api_key"
+                          es_index_or_datastream_name: "es_index_or_datastream_name"
+                """
+                )
+
+        with self.subTest("key no str in include"):
+            with self.assertRaisesRegex(ValueError, "Must be provided str type for `key` field for include rule #1"):
+                config = parse_config(
+                    config_yaml="""
+                inputs:
+                  - type: s3-sqs
+                    id: id
+                    include:
+                      - key: include_key1
+                        pattern: include_pattern1
+                      - pattern: include_pattern2
+                        key:
+                          - include_key2
+
+                    exclude:
+                      - key: exclude_key1
+                        pattern: exclude_pattern1
+                      - key: exclude_key2
+                        pattern: exclude_pattern2
+                    outputs:
+                      - type: elasticsearch
+                        args:
+                          cloud_id: "cloud_id"
+                          api_key: "api_key"
+                          es_index_or_datastream_name: "es_index_or_datastream_name"
+                """
+                )
+
+        with self.subTest("pattern no str in include"):
+            with self.assertRaisesRegex(
+                ValueError, "Must be provided str type for `pattern` field for include rule #1"
+            ):
+                config = parse_config(
+                    config_yaml="""
+                inputs:
+                  - type: s3-sqs
+                    id: id
+                    include:
+                      - key: include_key1
+                        pattern: include_pattern1
+                      - key: include_key2
+                        pattern:
+                          - include_pattern2
+                    exclude:
+                      - key: exclude_key1
+                        pattern: exclude_pattern1
+                      - key: exclude_key2
+                        pattern: exclude_pattern2
+                    outputs:
+                      - type: elasticsearch
+                        args:
+                          cloud_id: "cloud_id"
+                          api_key: "api_key"
+                          es_index_or_datastream_name: "es_index_or_datastream_name"
+                """
+                )
+
+        with self.subTest("no list for exclude"):
+            with self.assertRaisesRegex(ValueError, "Must be provided list type for exclude"):
+                config = parse_config(
+                    config_yaml="""
+                inputs:
+                  - type: s3-sqs
+                    id: id
+                    include:
+                      - key: include_key1
+                        pattern: include_pattern1
+                      - key: include_key2
+                        pattern: include_pattern2
+                    exclude:
+                      key: exclude_key1
+                      pattern: exclude_pattern1
+                    outputs:
+                      - type: elasticsearch
+                        args:
+                          cloud_id: "cloud_id"
+                          api_key: "api_key"
+                          es_index_or_datastream_name: "es_index_or_datastream_name"
+                """
+                )
+
+        with self.subTest("no key in exclude"):
+            with self.assertRaisesRegex(
+                ValueError, "Must be provided dict with `key` and `pattern` fields for exclude rule #1"
+            ):
+                config = parse_config(
+                    config_yaml="""
+                inputs:
+                  - type: s3-sqs
+                    id: id
+                    include:
+                      - key: include_key1
+                        pattern: include_pattern1
+                      - key: include_key2
+                        pattern: include_pattern2
+                    exclude:
+                      - key: exclude_key1
+                        pattern: exclude_pattern1
+                      - pattern: exclude_pattern2
+                    outputs:
+                      - type: elasticsearch
+                        args:
+                          cloud_id: "cloud_id"
+                          api_key: "api_key"
+                          es_index_or_datastream_name: "es_index_or_datastream_name"
+                """
+                )
+
+        with self.subTest("no pattern in exclude"):
+            with self.assertRaisesRegex(
+                ValueError, "Must be provided dict with `key` and `pattern` fields for exclude rule #1"
+            ):
+                config = parse_config(
+                    config_yaml="""
+                inputs:
+                  - type: s3-sqs
+                    id: id
+                    include:
+                      - key: include_key1
+                        pattern: include_pattern1
+                      - key: include_key2
+                        pattern: include_pattern2
+                    exclude:
+                      - key: exclude_key1
+                        pattern: exclude_pattern1
+                      - key: exclude_key2
+                    outputs:
+                      - type: elasticsearch
+                        args:
+                          cloud_id: "cloud_id"
+                          api_key: "api_key"
+                          es_index_or_datastream_name: "es_index_or_datastream_name"
+                """
+                )
+
+        with self.subTest("key no str in exclude"):
+            with self.assertRaisesRegex(ValueError, "Must be provided str type for `key` field for exclude rule #1"):
+                config = parse_config(
+                    config_yaml="""
+                inputs:
+                  - type: s3-sqs
+                    id: id
+                    include:
+                      - key: include_key1
+                        pattern: include_pattern1
+                      - key: include_key2
+                        pattern: include_pattern2
+                    exclude:
+                      - key: exclude_key1
+                        pattern: exclude_pattern1
+                      - pattern: exclude_pattern2
+                        key:
+                          - exclude_key2
+                    outputs:
+                      - type: elasticsearch
+                        args:
+                          cloud_id: "cloud_id"
+                          api_key: "api_key"
+                          es_index_or_datastream_name: "es_index_or_datastream_name"
+                """
+                )
+
+        with self.subTest("pattern no str in exclude"):
+            with self.assertRaisesRegex(
+                ValueError, "Must be provided str type for `pattern` field for exclude rule #1"
+            ):
+                config = parse_config(
+                    config_yaml="""
+                inputs:
+                  - type: s3-sqs
+                    id: id
+                    include:
+                      - key: include_key1
+                        pattern: include_pattern1
+                      - key: include_key2
+                        pattern: include_pattern2
+                    exclude:
+                      - key: exclude_key1
+                        pattern: exclude_pattern1
+                      - key: exclude_key2
+                        pattern:
+                          - exclude_pattern2
+                    outputs:
+                      - type: elasticsearch
+                        args:
+                          cloud_id: "cloud_id"
+                          api_key: "api_key"
+                          es_index_or_datastream_name: "es_index_or_datastream_name"
+                """
+                )
 
         with self.subTest("batch_max_actions not default"):
             config = parse_config(
