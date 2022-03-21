@@ -154,6 +154,8 @@ def get_shipper_from_input(
             except Exception as e:
                 raise OutputConfigException(e)
 
+    composite_shipper.add_include_exclude_filter(event_input.include_exclude_filter)
+
     return composite_shipper
 
 
