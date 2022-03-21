@@ -4,21 +4,22 @@ This functionality is in beta and is subject to change. The design and code is l
 ## Introduction:
 The Elastic Serverless Forwarder is an AWS Lambda function that ships logs from your AWS environment to Elastic. The function can forward data to Elastic self-managed or Elastic cloud environments. It supports the following inputs:
 
-- Direct SQS message payload input
 - S3 SQS Event Notifications input
 - Kinesis Data Stream input
 - CloudWatch Logs subscription filter input
+- Direct SQS message payload input
 
-The config yaml file (details described below) acts as an input where the user, based on input type, configures things like SQS queue ARN and Elasticsearch connection information. Multiple input sections can be created in the configuration file pointing to different queues that match specific log types.
+![Lambda flow](https://github.com/elastic/elastic-serverless-forwarder/raw/lambda-v0.25.0/docs/lambda-flow.png)
 
-A continuing SQS queue is set up by the Lambda deployment automatically. It is used to trigger a new function invocation so that Lambda can continue from exactly where the last function run was terminated. By default a Lambda function runs for a max of 15 minutes. When processing large log files, sqs direct message payload or CloudWatch Logs events there’s a possibility that the function may be exited by AWS in the middle of processing. The code handles this scenario gracefully by keeping track of the last offset it processed.
+A continuing SQS queue is set up by the Lambda deployment automatically. It is used to trigger a new function invocation so that Lambda can continue from exactly where the last function run was terminated. By default a Lambda function runs for a max of 15 minutes. When processing events data there’s a possibility that the function may be exited by AWS in the middle of processing. The code handles this scenario gracefully by keeping track of the last offset it processed.
 
-Application supports automatic routing of various AWS service logs to the corresponding data streams for further processing and storage in the Elasticsearch cluster.
+Any exception or failure scenarios are handled by the Lambda gracefully using a replay queue. The data in the replay queue is stored as individual events. Lambda keeps track of any failed events and writes it to a replay queue that the user can consume from later on by adding additional SQS trigger on the Lambda.
 
-Any exception or failure scenarios are handled by the Lambda gracefully using a replay queue. Lambda keeps track of any failed events and writes it to a replay queue that the user can consume from later on.
+The config yaml file (details described below) acts as an input where the user, based on input type, configures things like SQS queue ARN and Elasticsearch connection information. Multiple input sections can be created in the configuration file pointing to different inputs that match specific log types.
 
+As a first step users should install appropriate [integration](https://docs.elastic.co/en/integrations) assets using the Kibana UI. This sets up appropriate pre-built dashboards, ingest node configurations, and other assets that help you get the most out of the data you ingest. The integrations use [data streams](https://www.elastic.co/guide/en/elasticsearch/reference/current/data-streams.html) with specific [naming conventions](https://www.elastic.co/blog/an-introduction-to-the-elastic-data-stream-naming-scheme) providing users with more granular controls and flexibility on managing the ingested data.
 
-As a first step users should install appropriate integrations in the Kibana UI. This sets up appropriate pre-built dashboards, ingest node configurations, and other assets that help you get the most out of the data you ingest.
+Lambda function also supports writing directly to an index, alias or a custom data stream as well. This can help some users to use the existing Elasticsearch setup like index templates, ingest pipelines or dashboards that you may have already set up and may have developed a business process around it.
 
 **Direct SQS message payload input:**
 
@@ -665,11 +666,18 @@ Using the above configuration, the tags will be set in the following way`["prese
 - Each tag must be a string
 
 ## Routing support for AWS Services Logs
-If the `es_index_or_datastream_name` field is empty or not set in the config file, the ESF Lambda will try to guess where the logs came from
+When using Elastic integrations, as a first step users should install appropriate [integration](https://docs.elastic.co/en/integrations) assets using the Kibana UI. This sets up appropriate pre-built dashboards, ingest node configurations, and other assets that help you get the most out of the data you ingest. The integrations use [data streams](https://www.elastic.co/guide/en/elasticsearch/reference/current/data-streams.html) with specific [naming conventions](https://www.elastic.co/blog/an-introduction-to-the-elastic-data-stream-naming-scheme) providing users with more granular controls and flexibility on managing the ingested data.
 
-If the origin is unknown, or it cannot be matched with any of the following `aws.cloudtrail`, `aws.cloudwatch_logs`, `aws.elb_logs`, `aws.firewall_logs`, `aws.vpcflow`, `aws.waf`, then the `es_index_or_datastream_name` will be set to **"logs-generic-default"**
+For `S3 SQS Event Notifications input` the Lambda function supports automatic routing of several AWS service logs to the corresponding [integration](https://docs.elastic.co/en/integrations) [data streams](https://docs.elastic.co/en/integrations) for further processing and storage in the Elasticsearch cluster. It supports automatic routing of AWS CloudTrail (`aws.cloudtrail`), Amazon CloudWatch Logs (`aws.cloudwatch_logs`), Elastic Load Balancing(`aws.elb_logs`), AWS Network Firewall (`aws.firewall_logs`), Amazon VPC Flow (`aws.vpcflow`) & AWS Web Application Firewall (`aws.waf`) logs to corresponding default integrations data streams. Setting the `es_index_or_datastream_name` field in the configuration file is optional for this use case.
 
-## S3 event notification to SQS
+For most of the other use cases, the user will need to set the `es_index_or_datastream_name` field in the configuration file to route the data to a specific data stream or an index. This value should be set in the following use cases:
+- Users want to write the data to a specific index, alias or a custom data stream and not to the default integration data streams. This can help some users to use the existing Elasticsearch setup like index templates, ingest pipelines or dashboards that you may have already set up and may have developed a business process around it and don’t want to change it.
+- When using `Kinesis Data Stream`, `CloudWatch Logs subscription filter` or `Direct SQS message payload` input. Only `S3 SQS Event Notifications input` method supports automatic routing to default integrations data streams for several AWS services logs.
+- When using `S3 SQS Event Notifications input` but the log types is something other than AWS CloudTrail (`aws.cloudtrail`), Amazon CloudWatch Logs (`aws.cloudwatch_logs`), Elastic Load Balancing (`aws.elb_logs`), AWS Network Firewall (`aws.firewall_logs`), Amazon VPC Flow (`aws.vpcflow`) & AWS Web Application Firewall (`aws.waf`).
+
+If the `es_index_or_datastream_name` is not specified and it cannot be matched with any of the above AWS services then the dataset will be set to "generic" and the namespace to "default" pointing to the data stream name "logs-generic-default".
+
+## Setting up S3 event notification to SQS
 In order to set up an S3 event notification to SQS please look at the official documentation: https://docs.aws.amazon.com/AmazonS3/latest/userguide/NotificationHowTo.html
 
 The event type to set up in the notification should be `s3:ObjectCreated:*`
