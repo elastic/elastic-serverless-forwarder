@@ -9,7 +9,7 @@ The Elastic Serverless Forwarder is an AWS Lambda function that ships logs from 
 - CloudWatch Logs subscription filter input
 - Direct SQS message payload input
 
-![Lambda flow](https://raw.githubusercontent.com/elastic/elastic-serverless-forwarder/main/docs/lambda-flow.png)
+![Lambda flow](https://github.com/elastic/elastic-serverless-forwarder/raw/lambda-v0.25.0/docs/lambda-flow.png)
 
 A continuing SQS queue is set up by the Lambda deployment automatically. It is used to trigger a new function invocation so that Lambda can continue from exactly where the last function run was terminated. By default a Lambda function runs for a max of 15 minutes. When processing events data there’s a possibility that the function may be exited by AWS in the middle of processing. The code handles this scenario gracefully by keeping track of the last offset it processed.
 
