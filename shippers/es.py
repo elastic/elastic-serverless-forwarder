@@ -58,7 +58,6 @@ class ElasticsearchShipper(CommonShipper):
 
         if username:
             es_client_kwargs["http_auth"] = (username, password)
-
         elif api_key:
             es_client_kwargs["api_key"] = api_key
         else:
