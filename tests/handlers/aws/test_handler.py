@@ -1067,9 +1067,9 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 "file": {"path": "source-group/source-stream"},
                             }
                             assert res["hits"]["hits"][0]["_source"]["fields"]["aws"] == {
-                                "cloudwatch_logs": {
-                                    "group_name": "source-group",
-                                    "stream_name": "source-stream",
+                                "awscloudwatch": {
+                                    "log_group": "source-group",
+                                    "log_stream": "source-stream",
                                     "event_id": event_id_cloudwatch_logs,
                                 }
                             }
@@ -1210,9 +1210,9 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 "file": {"path": "source-group/source-stream"},
                             }
                             assert res["hits"]["hits"][0]["_source"]["fields"]["aws"] == {
-                                "cloudwatch_logs": {
-                                    "group_name": "source-group",
-                                    "stream_name": "source-stream",
+                                "awscloudwatch": {
+                                    "log_group": "source-group",
+                                    "log_stream": "source-stream",
                                     "event_id": event_id_cloudwatch_logs,
                                 }
                             }
@@ -1381,9 +1381,9 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 "file": {"path": "source-group/source-stream"},
                             }
                             assert res["hits"]["hits"][0]["_source"]["fields"]["aws"] == {
-                                "cloudwatch_logs": {
-                                    "group_name": "source-group",
-                                    "stream_name": "source-stream",
+                                "awscloudwatch": {
+                                    "log_group": "source-group",
+                                    "log_stream": "source-stream",
                                     "event_id": event_id_cloudwatch_logs,
                                 }
                             }
@@ -1510,9 +1510,9 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 "file": {"path": "source-group/source-stream"},
                             }
                             assert res["hits"]["hits"][0]["_source"]["fields"]["aws"] == {
-                                "cloudwatch_logs": {
-                                    "group_name": "source-group",
-                                    "stream_name": "source-stream",
+                                "awscloudwatch": {
+                                    "log_group": "source-group",
+                                    "log_stream": "source-stream",
                                     "event_id": event_id_cloudwatch_logs,
                                 }
                             }
@@ -2855,9 +2855,9 @@ class TestLambdaHandlerSuccessCloudWatchLogs(TestCase):
                                 "file": {"path": "source-group/source-stream"},
                             }
                             assert res["hits"]["hits"][0]["_source"]["fields"]["aws"] == {
-                                "cloudwatch_logs": {
-                                    "group_name": "source-group",
-                                    "stream_name": "source-stream",
+                                "awscloudwatch": {
+                                    "log_group": "source-group",
+                                    "log_stream": "source-stream",
                                     "event_id": event_id,
                                 }
                             }
@@ -2895,9 +2895,9 @@ class TestLambdaHandlerSuccessCloudWatchLogs(TestCase):
                                 "file": {"path": "source-group/source-stream"},
                             }
                             assert res["hits"]["hits"][1]["_source"]["fields"]["aws"] == {
-                                "cloudwatch_logs": {
-                                    "group_name": "source-group",
-                                    "stream_name": "source-stream",
+                                "awscloudwatch": {
+                                    "log_group": "source-group",
+                                    "log_stream": "source-stream",
                                     "event_id": event_id,
                                 }
                             }
@@ -2962,9 +2962,9 @@ class TestLambdaHandlerSuccessCloudWatchLogs(TestCase):
                                 "file": {"path": "source-group/source-stream"},
                             }
                             assert res["hits"]["hits"][0]["_source"]["fields"]["aws"] == {
-                                "cloudwatch_logs": {
-                                    "group_name": "source-group",
-                                    "stream_name": "source-stream",
+                                "awscloudwatch": {
+                                    "log_group": "source-group",
+                                    "log_stream": "source-stream",
                                     "event_id": event_id,
                                 }
                             }
@@ -3005,9 +3005,9 @@ class TestLambdaHandlerSuccessCloudWatchLogs(TestCase):
                                 "file": {"path": "source-group/source-stream"},
                             }
                             assert res["hits"]["hits"][1]["_source"]["fields"]["aws"] == {
-                                "cloudwatch_logs": {
-                                    "group_name": "source-group",
-                                    "stream_name": "source-stream",
+                                "awscloudwatch": {
+                                    "log_group": "source-group",
+                                    "log_stream": "source-stream",
                                     "event_id": event_id,
                                 }
                             }
