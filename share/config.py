@@ -353,17 +353,8 @@ def parse_config(config_yaml: str, expanders: list[Callable[[str], str]] = []) -
             if not isinstance(include_rules_from_config, list):
                 raise ValueError("Must be provided list type for include")
 
-            for i, include_rule in enumerate(include_rules_from_config):
-                if not isinstance(include_rule, dict) or "key" not in include_rule or "pattern" not in include_rule:
-                    raise ValueError(f"Must be provided dict with `key` and `pattern` fields for include rule #{i}")
-
-                if not isinstance(include_rule["key"], str):
-                    raise ValueError(f"Must be provided str type for `key` field for include rule #{i}")
-
-                if not isinstance(include_rule["pattern"], str):
-                    raise ValueError(f"Must be provided str type for `pattern` field for include rule #{i}")
-
-                include_rules.append(IncludeExcludeRule(path_key=include_rule["key"], pattern=include_rule["pattern"]))
+            for include_rule in include_rules_from_config:
+                include_rules.append(IncludeExcludeRule(pattern=include_rule))
 
         exclude_rules: list[IncludeExcludeRule] = []
         if "exclude" in input_config:
@@ -371,17 +362,8 @@ def parse_config(config_yaml: str, expanders: list[Callable[[str], str]] = []) -
             if not isinstance(exclude_rules_from_config, list):
                 raise ValueError("Must be provided list type for exclude")
 
-            for i, exclude_rule in enumerate(exclude_rules_from_config):
-                if not isinstance(exclude_rule, dict) or "key" not in exclude_rule or "pattern" not in exclude_rule:
-                    raise ValueError(f"Must be provided dict with `key` and `pattern` fields for exclude rule #{i}")
-
-                if not isinstance(exclude_rule["key"], str):
-                    raise ValueError(f"Must be provided str type for `key` field for exclude rule #{i}")
-
-                if not isinstance(exclude_rule["pattern"], str):
-                    raise ValueError(f"Must be provided str type for `pattern` field for exclude rule #{i}")
-
-                exclude_rules.append(IncludeExcludeRule(path_key=exclude_rule["key"], pattern=exclude_rule["pattern"]))
+            for exclude_rule in exclude_rules_from_config:
+                exclude_rules.append(IncludeExcludeRule(pattern=exclude_rule))
 
         if len(include_rules) > 0 or len(exclude_rules) > 0:
             current_input.include_exclude_filter = IncludeExcludeFilter(

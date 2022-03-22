@@ -41,12 +41,20 @@ class CompositeShipper(CommonShipper):
         for shipper in self._shippers:
             shipper.set_replay_handler(replay_handler=replay_handler)
 
-    def send(self, event: dict[str, Any]) -> Any:
-        if self._include_exclude_filter is not None and not self._include_exclude_filter.filter(event):
-            return
+    def send(self, event: dict[str, Any]) -> bool:
+        if self._include_exclude_filter is None:
+            pass
+        elif "fields" not in event or "message" not in event["fields"]:
+            return False
+        elif self._include_exclude_filter is not None and not self._include_exclude_filter.filter(
+            event["fields"]["message"]
+        ):
+            return False
 
         for shipper in self._shippers:
             shipper.send(event)
+
+        return True
 
     def flush(self) -> None:
         for shipper in self._shippers:

@@ -5,36 +5,21 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Optional
-
-
-def _get_by_key_path(key_path: str, data: dict[str, Any]) -> Any:
-    path_list = key_path.split(".")
-    result: Any = data
-    for key in path_list:
-        try:
-            coerced_key = int(key) if key.isnumeric() else key
-            result = result[coerced_key]
-        except KeyError:
-            result = None
-            break
-
-    return result
+from typing import Optional
 
 
 class IncludeExcludeRule:
     """
-    IncludeExcludeRule represents a pattern rule for a path key
+    IncludeExcludeRule represents a pattern rule
     """
 
-    def __init__(self, path_key: str, pattern: str):
-        self.path_key = path_key
+    def __init__(self, pattern: str):
         self.pattern = re.compile(pattern)
 
     def __eq__(self, other: object) -> bool:
         assert isinstance(other, IncludeExcludeRule)
 
-        return self.path_key == other.path_key and self.pattern == other.pattern
+        return self.pattern == other.pattern
 
 
 class IncludeExcludeFilter:
@@ -61,31 +46,25 @@ class IncludeExcludeFilter:
         self._include_only = self._include_rules is not None and self._exclude_rules is None
         self._exclude_only = self._exclude_rules is not None and self._include_rules is None
 
-    def _is_included(self, event: dict[str, Any]) -> bool:
+    def _is_included(self, message: str) -> bool:
         assert self._include_rules is not None
 
         for include_rule in self._include_rules:
-            value_in_event = _get_by_key_path(include_rule.path_key, event)
-
-            if value_in_event is not None and isinstance(value_in_event, str):
-                if include_rule.pattern.search(value_in_event) is not None:
-                    return True
+            if include_rule.pattern.search(message) is not None:
+                return True
 
         return False
 
-    def _is_excluded(self, event: dict[str, Any]) -> bool:
+    def _is_excluded(self, message: str) -> bool:
         assert self._exclude_rules is not None
 
         for exclude_rule in self._exclude_rules:
-            value_in_event = _get_by_key_path(exclude_rule.path_key, event)
-
-            if value_in_event is not None and isinstance(value_in_event, str):
-                if exclude_rule.pattern.search(value_in_event) is not None:
-                    return True
+            if exclude_rule.pattern.search(message) is not None:
+                return True
 
         return False
 
-    def filter(self, event: dict[str, Any]) -> bool:
+    def filter(self, message: str) -> bool:
         """
         filter returns True if the event is included or not excluded
         """
@@ -94,15 +73,15 @@ class IncludeExcludeFilter:
             return True
 
         if self._include_only:
-            return self._is_included(event=event)
+            return self._is_included(message)
 
         if self._exclude_only:
-            return not self._is_excluded(event=event)
+            return not self._is_excluded(message)
 
-        if self._is_excluded(event=event):
+        if self._is_excluded(message):
             return False
 
-        return self._is_included(event=event)
+        return self._is_included(message)
 
     def __eq__(self, other: object) -> bool:
         assert isinstance(other, IncludeExcludeFilter)

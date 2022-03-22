@@ -12,9 +12,9 @@ from shippers import CommonShipper, CompositeShipper, EventIdGeneratorCallable, 
 
 
 class DummyShipper(CommonShipper):
-    def send(self, event: dict[str, Any]) -> Any:
+    def send(self, event: dict[str, Any]) -> bool:
         self._sent.append(event)
-        return
+        return True
 
     def set_event_id_generator(self, event_id_generator: EventIdGeneratorCallable) -> None:
         self._event_id_generator = event_id_generator
@@ -54,9 +54,7 @@ class TestCompositeShipper(TestCase):
     def test_send_with_include_exclude_filter(self) -> None:
         dummy_shipper = DummyShipper()
         composite_shipper = CompositeShipper()
-        include_exclude_filter = IncludeExcludeFilter(
-            include_patterns=[IncludeExcludeRule(path_key="key", pattern="match")]
-        )
+        include_exclude_filter = IncludeExcludeFilter(include_patterns=[IncludeExcludeRule(pattern="match")])
         composite_shipper.add_include_exclude_filter(include_exclude_filter)
         composite_shipper.add_shipper(dummy_shipper)
         composite_shipper.send({"key": "value"})
