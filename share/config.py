@@ -354,7 +354,7 @@ def parse_config(config_yaml: str, expanders: list[Callable[[str], str]] = []) -
                 raise ValueError("Must be provided list type for include")
 
             for include_rule in include_rules_from_config:
-                include_rules.append(IncludeExcludeRule(pattern=include_rule))
+                include_rules.append(IncludeExcludeRule(pattern=str(include_rule)))
 
         exclude_rules: list[IncludeExcludeRule] = []
         if "exclude" in input_config:
@@ -363,7 +363,7 @@ def parse_config(config_yaml: str, expanders: list[Callable[[str], str]] = []) -
                 raise ValueError("Must be provided list type for exclude")
 
             for exclude_rule in exclude_rules_from_config:
-                exclude_rules.append(IncludeExcludeRule(pattern=exclude_rule))
+                exclude_rules.append(IncludeExcludeRule(pattern=str(exclude_rule)))
 
         if len(include_rules) > 0 or len(exclude_rules) > 0:
             current_input.include_exclude_filter = IncludeExcludeFilter(
