@@ -54,10 +54,27 @@ class TestCompositeShipper(TestCase):
     def test_send_with_include_exclude_filter(self) -> None:
         dummy_shipper = DummyShipper()
         composite_shipper = CompositeShipper()
+        composite_shipper.add_shipper(dummy_shipper)
+        composite_shipper.send({"this": "is sent"})
+        assert dummy_shipper._sent == [{"this": "is sent"}]
+
+        dummy_shipper._sent = []
+
         include_exclude_filter = IncludeExcludeFilter(include_patterns=[IncludeExcludeRule(pattern="match")])
         composite_shipper.add_include_exclude_filter(include_exclude_filter)
-        composite_shipper.add_shipper(dummy_shipper)
+        composite_shipper.send({"fields": {"message": "match"}})
+        assert dummy_shipper._sent == [{"fields": {"message": "match"}}]
+
+        dummy_shipper._sent = []
+
         composite_shipper.send({"key": "value"})
+        assert dummy_shipper._sent == []
+
+        dummy_shipper._sent = []
+
+        include_exclude_filter = IncludeExcludeFilter(include_patterns=[IncludeExcludeRule(pattern="not match")])
+        composite_shipper.add_include_exclude_filter(include_exclude_filter)
+        composite_shipper.send({"fields": {"message": "a message"}})
         assert dummy_shipper._sent == []
 
     def test_set_event_id_generator(self) -> None:
