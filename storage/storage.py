@@ -3,6 +3,7 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 from abc import ABCMeta, abstractmethod
+from io import BytesIO
 from typing import Any, Callable, Iterator, TypeVar, Union
 
 CHUNK_SIZE: int = 1024
@@ -50,5 +51,5 @@ class CommonStorage(metaclass=ABCMeta):
 
 CommonStorageType = TypeVar("CommonStorageType", bound=CommonStorage)
 GetByLinesCallable = Callable[
-    [CommonStorageType, int, Any, str, int], Iterator[tuple[Union[StorageReader, bytes], int, int]]
+    [CommonStorageType, int, BytesIO, str, int], Iterator[tuple[Union[StorageReader, bytes], int, int]]
 ]
