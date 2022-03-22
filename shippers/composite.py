@@ -4,7 +4,7 @@
 
 from typing import Any, Optional
 
-from share import IncludeExcludeFilter
+from share import IncludeExcludeFilter, shared_logger
 
 from .shipper import CommonShipper, EventIdGeneratorCallable, ReplayHandlerCallable
 
@@ -45,10 +45,12 @@ class CompositeShipper(CommonShipper):
         if self._include_exclude_filter is None:
             pass
         elif "fields" not in event or "message" not in event["fields"]:
+            shared_logger.debug("event is filtered: no message in the event", extra={"es_event": event})
             return False
         elif self._include_exclude_filter is not None and not self._include_exclude_filter.filter(
             event["fields"]["message"]
         ):
+            shared_logger.debug("event is filtered according to filter rules", extra={"es_event": event})
             return False
 
         for shipper in self._shippers:
