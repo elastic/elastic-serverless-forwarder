@@ -970,23 +970,23 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             )
 
                             assert (
-                                res["hits"]["hits"][0]["_source"]["fields"]["message"]
+                                res["hits"]["hits"][0]["_source"]["message"]
                                 == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": '
                                 '{"line": 30, "name": "handler.py"}, "function": "lambda_handler"}, '
                                 '"original": "trigger"}}'
                             )
 
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
+                            assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 86,
                                 "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
                             }
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["aws"] == {
+                            assert res["hits"]["hits"][0]["_source"]["aws"] == {
                                 "s3": {
                                     "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
                                     "object": {"key": f"{filename}"},
                                 }
                             }
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["cloud"] == {
+                            assert res["hits"]["hits"][0]["_source"]["cloud"] == {
                                 "provider": "aws",
                                 "region": "eu-central-1",
                             }
@@ -1013,23 +1013,23 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             )
 
                             assert (
-                                res["hits"]["hits"][0]["_source"]["fields"]["message"]
+                                res["hits"]["hits"][0]["_source"]["message"]
                                 == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": '
                                 '{"line": 30, "name": "handler.py"}, "function": "lambda_handler"}, '
                                 '"original": "trigger"}}'
                             )
 
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
+                            assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 86,
                                 "file": {"path": self._source_sqs_queue_info["QueueUrl"]},
                             }
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["aws"] == {
+                            assert res["hits"]["hits"][0]["_source"]["aws"] == {
                                 "sqs": {
                                     "name": "source-sqs-queue",
                                     "message_id": message_id,
                                 }
                             }
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["cloud"] == {
+                            assert res["hits"]["hits"][0]["_source"]["cloud"] == {
                                 "provider": "aws",
                                 "region": "us-east-1",
                             }
@@ -1056,24 +1056,24 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             )
 
                             assert (
-                                res["hits"]["hits"][0]["_source"]["fields"]["message"]
+                                res["hits"]["hits"][0]["_source"]["message"]
                                 == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": '
                                 '{"line": 30, "name": "handler.py"}, "function": "lambda_handler"}, '
                                 '"original": "trigger"}}'
                             )
 
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
+                            assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 86,
                                 "file": {"path": "source-group/source-stream"},
                             }
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["aws"] == {
+                            assert res["hits"]["hits"][0]["_source"]["aws"] == {
                                 "awscloudwatch": {
                                     "log_group": "source-group",
                                     "log_stream": "source-stream",
                                     "event_id": event_id_cloudwatch_logs,
                                 }
                             }
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["cloud"] == {
+                            assert res["hits"]["hits"][0]["_source"]["cloud"] == {
                                 "provider": "aws",
                                 "region": "us-east-1",
                             }
@@ -1121,21 +1121,21 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 query={"ids": {"values": ["e69eaefedb-000000000000"]}},
                             )
                             assert (
-                                res["hits"]["hits"][0]["_source"]["fields"]["message"]
+                                res["hits"]["hits"][0]["_source"]["message"]
                                 == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": '
                                 '"trigger"}'
                             )
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
+                            assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 0,
                                 "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
                             }
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["aws"] == {
+                            assert res["hits"]["hits"][0]["_source"]["aws"] == {
                                 "s3": {
                                     "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
                                     "object": {"key": f"{filename}"},
                                 }
                             }
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["cloud"] == {
+                            assert res["hits"]["hits"][0]["_source"]["cloud"] == {
                                 "provider": "aws",
                                 "region": "eu-central-1",
                             }
@@ -1161,21 +1161,21 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 query={"ids": {"values": [f"{hex_prefix_sqs}-000000000000"]}},
                             )
                             assert (
-                                res["hits"]["hits"][0]["_source"]["fields"]["message"]
+                                res["hits"]["hits"][0]["_source"]["message"]
                                 == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": '
                                 '"trigger"}'
                             )
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
+                            assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 0,
                                 "file": {"path": self._source_sqs_queue_info["QueueUrl"]},
                             }
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["aws"] == {
+                            assert res["hits"]["hits"][0]["_source"]["aws"] == {
                                 "sqs": {
                                     "name": "source-sqs-queue",
                                     "message_id": message_id,
                                 }
                             }
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["cloud"] == {
+                            assert res["hits"]["hits"][0]["_source"]["cloud"] == {
                                 "provider": "aws",
                                 "region": "us-east-1",
                             }
@@ -1201,22 +1201,22 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 query={"ids": {"values": [f"{hex_prefix_cloudwatch_logs}-000000000000"]}},
                             )
                             assert (
-                                res["hits"]["hits"][0]["_source"]["fields"]["message"]
+                                res["hits"]["hits"][0]["_source"]["message"]
                                 == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": '
                                 '"trigger"}'
                             )
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
+                            assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 0,
                                 "file": {"path": "source-group/source-stream"},
                             }
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["aws"] == {
+                            assert res["hits"]["hits"][0]["_source"]["aws"] == {
                                 "awscloudwatch": {
                                     "log_group": "source-group",
                                     "log_stream": "source-stream",
                                     "event_id": event_id_cloudwatch_logs,
                                 }
                             }
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["cloud"] == {
+                            assert res["hits"]["hits"][0]["_source"]["cloud"] == {
                                 "provider": "aws",
                                 "region": "us-east-1",
                             }
@@ -1284,21 +1284,21 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             )
 
                             assert (
-                                res["hits"]["hits"][0]["_source"]["fields"]["message"]
+                                res["hits"]["hits"][0]["_source"]["message"]
                                 == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": '
                                 '"trigger"}'
                             )
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
+                            assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 0,
                                 "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
                             }
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["aws"] == {
+                            assert res["hits"]["hits"][0]["_source"]["aws"] == {
                                 "s3": {
                                     "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
                                     "object": {"key": f"{filename}"},
                                 }
                             }
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["cloud"] == {
+                            assert res["hits"]["hits"][0]["_source"]["cloud"] == {
                                 "provider": "aws",
                                 "region": "eu-central-1",
                             }
@@ -1328,21 +1328,21 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 query={"ids": {"values": [f"{hex_prefix_sqs}-000000000000"]}},
                             )
                             assert (
-                                res["hits"]["hits"][0]["_source"]["fields"]["message"]
+                                res["hits"]["hits"][0]["_source"]["message"]
                                 == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", '
                                 '"message": "trigger"}'
                             )
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
+                            assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 0,
                                 "file": {"path": self._source_sqs_queue_info["QueueUrl"]},
                             }
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["aws"] == {
+                            assert res["hits"]["hits"][0]["_source"]["aws"] == {
                                 "sqs": {
                                     "name": "source-sqs-queue",
                                     "message_id": message_id,
                                 }
                             }
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["cloud"] == {
+                            assert res["hits"]["hits"][0]["_source"]["cloud"] == {
                                 "provider": "aws",
                                 "region": "us-east-1",
                             }
@@ -1372,22 +1372,22 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 query={"ids": {"values": [f"{hex_prefix_cloudwatch_logs}-000000000000"]}},
                             )
                             assert (
-                                res["hits"]["hits"][0]["_source"]["fields"]["message"]
+                                res["hits"]["hits"][0]["_source"]["message"]
                                 == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": '
                                 '"trigger"}'
                             )
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
+                            assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 0,
                                 "file": {"path": "source-group/source-stream"},
                             }
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["aws"] == {
+                            assert res["hits"]["hits"][0]["_source"]["aws"] == {
                                 "awscloudwatch": {
                                     "log_group": "source-group",
                                     "log_stream": "source-stream",
                                     "event_id": event_id_cloudwatch_logs,
                                 }
                             }
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["cloud"] == {
+                            assert res["hits"]["hits"][0]["_source"]["cloud"] == {
                                 "provider": "aws",
                                 "region": "us-east-1",
                             }
@@ -1427,23 +1427,23 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             )
 
                             assert (
-                                res["hits"]["hits"][0]["_source"]["fields"]["message"]
+                                res["hits"]["hits"][0]["_source"]["message"]
                                 == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": '
                                 '{"line": 30, "name": "handler.py"}, "function": "lambda_handler"}, '
                                 '"original": "trigger"}}'
                             )
 
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
+                            assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 86,
                                 "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
                             }
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["aws"] == {
+                            assert res["hits"]["hits"][0]["_source"]["aws"] == {
                                 "s3": {
                                     "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
                                     "object": {"key": f"{filename}"},
                                 }
                             }
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["cloud"] == {
+                            assert res["hits"]["hits"][0]["_source"]["cloud"] == {
                                 "provider": "aws",
                                 "region": "eu-central-1",
                             }
@@ -1463,23 +1463,23 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             )
 
                             assert (
-                                res["hits"]["hits"][0]["_source"]["fields"]["message"]
+                                res["hits"]["hits"][0]["_source"]["message"]
                                 == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": '
                                 '{"line": 30, "name": "handler.py"}, "function": "lambda_handler"}, '
                                 '"original": "trigger"}}'
                             )
 
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
+                            assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 86,
                                 "file": {"path": self._source_sqs_queue_info["QueueUrl"]},
                             }
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["aws"] == {
+                            assert res["hits"]["hits"][0]["_source"]["aws"] == {
                                 "sqs": {
                                     "name": "source-sqs-queue",
                                     "message_id": message_id,
                                 }
                             }
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["cloud"] == {
+                            assert res["hits"]["hits"][0]["_source"]["cloud"] == {
                                 "provider": "aws",
                                 "region": "us-east-1",
                             }
@@ -1499,24 +1499,24 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             )
 
                             assert (
-                                res["hits"]["hits"][0]["_source"]["fields"]["message"]
+                                res["hits"]["hits"][0]["_source"]["message"]
                                 == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": '
                                 '{"line": 30, "name": "handler.py"}, "function": "lambda_handler"}, '
                                 '"original": "trigger"}}'
                             )
 
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
+                            assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 86,
                                 "file": {"path": "source-group/source-stream"},
                             }
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["aws"] == {
+                            assert res["hits"]["hits"][0]["_source"]["aws"] == {
                                 "awscloudwatch": {
                                     "log_group": "source-group",
                                     "log_stream": "source-stream",
                                     "event_id": event_id_cloudwatch_logs,
                                 }
                             }
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["cloud"] == {
+                            assert res["hits"]["hits"][0]["_source"]["cloud"] == {
                                 "provider": "aws",
                                 "region": "us-east-1",
                             }
@@ -1764,21 +1764,21 @@ class TestLambdaHandlerSuccessKinesisDataStream(TestCase):
                     assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
 
                     assert (
-                        res["hits"]["hits"][0]["_source"]["fields"]["message"]
+                        res["hits"]["hits"][0]["_source"]["message"]
                         == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}'
                     )
-                    assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
+                    assert res["hits"]["hits"][0]["_source"]["log"] == {
                         "offset": 0,
                         "file": {"path": self._source_kinesis_info["StreamDescription"]["StreamARN"]},
                     }
-                    assert res["hits"]["hits"][0]["_source"]["fields"]["aws"] == {
+                    assert res["hits"]["hits"][0]["_source"]["aws"] == {
                         "kinesis": {
                             "type": "stream",
                             "name": self._kinesis_stream.stream_name,
                             "sequence_number": event["Records"][0]["kinesis"]["sequenceNumber"],
                         }
                     }
-                    assert res["hits"]["hits"][0]["_source"]["fields"]["cloud"] == {
+                    assert res["hits"]["hits"][0]["_source"]["cloud"] == {
                         "provider": "aws",
                         "region": "us-east-1",
                     }
@@ -1793,23 +1793,23 @@ class TestLambdaHandlerSuccessKinesisDataStream(TestCase):
                     ]
 
                     assert (
-                        res["hits"]["hits"][1]["_source"]["fields"]["message"]
+                        res["hits"]["hits"][1]["_source"]["message"]
                         == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": {"line": 30, '
                         '"name": "handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}'
                     )
 
-                    assert res["hits"]["hits"][1]["_source"]["fields"]["log"] == {
+                    assert res["hits"]["hits"][1]["_source"]["log"] == {
                         "offset": 86,
                         "file": {"path": self._source_kinesis_info["StreamDescription"]["StreamARN"]},
                     }
-                    assert res["hits"]["hits"][0]["_source"]["fields"]["aws"] == {
+                    assert res["hits"]["hits"][0]["_source"]["aws"] == {
                         "kinesis": {
                             "type": "stream",
                             "name": self._kinesis_stream.stream_name,
                             "sequence_number": event["Records"][0]["kinesis"]["sequenceNumber"],
                         }
                     }
-                    assert res["hits"]["hits"][1]["_source"]["fields"]["cloud"] == {
+                    assert res["hits"]["hits"][1]["_source"]["cloud"] == {
                         "provider": "aws",
                         "region": "us-east-1",
                     }
@@ -1835,23 +1835,23 @@ class TestLambdaHandlerSuccessKinesisDataStream(TestCase):
                     assert res["hits"]["total"] == {"value": 3, "relation": "eq"}
 
                     assert (
-                        res["hits"]["hits"][2]["_source"]["fields"]["message"]
+                        res["hits"]["hits"][2]["_source"]["message"]
                         == '{"@timestamp":"2022-02-02T12:40:45.690Z","log.level":"warning","message":"no namespace set '
                         'in config: using `default`","ecs":{"version":"1.6.0"} }'
                     )
 
-                    assert res["hits"]["hits"][2]["_source"]["fields"]["log"] == {
+                    assert res["hits"]["hits"][2]["_source"]["log"] == {
                         "offset": 0,
                         "file": {"path": self._source_kinesis_info["StreamDescription"]["StreamARN"]},
                     }
-                    assert res["hits"]["hits"][2]["_source"]["fields"]["aws"] == {
+                    assert res["hits"]["hits"][2]["_source"]["aws"] == {
                         "kinesis": {
                             "type": "stream",
                             "name": self._kinesis_stream.stream_name,
                             "sequence_number": event["Records"][0]["kinesis"]["sequenceNumber"],
                         }
                     }
-                    assert res["hits"]["hits"][2]["_source"]["fields"]["cloud"] == {
+                    assert res["hits"]["hits"][2]["_source"]["cloud"] == {
                         "provider": "aws",
                         "region": "us-east-1",
                     }
@@ -2082,22 +2082,22 @@ class TestLambdaHandlerSuccessS3SQS(TestCase):
                         assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
 
                         assert (
-                            res["hits"]["hits"][0]["_source"]["fields"]["message"]
+                            res["hits"]["hits"][0]["_source"]["message"]
                             == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": {"line": '
                             '30, "name": "handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}'
                         )
 
-                        assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
+                        assert res["hits"]["hits"][0]["_source"]["log"] == {
                             "offset": 86,
                             "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
                         }
-                        assert res["hits"]["hits"][0]["_source"]["fields"]["aws"] == {
+                        assert res["hits"]["hits"][0]["_source"]["aws"] == {
                             "s3": {
                                 "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
                                 "object": {"key": f"{filename}"},
                             }
                         }
-                        assert res["hits"]["hits"][0]["_source"]["fields"]["cloud"] == {
+                        assert res["hits"]["hits"][0]["_source"]["cloud"] == {
                             "provider": "aws",
                             "region": "eu-central-1",
                         }
@@ -2122,20 +2122,20 @@ class TestLambdaHandlerSuccessS3SQS(TestCase):
                         res = self._es_client.search(index="logs-aws.cloudwatch_logs-default", sort="_seq_no")
                         assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
                         assert (
-                            res["hits"]["hits"][1]["_source"]["fields"]["message"]
+                            res["hits"]["hits"][1]["_source"]["message"]
                             == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}'
                         )
-                        assert res["hits"]["hits"][1]["_source"]["fields"]["log"] == {
+                        assert res["hits"]["hits"][1]["_source"]["log"] == {
                             "offset": 0,
                             "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
                         }
-                        assert res["hits"]["hits"][1]["_source"]["fields"]["aws"] == {
+                        assert res["hits"]["hits"][1]["_source"]["aws"] == {
                             "s3": {
                                 "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
                                 "object": {"key": f"{filename}"},
                             }
                         }
-                        assert res["hits"]["hits"][1]["_source"]["fields"]["cloud"] == {
+                        assert res["hits"]["hits"][1]["_source"]["cloud"] == {
                             "provider": "aws",
                             "region": "eu-central-1",
                         }
@@ -2173,20 +2173,20 @@ class TestLambdaHandlerSuccessS3SQS(TestCase):
                         res = self._es_client.search(index="logs-aws.cloudwatch_logs-default", sort="_seq_no")
                         assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
                         assert (
-                            res["hits"]["hits"][0]["_source"]["fields"]["message"]
+                            res["hits"]["hits"][0]["_source"]["message"]
                             == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}'
                         )
-                        assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
+                        assert res["hits"]["hits"][0]["_source"]["log"] == {
                             "offset": 0,
                             "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
                         }
-                        assert res["hits"]["hits"][0]["_source"]["fields"]["aws"] == {
+                        assert res["hits"]["hits"][0]["_source"]["aws"] == {
                             "s3": {
                                 "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
                                 "object": {"key": f"{filename}"},
                             }
                         }
-                        assert res["hits"]["hits"][0]["_source"]["fields"]["cloud"] == {
+                        assert res["hits"]["hits"][0]["_source"]["cloud"] == {
                             "provider": "aws",
                             "region": "eu-central-1",
                         }
@@ -2212,22 +2212,22 @@ class TestLambdaHandlerSuccessS3SQS(TestCase):
                         assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
 
                         assert (
-                            res["hits"]["hits"][1]["_source"]["fields"]["message"]
+                            res["hits"]["hits"][1]["_source"]["message"]
                             == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": {"line": '
                             '30, "name": "handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}'
                         )
 
-                        assert res["hits"]["hits"][1]["_source"]["fields"]["log"] == {
+                        assert res["hits"]["hits"][1]["_source"]["log"] == {
                             "offset": 86,
                             "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
                         }
-                        assert res["hits"]["hits"][1]["_source"]["fields"]["aws"] == {
+                        assert res["hits"]["hits"][1]["_source"]["aws"] == {
                             "s3": {
                                 "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
                                 "object": {"key": f"{filename}"},
                             }
                         }
-                        assert res["hits"]["hits"][1]["_source"]["fields"]["cloud"] == {
+                        assert res["hits"]["hits"][1]["_source"]["cloud"] == {
                             "provider": "aws",
                             "region": "eu-central-1",
                         }
@@ -2430,22 +2430,22 @@ class TestLambdaHandlerSuccessSQS(TestCase):
                         assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
 
                         assert (
-                            res["hits"]["hits"][0]["_source"]["fields"]["message"]
+                            res["hits"]["hits"][0]["_source"]["message"]
                             == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": {"line": '
                             '30, "name": "handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}'
                         )
 
-                        assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
+                        assert res["hits"]["hits"][0]["_source"]["log"] == {
                             "offset": 86,
                             "file": {"path": self._source_queue_info["QueueUrl"]},
                         }
-                        assert res["hits"]["hits"][0]["_source"]["fields"]["aws"] == {
+                        assert res["hits"]["hits"][0]["_source"]["aws"] == {
                             "sqs": {
                                 "name": "source-queue",
                                 "message_id": message_id,
                             }
                         }
-                        assert res["hits"]["hits"][0]["_source"]["fields"]["cloud"] == {
+                        assert res["hits"]["hits"][0]["_source"]["cloud"] == {
                             "provider": "aws",
                             "region": "us-east-1",
                         }
@@ -2470,20 +2470,20 @@ class TestLambdaHandlerSuccessSQS(TestCase):
                         res = self._es_client.search(index="logs-generic-default", sort="_seq_no")
                         assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
                         assert (
-                            res["hits"]["hits"][1]["_source"]["fields"]["message"]
+                            res["hits"]["hits"][1]["_source"]["message"]
                             == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}'
                         )
-                        assert res["hits"]["hits"][1]["_source"]["fields"]["log"] == {
+                        assert res["hits"]["hits"][1]["_source"]["log"] == {
                             "offset": 0,
                             "file": {"path": self._source_queue_info["QueueUrl"]},
                         }
-                        assert res["hits"]["hits"][1]["_source"]["fields"]["aws"] == {
+                        assert res["hits"]["hits"][1]["_source"]["aws"] == {
                             "sqs": {
                                 "name": "source-queue",
                                 "message_id": message_id,
                             }
                         }
-                        assert res["hits"]["hits"][1]["_source"]["fields"]["cloud"] == {
+                        assert res["hits"]["hits"][1]["_source"]["cloud"] == {
                             "provider": "aws",
                             "region": "us-east-1",
                         }
@@ -2530,20 +2530,20 @@ class TestLambdaHandlerSuccessSQS(TestCase):
                         res = self._es_client.search(index="logs-generic-default", sort="_seq_no")
                         assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
                         assert (
-                            res["hits"]["hits"][0]["_source"]["fields"]["message"]
+                            res["hits"]["hits"][0]["_source"]["message"]
                             == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}'
                         )
-                        assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
+                        assert res["hits"]["hits"][0]["_source"]["log"] == {
                             "offset": 0,
                             "file": {"path": self._source_queue_info["QueueUrl"]},
                         }
-                        assert res["hits"]["hits"][0]["_source"]["fields"]["aws"] == {
+                        assert res["hits"]["hits"][0]["_source"]["aws"] == {
                             "sqs": {
                                 "name": "source-queue",
                                 "message_id": event["Records"][0]["messageId"],
                             }
                         }
-                        assert res["hits"]["hits"][0]["_source"]["fields"]["cloud"] == {
+                        assert res["hits"]["hits"][0]["_source"]["cloud"] == {
                             "provider": "aws",
                             "region": "us-east-1",
                         }
@@ -2569,16 +2569,16 @@ class TestLambdaHandlerSuccessSQS(TestCase):
                         assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
 
                         assert (
-                            res["hits"]["hits"][1]["_source"]["fields"]["message"]
+                            res["hits"]["hits"][1]["_source"]["message"]
                             == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": {"line": '
                             '30, "name": "handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}'
                         )
 
-                        assert res["hits"]["hits"][1]["_source"]["fields"]["log"] == {
+                        assert res["hits"]["hits"][1]["_source"]["log"] == {
                             "offset": 86,
                             "file": {"path": self._source_queue_info["QueueUrl"]},
                         }
-                        assert res["hits"]["hits"][1]["_source"]["fields"]["aws"] == {
+                        assert res["hits"]["hits"][1]["_source"]["aws"] == {
                             "sqs": {
                                 "name": "source-queue",
                                 "message_id": event["Records"][0]["messageAttributes"]["originalMessageId"][
@@ -2586,7 +2586,7 @@ class TestLambdaHandlerSuccessSQS(TestCase):
                                 ],
                             }
                         }
-                        assert res["hits"]["hits"][1]["_source"]["fields"]["cloud"] == {
+                        assert res["hits"]["hits"][1]["_source"]["cloud"] == {
                             "provider": "aws",
                             "region": "us-east-1",
                         }
@@ -2844,24 +2844,24 @@ class TestLambdaHandlerSuccessCloudWatchLogs(TestCase):
                             assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
 
                             assert (
-                                res["hits"]["hits"][0]["_source"]["fields"]["message"]
+                                res["hits"]["hits"][0]["_source"]["message"]
                                 == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": '
                                 '{"line": 30, "name": "handler.py"}, "function": "lambda_handler"}, "original": '
                                 '"trigger"}}'
                             )
 
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
+                            assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 86,
                                 "file": {"path": "source-group/source-stream"},
                             }
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["aws"] == {
+                            assert res["hits"]["hits"][0]["_source"]["aws"] == {
                                 "awscloudwatch": {
                                     "log_group": "source-group",
                                     "log_stream": "source-stream",
                                     "event_id": event_id,
                                 }
                             }
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["cloud"] == {
+                            assert res["hits"]["hits"][0]["_source"]["cloud"] == {
                                 "provider": "aws",
                                 "region": "us-east-1",
                             }
@@ -2886,22 +2886,22 @@ class TestLambdaHandlerSuccessCloudWatchLogs(TestCase):
                             res = self._es_client.search(index="logs-generic-default", sort="_seq_no")
                             assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
                             assert (
-                                res["hits"]["hits"][1]["_source"]["fields"]["message"]
+                                res["hits"]["hits"][1]["_source"]["message"]
                                 == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": '
                                 '"trigger"}'
                             )
-                            assert res["hits"]["hits"][1]["_source"]["fields"]["log"] == {
+                            assert res["hits"]["hits"][1]["_source"]["log"] == {
                                 "offset": 0,
                                 "file": {"path": "source-group/source-stream"},
                             }
-                            assert res["hits"]["hits"][1]["_source"]["fields"]["aws"] == {
+                            assert res["hits"]["hits"][1]["_source"]["aws"] == {
                                 "awscloudwatch": {
                                     "log_group": "source-group",
                                     "log_stream": "source-stream",
                                     "event_id": event_id,
                                 }
                             }
-                            assert res["hits"]["hits"][1]["_source"]["fields"]["cloud"] == {
+                            assert res["hits"]["hits"][1]["_source"]["cloud"] == {
                                 "provider": "aws",
                                 "region": "us-east-1",
                             }
@@ -2953,22 +2953,22 @@ class TestLambdaHandlerSuccessCloudWatchLogs(TestCase):
                             res = self._es_client.search(index="logs-generic-default", sort="_seq_no")
                             assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
                             assert (
-                                res["hits"]["hits"][0]["_source"]["fields"]["message"]
+                                res["hits"]["hits"][0]["_source"]["message"]
                                 == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": '
                                 '"trigger"}'
                             )
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
+                            assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 0,
                                 "file": {"path": "source-group/source-stream"},
                             }
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["aws"] == {
+                            assert res["hits"]["hits"][0]["_source"]["aws"] == {
                                 "awscloudwatch": {
                                     "log_group": "source-group",
                                     "log_stream": "source-stream",
                                     "event_id": event_id,
                                 }
                             }
-                            assert res["hits"]["hits"][0]["_source"]["fields"]["cloud"] == {
+                            assert res["hits"]["hits"][0]["_source"]["cloud"] == {
                                 "provider": "aws",
                                 "region": "us-east-1",
                             }
@@ -2994,24 +2994,24 @@ class TestLambdaHandlerSuccessCloudWatchLogs(TestCase):
                             assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
 
                             assert (
-                                res["hits"]["hits"][1]["_source"]["fields"]["message"]
+                                res["hits"]["hits"][1]["_source"]["message"]
                                 == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": '
                                 '{"line": 30, "name": "handler.py"}, "function": "lambda_handler"}, '
                                 '"original": "trigger"}}'
                             )
 
-                            assert res["hits"]["hits"][1]["_source"]["fields"]["log"] == {
+                            assert res["hits"]["hits"][1]["_source"]["log"] == {
                                 "offset": 86,
                                 "file": {"path": "source-group/source-stream"},
                             }
-                            assert res["hits"]["hits"][1]["_source"]["fields"]["aws"] == {
+                            assert res["hits"]["hits"][1]["_source"]["aws"] == {
                                 "awscloudwatch": {
                                     "log_group": "source-group",
                                     "log_stream": "source-stream",
                                     "event_id": event_id,
                                 }
                             }
-                            assert res["hits"]["hits"][1]["_source"]["fields"]["cloud"] == {
+                            assert res["hits"]["hits"][1]["_source"]["cloud"] == {
                                 "provider": "aws",
                                 "region": "us-east-1",
                             }
