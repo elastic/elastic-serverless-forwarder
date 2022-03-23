@@ -9,7 +9,7 @@ from typing import Any, Iterator, Union
 
 from share import shared_logger
 
-from .decorator import by_lines, inflate
+from .decorator import JsonCollector, by_lines, inflate
 from .storage import CHUNK_SIZE, CommonStorage, StorageReader
 
 
@@ -23,6 +23,7 @@ class PayloadStorage(CommonStorage):
     def __init__(self, payload: str):
         self._payload: str = payload
 
+    @JsonCollector
     @by_lines
     @inflate
     def _generate(

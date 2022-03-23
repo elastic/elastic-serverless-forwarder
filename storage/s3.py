@@ -12,7 +12,7 @@ from botocore.response import StreamingBody
 
 from share import shared_logger
 
-from .decorator import by_lines, inflate
+from .decorator import JsonCollector, by_lines, inflate
 from .storage import CHUNK_SIZE, CommonStorage, StorageReader
 
 
@@ -30,6 +30,7 @@ class S3Storage(CommonStorage):
         self._bucket_name: str = bucket_name
         self._object_key: str = object_key
 
+    @JsonCollector
     @by_lines
     @inflate
     def _generate(
