@@ -1,8 +1,11 @@
-.PHONY: help test coverage docker-lint docker-test docker-coverage docker-black docker-flake8 docker-mypy docker-isort black flake8 mypy isort license all-reqs requirements lint-reqs test-reqs
+.PHONY: help license all-requirements requirements requirements-lint requirements-tests benchmark black coverage flake8 integration-test isort lint mypy test unit-test docker-benchmark docker-black docker-coverage docker-flake8 docker-integration-test docker-isort docker-lint docker-mypy docker-test docker-unit-test
 SHELL := /bin/bash
 
 help: ## Display this help text
 	@grep -E '^[a-zA-Z_-]+[%]?:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+
+benchmark: PYTEST_ARGS=-m benchmark --benchmark-group-by group ## Run benchmarks on the host
+benchmark: test
 
 unit-test: PYTEST_ARGS=-m unit ## Run unit tests on the host
 unit-test: test
@@ -10,10 +13,11 @@ unit-test: test
 integration-test: PYTEST_ARGS=-m integration ## Run integration tests on the host
 integration-test: test
 
+test: PYTEST_ARGS_FLAGS=$(if $(PYTEST_ARGS),$(PYTEST_ARGS),-m not benchmark) ## Run unit tests on the host
 test:  ## Run all tests on the host
-	PYTEST_ARGS="${PYTEST_ARGS}" tests/scripts/${BASE_DIR}run_tests.sh
+	PYTEST_ARGS="${PYTEST_ARGS_FLAGS}" tests/scripts/${BASE_DIR}run_tests.sh
 
-coverage: PYTEST_ARGS=--cov=. --cov-context=test --cov-config=.coveragerc --cov-branch  ## Run tests on the host with coverage
+coverage: export PYTEST_ADDOPTS=--cov=. --cov-context=test --cov-config=.coveragerc --cov-branch ## Run tests with coverage on the host
 coverage: export COVERAGE_FILE=.coverage
 coverage: test
 
@@ -31,22 +35,26 @@ isort:  ## Run isort in the project on the host
 mypy: ## Run mypy in the project on the host
 	tests/scripts/${BASE_DIR}mypy.sh
 
-docker-test:  ## Run tests on docker
+docker-test:  ## Run all tests on docker
 docker-test: BASE_DIR=docker/
 docker-test: test
 
-docker-unit-test:  ## Run tests on docker
-docker-unit-test: PYTEST_ARGS=-m unit
-docker-unit-test: docker-test
+docker-benchmark:  ## Run benchmarks on docker
+docker-benchmark: BASE_DIR=docker/
+docker-benchmark: benchmark
 
-docker-integration-test:  ## Run tests on docker
-docker-integration-test: PYTEST_ARGS=-m integration
-docker-integration-test: docker-test
+docker-unit-test:  ## Run unit tests on docker
+docker-unit-test: BASE_DIR=docker/
+docker-unit-test: unit-test
+
+docker-integration-test:  ## Run integration tests on docker
+docker-integration-test: BASE_DIR=docker/
+docker-integration-test: integration-test
 
 
-docker-coverage: PYTEST_ARGS=--cov=. --cov-context=test --cov-config=.coveragerc --cov-branch  ## Run tests on docker with coverage
 docker-coverage: export COVERAGE_FILE=.coverage
-docker-coverage: docker-test
+docker-integration-test: BASE_DIR=docker/
+docker-coverage: test
 
 docker-lint: docker-black docker-flake8 docker-isort docker-mypy  ## Lint the project on docker
 
