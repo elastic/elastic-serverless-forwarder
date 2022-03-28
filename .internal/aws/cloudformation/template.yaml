@@ -37,11 +37,10 @@ Resources:
     Properties:
       Timeout: 900
       MemorySize: 256
-      PackageType: Zip
-      CodeUri:
-        Bucket: %codeURIBucket%
-        Key: lambda.zip
+      CodeUri: %codeUri%
       Runtime: python3.9
+      Architectures:
+        - x86_64
       Handler: main_aws.handler
       Environment:
           Variables:
@@ -62,7 +61,7 @@ Metadata:
     Author: %sarAuthorName%
     Labels: ['s3', 'logs', 'analytics', 'observability', 'monitoring', 'Elastic']
     SemanticVersion: %semanticVersion%
-    LicenseUrl: LICENSE.txt
-    ReadmeUrl: README.md
+    LicenseUrl: .aws-sam/build/ElasticServerlessForwarderFunction/LICENSE.txt
+    ReadmeUrl: .aws-sam/build/ElasticServerlessForwarderFunction/README.md
     HomePageUrl: https://github.com/elastic/elastic-serverless-forwarder
     SourceCodeUrl: https://github.com/elastic/elastic-serverless-forwarder
