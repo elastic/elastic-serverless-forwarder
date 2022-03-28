@@ -20,4 +20,5 @@ _default_event: dict[str, Any] = {
             "region": "",
         },
     },
+    "meta": {},
 }

@@ -414,9 +414,9 @@ def cloudwatch_logs_object_id(event_payload: dict[str, Any]) -> str:
     """
 
     offset: int = event_payload["fields"]["log"]["offset"]
-    group_name: str = event_payload["fields"]["aws"]["cloudwatch_logs"]["group_name"]
-    stream_name: str = event_payload["fields"]["aws"]["cloudwatch_logs"]["stream_name"]
-    event_id: str = event_payload["fields"]["aws"]["cloudwatch_logs"]["event_id"]
+    group_name: str = event_payload["fields"]["aws"]["awscloudwatch"]["log_group"]
+    stream_name: str = event_payload["fields"]["aws"]["awscloudwatch"]["log_stream"]
+    event_id: str = event_payload["fields"]["aws"]["awscloudwatch"]["event_id"]
 
     src: str = f"{group_name}{stream_name}{event_id}"
     hex_prefix = hashlib.sha256(src.encode("UTF-8")).hexdigest()[:10]
