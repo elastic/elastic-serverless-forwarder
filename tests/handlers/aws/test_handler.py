@@ -992,9 +992,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 query={"ids": {"values": ["e69eaefedb-000000000097"]}},
                             )
 
-                            assert (
-                                res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry[0:-1]
-                            )
+                            assert res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry[0:-1]
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 97,
@@ -1032,9 +1030,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 query={"ids": {"values": [f"{hex_prefix_sqs}-000000000097"]}},
                             )
 
-                            assert (
-                                res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry[0:-1]
-                            )
+                            assert res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry[0:-1]
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 97,
@@ -1072,9 +1068,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 query={"ids": {"values": [f"{hex_prefix_cloudwatch_logs}-000000000097"]}},
                             )
 
-                            assert (
-                                res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry[0:-1]
-                            )
+                            assert res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry[0:-1]
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 97,
@@ -1424,9 +1418,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 query={"ids": {"values": ["e69eaefedb-000000000097"]}},
                             )
 
-                            assert (
-                                res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry[0:-1]
-                            )
+                            assert res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry[0:-1]
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 97,
@@ -1457,9 +1449,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 query={"ids": {"values": [f"{hex_prefix_sqs}-000000000097"]}},
                             )
 
-                            assert (
-                                res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry[0:-1]
-                            )
+                            assert res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry[0:-1]
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 97,
@@ -1490,9 +1480,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 query={"ids": {"values": [f"{hex_prefix_cloudwatch_logs}-000000000097"]}},
                             )
 
-                            assert (
-                                res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry[0:-1]
-                            )
+                            assert res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry[0:-1]
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 97,

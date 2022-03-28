@@ -18,7 +18,8 @@ import storage.decorator
 from storage import PayloadStorage, StorageReader
 
 _LENGTH_BELOW_THRESHOLD: int = 40
-_LENGTH_ABOVE_THRESHOLD: int = 1024**2
+_LENGTH_ABOVE_THRESHOLD: int = 1024 * 10
+_LENGTH_1M: int = 1024**2
 
 _IS_PLAIN: str = "_IS_PLAIN"
 _IS_JSON: str = "_IS_JSON"
@@ -120,9 +121,7 @@ class Setup:
     @staticmethod
     def setup() -> None:
         if len(MockContentBase.mock_content) == 0:
-            MockContentBase.init_content(
-                content_type=_IS_JSON, newline=b"\n", length_multiplier=_LENGTH_ABOVE_THRESHOLD
-            )
+            MockContentBase.init_content(content_type=_IS_JSON, newline=b"\n", length_multiplier=_LENGTH_1M)
             MockContentBase.init_content_for_benchmark()
             Setup.original = base64.b64decode(MockContentBase.f_content_plain)
             Setup.payload = MockContentBase.f_content_plain.decode("utf-8")
