@@ -992,9 +992,9 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 query={"ids": {"values": ["e69eaefedb-000000000097"]}},
                             )
 
-                            assert res["hits"]["hits"][0]["_source"]["fields"][
-                                "message"
-                            ] == self._second_log_entry[0:-1]
+                            assert (
+                                res["hits"]["hits"][0]["_source"]["fields"]["message"] == self._second_log_entry[0:-1]
+                            )
 
                             assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
                                 "offset": 97,
@@ -1032,9 +1032,9 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 query={"ids": {"values": [f"{hex_prefix_sqs}-000000000097"]}},
                             )
 
-                            assert res["hits"]["hits"][0]["_source"]["fields"][
-                                "message"
-                            ] == self._second_log_entry[0:-1]
+                            assert (
+                                res["hits"]["hits"][0]["_source"]["fields"]["message"] == self._second_log_entry[0:-1]
+                            )
 
                             assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
                                 "offset": 97,
@@ -1072,9 +1072,9 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 query={"ids": {"values": [f"{hex_prefix_cloudwatch_logs}-000000000097"]}},
                             )
 
-                            assert res["hits"]["hits"][0]["_source"]["fields"][
-                                "message"
-                            ] == self._second_log_entry[0:-1]
+                            assert (
+                                res["hits"]["hits"][0]["_source"]["fields"]["message"] == self._second_log_entry[0:-1]
+                            )
 
                             assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
                                 "offset": 97,
@@ -1134,9 +1134,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 index="logs-generic-default",
                                 query={"ids": {"values": ["e69eaefedb-000000000000"]}},
                             )
-                            assert res["hits"]["hits"][0]["_source"]["fields"][
-                                "message"
-                            ] == self._first_log_entry
+                            assert res["hits"]["hits"][0]["_source"]["fields"]["message"] == self._first_log_entry
                             assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
                                 "offset": 0,
                                 "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
@@ -1172,9 +1170,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 index="logs-generic-default",
                                 query={"ids": {"values": [f"{hex_prefix_sqs}-000000000000"]}},
                             )
-                            assert res["hits"]["hits"][0]["_source"]["fields"][
-                                "message"
-                            ] == self._first_log_entry
+                            assert res["hits"]["hits"][0]["_source"]["fields"]["message"] == self._first_log_entry
                             assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
                                 "offset": 0,
                                 "file": {"path": self._source_sqs_queue_info["QueueUrl"]},
@@ -1210,9 +1206,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 index="logs-generic-default",
                                 query={"ids": {"values": [f"{hex_prefix_cloudwatch_logs}-000000000000"]}},
                             )
-                            assert res["hits"]["hits"][0]["_source"]["fields"][
-                                "message"
-                            ] == self._first_log_entry
+                            assert res["hits"]["hits"][0]["_source"]["fields"]["message"] == self._first_log_entry
                             assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
                                 "offset": 0,
                                 "file": {"path": "source-group/source-stream"},
@@ -1291,9 +1285,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 query={"ids": {"values": ["e69eaefedb-000000000000"]}},
                             )
 
-                            assert res["hits"]["hits"][0]["_source"]["fields"][
-                                "message"
-                            ] == self._first_log_entry
+                            assert res["hits"]["hits"][0]["_source"]["fields"]["message"] == self._first_log_entry
                             assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
                                 "offset": 0,
                                 "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
@@ -1333,9 +1325,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 index="logs-generic-default",
                                 query={"ids": {"values": [f"{hex_prefix_sqs}-000000000000"]}},
                             )
-                            assert res["hits"]["hits"][0]["_source"]["fields"][
-                                "message"
-                            ] == self._first_log_entry
+                            assert res["hits"]["hits"][0]["_source"]["fields"]["message"] == self._first_log_entry
                             assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
                                 "offset": 0,
                                 "file": {"path": self._source_sqs_queue_info["QueueUrl"]},
@@ -1375,9 +1365,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 index="logs-generic-default",
                                 query={"ids": {"values": [f"{hex_prefix_cloudwatch_logs}-000000000000"]}},
                             )
-                            assert res["hits"]["hits"][0]["_source"]["fields"][
-                                "message"
-                            ] == self._first_log_entry
+                            assert res["hits"]["hits"][0]["_source"]["fields"]["message"] == self._first_log_entry
                             assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
                                 "offset": 0,
                                 "file": {"path": "source-group/source-stream"},
@@ -1428,9 +1416,9 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 query={"ids": {"values": ["e69eaefedb-000000000097"]}},
                             )
 
-                            assert res["hits"]["hits"][0]["_source"]["fields"][
-                                "message"
-                            ] == self._second_log_entry[0:-1]
+                            assert (
+                                res["hits"]["hits"][0]["_source"]["fields"]["message"] == self._second_log_entry[0:-1]
+                            )
 
                             assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
                                 "offset": 97,
@@ -1461,9 +1449,9 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 query={"ids": {"values": [f"{hex_prefix_sqs}-000000000097"]}},
                             )
 
-                            assert res["hits"]["hits"][0]["_source"]["fields"][
-                                "message"
-                            ] == self._second_log_entry[0:-1]
+                            assert (
+                                res["hits"]["hits"][0]["_source"]["fields"]["message"] == self._second_log_entry[0:-1]
+                            )
 
                             assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
                                 "offset": 97,
@@ -1494,9 +1482,9 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 query={"ids": {"values": [f"{hex_prefix_cloudwatch_logs}-000000000097"]}},
                             )
 
-                            assert res["hits"]["hits"][0]["_source"]["fields"][
-                                "message"
-                            ] == self._second_log_entry[0:-1]
+                            assert (
+                                res["hits"]["hits"][0]["_source"]["fields"]["message"] == self._second_log_entry[0:-1]
+                            )
 
                             assert res["hits"]["hits"][0]["_source"]["fields"]["log"] == {
                                 "offset": 97,

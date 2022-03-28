@@ -111,8 +111,8 @@ def _handle_s3_sqs_event(sqs_record: dict[str, Any]) -> Iterator[tuple[dict[str,
             es_event["@timestamp"] = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
             es_event["fields"]["message"] = log_event.decode("UTF-8")
 
-            offset_skew = (len(log_event) + newline_length)
-            log_event_tail: bytes = log_event[0 - newline_length:]
+            offset_skew = len(log_event) + newline_length
+            log_event_tail: bytes = log_event[0 - newline_length :]
             if newline_length > 0 and (log_event_tail == b"\r\n" or log_event_tail == b"\n"):
                 offset_skew -= newline_length
 

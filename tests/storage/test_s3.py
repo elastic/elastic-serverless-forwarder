@@ -5,7 +5,6 @@
 import gzip
 import io
 import random
-import string
 from typing import Any, Optional, Union
 from unittest import TestCase
 

@@ -69,8 +69,6 @@ class TestPayloadStorage(TestCase):
                         f"testing with newline length {len(newline)} for content type {content_type}",
                         newline=newline,
                     ):
-                        newline_length: int = len(newline)
-
                         MockContent.init_content(
                             content_type=content_type, newline=newline, length_multiplier=length_multiplier
                         )
