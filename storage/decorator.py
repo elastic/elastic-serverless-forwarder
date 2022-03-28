@@ -74,7 +74,7 @@ class JsonCollector:
     @staticmethod
     def _buffer_yield(buffer: bytes) -> GetByLinesCallable[CommonStorageType]:
         def wrapper(
-            storage: CommonStorageType, range_start: int, body: Any, content_type: str, content_length: int
+            storage: CommonStorageType, range_start: int, body: BytesIO, content_type: str, content_length: int
         ) -> Iterator[tuple[Union[StorageReader, bytes], int, int]]:
 
             yield buffer, range_start, 0
@@ -144,8 +144,8 @@ class JsonCollector:
                     wait_for_object_start_buffer = b""
                     yield data, original_line_ending_offset, newline_length
                 else:
-                    # let's balance the offset for newline only content
-                    self._offset += wait_for_object_start_buffer.count(newline) * newline_length
+                    # let's balance the offset, wait_for_object_start_buffer is newline only content
+                    self._offset += len(wait_for_object_start_buffer)
 
                     # let's reset the buffer
                     wait_for_object_start_buffer = b""
