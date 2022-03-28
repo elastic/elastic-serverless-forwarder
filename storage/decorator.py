@@ -39,30 +39,28 @@ class JsonCollector:
             # let's append it as well
             self._unfinished_line += data + newline
 
-            # let's try to deserialize only until the circuit breaker will kick in
-            if self._is_a_json_object:
-                # let's try to decode
-                json_library.loads(self._unfinished_line)
+            # let's try to decode
+            json_library.loads(self._unfinished_line)
 
-                # it didn't raise: we collected a json object
-                data_to_yield = self._unfinished_line
-                # let's reset the buffer
-                self._unfinished_line = b""
+            # it didn't raise: we collected a json object
+            data_to_yield = self._unfinished_line
+            # let's reset the buffer
+            self._unfinished_line = b""
 
-                # let's increase the offset for yielding (
-                self._offset += len(data_to_yield)
+            # let's increase the offset for yielding (
+            self._offset += len(data_to_yield)
 
-                # let's decrease the circuit breaker
-                if newline != b"":
-                    self._is_a_json_object_circuit_breaker -= data_to_yield.count(newline) - 1
-                else:
-                    self._is_a_json_object_circuit_breaker -= 1
+            # let's decrease the circuit breaker
+            if newline != b"":
+                self._is_a_json_object_circuit_breaker -= data_to_yield.count(newline) - 1
+            else:
+                self._is_a_json_object_circuit_breaker -= 1
 
-                # let's trim leading newline
-                data_to_yield = data_to_yield.lstrip(newline)
+            # let's trim leading newline
+            data_to_yield = data_to_yield.lstrip(newline)
 
-                # finally yield
-                yield data_to_yield
+            # finally yield
+            yield data_to_yield
         # it raised: we didn't collect enough content to reach the end of the json object: let's keep iterating
         except ValueError:
             # buffer was not a complete json object
@@ -79,8 +77,7 @@ class JsonCollector:
             storage: CommonStorageType, range_start: int, body: Any, content_type: str, content_length: int
         ) -> Iterator[tuple[Union[StorageReader, bytes], int, int]]:
 
-            if len(buffer) > 0:
-                yield buffer, range_start, 0
+            yield buffer, range_start, 0
 
         return wrapper
 
@@ -92,7 +89,6 @@ class JsonCollector:
         has_an_object_start: bool = False
         wait_for_object_start: bool = True
         wait_for_object_start_buffer: bytes = b""
-        wait_for_object_start_buffer_circuit_breaker: int = 0
 
         self._offset = range_start
         self._newline_length = -1
@@ -116,9 +112,6 @@ class JsonCollector:
 
             # let's check until we got some content from split by lines
             if wait_for_object_start:
-                # let's increase the circuit breaker counter
-                wait_for_object_start_buffer_circuit_breaker += 1
-
                 # we check for a potential json object on
                 # we strip leading space to be safe on padding
                 stripped_data = data.decode("utf-8").lstrip()
@@ -136,52 +129,23 @@ class JsonCollector:
                     # let's buffer discarded data including newline for eventual by_lines() fallback
                     wait_for_object_start_buffer += data + newline
 
-                # let's wait no longer than 1k lines
-                if wait_for_object_start_buffer_circuit_breaker > 1000:
-                    wait_for_object_start = False
-
             if not wait_for_object_start:
                 # if it's not a json object we can just forward the content by lines
                 if not has_an_object_start:
                     # let's consume the buffer we set for waiting for object_start before the circuit breaker
-                    if len(wait_for_object_start_buffer) > 0:
-                        iterator = by_lines(self._buffer_yield(wait_for_object_start_buffer))(
-                            storage, range_start, body, content_type, content_length # type:ignore
-                        )
+                    iterator = by_lines(self._buffer_yield(wait_for_object_start_buffer))(
+                        storage, range_start, body, content_type, content_length  # type:ignore
+                    )
 
-                        for line, offset, original_newline_length in iterator:
-                            yield line, offset, original_newline_length
+                    for line, offset, original_newline_length in iterator:
+                        yield line, offset, original_newline_length
 
                     # let's reset the buffer
                     wait_for_object_start_buffer = b""
                     yield data, original_line_ending_offset, newline_length
                 else:
-                    buffer_length = len(wait_for_object_start_buffer)
-                    total_newline_length = wait_for_object_start_buffer.count(newline) * newline_length
-                    # let's consume the buffer we set for waiting for object_start before the circuit breaker
-                    # only if it does contain more than newlines only
-                    if buffer_length > 0 and buffer_length != total_newline_length:
-                        iterator = by_lines(self._buffer_yield(wait_for_object_start_buffer))(
-                            storage, range_start, body, content_type, content_length # type:ignore
-                        )
-
-                        # we still can have json like object
-                        json_object_was_yield = False
-                        for line, offset, original_newline_length in iterator:
-                            assert isinstance(line, bytes)
-
-                            for data_to_yield in self._collector(line, newline):
-                                shared_logger.debug("JsonCollector objects", extra={"offset": self._offset})
-                                json_object_was_yield = True
-                                yield data_to_yield, self._offset, newline_length
-
-                            # let's yield if it's not a json
-                            if not json_object_was_yield:
-                                yield line, offset, original_newline_length
-                    else:
-                        # let's balance the offset for newline only content
-                        if newline_length > 0:
-                            self._offset += total_newline_length
+                    # let's balance the offset for newline only content
+                    self._offset += wait_for_object_start_buffer.count(newline) * newline_length
 
                     # let's reset the buffer
                     wait_for_object_start_buffer = b""
@@ -193,7 +157,7 @@ class JsonCollector:
                     if not self._is_a_json_object:
                         # let's yield what we have so far
                         iterator = by_lines(self._buffer_yield(self._unfinished_line))(
-                            storage, range_start, body, content_type, content_length # type:ignore
+                            storage, range_start, body, content_type, content_length  # type:ignore
                         )
                         for line, offset, original_newline_length in iterator:
                             yield line, offset, original_newline_length
@@ -211,7 +175,7 @@ class JsonCollector:
         self._unfinished_line = self._unfinished_line.strip(b"\n").strip(b"\r\n")
         if len(self._unfinished_line) > 0:
             iterator = by_lines(self._buffer_yield(self._unfinished_line))(
-                storage, range_start, body, content_type, content_length # type:ignore
+                storage, range_start, body, content_type, content_length  # type:ignore
             )
             for line, offset, newline_length in iterator:
                 self._offset += offset - self._offset
