@@ -19,7 +19,7 @@ class CommonShipper(metaclass=ABCMeta):
         raise NotImplementedError
 
     @abstractmethod
-    def send(self, event: dict[str, Any]) -> Any:
+    def send(self, event: dict[str, Any]) -> bool:
         """
         Interface for sending the event by the shipper
         """

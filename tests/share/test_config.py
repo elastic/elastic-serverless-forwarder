@@ -2,14 +2,12 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
-from __future__ import annotations
-
 import re
 from unittest import TestCase
 
 import pytest
 
-from share import Config, ElasticsearchOutput, Input, Output, parse_config
+from share import Config, ElasticsearchOutput, IncludeExcludeFilter, IncludeExcludeRule, Input, Output, parse_config
 
 
 class DummyOutput(Output):
@@ -426,6 +424,19 @@ class TestInput(TestCase):
             input_sqs = Input(input_type="s3-sqs", input_id="id")
             with self.assertRaisesRegex(ValueError, "Each tag must be of type str, given: \\['tag1', 2, 'tag3'\\]"):
                 input_sqs.tags = ["tag1", 2, "tag3"]  # type:ignore
+
+    def test_input_include_exclude_filter(self) -> None:
+        with self.subTest("valid include_exclude_filter"):
+            input_sqs = Input(input_type="s3-sqs", input_id="id")
+            include_exclude_filter = IncludeExcludeFilter()
+            input_sqs.include_exclude_filter = include_exclude_filter
+
+            assert input_sqs.include_exclude_filter == include_exclude_filter
+
+        with self.subTest("include_exclude_filter not IncludeExcludeFilter"):
+            input_sqs = Input(input_type="s3-sqs", input_id="id")
+            with self.assertRaisesRegex(ValueError, "An error occurred while setting include and exclude filter"):
+                input_sqs.include_exclude_filter = "wrong type"  # type:ignore
 
     def test_get_output_by_type(self) -> None:
         with self.subTest("none output"):
@@ -1093,6 +1104,96 @@ class TestParseConfig(TestCase):
             assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
             assert elasticsearch.batch_max_actions == 500
             assert elasticsearch.batch_max_bytes == 10485760
+
+        with self.subTest("valid include_exclude_filter"):
+            config = parse_config(
+                config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                include:
+                  - include_pattern1
+                  - include_pattern2
+                exclude:
+                  - exclude_pattern1
+                  - exclude_pattern2
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      es_index_or_datastream_name: "es_index_or_datastream_name"
+            """
+            )
+
+            input_sqs = config.get_input_by_type_and_id(input_type="s3-sqs", input_id="id")
+            assert input_sqs is not None
+            assert input_sqs.type == "s3-sqs"
+            assert input_sqs.id == "id"
+            assert input_sqs.include_exclude_filter == IncludeExcludeFilter(
+                include_patterns=[
+                    IncludeExcludeRule(pattern="include_pattern1"),
+                    IncludeExcludeRule(pattern="include_pattern2"),
+                ],
+                exclude_patterns=[
+                    IncludeExcludeRule(pattern="exclude_pattern1"),
+                    IncludeExcludeRule(pattern="exclude_pattern2"),
+                ],
+            )
+
+            elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
+
+            assert elasticsearch is not None
+            assert isinstance(elasticsearch, ElasticsearchOutput)
+            assert elasticsearch.type == "elasticsearch"
+            assert elasticsearch.cloud_id == "cloud_id"
+            assert elasticsearch.api_key == "api_key"
+            assert elasticsearch.es_index_or_datastream_name == "es_index_or_datastream_name"
+            assert elasticsearch.tags == []
+            assert elasticsearch.batch_max_actions == 500
+            assert elasticsearch.batch_max_bytes == 10485760
+
+        with self.subTest("no list for include"):
+            with self.assertRaisesRegex(ValueError, "Must be provided list type for include"):
+                config = parse_config(
+                    config_yaml="""
+                inputs:
+                  - type: s3-sqs
+                    id: id
+                    include:
+                      include_pattern1
+                    exclude:
+                      - exclude_pattern1
+                      - exclude_pattern2
+                    outputs:
+                      - type: elasticsearch
+                        args:
+                          cloud_id: "cloud_id"
+                          api_key: "api_key"
+                          es_index_or_datastream_name: "es_index_or_datastream_name"
+                """
+                )
+
+        with self.subTest("no list for exclude"):
+            with self.assertRaisesRegex(ValueError, "Must be provided list type for exclude"):
+                config = parse_config(
+                    config_yaml="""
+                inputs:
+                  - type: s3-sqs
+                    id: id
+                    include:
+                      - include_pattern1
+                      - include_pattern2
+                    exclude:
+                      exclude_pattern1
+                    outputs:
+                      - type: elasticsearch
+                        args:
+                          cloud_id: "cloud_id"
+                          api_key: "api_key"
+                          es_index_or_datastream_name: "es_index_or_datastream_name"
+                """
+                )
 
         with self.subTest("batch_max_actions not default"):
             config = parse_config(
