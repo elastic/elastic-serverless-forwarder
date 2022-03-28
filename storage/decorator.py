@@ -3,14 +3,18 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 import gzip
-import json
 from functools import partial
 from io import BytesIO
 from typing import Any, Iterator, Union
 
+import ujson
+
 from share import shared_logger
 
 from .storage import CHUNK_SIZE, CommonStorageType, GetByLinesCallable, StorageReader
+
+# For overriding in benchmark
+json_library = ujson
 
 
 class JsonCollector:
@@ -21,90 +25,198 @@ class JsonCollector:
     def __init__(self, function: GetByLinesCallable[CommonStorageType]):
         self._function: GetByLinesCallable[CommonStorageType] = function
 
-        self._json_decoder: json.JSONDecoder = json.JSONDecoder()
-
         self._offset: int = 0
+        self._newline_length = -1
         self._unfinished_line: bytes = b""
+
+        self._is_a_json_object: bool = True
+        self._is_a_json_object_circuit_breaker: int = 0
+
+    def _collector(self, data: bytes, newline: bytes) -> Iterator[bytes]:
+        try:
+            # let's buffer the content
+            # we receive data without newline
+            # let's append it as well
+            self._unfinished_line += data + newline
+
+            # let's try to deserialize only until the circuit breaker will kick in
+            if self._is_a_json_object:
+                # let's try to decode
+                json_library.loads(self._unfinished_line)
+
+                # it didn't raise: we collected a json object
+                data_to_yield = self._unfinished_line
+                # let's reset the buffer
+                self._unfinished_line = b""
+
+                # let's increase the offset for yielding (
+                self._offset += len(data_to_yield)
+
+                # let's decrease the circuit breaker
+                if newline != b"":
+                    self._is_a_json_object_circuit_breaker -= data_to_yield.count(newline) - 1
+                else:
+                    self._is_a_json_object_circuit_breaker -= 1
+
+                # let's trim leading newline
+                data_to_yield = data_to_yield.lstrip(newline)
+
+                # finally yield
+                yield data_to_yield
+        # it raised: we didn't collect enough content to reach the end of the json object: let's keep iterating
+        except ValueError:
+            # buffer was not a complete json object
+            # let's increase the circuit breaker
+            self._is_a_json_object_circuit_breaker += 1
+
+            # if the first 1k lines are not a json object let's give up
+            if self._is_a_json_object_circuit_breaker > 1000:
+                self._is_a_json_object = False
+
+    @staticmethod
+    def _buffer_yield(buffer: bytes) -> GetByLinesCallable[CommonStorageType]:
+        def wrapper(
+            storage: CommonStorageType, range_start: int, body: Any, content_type: str, content_length: int
+        ) -> Iterator[tuple[Union[StorageReader, bytes], int, int]]:
+
+            if len(buffer) > 0:
+                yield buffer, range_start, 0
+
+        return wrapper
 
     def __call__(
         self, storage: CommonStorageType, range_start: int, body: BytesIO, content_type: str, content_length: int
     ) -> Iterator[tuple[Union[StorageReader, bytes], int, int]]:
-        is_first_iteration: bool = True
+        newline: bytes = b""
+
         has_an_object_start: bool = False
+        wait_for_object_start: bool = True
+        wait_for_object_start_buffer: bytes = b""
+        wait_for_object_start_buffer_circuit_breaker: int = 0
 
         self._offset = range_start
+        self._newline_length = -1
+        self._unfinished_line = b""
+
+        self._is_a_json_object = True
+        self._is_a_json_object_circuit_breaker = 0
 
         iterator = self._function(storage, range_start, body, content_type, content_length)
         for data, original_line_ending_offset, newline_length in iterator:
             assert isinstance(data, bytes)
 
-            self._newline_length = newline_length
+            if newline_length != self._newline_length:
+                self._newline_length = newline_length
+                if newline_length == 2:
+                    newline = b"\r\n"
+                elif newline_length == 1:
+                    newline = b"\n"
+                else:
+                    newline = b""
 
-            # let's check the first entry from content split by lines
-            if is_first_iteration:
-                # check only once
-                is_first_iteration = False
-                # we check for a potential json object on the first line
+            # let's check until we got some content from split by lines
+            if wait_for_object_start:
+                # let's increase the circuit breaker counter
+                wait_for_object_start_buffer_circuit_breaker += 1
+
+                # we check for a potential json object on
                 # we strip leading space to be safe on padding
                 stripped_data = data.decode("utf-8").lstrip()
-                if len(stripped_data) > 0 and stripped_data[0] == "{":
-                    # we mark the potentiality of a json object start
-                    # CAVEAT: if the first log entry start with `{` but
-                    # the content is not json we buffer all the content
-                    # @TODO: not content will be yield as well, we must handle this scenario!
-                    has_an_object_start = True
 
-            # if it's not a json object we can just forward the content by lines
-            if not has_an_object_start:
-                yield data, original_line_ending_offset, newline_length
-            else:
-                for data_to_yield in self._collector(data):
-                    shared_logger.debug("JsonCollector objects", extra={"offset": self._offset})
-                    yield data_to_yield, self._offset, self._newline_length
+                # if range_start is greater than zero, data can be empty
+                if len(stripped_data) > 0:
+                    wait_for_object_start = False
+                    if stripped_data[0] == "{":
+                        # we mark the potentiality of a json object start
+                        # CAVEAT: if the log entry starts with `{` but the
+                        # content is not json, we buffer the first 10k lines
+                        # before the circuit breaker kicks in
+                        has_an_object_start = True
+                else:
+                    # let's buffer discarded data including newline for eventual by_lines() fallback
+                    wait_for_object_start_buffer += data + newline
 
-        if has_an_object_start:
-            # trailing content after last iteration
-            for data_to_yield in self._collector():
-                shared_logger.debug("JsonCollector last object", extra={"offset": self._offset})
-                yield data_to_yield, self._offset, self._newline_length
+                # let's wait no longer than 1k lines
+                if wait_for_object_start_buffer_circuit_breaker > 1000:
+                    wait_for_object_start = False
 
-    def _collector(self, data: bytes = b"") -> Iterator[bytes]:
-        try:
-            # let's buffer the content
-            self._unfinished_line += data
+            if not wait_for_object_start:
+                # if it's not a json object we can just forward the content by lines
+                if not has_an_object_start:
+                    # let's consume the buffer we set for waiting for object_start before the circuit breaker
+                    if len(wait_for_object_start_buffer) > 0:
+                        iterator = by_lines(self._buffer_yield(wait_for_object_start_buffer))(
+                            storage, range_start, body, content_type, content_length # type:ignore
+                        )
 
-            # we always receive newline stripped content, let's append
-            # newline to the buffer
-            if self._newline_length == 2:
-                self._unfinished_line += b"\r\n"
-            elif self._newline_length == 1:
-                self._unfinished_line += b"\n"
+                        for line, offset, original_newline_length in iterator:
+                            yield line, offset, original_newline_length
 
-            # let's remove leading newline in the buffer
-            if self._unfinished_line.startswith(b"\r\n"):
-                self._unfinished_line = self._unfinished_line.lstrip(b"\r\n")
-            elif self._unfinished_line.startswith(b"\n"):
-                self._unfinished_line = self._unfinished_line.lstrip(b"\n")
+                    # let's reset the buffer
+                    wait_for_object_start_buffer = b""
+                    yield data, original_line_ending_offset, newline_length
+                else:
+                    buffer_length = len(wait_for_object_start_buffer)
+                    total_newline_length = wait_for_object_start_buffer.count(newline) * newline_length
+                    # let's consume the buffer we set for waiting for object_start before the circuit breaker
+                    # only if it does contain more than newlines only
+                    if buffer_length > 0 and buffer_length != total_newline_length:
+                        iterator = by_lines(self._buffer_yield(wait_for_object_start_buffer))(
+                            storage, range_start, body, content_type, content_length # type:ignore
+                        )
 
-            # let's try to raw_decode (returning offset of trailing content after the end of the object)
-            _, object_ending_offset = self._json_decoder.raw_decode(self._unfinished_line.decode("utf-8"))
+                        # we still can have json like object
+                        json_object_was_yield = False
+                        for line, offset, original_newline_length in iterator:
+                            assert isinstance(line, bytes)
 
-            # it didn't raise: we collected a json object
-            # the data to yield is from the last ending offset (starting as 0)
-            # till the offset of the trailing content
-            data_to_yield = self._unfinished_line[:object_ending_offset]
+                            for data_to_yield in self._collector(line, newline):
+                                shared_logger.debug("JsonCollector objects", extra={"offset": self._offset})
+                                json_object_was_yield = True
+                                yield data_to_yield, self._offset, newline_length
 
-            # we cut the buffer from the length of the collected json object
-            self._unfinished_line = self._unfinished_line[object_ending_offset:]
+                            # let's yield if it's not a json
+                            if not json_object_was_yield:
+                                yield line, offset, original_newline_length
+                    else:
+                        # let's balance the offset for newline only content
+                        if newline_length > 0:
+                            self._offset += total_newline_length
 
-            # let's increase the last ending offset for yielding
-            self._offset += object_ending_offset + self._newline_length
+                    # let's reset the buffer
+                    wait_for_object_start_buffer = b""
 
-            # finally yield
-            yield data_to_yield
-        # it raised: we didn't collect enough content to reach the end of the json object: let's keep iterating
-        except json.JSONDecodeError:
-            pass
+                    for data_to_yield in self._collector(data, newline):
+                        shared_logger.debug("JsonCollector objects", extra={"offset": self._offset})
+                        yield data_to_yield, self._offset, newline_length
+
+                    if not self._is_a_json_object:
+                        # let's yield what we have so far
+                        iterator = by_lines(self._buffer_yield(self._unfinished_line))(
+                            storage, range_start, body, content_type, content_length # type:ignore
+                        )
+                        for line, offset, original_newline_length in iterator:
+                            yield line, offset, original_newline_length
+
+                        # let's set the flag for direct yield from now on
+                        has_an_object_start = False
+
+                        # let's reset the buffer
+                        self._unfinished_line = b""
+
+        # either we have a trailing new line in what's left in the buffer
+        # or the content had a leading `{` but was not a json object
+        # before the circuit breaker intercepted it:
+        # let's fallback to by_lines()
+        self._unfinished_line = self._unfinished_line.strip(b"\n").strip(b"\r\n")
+        if len(self._unfinished_line) > 0:
+            iterator = by_lines(self._buffer_yield(self._unfinished_line))(
+                storage, range_start, body, content_type, content_length # type:ignore
+            )
+            for line, offset, newline_length in iterator:
+                self._offset += offset - self._offset
+
+                yield line, self._offset, newline_length
 
     def __get__(
         self, storage: CommonStorageType, owner: Any
@@ -133,6 +245,9 @@ def by_lines(func: GetByLinesCallable[CommonStorageType]) -> GetByLinesCallable[
             unfinished_line += data
             lines = unfinished_line.decode("UTF-8").splitlines()
 
+            if len(lines) == 0:
+                continue
+
             if newline_length == 0:
                 if unfinished_line.find(b"\r\n") > -1:
                     newline = b"\r\n"
@@ -145,9 +260,6 @@ def by_lines(func: GetByLinesCallable[CommonStorageType]) -> GetByLinesCallable[
                 unfinished_line = lines.pop().encode() + newline
             else:
                 unfinished_line = lines.pop().encode()
-
-            if len(lines) == 0:
-                continue
 
             for line in lines:
                 line_encoded = line.encode("UTF-8")
