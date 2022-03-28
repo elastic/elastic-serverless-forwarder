@@ -4,59 +4,31 @@
 
 import base64
 import gzip
-import io
 import random
-import string
-from typing import Optional, Union
+from typing import Union
 from unittest import TestCase
 
 import pytest
 
 from storage import PayloadStorage, StorageReader
 
-_1M: int = 1024**2
+from .test_benchmark import (
+    _IS_JSON,
+    _IS_JSON_LIKE,
+    _IS_PLAIN,
+    _LENGTH_ABOVE_THRESHOLD,
+    _LENGTH_BELOW_THRESHOLD,
+    MockContentBase,
+)
 
 
-class MockContent:
-    f_size_gzip: int = 0
-    f_size_plain: int = 0
-    f_content_gzip: str = ""
-    f_content_plain: str = ""
-    f_stream_gzip: Optional[io.StringIO] = None
-    f_stream_plain: Optional[io.StringIO] = None
-
+class MockContent(MockContentBase):
     @staticmethod
-    def rewind() -> None:
-        assert MockContent.f_stream_gzip is not None
-        assert MockContent.f_stream_plain is not None
-        MockContent.f_stream_gzip.seek(0)
-        MockContent.f_stream_plain.seek(0)
+    def init_content(content_type: str, newline: bytes, length_multiplier: int = _LENGTH_ABOVE_THRESHOLD) -> None:
+        MockContentBase.init_content(content_type=content_type, newline=newline, length_multiplier=length_multiplier)
 
-    @staticmethod
-    def init_content(newline: str) -> None:
-        if len(newline) == 0:
-            mock_content = "".join(
-                random.choices(string.ascii_letters + string.digits, k=random.randint(1, 20))
-            ).encode("UTF-8")
-        else:
-            # every line is from 0 to 20 chars, repeated for 1M: a few megabytes of content
-            mock_content = newline.join(
-                [
-                    "".join(random.choices(string.ascii_letters + string.digits, k=random.randint(0, 20)))
-                    for _ in range(1, _1M)
-                ]
-            ).encode("UTF-8")
-
-            if len(mock_content) == 0:
-                mock_content = "".join(
-                    random.choices(string.ascii_letters + string.digits, k=random.randint(1, 20))
-                ).encode("UTF-8")
-
-        MockContent.f_content_gzip = base64.b64encode(gzip.compress(mock_content)).decode("utf-8")
-        MockContent.f_content_plain = base64.b64encode(mock_content).decode("utf-8")
-        MockContent.f_stream_gzip = io.StringIO(MockContent.f_content_gzip)
-        MockContent.f_stream_plain = io.StringIO(MockContent.f_content_plain)
-        MockContent.rewind()
+        MockContent.f_content_gzip = base64.b64encode(gzip.compress(MockContentBase.mock_content))
+        MockContent.f_content_plain = base64.b64encode(MockContentBase.mock_content)
 
         MockContent.f_size_gzip = len(MockContent.f_content_gzip)
         MockContent.f_size_plain = len(MockContent.f_content_plain)
@@ -65,8 +37,7 @@ class MockContent:
 @pytest.mark.unit
 class TestPayloadStorage(TestCase):
     def test_get_as_string(self) -> None:
-        newline: str = "\n"
-        MockContent.init_content(newline)
+        MockContent.init_content(content_type=_IS_PLAIN, newline=b"\n")
 
         with self.subTest("testing with plain"):
             original = base64.b64decode(MockContent.f_content_plain).decode("utf-8")
@@ -76,144 +47,153 @@ class TestPayloadStorage(TestCase):
             assert len(content) == len(original)
 
         with self.subTest("testing with base64"):
-            payload_storage = PayloadStorage(payload=MockContent.f_content_plain)
+            payload_storage = PayloadStorage(payload=MockContent.f_content_plain.decode("utf-8"))
             content = payload_storage.get_as_string()
             original = base64.b64decode(MockContent.f_content_plain).decode("utf-8")
             assert content == original
             assert len(content) == len(original)
 
         with self.subTest("testing with gzip"):
-            payload_storage = PayloadStorage(payload=MockContent.f_content_gzip)
+            payload_storage = PayloadStorage(payload=MockContent.f_content_gzip.decode("utf-8"))
             content = payload_storage.get_as_string()
-            original = gzip.decompress(base64.b64decode(MockContent.f_content_gzip.encode("utf-8"))).decode("utf-8")
+            original = gzip.decompress(base64.b64decode(MockContent.f_content_gzip)).decode("utf-8")
 
             assert content == original
             assert len(content) == len(original)
 
     def test_get_by_lines(self) -> None:
-        for newline in ["", "\n", "\r\n"]:
-            with self.subTest(f"testing with newline length {len(newline)}", newline=newline):
-                MockContent.init_content(newline)
+        for length_multiplier in [_LENGTH_BELOW_THRESHOLD, _LENGTH_ABOVE_THRESHOLD]:
+            for content_type in [_IS_PLAIN, _IS_JSON, _IS_JSON_LIKE]:
+                for newline in [b"", b"\n", b"\r\n"]:
+                    with self.subTest(
+                        f"testing with newline length {len(newline)} for content type {content_type}",
+                        newline=newline,
+                    ):
+                        newline_length: int = len(newline)
 
-                original: str = base64.b64decode(MockContent.f_content_plain).decode("utf-8")
-                original_length: int = len(original)
+                        MockContent.init_content(
+                            content_type=content_type, newline=newline, length_multiplier=length_multiplier
+                        )
 
-                payload_storage = PayloadStorage(payload=MockContent.f_content_gzip)
-                gzip_full: list[tuple[Union[StorageReader, bytes], int, int]] = list(
-                    payload_storage.get_by_lines(range_start=0)
-                )
+                        payload_content_gzip = MockContent.f_content_gzip.decode("utf-8")
+                        payload_content_plain = MockContent.f_content_plain.decode("utf-8")
 
-                payload_storage = PayloadStorage(payload=MockContent.f_content_plain)
-                plain_full: list[tuple[Union[StorageReader, bytes], int, int]] = list(
-                    payload_storage.get_by_lines(range_start=0)
-                )
+                        original: bytes = base64.b64decode(MockContent.f_content_plain)
+                        original_length: int = len(original)
 
-                diff = set(gzip_full) ^ set(plain_full)
-                assert not diff
-                assert plain_full == gzip_full
-                assert gzip_full[-1][1] == original_length
-                assert plain_full[-1][1] == original_length
+                        if content_type is _IS_JSON and original.endswith(newline * 2):
+                            original_length -= len(newline)
 
-                joined = newline.join([x[0].decode("UTF-8") for x in plain_full])
-                if original.endswith(newline):
-                    joined += newline
+                        payload_storage = PayloadStorage(payload=payload_content_gzip)
+                        gzip_full: list[tuple[Union[StorageReader, bytes], int, int]] = list(
+                            payload_storage.get_by_lines(range_start=0)
+                        )
 
-                assert joined == original
+                        payload_storage = PayloadStorage(payload=payload_content_plain)
+                        plain_full: list[tuple[Union[StorageReader, bytes], int, int]] = list(
+                            payload_storage.get_by_lines(range_start=0)
+                        )
 
-                if len(newline) == 0:
-                    continue
+                        diff = set(gzip_full) ^ set(plain_full)
+                        assert not diff
+                        assert plain_full == gzip_full
+                        assert gzip_full[-1][1] == original_length
+                        assert plain_full[-1][1] == original_length
 
-                gzip_full_01 = gzip_full[: int(len(gzip_full) / 2)]
-                plain_full_01 = plain_full[: int(len(plain_full) / 2)]
+                        joined = newline.join([x[0] for x in plain_full])  # type:ignore
+                        if content_type == _IS_PLAIN and original.endswith(newline):
+                            joined += newline
 
-                MockContent.rewind()
+                        assert joined == original
 
-                range_start = plain_full_01[-1][1]
-                payload_storage = PayloadStorage(payload=MockContent.f_content_gzip)
-                gzip_full_02: list[tuple[Union[StorageReader, bytes], int, int]] = list(
-                    payload_storage.get_by_lines(range_start=range_start)
-                )
+                        if len(newline) == 0:
+                            continue
 
-                payload_storage = PayloadStorage(payload=MockContent.f_content_plain)
-                plain_full_02: list[tuple[Union[StorageReader, bytes], int, int]] = list(
-                    payload_storage.get_by_lines(range_start=range_start)
-                )
+                        gzip_full_01 = gzip_full[: int(len(gzip_full) / 2)]
+                        plain_full_01 = plain_full[: int(len(plain_full) / 2)]
 
-                diff = set(gzip_full_01) ^ set(plain_full_01)
-                assert not diff
-                assert plain_full_01 == gzip_full_01
+                        range_start = plain_full_01[-1][1]
+                        payload_storage = PayloadStorage(payload=payload_content_gzip)
+                        gzip_full_02: list[tuple[Union[StorageReader, bytes], int, int]] = list(
+                            payload_storage.get_by_lines(range_start=range_start)
+                        )
 
-                diff = set(gzip_full_02) ^ set(plain_full_02)
-                assert not diff
-                assert plain_full_02 == gzip_full_02
+                        payload_storage = PayloadStorage(payload=payload_content_plain)
+                        plain_full_02: list[tuple[Union[StorageReader, bytes], int, int]] = list(
+                            payload_storage.get_by_lines(range_start=range_start)
+                        )
 
-                assert plain_full_01 + plain_full_02 == plain_full
-                assert gzip_full_02[-1][1] == original_length
-                assert plain_full_02[-1][1] == original_length
+                        diff = set(gzip_full_01) ^ set(plain_full_01)
+                        assert not diff
+                        assert plain_full_01 == gzip_full_01
 
-                joined = (
-                    newline.join([x[0].decode("UTF-8") for x in plain_full_01])
-                    + newline
-                    + newline.join([x[0].decode("UTF-8") for x in plain_full_02])
-                )
-                if original.endswith(newline):
-                    joined += newline
+                        diff = set(gzip_full_02) ^ set(plain_full_02)
+                        assert not diff
+                        assert plain_full_02 == gzip_full_02
 
-                assert joined == original
+                        assert plain_full_01 + plain_full_02 == plain_full
+                        assert gzip_full_02[-1][1] == original_length
+                        assert plain_full_02[-1][1] == original_length
 
-                MockContent.rewind()
+                        joined = (
+                            newline.join([x[0] for x in plain_full_01])  # type:ignore
+                            + newline
+                            + newline.join([x[0] for x in plain_full_02])  # type:ignore
+                        )
+                        if content_type == _IS_PLAIN and original.endswith(newline):
+                            joined += newline
 
-                gzip_full_02 = gzip_full_02[: int(len(gzip_full_02) / 2)]
-                plain_full_02 = plain_full_02[: int(len(plain_full_02) / 2)]
+                        assert joined == original
 
-                range_start = plain_full_02[-1][1]
-                payload_storage = PayloadStorage(payload=MockContent.f_content_gzip)
-                gzip_full_03: list[tuple[Union[StorageReader, bytes], int, int]] = list(
-                    payload_storage.get_by_lines(range_start=range_start)
-                )
+                        gzip_full_02 = gzip_full_02[: int(len(gzip_full_02) / 2)]
+                        plain_full_02 = plain_full_02[: int(len(plain_full_02) / 2)]
 
-                payload_storage = PayloadStorage(payload=MockContent.f_content_plain)
-                plain_full_03: list[tuple[Union[StorageReader, bytes], int, int]] = list(
-                    payload_storage.get_by_lines(range_start=range_start)
-                )
+                        range_start = plain_full_02[-1][1]
+                        payload_storage = PayloadStorage(payload=payload_content_gzip)
+                        gzip_full_03: list[tuple[Union[StorageReader, bytes], int, int]] = list(
+                            payload_storage.get_by_lines(range_start=range_start)
+                        )
 
-                diff = set(gzip_full_02) ^ set(plain_full_02)
-                assert not diff
-                assert plain_full_02 == gzip_full_02
+                        payload_storage = PayloadStorage(payload=payload_content_plain)
+                        plain_full_03: list[tuple[Union[StorageReader, bytes], int, int]] = list(
+                            payload_storage.get_by_lines(range_start=range_start)
+                        )
 
-                diff = set(gzip_full_03) ^ set(plain_full_03)
-                assert not diff
-                assert plain_full_03 == gzip_full_03
+                        diff = set(gzip_full_02) ^ set(plain_full_02)
+                        assert not diff
+                        assert plain_full_02 == gzip_full_02
 
-                assert plain_full_01 + plain_full_02 + plain_full_03 == plain_full
-                assert gzip_full_03[-1][1] == original_length
-                assert plain_full_03[-1][1] == original_length
+                        diff = set(gzip_full_03) ^ set(plain_full_03)
+                        assert not diff
+                        assert plain_full_03 == gzip_full_03
 
-                joined = (
-                    newline.join([x[0].decode("UTF-8") for x in plain_full_01])
-                    + newline
-                    + newline.join([x[0].decode("UTF-8") for x in plain_full_02])
-                    + newline
-                    + newline.join([x[0].decode("UTF-8") for x in plain_full_03])
-                )
-                if original.endswith(newline):
-                    joined += newline
+                        assert plain_full_01 + plain_full_02 + plain_full_03 == plain_full
+                        assert gzip_full_03[-1][1] == original_length
+                        assert plain_full_03[-1][1] == original_length
 
-                assert joined == original
+                        joined = (
+                            newline.join([x[0] for x in plain_full_01])  # type:ignore
+                            + newline
+                            + newline.join([x[0] for x in plain_full_02])  # type:ignore
+                            + newline
+                            + newline.join([x[0] for x in plain_full_03])  # type:ignore
+                        )
+                        if content_type == _IS_PLAIN and original.endswith(newline):
+                            joined += newline
 
-                MockContent.rewind()
+                        assert joined == original
 
-                range_start = plain_full[-1][1] + random.randint(1, 100)
+                        range_start = plain_full[-1][1] + random.randint(1, 100)
 
-                payload_storage = PayloadStorage(payload=MockContent.f_content_gzip)
-                gzip_full_empty: list[tuple[Union[StorageReader, bytes], int, int]] = list(
-                    payload_storage.get_by_lines(range_start=range_start)
-                )
+                        payload_storage = PayloadStorage(payload=payload_content_gzip)
+                        gzip_full_empty: list[tuple[Union[StorageReader, bytes], int, int]] = list(
+                            payload_storage.get_by_lines(range_start=range_start)
+                        )
 
-                payload_storage = PayloadStorage(payload=MockContent.f_content_plain)
-                plain_full_empty: list[tuple[Union[StorageReader, bytes], int, int]] = list(
-                    payload_storage.get_by_lines(range_start=range_start)
-                )
+                        payload_storage = PayloadStorage(payload=payload_content_plain)
+                        plain_full_empty: list[tuple[Union[StorageReader, bytes], int, int]] = list(
+                            payload_storage.get_by_lines(range_start=range_start)
+                        )
 
-                assert not gzip_full_empty
-                assert not plain_full_empty
+                        assert not gzip_full_empty
+                        assert not plain_full_empty
