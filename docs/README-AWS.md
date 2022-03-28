@@ -602,7 +602,7 @@ Custom init arguments for the given forwarding target output
   * `args.cloud_id`: Cloud ID of elasticsearch endpoint. Mandatory in case `args.elasticsearch_url` is not provided. Will be ignored if `args.elasticsearch_url` is defined as well.
   * `args.username`: Username of the elasticsearch instance to connect to. Mandatory in case `args.api_key` is not provided. Will be ignored if `args.api_key` is defined as well.
   * `args.password` Password of the elasticsearch instance to connect to. Mandatory in case `args.api_key` is not provided. Will be ignored if `args.api_key` is defined as well.
-  * `args.api_key`:  Api key of elasticsearch endpoint in the format username(api_key_id:api_key_secret). Mandatory in case `args.username`  and `args.password ` are not provided. Will take precedence over `args.username`/`args.password` if both are defined.
+  * `args.api_key`:  Api key of elasticsearch endpoint in the format **base64encode(api_key_id:api_key_secret)**. Mandatory in case `args.username`  and `args.password ` are not provided. Will take precedence over `args.username`/`args.password` if both are defined.
   * `args.es_index_or_datastream_name`: Name of the index or data stream where to forward the logs to. Lambda supports automatic routing of various AWS service logs to the corresponding data streams for further processing and storage in the Elasticsearch cluster. It supports automatic routing of `aws.cloudtrail`, `aws.cloudwatch_logs`, `aws.elb_logs`, `aws.firewall_logs`, `aws.vpcflow`, and `aws.waf` logs. For other log types, if using data stream, the users can optionally set its value in the configuration file according to the naming convention for data streams and available integrations. If the `es_index_or_datastream_name` is not specified and it cannot be matched with any of the above AWS services then the value will be set to "logs-generic-default".
   * `args.batch_max_actions`: Maximum number of actions to send in a single bulk request. Default value: 500
   * `args.batch_max_bytes`: Maximum size in bytes to send in a sigle bulk request. Default value: 10485760 (10MB)
@@ -664,6 +664,40 @@ Using the above configuration, the tags will be set in the following way`["prese
 - Tags must be placed at input level in the config file
 - Tags must be added in the form list only
 - Each tag must be a string
+
+## Include/exclude filter support
+It is possible to handle at input level multiple filters for including or excluding events to be ingested.
+```yaml
+inputs:
+  - type: "s3-sqs"
+    id: "arn:aws:sqs:%REGION%:%ACCOUNT%:%QUEUENAME%"
+    include:
+      - "[a-zA-Z]"
+    exclude:
+      - "skip this"
+      - "skip also this"
+    outputs:
+      - type: "elasticsearch"
+        args:
+          elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_url"
+          username: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:es_secrets:username"
+          password: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:es_secrets:password"
+          es_index_or_datastream_name: "logs-generic-default"
+```
+
+#### Notes
+
+`inputs.[].include` can be defined as a list of regular expressions.
+If the list is defined only the messages **matching any** of the defined regular expression will be forwarder to the outputs.
+
+`inputs.[].exclude` can be defined as a list of regular expressions.
+If the list is defined only the messages **not matching all** of the defined regular expressions will be forwarder to the outputs. Ie: every message that will be forwarder to the outputs unless matching any of the defined regular expressions.
+
+Both config params are optional, and can be set independently of each other: exclude is applied first and then include is applied, so exclude takes precedence if both are supplied.
+
+Regular expressions supported follow [Python 3.9 regular expression systanx](https://docs.python.org/3.9/library/re.html#regular-expression-syntax).
+They are case-sensitive and are scanned through the original ingested message, looking for any location where they match: anchoring at the beginning of the string must be done with explicit `^` (caret.) special character.
+When the regular expression is compiled no flags are used, please refer to [inline flag documentation](https://docs.python.org/3.9/library/re.html#re.compile) for alternative to multiline, case-insensitive and other matching behaviour.
 
 ## Routing support for AWS Services Logs
 When using Elastic integrations, as a first step users should install appropriate [integration](https://docs.elastic.co/en/integrations) assets using the Kibana UI. This sets up appropriate pre-built dashboards, ingest node configurations, and other assets that help you get the most out of the data you ingest. The integrations use [data streams](https://www.elastic.co/guide/en/elasticsearch/reference/current/data-streams.html) with specific [naming conventions](https://www.elastic.co/blog/an-introduction-to-the-elastic-data-stream-naming-scheme) providing users with more granular controls and flexibility on managing the ingested data.

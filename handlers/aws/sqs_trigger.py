@@ -109,9 +109,9 @@ def _handle_sqs_event(
             es_event["fields"]["log"]["file"]["path"] = f"{log_group_name}/{log_stream_name}"
 
             es_event["fields"]["aws"] = {
-                "cloudwatch_logs": {
-                    "group_name": log_group_name,
-                    "stream_name": log_stream_name,
+                "awscloudwatch": {
+                    "log_group": log_group_name,
+                    "log_stream": log_stream_name,
                     "event_id": event_id,
                 }
             }

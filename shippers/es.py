@@ -58,7 +58,6 @@ class ElasticsearchShipper(CommonShipper):
 
         if username:
             es_client_kwargs["http_auth"] = (username, password)
-
         elif api_key:
             es_client_kwargs["api_key"] = api_key
         else:
@@ -91,11 +90,29 @@ class ElasticsearchShipper(CommonShipper):
 
         return Elasticsearch(**es_client_kwargs)
 
+    @staticmethod
+    def _normalise_event(event_payload: dict[str, Any]) -> None:
+        """
+        This method move fields payload in the event at root level and then removes it with meta payload
+        It has to be called as last step after any operation on the event payload just before sending to the cluster
+        """
+        if "fields" in event_payload:
+            fields: dict[str, Any] = event_payload["fields"]
+            for field_key in fields.keys():
+                event_payload[field_key] = fields[field_key]
+
+            del event_payload["fields"]
+
+        if "meta" in event_payload:
+            del event_payload["meta"]
+
     def _enrich_event(self, event_payload: dict[str, Any]) -> None:
         """
         This method enrich with default metadata the ES event payload.
         Currently, hardcoded for logs type
         """
+        if "fields" not in event_payload:
+            return
 
         event_payload["tags"] = ["preserve_original_event", "forwarded"]
         event_payload["event"] = {"original": event_payload["fields"]["message"]}
@@ -137,7 +154,7 @@ class ElasticsearchShipper(CommonShipper):
     def set_replay_handler(self, replay_handler: ReplayHandlerCallable) -> None:
         self._replay_handler = replay_handler
 
-    def send(self, event: dict[str, Any]) -> Any:
+    def send(self, event: dict[str, Any]) -> bool:
         self._replay_args["es_index_or_datastream_name"] = self._es_index_or_datastream_name
 
         self._enrich_event(event_payload=event)
@@ -153,16 +170,18 @@ class ElasticsearchShipper(CommonShipper):
         if "_id" not in event and self._event_id_generator is not None:
             event["_id"] = self._event_id_generator(event)
 
+        self._normalise_event(event_payload=event)
+
         self._bulk_actions.append(event)
 
         if len(self._bulk_actions) < self._bulk_batch_size:
-            return
+            return False
 
         errors = es_bulk(self._es_client, self._bulk_actions, **self._bulk_kwargs)
         self._handle_outcome(errors=errors)
         self._bulk_actions = []
 
-        return
+        return True
 
     def flush(self) -> None:
         if len(self._bulk_actions) > 0:
