@@ -16,7 +16,7 @@ integration-test: test
 
 test: PYTEST_ARGS_FLAGS=$(if $(PYTEST_ARGS),$(PYTEST_ARGS),-m not benchmark) ## Run unit tests on the host
 test:  ## Run all tests on the host
-	PYTEST_ARGS="${PYTEST_ARGS_FLAGS}" tests/scripts/${BASE_DIR}run_tests.sh
+	PYTEST_ARGS="${PYTEST_ARGS_FLAGS}" tests/scripts/${SCRIPTS_BASE_DIR}run_tests.sh
 
 coverage: export PYTEST_ADDOPTS=--cov=. --cov-context=test --cov-config=.coveragerc --cov-branch ## Run tests with coverage on the host
 coverage: export COVERAGE_FILE=.coverage
@@ -25,54 +25,54 @@ coverage: test
 lint: black flake8 isort mypy  ## Lint the project on the host
 
 black:  ## Run black in the project on the host
-	tests/scripts/${BASE_DIR}black.sh diff
+	tests/scripts/${SCRIPTS_BASE_DIR}black.sh diff
 
 flake8:  ## Run flake8 in the project on the host
-	tests/scripts/${BASE_DIR}flake8.sh
+	tests/scripts/${SCRIPTS_BASE_DIR}flake8.sh
 
 isort:  ## Run isort in the project on the host
-	tests/scripts/${BASE_DIR}isort.sh diff
+	tests/scripts/${SCRIPTS_BASE_DIR}isort.sh diff
 
 mypy: ## Run mypy in the project on the host
-	tests/scripts/${BASE_DIR}mypy.sh
+	tests/scripts/${SCRIPTS_BASE_DIR}mypy.sh
 
 docker-test:  ## Run all tests on docker
-docker-test: BASE_DIR=docker/
+docker-test: SCRIPTS_BASE_DIR=docker/
 docker-test: test
 
 docker-benchmark:  ## Run benchmarks on docker
-docker-benchmark: BASE_DIR=docker/
+docker-benchmark: SCRIPTS_BASE_DIR=docker/
 docker-benchmark: benchmark
 
 docker-unit-test:  ## Run unit tests on docker
-docker-unit-test: BASE_DIR=docker/
+docker-unit-test: SCRIPTS_BASE_DIR=docker/
 docker-unit-test: unit-test
 
 docker-integration-test:  ## Run integration tests on docker
-docker-integration-test: BASE_DIR=docker/
+docker-integration-test: SCRIPTS_BASE_DIR=docker/
 docker-integration-test: integration-test
 
 
 docker-coverage: export COVERAGE_FILE=.coverage
-docker-integration-test: BASE_DIR=docker/
+docker-integration-test: SCRIPTS_BASE_DIR=docker/
 docker-coverage: test
 
 docker-lint: docker-black docker-flake8 docker-isort docker-mypy  ## Lint the project on docker
 
 docker-black:  ## Run black in the project on docker
-docker-black: BASE_DIR=docker/
+docker-black: SCRIPTS_BASE_DIR=docker/
 docker-black: black
 
 docker-flake8:  ## Run flake8 in the project on docker
-docker-flake8: BASE_DIR=docker/
+docker-flake8: SCRIPTS_BASE_DIR=docker/
 docker-flake8: flake8
 
 docker-isort:  ## Run isort in the project on docker
-docker-isort: BASE_DIR=docker/
+docker-isort: SCRIPTS_BASE_DIR=docker/
 docker-isort: isort
 
 docker-mypy:  ## Run mypy in the project on docker
-docker-mypy: BASE_DIR=docker/
+docker-mypy: SCRIPTS_BASE_DIR=docker/
 docker-mypy: mypy
 
 license:  ## Run license validation in the project
