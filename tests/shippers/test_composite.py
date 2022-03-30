@@ -8,7 +8,15 @@ from unittest import TestCase
 import pytest
 
 from share import IncludeExcludeFilter, IncludeExcludeRule
-from shippers import CommonShipper, CompositeShipper, EVENT_IS_EMPTY, EVENT_IS_FILTERED, EVENT_IS_SENT, EventIdGeneratorCallable, ReplayHandlerCallable
+from shippers import (
+    EVENT_IS_EMPTY,
+    EVENT_IS_FILTERED,
+    EVENT_IS_SENT,
+    CommonShipper,
+    CompositeShipper,
+    EventIdGeneratorCallable,
+    ReplayHandlerCallable,
+)
 
 
 class DummyShipper(CommonShipper):

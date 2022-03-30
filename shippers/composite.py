@@ -6,7 +6,14 @@ from typing import Any, Optional
 
 from share import IncludeExcludeFilter, shared_logger
 
-from .shipper import CommonShipper, EVENT_IS_EMPTY, EVENT_IS_FILTERED, EVENT_IS_SENT, EventIdGeneratorCallable, ReplayHandlerCallable
+from .shipper import (
+    EVENT_IS_EMPTY,
+    EVENT_IS_FILTERED,
+    EVENT_IS_SENT,
+    CommonShipper,
+    EventIdGeneratorCallable,
+    ReplayHandlerCallable,
+)
 
 
 class CompositeShipper(CommonShipper):
@@ -42,7 +49,7 @@ class CompositeShipper(CommonShipper):
             shipper.set_replay_handler(replay_handler=replay_handler)
 
     def send(self, event: dict[str, Any]) -> str:
-        message:str = ""
+        message: str = ""
         if "fields" in event and "message" in event["fields"]:
             message = event["fields"]["message"]
         elif "message" in event:

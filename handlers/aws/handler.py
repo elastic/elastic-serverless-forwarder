@@ -10,7 +10,7 @@ from aws_lambda_typing import context as context_
 
 from share import parse_config, shared_logger
 from share.secretsmanager import aws_sm_expander
-from shippers import CompositeShipper, EVENT_IS_EMPTY, EVENT_IS_FILTERED, EVENT_IS_SENT
+from shippers import EVENT_IS_FILTERED, EVENT_IS_SENT, CompositeShipper
 
 from .cloudwatch_logs_trigger import (
     _from_awslogs_data_to_event,
@@ -167,7 +167,10 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 return "continuing"
 
         composite_shipper.flush()
-        shared_logger.info("lambda processed all the events", extra={"sent_event": sent_events, "empty_events": empty_events, "skipped_events": skipped_events})
+        shared_logger.info(
+            "lambda processed all the events",
+            extra={"sent_event": sent_events, "empty_events": empty_events, "skipped_events": skipped_events},
+        )
 
     if trigger_type == "kinesis-data-stream":
         all_sequence_numbers: dict[str, str] = {}
@@ -222,7 +225,10 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 return ret
 
             composite_shipper.flush()
-            shared_logger.info("lambda processed all the events", extra={"sent_event": sent_events, "empty_events": empty_events, "skipped_events": skipped_events})
+            shared_logger.info(
+                "lambda processed all the events",
+                extra={"sent_event": sent_events, "empty_events": empty_events, "skipped_events": skipped_events},
+            )
 
             return ret
 
@@ -391,7 +397,8 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             composite_shipper.flush()
 
         shared_logger.info(
-            "lambda processed all the events", extra={"sent_events": sent_events, "empty_events": empty_events, "skipped_events": skipped_events}
+            "lambda processed all the events",
+            extra={"sent_events": sent_events, "empty_events": empty_events, "skipped_events": skipped_events},
         )
 
     return "completed"

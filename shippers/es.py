@@ -16,6 +16,7 @@ from .shipper import CommonShipper, EventIdGeneratorCallable, ReplayHandlerCalla
 _EVENT_BUFFERED = "_EVENT_BUFFERED"
 _EVENT_SENT = "_EVENT_SENT"
 
+
 class ElasticsearchShipper(CommonShipper):
     """
     Elasticsearch Shipper.
