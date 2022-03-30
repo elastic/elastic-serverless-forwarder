@@ -11,7 +11,7 @@ from shippers import CommonShipper, EventIdGeneratorCallable, ReplayHandlerCalla
 
 
 class DummyShipper(CommonShipper):
-    def send(self, event: dict[str, Any]) -> bool:
+    def send(self, event: dict[str, Any]) -> str:
         pass
 
     def set_event_id_generator(self, event_id_generator: EventIdGeneratorCallable) -> None:
