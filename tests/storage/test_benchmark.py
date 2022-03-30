@@ -127,7 +127,7 @@ class Setup:
             Setup.payload = MockContentBase.f_content_plain.decode("utf-8")
 
 
-def wrap() -> list[tuple[Union[StorageReader, bytes], int, int]]:
+def wrap() -> list[tuple[Union[StorageReader, bytes], int, int, int]]:
     assert Setup.payload is not None
     Setup.payload_storage = PayloadStorage(payload=Setup.payload)
     return list(Setup.payload_storage.get_by_lines(range_start=0))

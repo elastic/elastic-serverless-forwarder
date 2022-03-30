@@ -14,8 +14,8 @@ class DummyStorage(CommonStorage):
     def get_as_string(self) -> str:
         return ""
 
-    def get_by_lines(self, range_start: int) -> Iterator[tuple[bytes, int, int]]:
-        yield b"", 0, 0
+    def get_by_lines(self, range_start: int) -> Iterator[tuple[bytes, int, int, int]]:
+        yield b"", 0, 0, 0
 
     def __init__(self, **kwargs: Any):
         pass
