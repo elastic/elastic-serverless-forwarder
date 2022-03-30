@@ -5,4 +5,4 @@
 from .composite import CompositeShipper
 from .es import ElasticsearchShipper
 from .factory import ShipperFactory
-from .shipper import CommonShipper, EventIdGeneratorCallable, ReplayHandlerCallable
+from .shipper import CommonShipper, EVENT_IS_EMPTY, EVENT_IS_FILTERED, EVENT_IS_SENT, EventIdGeneratorCallable, ReplayHandlerCallable

@@ -6,7 +6,7 @@ from typing import Any, Optional
 
 from share import IncludeExcludeFilter, shared_logger
 
-from .shipper import CommonShipper, EventIdGeneratorCallable, ReplayHandlerCallable
+from .shipper import CommonShipper, EVENT_IS_EMPTY, EVENT_IS_FILTERED, EVENT_IS_SENT, EventIdGeneratorCallable, ReplayHandlerCallable
 
 
 class CompositeShipper(CommonShipper):
@@ -41,22 +41,27 @@ class CompositeShipper(CommonShipper):
         for shipper in self._shippers:
             shipper.set_replay_handler(replay_handler=replay_handler)
 
-    def send(self, event: dict[str, Any]) -> bool:
+    def send(self, event: dict[str, Any]) -> str:
+        message:str = ""
+        if "fields" in event and "message" in event["fields"]:
+            message = event["fields"]["message"]
+        elif "message" in event:
+            message = event["message"]
+
         if self._include_exclude_filter is None:
             pass
-        elif "fields" not in event or "message" not in event["fields"]:
-            shared_logger.debug("event is filtered: no message in the event", extra={"es_event": event})
-            return False
-        elif self._include_exclude_filter is not None and not self._include_exclude_filter.filter(
-            event["fields"]["message"]
-        ):
+        elif self._include_exclude_filter is not None and not self._include_exclude_filter.filter(message):
+            if len(message) == 0:
+                shared_logger.debug("event is empty: message is zero length", extra={"es_event": event})
+                return EVENT_IS_EMPTY
+
             shared_logger.debug("event is filtered according to filter rules", extra={"es_event": event})
-            return False
+            return EVENT_IS_FILTERED
 
         for shipper in self._shippers:
             shipper.send(event)
 
-        return True
+        return EVENT_IS_SENT
 
     def flush(self) -> None:
         for shipper in self._shippers:

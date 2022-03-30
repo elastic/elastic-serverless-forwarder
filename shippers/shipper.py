@@ -8,6 +8,10 @@ from typing import Any, Callable, TypeVar
 ReplayHandlerCallable = Callable[[str, dict[str, Any], dict[str, Any]], None]
 EventIdGeneratorCallable = Callable[[dict[str, Any]], str]
 
+EVENT_IS_EMPTY = "EVENT_IS_EMPTY"
+EVENT_IS_FILTERED = "EVENT_IS_FILTERED"
+EVENT_IS_SENT = "EVENT_IS_SENT"
+
 
 class CommonShipper(metaclass=ABCMeta):
     """
@@ -19,7 +23,7 @@ class CommonShipper(metaclass=ABCMeta):
         raise NotImplementedError
 
     @abstractmethod
-    def send(self, event: dict[str, Any]) -> bool:
+    def send(self, event: dict[str, Any]) -> str:
         """
         Interface for sending the event by the shipper
         """
