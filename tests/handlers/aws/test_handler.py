@@ -992,7 +992,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 query={"ids": {"values": ["e69eaefedb-000000000097"]}},
                             )
 
-                            assert res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry[0:-1]
+                            assert res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry.rstrip("\n")
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 97,
@@ -1030,7 +1030,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 query={"ids": {"values": [f"{hex_prefix_sqs}-000000000097"]}},
                             )
 
-                            assert res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry[0:-1]
+                            assert res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry.rstrip("\n")
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 97,
@@ -1068,7 +1068,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 query={"ids": {"values": [f"{hex_prefix_cloudwatch_logs}-000000000097"]}},
                             )
 
-                            assert res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry[0:-1]
+                            assert res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry.rstrip("\n")
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 97,
@@ -1129,7 +1129,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 query={"ids": {"values": ["e69eaefedb-000000000000"]}},
                             )
 
-                            assert res["hits"]["hits"][0]["_source"]["message"] == self._first_log_entry
+                            assert res["hits"]["hits"][0]["_source"]["message"] == self._first_log_entry.rstrip("\n")
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 0,
@@ -1166,7 +1166,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 index="logs-generic-default",
                                 query={"ids": {"values": [f"{hex_prefix_sqs}-000000000000"]}},
                             )
-                            assert res["hits"]["hits"][0]["_source"]["message"] == self._first_log_entry
+                            assert res["hits"]["hits"][0]["_source"]["message"] == self._first_log_entry.rstrip("\n")
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 0,
@@ -1203,7 +1203,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 index="logs-generic-default",
                                 query={"ids": {"values": [f"{hex_prefix_cloudwatch_logs}-000000000000"]}},
                             )
-                            assert res["hits"]["hits"][0]["_source"]["message"] == self._first_log_entry
+                            assert res["hits"]["hits"][0]["_source"]["message"] == self._first_log_entry.rstrip("\n")
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 0,
@@ -1283,7 +1283,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 query={"ids": {"values": ["e69eaefedb-000000000000"]}},
                             )
 
-                            assert res["hits"]["hits"][0]["_source"]["message"] == self._first_log_entry
+                            assert res["hits"]["hits"][0]["_source"]["message"] == self._first_log_entry.rstrip("\n")
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 0,
@@ -1324,7 +1324,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 index="logs-generic-default",
                                 query={"ids": {"values": [f"{hex_prefix_sqs}-000000000000"]}},
                             )
-                            assert res["hits"]["hits"][0]["_source"]["message"] == self._first_log_entry
+                            assert res["hits"]["hits"][0]["_source"]["message"] == self._first_log_entry.rstrip("\n")
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 0,
@@ -1366,7 +1366,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 query={"ids": {"values": [f"{hex_prefix_cloudwatch_logs}-000000000000"]}},
                             )
 
-                            assert res["hits"]["hits"][0]["_source"]["message"] == self._first_log_entry
+                            assert res["hits"]["hits"][0]["_source"]["message"] == self._first_log_entry.rstrip("\n")
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 0,
@@ -1418,7 +1418,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 query={"ids": {"values": ["e69eaefedb-000000000097"]}},
                             )
 
-                            assert res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry[0:-1]
+                            assert res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry.rstrip("\n")
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 97,
@@ -1449,7 +1449,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 query={"ids": {"values": [f"{hex_prefix_sqs}-000000000097"]}},
                             )
 
-                            assert res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry[0:-1]
+                            assert res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry.rstrip("\n")
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 97,
@@ -1480,7 +1480,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 query={"ids": {"values": [f"{hex_prefix_cloudwatch_logs}-000000000097"]}},
                             )
 
-                            assert res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry[0:-1]
+                            assert res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry.rstrip("\n")
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 97,
@@ -1742,7 +1742,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(TestCase):
 
                     assert (
                         res["hits"]["hits"][0]["_source"]["message"]
-                        == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}\n'
+                        == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}'
                     )
                     assert res["hits"]["hits"][0]["_source"]["log"] == {
                         "offset": 0,
@@ -1772,7 +1772,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(TestCase):
                     assert (
                         res["hits"]["hits"][1]["_source"]["message"]
                         == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": {"line": 30, '
-                        '"name": "handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}\n'
+                        '"name": "handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}'
                     )
 
                     assert res["hits"]["hits"][1]["_source"]["log"] == {
@@ -2061,7 +2061,7 @@ class TestLambdaHandlerSuccessS3SQS(TestCase):
                         assert (
                             res["hits"]["hits"][0]["_source"]["message"]
                             == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": {"line": '
-                            '30, "name": "handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}\n'
+                            '30, "name": "handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}'
                         )
 
                         assert res["hits"]["hits"][0]["_source"]["log"] == {
@@ -2100,7 +2100,7 @@ class TestLambdaHandlerSuccessS3SQS(TestCase):
                         assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
                         assert (
                             res["hits"]["hits"][1]["_source"]["message"]
-                            == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}\n'
+                            == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}'
                         )
                         assert res["hits"]["hits"][1]["_source"]["log"] == {
                             "offset": 0,
@@ -2151,7 +2151,7 @@ class TestLambdaHandlerSuccessS3SQS(TestCase):
                         assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
                         assert (
                             res["hits"]["hits"][0]["_source"]["message"]
-                            == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}\n'
+                            == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}'
                         )
                         assert res["hits"]["hits"][0]["_source"]["log"] == {
                             "offset": 0,
@@ -2191,7 +2191,7 @@ class TestLambdaHandlerSuccessS3SQS(TestCase):
                         assert (
                             res["hits"]["hits"][1]["_source"]["message"]
                             == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": {"line": '
-                            '30, "name": "handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}\n'
+                            '30, "name": "handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}'
                         )
 
                         assert res["hits"]["hits"][1]["_source"]["log"] == {
@@ -2409,7 +2409,7 @@ class TestLambdaHandlerSuccessSQS(TestCase):
                         assert (
                             res["hits"]["hits"][0]["_source"]["message"]
                             == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": {"line": '
-                            '30, "name": "handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}\n'
+                            '30, "name": "handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}'
                         )
 
                         assert res["hits"]["hits"][0]["_source"]["log"] == {
@@ -2448,7 +2448,7 @@ class TestLambdaHandlerSuccessSQS(TestCase):
                         assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
                         assert (
                             res["hits"]["hits"][1]["_source"]["message"]
-                            == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}\n'
+                            == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}'
                         )
                         assert res["hits"]["hits"][1]["_source"]["log"] == {
                             "offset": 0,
@@ -2508,7 +2508,7 @@ class TestLambdaHandlerSuccessSQS(TestCase):
                         assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
                         assert (
                             res["hits"]["hits"][0]["_source"]["message"]
-                            == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}\n'
+                            == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}'
                         )
                         assert res["hits"]["hits"][0]["_source"]["log"] == {
                             "offset": 0,
@@ -2548,7 +2548,7 @@ class TestLambdaHandlerSuccessSQS(TestCase):
                         assert (
                             res["hits"]["hits"][1]["_source"]["message"]
                             == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": {"line": '
-                            '30, "name": "handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}\n'
+                            '30, "name": "handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}'
                         )
 
                         assert res["hits"]["hits"][1]["_source"]["log"] == {
@@ -2824,7 +2824,7 @@ class TestLambdaHandlerSuccessCloudWatchLogs(TestCase):
                                 res["hits"]["hits"][0]["_source"]["message"]
                                 == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": '
                                 '{"line": 30, "name": "handler.py"}, "function": "lambda_handler"}, "original": '
-                                '"trigger"}}\n'
+                                '"trigger"}}'
                             )
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
@@ -2865,7 +2865,7 @@ class TestLambdaHandlerSuccessCloudWatchLogs(TestCase):
                             assert (
                                 res["hits"]["hits"][1]["_source"]["message"]
                                 == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": '
-                                '"trigger"}\n'
+                                '"trigger"}'
                             )
                             assert res["hits"]["hits"][1]["_source"]["log"] == {
                                 "offset": 0,
@@ -2932,7 +2932,7 @@ class TestLambdaHandlerSuccessCloudWatchLogs(TestCase):
                             assert (
                                 res["hits"]["hits"][0]["_source"]["message"]
                                 == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": '
-                                '"trigger"}\n'
+                                '"trigger"}'
                             )
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 0,
@@ -2974,7 +2974,7 @@ class TestLambdaHandlerSuccessCloudWatchLogs(TestCase):
                                 res["hits"]["hits"][1]["_source"]["message"]
                                 == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": '
                                 '{"line": 30, "name": "handler.py"}, "function": "lambda_handler"}, '
-                                '"original": "trigger"}}\n'
+                                '"original": "trigger"}}'
                             )
 
                             assert res["hits"]["hits"][1]["_source"]["log"] == {
