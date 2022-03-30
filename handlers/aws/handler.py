@@ -10,7 +10,7 @@ from aws_lambda_typing import context as context_
 
 from share import parse_config, shared_logger
 from share.secretsmanager import aws_sm_expander
-from shippers import CompositeShipper
+from shippers import CompositeShipper, EVENT_IS_EMPTY, EVENT_IS_FILTERED, EVENT_IS_SENT
 
 from .cloudwatch_logs_trigger import (
     _from_awslogs_data_to_event,
@@ -102,6 +102,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         return "replayed"
 
     sent_events: int = 0
+    empty_events: int = 0
     skipped_events: int = 0
 
     if trigger_type == "cloudwatch-logs":
@@ -130,11 +131,13 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         ):
             shared_logger.debug("es_event", extra={"es_event": es_event})
 
-            is_sent = composite_shipper.send(es_event)
-            if is_sent:
+            sent_outcome = composite_shipper.send(es_event)
+            if sent_outcome == EVENT_IS_SENT:
                 sent_events += 1
-            else:
+            elif sent_outcome == EVENT_IS_FILTERED:
                 skipped_events += 1
+            else:
+                empty_events += 1
 
             if lambda_context is not None and lambda_context.get_remaining_time_in_millis() < _completion_grace_period:
                 sqs_continuing_queue = os.environ["SQS_CONTINUE_URL"]
@@ -144,6 +147,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                     extra={
                         "sqs_queue": sqs_continuing_queue,
                         "sent_events": sent_events,
+                        "empty_events": empty_events,
                         "skipped_events": skipped_events,
                     },
                 )
@@ -163,7 +167,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 return "continuing"
 
         composite_shipper.flush()
-        shared_logger.info("lambda processed all the events", extra={"sent_event": sent_events})
+        shared_logger.info("lambda processed all the events", extra={"sent_event": sent_events, "empty_events": empty_events, "skipped_events": skipped_events})
 
     if trigger_type == "kinesis-data-stream":
         all_sequence_numbers: dict[str, str] = {}
@@ -189,11 +193,13 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             for es_event, last_ending_offset in _handle_kinesis_record(kinesis_record):
                 shared_logger.debug("es_event", extra={"es_event": es_event})
 
-                is_sent = composite_shipper.send(es_event)
-                if is_sent:
+                sent_outcome = composite_shipper.send(es_event)
+                if sent_outcome == EVENT_IS_SENT:
                     sent_events += 1
-                else:
+                elif sent_outcome == EVENT_IS_FILTERED:
                     skipped_events += 1
+                else:
+                    empty_events += 1
 
             del all_sequence_numbers[lambda_event["Records"][kinesis_record_n]["kinesis"]["sequenceNumber"]]
 
@@ -204,6 +210,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                     "lambda is going to shutdown, failing unprocessed sequence numbers",
                     extra={
                         "sent_events": sent_events,
+                        "empty_events": empty_events,
                         "skipped_events": skipped_events,
                         "sequence_numbers": ", ".join(all_sequence_numbers.keys()),
                     },
@@ -215,7 +222,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 return ret
 
             composite_shipper.flush()
-            shared_logger.info("lambda processed all the events", extra={"sent_event": sent_events})
+            shared_logger.info("lambda processed all the events", extra={"sent_event": sent_events, "empty_events": empty_events, "skipped_events": skipped_events})
 
             return ret
 
@@ -225,15 +232,15 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         def event_processing(
             processing_composing_shipper: CompositeShipper,
             processing_es_event: dict[str, Any],
-        ) -> tuple[bool, bool]:
+        ) -> tuple[bool, str]:
             shared_logger.debug("es_event", extra={"es_event": processing_es_event})
 
-            is_sent = processing_composing_shipper.send(processing_es_event)
+            processing_sent_outcome = processing_composing_shipper.send(processing_es_event)
 
             if lambda_context is not None and lambda_context.get_remaining_time_in_millis() < _completion_grace_period:
-                return True, is_sent
+                return True, processing_sent_outcome
 
-            return False, is_sent
+            return False, processing_sent_outcome
 
         def handle_timeout(
             remaining_sqs_records: list[dict[str, Any]],
@@ -241,6 +248,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             timeout_input_id: str,
             timeout_last_ending_offset: int,
             timeout_sent_events: int,
+            timeout_empty_events: int,
             timeout_skipped_events: int,
             timeout_config_yaml: str,
             timeout_current_s3_record: int = 0,
@@ -252,6 +260,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 extra={
                     "sqs_queue": timeout_sqs_continuing_queue,
                     "sent_events": timeout_sent_events,
+                    "empty_events": timeout_empty_events,
                     "skipped_events": timeout_skipped_events,
                 },
             )
@@ -319,15 +328,17 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 for es_event, last_ending_offset in _handle_sqs_event(
                     sqs_record, is_continuation_of_cloudwatch_logs, input_id
                 ):
-                    timeout, is_sent = event_processing(
+                    timeout, sent_outcome = event_processing(
                         processing_composing_shipper=composite_shipper,
                         processing_es_event=es_event,
                     )
 
-                    if is_sent:
+                    if sent_outcome == EVENT_IS_SENT:
                         sent_events += 1
-                    else:
+                    elif sent_outcome == EVENT_IS_FILTERED:
                         skipped_events += 1
+                    else:
+                        empty_events += 1
 
                     if timeout:
                         for composite_shipper in composite_shipper_cache.values():
@@ -339,6 +350,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                             timeout_input_id=input_id,
                             timeout_last_ending_offset=last_ending_offset,
                             timeout_sent_events=sent_events,
+                            timeout_empty_events=empty_events,
                             timeout_skipped_events=skipped_events,
                             timeout_config_yaml=config_yaml,
                         )
@@ -346,15 +358,17 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
             elif input_type == "s3-sqs":
                 for es_event, last_ending_offset, current_s3_record in _handle_s3_sqs_event(sqs_record):
-                    timeout, is_sent = event_processing(
+                    timeout, sent_outcome = event_processing(
                         processing_composing_shipper=composite_shipper,
                         processing_es_event=es_event,
                     )
 
-                    if is_sent:
+                    if sent_outcome == EVENT_IS_SENT:
                         sent_events += 1
-                    else:
+                    elif sent_outcome == EVENT_IS_FILTERED:
                         skipped_events += 1
+                    else:
+                        empty_events += 1
 
                     if timeout:
                         for composite_shipper in composite_shipper_cache.values():
@@ -366,6 +380,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                             timeout_input_id=input_id,
                             timeout_last_ending_offset=last_ending_offset,
                             timeout_sent_events=sent_events,
+                            timeout_empty_events=empty_events,
                             timeout_skipped_events=skipped_events,
                             timeout_config_yaml=config_yaml,
                             timeout_current_s3_record=current_s3_record,
@@ -376,7 +391,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             composite_shipper.flush()
 
         shared_logger.info(
-            "lambda processed all the events", extra={"sent_events": sent_events, "skipped_events": skipped_events}
+            "lambda processed all the events", extra={"sent_events": sent_events, "empty_events": empty_events, "skipped_events": skipped_events}
         )
 
     return "completed"
