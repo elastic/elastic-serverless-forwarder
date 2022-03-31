@@ -55,7 +55,7 @@ docker-integration-test: integration-test
 
 docker-coverage: export COVERAGE_FILE=.coverage
 docker-coverage: SCRIPTS_BASE_DIR=docker/
-docker-coverage: test
+docker-coverage: coverage
 
 docker-lint: docker-black docker-flake8 docker-isort docker-mypy  ## Lint the project on docker
 
