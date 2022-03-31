@@ -448,7 +448,7 @@ def kinesis_record_id(event_payload: dict[str, Any]) -> str:
     stream_name: str = event_payload["fields"]["aws"]["kinesis"]["name"]
     sequence_number: str = event_payload["fields"]["aws"]["kinesis"]["sequence_number"]
 
-    src: str = f"{stream_type}{stream_name}-{sequence_number}"
+    src: str = f"{stream_type}{stream_name}{sequence_number}"
     hex_prefix = hashlib.sha256(src.encode("UTF-8")).hexdigest()[:10]
 
     return f"{hex_prefix}-{offset:012d}"
