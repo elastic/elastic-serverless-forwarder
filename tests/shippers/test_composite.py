@@ -63,13 +63,27 @@ class TestCompositeShipper(TestCase):
         dummy_shipper = DummyShipper()
         composite_shipper = CompositeShipper()
         composite_shipper.add_shipper(dummy_shipper)
-        assert EVENT_IS_SENT == composite_shipper.send({"this": "is sent"})
-        assert dummy_shipper._sent == [{"this": "is sent"}]
+        assert EVENT_IS_EMPTY == composite_shipper.send({"miss": "message field"})
+        assert dummy_shipper._sent == []
 
-        dummy_shipper._sent = []
+        assert EVENT_IS_EMPTY == composite_shipper.send({"fields": {"message": ""}})
+        assert dummy_shipper._sent == []
+
+        assert EVENT_IS_EMPTY == composite_shipper.send({"message": ""})
+        assert dummy_shipper._sent == []
 
         include_exclude_filter = IncludeExcludeFilter(include_patterns=[IncludeExcludeRule(pattern="match")])
         composite_shipper.add_include_exclude_filter(include_exclude_filter)
+
+        assert EVENT_IS_EMPTY == composite_shipper.send({"miss": "message field"})
+        assert dummy_shipper._sent == []
+
+        assert EVENT_IS_EMPTY == composite_shipper.send({"fields": {"message": ""}})
+        assert dummy_shipper._sent == []
+
+        assert EVENT_IS_EMPTY == composite_shipper.send({"message": ""})
+        assert dummy_shipper._sent == []
+
         assert EVENT_IS_SENT == composite_shipper.send({"fields": {"message": "match"}})
         assert dummy_shipper._sent == [{"fields": {"message": "match"}}]
 
@@ -82,27 +96,32 @@ class TestCompositeShipper(TestCase):
 
         dummy_shipper._sent = []
 
-        assert EVENT_IS_EMPTY == composite_shipper.send({"key": "value"})
+        assert EVENT_IS_EMPTY == composite_shipper.send({"miss": "message field"})
         assert dummy_shipper._sent == []
 
-        dummy_shipper._sent = []
+        assert EVENT_IS_EMPTY == composite_shipper.send({"fields": {"message": ""}})
+        assert dummy_shipper._sent == []
+
+        assert EVENT_IS_EMPTY == composite_shipper.send({"message": ""})
+        assert dummy_shipper._sent == []
 
         include_exclude_filter = IncludeExcludeFilter(include_patterns=[IncludeExcludeRule(pattern="not match")])
         composite_shipper.add_include_exclude_filter(include_exclude_filter)
-        assert EVENT_IS_EMPTY == composite_shipper.send({"fields": {"anotherfield": "a message"}})
+
+        assert EVENT_IS_EMPTY == composite_shipper.send({"miss": "message field"})
         assert dummy_shipper._sent == []
 
-        dummy_shipper._sent = []
+        assert EVENT_IS_EMPTY == composite_shipper.send({"fields": {"message": ""}})
+        assert dummy_shipper._sent == []
 
-        include_exclude_filter = IncludeExcludeFilter(include_patterns=[IncludeExcludeRule(pattern="not match")])
-        composite_shipper.add_include_exclude_filter(include_exclude_filter)
+        assert EVENT_IS_EMPTY == composite_shipper.send({"message": ""})
+        assert dummy_shipper._sent == []
+
         assert EVENT_IS_FILTERED == composite_shipper.send({"fields": {"message": "a message"}})
         assert dummy_shipper._sent == []
 
         dummy_shipper._sent = []
 
-        include_exclude_filter = IncludeExcludeFilter(include_patterns=[IncludeExcludeRule(pattern="not match")])
-        composite_shipper.add_include_exclude_filter(include_exclude_filter)
         assert EVENT_IS_FILTERED == composite_shipper.send({"message": "a message"})
         assert dummy_shipper._sent == []
 
