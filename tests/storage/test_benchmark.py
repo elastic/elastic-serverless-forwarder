@@ -31,7 +31,7 @@ simdjson_parser = simdjson.Parser()
 
 # For overriding in benchmark
 def json_parser(payload: bytes) -> None:
-    simdjson_parser.parse(payload, recursive=True)
+    simdjson_parser.parse(payload)
 
 
 class MockContentBase:
