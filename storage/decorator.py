@@ -13,8 +13,10 @@ from share import shared_logger
 
 from .storage import CHUNK_SIZE, CommonStorageType, GetByLinesCallable, StorageReader
 
+
 # For overriding in benchmark
-json_library = ujson
+def json_parser(payload: bytes) -> Any:
+    ujson.loads(payload)
 
 
 class JsonCollector:
@@ -43,7 +45,7 @@ class JsonCollector:
             self._unfinished_line += data + newline
 
             # let's try to decode
-            json_library.loads(self._unfinished_line)
+            json_parser(self._unfinished_line)
 
             # it didn't raise: we collected a json object
             data_to_yield = self._unfinished_line
