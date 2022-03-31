@@ -5,7 +5,7 @@
 import base64
 import random
 import string
-from typing import Optional, Union
+from typing import Union
 
 import orjson
 import pytest
@@ -104,29 +104,22 @@ class MockContentBase:
 
 
 class Setup:
-    content_type: Optional[str] = None
-    payload_storage: Optional[PayloadStorage] = None
-    original: Optional[bytes] = None
-    payload: Optional[str] = None
-
     @staticmethod
     def setup() -> None:
         if len(MockContentBase.mock_content) == 0:
             MockContentBase.init_content(content_type=_IS_JSON, newline=b"\n", length_multiplier=_LENGTH_1M)
-            Setup.original = MockContentBase.mock_content
 
 
 def wrap(payload: str) -> list[tuple[Union[StorageReader, bytes], int, int, int]]:
-    Setup.payload_storage = PayloadStorage(payload=payload)
-    return list(Setup.payload_storage.get_by_lines(range_start=0))
+    payload_storage = PayloadStorage(payload=payload)
+    return list(payload_storage.get_by_lines(range_start=0))
 
 
 @pytest.mark.benchmark(group="plain")
 def test_json_collector_plain_orjson(benchmark: pytest_benchmark.fixture.BenchmarkFixture) -> None:
     Setup.setup()
-    assert Setup.original is not None
     storage.decorator.json_library = orjson
-    original: bytes = Setup.original[1:]
+    original: bytes = MockContentBase.mock_content[1:]
     lines = benchmark.pedantic(wrap, [base64.b64encode(original).decode("utf-8")], iterations=1, rounds=100)
     original_length: int = len(original)
 
@@ -136,9 +129,8 @@ def test_json_collector_plain_orjson(benchmark: pytest_benchmark.fixture.Benchma
 @pytest.mark.benchmark(group="json")
 def test_json_collector_json_orjson(benchmark: pytest_benchmark.fixture.BenchmarkFixture) -> None:
     Setup.setup()
-    assert Setup.original is not None
     storage.decorator.json_library = orjson
-    original: bytes = Setup.original
+    original: bytes = MockContentBase.mock_content
     lines = benchmark.pedantic(wrap, [base64.b64encode(original).decode("utf-8")], iterations=1, rounds=100)
     original_length: int = len(original)
     if original.endswith(b"\n" * 2):
@@ -150,9 +142,8 @@ def test_json_collector_json_orjson(benchmark: pytest_benchmark.fixture.Benchmar
 @pytest.mark.benchmark(group="json like")
 def test_json_collector_json_like_orjson(benchmark: pytest_benchmark.fixture.BenchmarkFixture) -> None:
     Setup.setup()
-    assert Setup.original is not None
     storage.decorator.json_library = orjson
-    original: bytes = base64.b64encode(b"{" + Setup.original)
+    original: bytes = MockContentBase.mock_content
     lines = benchmark.pedantic(wrap, [base64.b64encode(original).decode("utf-8")], iterations=1, rounds=100)
     original_length: int = len(original)
 
@@ -162,9 +153,8 @@ def test_json_collector_json_like_orjson(benchmark: pytest_benchmark.fixture.Ben
 @pytest.mark.benchmark(group="plain")
 def test_json_collector_plain_simplejson(benchmark: pytest_benchmark.fixture.BenchmarkFixture) -> None:
     Setup.setup()
-    assert Setup.original is not None
     storage.decorator.json_library = simplejson
-    original: bytes = Setup.original[1:]
+    original: bytes = MockContentBase.mock_content[1:]
     lines = benchmark.pedantic(wrap, [base64.b64encode(original).decode("utf-8")], iterations=1, rounds=100)
     original_length: int = len(original)
 
@@ -174,9 +164,8 @@ def test_json_collector_plain_simplejson(benchmark: pytest_benchmark.fixture.Ben
 @pytest.mark.benchmark(group="json")
 def test_json_collector_json_simplejson(benchmark: pytest_benchmark.fixture.BenchmarkFixture) -> None:
     Setup.setup()
-    assert Setup.original is not None
     storage.decorator.json_library = simplejson
-    original: bytes = Setup.original
+    original: bytes = MockContentBase.mock_content
     lines = benchmark.pedantic(wrap, [base64.b64encode(original).decode("utf-8")], iterations=1, rounds=100)
     original_length: int = len(original)
     if original.endswith(b"\n" * 2):
@@ -188,9 +177,8 @@ def test_json_collector_json_simplejson(benchmark: pytest_benchmark.fixture.Benc
 @pytest.mark.benchmark(group="json like")
 def test_json_collector_json_like_simplejson(benchmark: pytest_benchmark.fixture.BenchmarkFixture) -> None:
     Setup.setup()
-    assert Setup.original is not None
     storage.decorator.json_library = simplejson
-    original: bytes = base64.b64encode(b"{" + Setup.original)
+    original: bytes = b"{" + MockContentBase.mock_content
     lines = benchmark.pedantic(wrap, [base64.b64encode(original).decode("utf-8")], iterations=1, rounds=100)
     original_length: int = len(original)
 
@@ -200,9 +188,8 @@ def test_json_collector_json_like_simplejson(benchmark: pytest_benchmark.fixture
 @pytest.mark.benchmark(group="plain")
 def test_json_collector_plain_ujson(benchmark: pytest_benchmark.fixture.BenchmarkFixture) -> None:
     Setup.setup()
-    assert Setup.original is not None
     storage.decorator.json_library = ujson
-    original: bytes = Setup.original[1:]
+    original: bytes = MockContentBase.mock_content[1:]
     lines = benchmark.pedantic(wrap, [base64.b64encode(original).decode("utf-8")], iterations=1, rounds=100)
     original_length: int = len(original)
 
@@ -212,9 +199,8 @@ def test_json_collector_plain_ujson(benchmark: pytest_benchmark.fixture.Benchmar
 @pytest.mark.benchmark(group="json")
 def test_json_collector_json_ujson(benchmark: pytest_benchmark.fixture.BenchmarkFixture) -> None:
     Setup.setup()
-    assert Setup.original is not None
     storage.decorator.json_library = ujson
-    original: bytes = Setup.original
+    original: bytes = MockContentBase.mock_content
     lines = benchmark.pedantic(wrap, [base64.b64encode(original).decode("utf-8")], iterations=1, rounds=100)
     original_length: int = len(original)
     if original.endswith(b"\n" * 2):
@@ -226,9 +212,8 @@ def test_json_collector_json_ujson(benchmark: pytest_benchmark.fixture.Benchmark
 @pytest.mark.benchmark(group="json like")
 def test_json_collector_json_like_ujson(benchmark: pytest_benchmark.fixture.BenchmarkFixture) -> None:
     Setup.setup()
-    assert Setup.original is not None
     storage.decorator.json_library = ujson
-    original: bytes = base64.b64encode(b"{" + Setup.original)
+    original: bytes = b"{" + MockContentBase.mock_content
     lines = benchmark.pedantic(wrap, [base64.b64encode(original).decode("utf-8")], iterations=1, rounds=100)
     original_length: int = len(original)
 
