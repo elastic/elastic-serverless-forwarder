@@ -15,7 +15,7 @@ integration-test: PYTEST_ARGS=-m integration ## Run integration tests on the hos
 integration-test: test
 
 test: PYTEST_ARGS_FLAGS=$(if $(PYTEST_ARGS),$(PYTEST_ARGS),-m not benchmark) ## Run unit tests on the host
-test:  ## Run all tests on the host
+test:
 	PYTEST_ARGS="${PYTEST_ARGS_FLAGS}" tests/scripts/${SCRIPTS_BASE_DIR}run_tests.sh
 
 coverage: export PYTEST_ADDOPTS=--cov=. --cov-context=test --cov-config=.coveragerc --cov-branch ## Run tests with coverage on the host
@@ -54,7 +54,7 @@ docker-integration-test: integration-test
 
 
 docker-coverage: export COVERAGE_FILE=.coverage
-docker-integration-test: SCRIPTS_BASE_DIR=docker/
+docker-coverage: SCRIPTS_BASE_DIR=docker/
 docker-coverage: test
 
 docker-lint: docker-black docker-flake8 docker-isort docker-mypy  ## Lint the project on docker
