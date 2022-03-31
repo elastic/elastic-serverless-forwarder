@@ -80,7 +80,7 @@ class JsonCollector:
 
             # if the first 1k lines are not a json object let's give up
             if self._is_a_json_object_circuit_breaker > 1000:
-                self._is_a_json_object_circuit_broken = False
+                self._is_a_json_object_circuit_broken = True
 
     @staticmethod
     def _buffer_yield(buffer: bytes) -> GetByLinesCallable[CommonStorageType]:
@@ -108,7 +108,7 @@ class JsonCollector:
         self._unfinished_line = b""
 
         self._is_a_json_object = False
-        self._is_a_json_object_circuit_broken = True
+        self._is_a_json_object_circuit_broken = False
         self._is_a_json_object_circuit_breaker = 0
 
         iterator = self._function(storage, range_start, body, content_type, content_length)
@@ -168,7 +168,7 @@ class JsonCollector:
                         shared_logger.debug("JsonCollector objects", extra={"offset": self._ending_offset})
                         yield data_to_yield, self._ending_offset, self._starting_offset, newline_length
 
-                    if not self._is_a_json_object_circuit_broken:
+                    if self._is_a_json_object_circuit_broken:
                         # let's yield what we have so far
                         iterator = by_lines(self._buffer_yield(self._unfinished_line))(
                             storage, range_start, body, content_type, content_length  # type:ignore
