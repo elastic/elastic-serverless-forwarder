@@ -15,6 +15,7 @@ docker run \
   -e LOCAL_USER_ID=$UID \
   -e PIP_CACHE=${docker_pip_cache} \
   -e PYTEST_ARGS="${PYTEST_ARGS}" \
+  -e PYTEST_ADDOPTS="${PYTEST_ADDOPTS}" \
   -e PYTEST_JUNIT="--junitxml=/app/tests/elastic-serverless-forwarder-junit.xml" \
   -e AWS_ACCESS_KEY_ID=AWS_ACCESS_KEY_ID \
   -e AWS_SECRET_ACCESS_KEY=AWS_SECRET_ACCESS_KEY \

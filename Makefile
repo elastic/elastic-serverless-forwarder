@@ -52,8 +52,6 @@ docker-integration-test:  ## Run integration tests on docker
 docker-integration-test: SCRIPTS_BASE_DIR=docker/
 docker-integration-test: integration-test
 
-
-docker-coverage: export COVERAGE_FILE=.coverage
 docker-coverage: SCRIPTS_BASE_DIR=docker/
 docker-coverage: coverage
 
@@ -78,7 +76,7 @@ docker-mypy: mypy
 license:  ## Run license validation in the project
 	tests/scripts/license_headers_check.sh check
 
-all-requirements: requirements-lint requirements-tests requirements ## Install all requirements on the host
+all-requirements: requirements requirements-lint requirements-tests ## Install all requirements on the host
 
 requirements: .makecache/requirements.txt  ## Install app requirements on the host
 
