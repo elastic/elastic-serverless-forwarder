@@ -56,13 +56,6 @@ class TestCompositeShipper(TestCase):
         dummy_shipper = DummyShipper()
         composite_shipper = CompositeShipper()
         composite_shipper.add_shipper(dummy_shipper)
-        composite_shipper.send({})
-        assert dummy_shipper._sent == [{}]
-
-    def test_send_with_include_exclude_filter(self) -> None:
-        dummy_shipper = DummyShipper()
-        composite_shipper = CompositeShipper()
-        composite_shipper.add_shipper(dummy_shipper)
         assert EVENT_IS_EMPTY == composite_shipper.send({"miss": "message field"})
         assert dummy_shipper._sent == []
 
