@@ -35,6 +35,8 @@ TMPDIR=$(mktemp -d /tmp/dist.XXXXXXXXXX)
 
 trap "rm -rf ${TMPDIR}" EXIT
 
+aws s3api get-bucket-location --bucket "${BUCKET}" || aws s3api create-bucket --acl private --bucket "${BUCKET}" --region "${REGION}" --create-bucket-configuration LocationConstraint="${REGION}"
+
 cat <<EOF > "${TMPDIR}/policy.json"
 {
     "Version": "2012-10-17",
