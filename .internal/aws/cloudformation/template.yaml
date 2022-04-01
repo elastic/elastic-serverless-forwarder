@@ -36,7 +36,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Timeout: 900
-      MemorySize: 256
+      MemorySize: 512
       CodeUri: %codeUri%
       Runtime: python3.9
       Architectures:
