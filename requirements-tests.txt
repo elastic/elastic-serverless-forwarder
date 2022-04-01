@@ -9,3 +9,4 @@ simplejson>=3.17,<3.18
 orjson>=3.6,<3.7
 pysimdjson>=4.0,<4.1
 python-rapidjson>=1.6,<1.7
+cysimdjson>=21.11,<21.12
