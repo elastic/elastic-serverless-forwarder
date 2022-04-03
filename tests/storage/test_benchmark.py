@@ -133,7 +133,7 @@ def wrap(payload: str) -> int:
     return last_length
 
 
-# @pytest.mark.benchmark(group="plain")
+@pytest.mark.benchmark(group="plain")
 @mock.patch("storage.decorator.json_parser", new=lambda x: orjson.loads(x))
 def test_json_collector_plain_orjson(benchmark: pytest_benchmark.fixture.BenchmarkFixture) -> None:
     Setup.setup()
@@ -144,7 +144,7 @@ def test_json_collector_plain_orjson(benchmark: pytest_benchmark.fixture.Benchma
     assert last_length == original_length
 
 
-# @pytest.mark.benchmark(group="json")
+@pytest.mark.benchmark(group="json")
 @mock.patch("storage.decorator.json_parser", new=lambda x: orjson.loads(x))
 def test_json_collector_json_orjson(benchmark: pytest_benchmark.fixture.BenchmarkFixture) -> None:
     Setup.setup()
@@ -157,7 +157,7 @@ def test_json_collector_json_orjson(benchmark: pytest_benchmark.fixture.Benchmar
     assert last_length == original_length
 
 
-# @pytest.mark.benchmark(group="json like")
+@pytest.mark.benchmark(group="json like")
 @mock.patch("storage.decorator.json_parser", new=lambda x: orjson.loads(x))
 def test_json_collector_json_like_orjson(benchmark: pytest_benchmark.fixture.BenchmarkFixture) -> None:
     Setup.setup()
