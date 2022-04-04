@@ -226,6 +226,16 @@ Resources:
         "Statement": [
           {
           "Action": [
+            "s3:ListBucket"
+          ],
+          "Resource": [
+            "arn:aws:s3:::%BUCKET_NAME%",
+            ...
+          ],
+          "Effect": "Allow"
+          },
+          {
+          "Action": [
             "s3:GetObject"
           ],
           "Resource": [
@@ -413,6 +423,9 @@ On top of this basic permission the following policies must be provided:
 * For the S3 bucket resource that's reported in the `S3_CONFIG_FILE` environment variable the following action must be allowed on the S3 buckets' config file object key:
   * `s3:GetObject`
 
+* For every S3 bucket resource that SQS queues are receiving notification from used by triggers of the Lambda the following action must be allowed on the S3 buckets:
+  * `s3:ListBucket`
+
 * For every S3 bucket resource that SQS queues are receiving notification from used by triggers of the Lambda the following action must be allowed on the S3 buckets' keys:
   * `s3:GetObject`
 
@@ -445,11 +458,21 @@ On top of this basic permission the following policies must be provided:
         ]
       },
       {
-        "Sid": "AllowAccessS3DataSources",
+        "Sid": "AllowAccessS3DataSourcesBuckets",
+        "Effect": "Allow",
+        "Action": "s3:ListBucket",
+        "Resource": [
+          ## ADD FOR YOUR S3 BUCKET,
+          "arn:aws:s3:::%BUCKET_NAME%",
+          ...
+        ]
+      },
+      {
+        "Sid": "AllowAccessS3DataSourcesObjectKeys",
         "Effect": "Allow",
         "Action": "s3:GetObject",
         "Resource": [
-          ## ADD FOR YOUR S3 BUCKET,
+          ## ADD FOR YOUR S3 BUCKET'S OBJECT KEYS,
           "arn:aws:s3:::%BUCKET_NAME%/*",
           ...
         ]
