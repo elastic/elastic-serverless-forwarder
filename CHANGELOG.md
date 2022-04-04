@@ -1,3 +1,7 @@
+### v0.27.0 - 2022/04/04
+##### Features
+* Add support for collecting json content spanning multiple lines: [#99](https://github.com/elastic/elastic-serverless-forwarder/pull/99)
+
 ### v0.26.0 - 2022/03/22
 ##### Features
 * Add support for include/exclude filter: [#97](https://github.com/elastic/elastic-serverless-forwarder/pull/97)
