@@ -1010,7 +1010,6 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             }
 
                             assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                                "preserve_original_event",
                                 "forwarded",
                                 "generic",
                                 "tag1",
@@ -1048,7 +1047,6 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             }
 
                             assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                                "preserve_original_event",
                                 "forwarded",
                                 "generic",
                                 "tag1",
@@ -1087,7 +1085,6 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             }
 
                             assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                                "preserve_original_event",
                                 "forwarded",
                                 "generic",
                                 "tag1",
@@ -1147,7 +1144,6 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             }
 
                             assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                                "preserve_original_event",
                                 "forwarded",
                                 "generic",
                                 "tag1",
@@ -1184,7 +1180,6 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             }
 
                             assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                                "preserve_original_event",
                                 "forwarded",
                                 "generic",
                                 "tag1",
@@ -1222,7 +1217,6 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             }
 
                             assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                                "preserve_original_event",
                                 "forwarded",
                                 "generic",
                                 "tag1",
@@ -1301,7 +1295,6 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             }
 
                             assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                                "preserve_original_event",
                                 "forwarded",
                                 "generic",
                                 "tag1",
@@ -1342,7 +1335,6 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             }
 
                             assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                                "preserve_original_event",
                                 "forwarded",
                                 "generic",
                                 "tag1",
@@ -1385,7 +1377,6 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             }
 
                             assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                                "preserve_original_event",
                                 "forwarded",
                                 "generic",
                                 "tag1",
@@ -1436,7 +1427,6 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             }
 
                             assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                                "preserve_original_event",
                                 "forwarded",
                                 "generic",
                                 "tag1",
@@ -1467,7 +1457,6 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             }
 
                             assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                                "preserve_original_event",
                                 "forwarded",
                                 "generic",
                                 "tag1",
@@ -1499,7 +1488,6 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             }
 
                             assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                                "preserve_original_event",
                                 "forwarded",
                                 "generic",
                                 "tag1",
@@ -1761,7 +1749,6 @@ class TestLambdaHandlerSuccessKinesisDataStream(TestCase):
                     }
 
                     assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                        "preserve_original_event",
                         "forwarded",
                         "generic",
                         "tag1",
@@ -1792,7 +1779,6 @@ class TestLambdaHandlerSuccessKinesisDataStream(TestCase):
                     }
 
                     assert res["hits"]["hits"][1]["_source"]["tags"] == [
-                        "preserve_original_event",
                         "forwarded",
                         "generic",
                         "tag1",
@@ -1834,7 +1820,6 @@ class TestLambdaHandlerSuccessKinesisDataStream(TestCase):
                     }
 
                     assert res["hits"]["hits"][2]["_source"]["tags"] == [
-                        "preserve_original_event",
                         "forwarded",
                         "generic",
                         "tag1",
@@ -2080,7 +2065,6 @@ class TestLambdaHandlerSuccessS3SQS(TestCase):
                         }
 
                         assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                            "preserve_original_event",
                             "forwarded",
                             "aws-cloudwatch_logs",
                             "tag1",
@@ -2118,7 +2102,6 @@ class TestLambdaHandlerSuccessS3SQS(TestCase):
                         }
 
                         assert res["hits"]["hits"][1]["_source"]["tags"] == [
-                            "preserve_original_event",
                             "forwarded",
                             "aws-cloudwatch_logs",
                             "tag1",
@@ -2169,7 +2152,6 @@ class TestLambdaHandlerSuccessS3SQS(TestCase):
                         }
 
                         assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                            "preserve_original_event",
                             "forwarded",
                             "aws-cloudwatch_logs",
                             "tag1",
@@ -2210,7 +2192,6 @@ class TestLambdaHandlerSuccessS3SQS(TestCase):
                         }
 
                         assert res["hits"]["hits"][1]["_source"]["tags"] == [
-                            "preserve_original_event",
                             "forwarded",
                             "aws-cloudwatch_logs",
                             "tag1",
@@ -2428,7 +2409,6 @@ class TestLambdaHandlerSuccessSQS(TestCase):
                         }
 
                         assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                            "preserve_original_event",
                             "forwarded",
                             "generic",
                             "tag1",
@@ -2466,7 +2446,6 @@ class TestLambdaHandlerSuccessSQS(TestCase):
                         }
 
                         assert res["hits"]["hits"][1]["_source"]["tags"] == [
-                            "preserve_original_event",
                             "forwarded",
                             "generic",
                             "tag1",
@@ -2526,7 +2505,6 @@ class TestLambdaHandlerSuccessSQS(TestCase):
                         }
 
                         assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                            "preserve_original_event",
                             "forwarded",
                             "generic",
                             "tag1",
@@ -2569,7 +2547,6 @@ class TestLambdaHandlerSuccessSQS(TestCase):
                         }
 
                         assert res["hits"]["hits"][1]["_source"]["tags"] == [
-                            "preserve_original_event",
                             "forwarded",
                             "generic",
                             "tag1",
@@ -2844,7 +2821,6 @@ class TestLambdaHandlerSuccessCloudWatchLogs(TestCase):
                             }
 
                             assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                                "preserve_original_event",
                                 "forwarded",
                                 "generic",
                                 "tag1",
@@ -2884,7 +2860,6 @@ class TestLambdaHandlerSuccessCloudWatchLogs(TestCase):
                             }
 
                             assert res["hits"]["hits"][1]["_source"]["tags"] == [
-                                "preserve_original_event",
                                 "forwarded",
                                 "generic",
                                 "tag1",
@@ -2951,7 +2926,6 @@ class TestLambdaHandlerSuccessCloudWatchLogs(TestCase):
                             }
 
                             assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                                "preserve_original_event",
                                 "forwarded",
                                 "generic",
                                 "tag1",
@@ -2994,7 +2968,6 @@ class TestLambdaHandlerSuccessCloudWatchLogs(TestCase):
                             }
 
                             assert res["hits"]["hits"][1]["_source"]["tags"] == [
-                                "preserve_original_event",
                                 "forwarded",
                                 "generic",
                                 "tag1",

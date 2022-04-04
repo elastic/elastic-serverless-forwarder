@@ -658,7 +658,7 @@ inputs:
           password: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:es_secrets:password"
           es_index_or_datastream_name: "logs-generic-default"
 ```
-Using the above configuration, the tags will be set in the following way`["preserve_original_event", "forwarded", "generic", "tag1", "tag2", "tag3"]`
+Using the above configuration, the tags will be set in the following way`["forwarded", "generic", "tag1", "tag2", "tag3"]`
 
 #### Notes
 - Tags must be placed at input level in the config file

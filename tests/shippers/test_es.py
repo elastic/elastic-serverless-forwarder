@@ -148,7 +148,7 @@ class TestElasticsearchShipper(TestCase):
                     "_index": "logs-data.set-namespace",
                     "_op_type": "create",
                     "data_stream": {"dataset": "data.set", "namespace": "namespace", "type": "logs"},
-                    "event": {"dataset": "data.set", "original": "A dummy message"},
+                    "event": {"dataset": "data.set" },
                     "aws": {
                         "s3": {
                             "bucket": {"arn": "bucket_name", "name": "arn:aws:s3:::bucket_name"},
@@ -162,7 +162,6 @@ class TestElasticsearchShipper(TestCase):
                     },
                     "message": "A dummy message",
                     "tags": [
-                        "preserve_original_event",
                         "forwarded",
                         "data-set",
                         "tag1",
@@ -232,7 +231,7 @@ class TestElasticsearchShipper(TestCase):
                 "_index": "logs-data.set-namespace",
                 "_op_type": "create",
                 "data_stream": {"dataset": "data.set", "namespace": "namespace", "type": "logs"},
-                "event": {"dataset": "data.set", "original": "A dummy message"},
+                "event": {"dataset": "data.set" },
                 "aws": {
                     "s3": {
                         "bucket": {"arn": "bucket_name", "name": "arn:aws:s3:::bucket_name"},
@@ -243,7 +242,6 @@ class TestElasticsearchShipper(TestCase):
                 "log": {"file": {"path": "https://bucket_name.s3.aws-region.amazonaws.com/file.key"}, "offset": 10},
                 "message": "A dummy message",
                 "tags": [
-                    "preserve_original_event",
                     "forwarded",
                     "data-set",
                     "tag1",
@@ -285,7 +283,7 @@ class TestElasticsearchShipper(TestCase):
                     "_index": "logs-generic-default",
                     "_op_type": "create",
                     "data_stream": {"dataset": "generic", "namespace": "default", "type": "logs"},
-                    "event": {"dataset": "generic", "original": "A dummy message"},
+                    "event": {"dataset": "generic" },
                     "aws": {
                         "s3": {
                             "bucket": {"arn": "bucket_name", "name": "arn:aws:s3:::bucket_name"},
@@ -299,7 +297,6 @@ class TestElasticsearchShipper(TestCase):
                     },
                     "message": "A dummy message",
                     "tags": [
-                        "preserve_original_event",
                         "forwarded",
                         "generic",
                         "tag1",
@@ -335,7 +332,7 @@ class TestElasticsearchShipper(TestCase):
                     "_index": "logs-unit-test",
                     "_op_type": "create",
                     "data_stream": {"dataset": "unit", "namespace": "test", "type": "logs"},
-                    "event": {"dataset": "unit", "original": "A dummy message"},
+                    "event": {"dataset": "unit" },
                     "aws": {
                         "s3": {
                             "bucket": {"arn": "bucket_name", "name": "arn:aws:s3:::bucket_name"},
@@ -349,7 +346,6 @@ class TestElasticsearchShipper(TestCase):
                     },
                     "message": "A dummy message",
                     "tags": [
-                        "preserve_original_event",
                         "forwarded",
                         "unit",
                         "tag1",
@@ -384,7 +380,6 @@ class TestElasticsearchShipper(TestCase):
                     "@timestamp": _now,
                     "_index": "es_index_or_datastream_name",
                     "_op_type": "create",
-                    "event": {"original": "A dummy message"},
                     "aws": {
                         "s3": {
                             "bucket": {"arn": "bucket_name", "name": "arn:aws:s3:::bucket_name"},
@@ -398,7 +393,6 @@ class TestElasticsearchShipper(TestCase):
                     },
                     "message": "A dummy message",
                     "tags": [
-                        "preserve_original_event",
                         "forwarded",
                         "tag1",
                         "tag2",

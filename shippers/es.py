@@ -117,8 +117,7 @@ class ElasticsearchShipper(CommonShipper):
         if "fields" not in event_payload:
             return
 
-        event_payload["tags"] = ["preserve_original_event", "forwarded"]
-        event_payload["event"] = {"original": event_payload["fields"]["message"]}
+        event_payload["tags"] = ["forwarded"]
 
         if self._dataset != "":
             event_payload["data_stream"] = {
@@ -127,7 +126,7 @@ class ElasticsearchShipper(CommonShipper):
                 "namespace": self._namespace,
             }
 
-            event_payload["event"]["dataset"] = self._dataset
+            event_payload["event"] = {"dataset":  self._dataset }
             event_payload["tags"] += [self._dataset.replace(".", "-")]
 
         event_payload["tags"] += self._tags
