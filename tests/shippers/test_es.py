@@ -148,7 +148,7 @@ class TestElasticsearchShipper(TestCase):
                     "_index": "logs-data.set-namespace",
                     "_op_type": "create",
                     "data_stream": {"dataset": "data.set", "namespace": "namespace", "type": "logs"},
-                    "event": {"dataset": "data.set" },
+                    "event": {"dataset": "data.set"},
                     "aws": {
                         "s3": {
                             "bucket": {"arn": "bucket_name", "name": "arn:aws:s3:::bucket_name"},
@@ -231,7 +231,7 @@ class TestElasticsearchShipper(TestCase):
                 "_index": "logs-data.set-namespace",
                 "_op_type": "create",
                 "data_stream": {"dataset": "data.set", "namespace": "namespace", "type": "logs"},
-                "event": {"dataset": "data.set" },
+                "event": {"dataset": "data.set"},
                 "aws": {
                     "s3": {
                         "bucket": {"arn": "bucket_name", "name": "arn:aws:s3:::bucket_name"},
@@ -283,7 +283,7 @@ class TestElasticsearchShipper(TestCase):
                     "_index": "logs-generic-default",
                     "_op_type": "create",
                     "data_stream": {"dataset": "generic", "namespace": "default", "type": "logs"},
-                    "event": {"dataset": "generic" },
+                    "event": {"dataset": "generic"},
                     "aws": {
                         "s3": {
                             "bucket": {"arn": "bucket_name", "name": "arn:aws:s3:::bucket_name"},
@@ -332,7 +332,7 @@ class TestElasticsearchShipper(TestCase):
                     "_index": "logs-unit-test",
                     "_op_type": "create",
                     "data_stream": {"dataset": "unit", "namespace": "test", "type": "logs"},
-                    "event": {"dataset": "unit" },
+                    "event": {"dataset": "unit"},
                     "aws": {
                         "s3": {
                             "bucket": {"arn": "bucket_name", "name": "arn:aws:s3:::bucket_name"},

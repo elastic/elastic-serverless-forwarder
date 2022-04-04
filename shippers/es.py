@@ -126,7 +126,7 @@ class ElasticsearchShipper(CommonShipper):
                 "namespace": self._namespace,
             }
 
-            event_payload["event"] = {"dataset":  self._dataset }
+            event_payload["event"] = {"dataset": self._dataset}
             event_payload["tags"] += [self._dataset.replace(".", "-")]
 
         event_payload["tags"] += self._tags
