@@ -36,4 +36,4 @@ docker run \
   -c "pip install --user -U pip
       pip install --user -r requirements-lint.txt --cache-dir ${docker_pip_cache}
       pip install --user -r requirements.txt --cache-dir ${docker_pip_cache}
-      \${HOME}/.local/bin/isort ${OPTIONS} ."
+      PATH=\${PATH}:\${HOME}/.local/bin/ /bin/bash ./tests/scripts/isort.sh $*"

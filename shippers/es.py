@@ -13,6 +13,9 @@ from share import shared_logger
 
 from .shipper import CommonShipper, EventIdGeneratorCallable, ReplayHandlerCallable
 
+_EVENT_BUFFERED = "_EVENT_BUFFERED"
+_EVENT_SENT = "_EVENT_SENT"
+
 
 class ElasticsearchShipper(CommonShipper):
     """
@@ -114,8 +117,7 @@ class ElasticsearchShipper(CommonShipper):
         if "fields" not in event_payload:
             return
 
-        event_payload["tags"] = ["preserve_original_event", "forwarded"]
-        event_payload["event"] = {"original": event_payload["fields"]["message"]}
+        event_payload["tags"] = ["forwarded"]
 
         if self._dataset != "":
             event_payload["data_stream"] = {
@@ -124,7 +126,7 @@ class ElasticsearchShipper(CommonShipper):
                 "namespace": self._namespace,
             }
 
-            event_payload["event"]["dataset"] = self._dataset
+            event_payload["event"] = {"dataset": self._dataset}
             event_payload["tags"] += [self._dataset.replace(".", "-")]
 
         event_payload["tags"] += self._tags
@@ -154,7 +156,7 @@ class ElasticsearchShipper(CommonShipper):
     def set_replay_handler(self, replay_handler: ReplayHandlerCallable) -> None:
         self._replay_handler = replay_handler
 
-    def send(self, event: dict[str, Any]) -> bool:
+    def send(self, event: dict[str, Any]) -> str:
         self._replay_args["es_index_or_datastream_name"] = self._es_index_or_datastream_name
 
         self._enrich_event(event_payload=event)
@@ -175,13 +177,13 @@ class ElasticsearchShipper(CommonShipper):
         self._bulk_actions.append(event)
 
         if len(self._bulk_actions) < self._bulk_batch_size:
-            return False
+            return _EVENT_BUFFERED
 
         errors = es_bulk(self._es_client, self._bulk_actions, **self._bulk_kwargs)
         self._handle_outcome(errors=errors)
         self._bulk_actions = []
 
-        return True
+        return _EVENT_SENT
 
     def flush(self) -> None:
         if len(self._bulk_actions) > 0:

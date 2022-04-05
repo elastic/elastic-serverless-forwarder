@@ -87,7 +87,7 @@ def _handle_s3_sqs_event(sqs_record: dict[str, Any]) -> Iterator[tuple[dict[str,
         events = storage.get_by_lines(
             range_start=last_ending_offset,
         )
-        for log_event, ending_offset, newline_length in events:
+        for log_event, ending_offset, starting_offset, newline_length in events:
             assert isinstance(log_event, bytes)
 
             # let's be sure that on the first yield `ending_offset`
@@ -110,7 +110,8 @@ def _handle_s3_sqs_event(sqs_record: dict[str, Any]) -> Iterator[tuple[dict[str,
             es_event = deepcopy(_default_event)
             es_event["@timestamp"] = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
             es_event["fields"]["message"] = log_event.decode("UTF-8")
-            es_event["fields"]["log"]["offset"] = ending_offset - (len(log_event) + newline_length)
+
+            es_event["fields"]["log"]["offset"] = starting_offset
 
             es_event["fields"]["log"]["file"]["path"] = "https://{0}.s3.{1}.amazonaws.com/{2}".format(
                 bucket_name, aws_region, object_key

@@ -31,28 +31,11 @@ ACCOUNT_ID="$4"
 REGION="$5"
 SAR_AUTHOR_NAME="${6:-Elastic}"
 TMPDIR=$(mktemp -d /tmp/dist.XXXXXXXXXX)
+CODE_URI="${TMPDIR}/sources"
 
 trap "rm -rf ${TMPDIR}" EXIT
 
-mkdir "${TMPDIR}/packages"
-pip3 install --upgrade --target "${TMPDIR}/packages" -r requirements.txt
-
-pushd "${TMPDIR}/packages"
-zip -r "${TMPDIR}/lambda.zip" .
-
-popd
-
-cp LICENSE.txt "${TMPDIR}/LICENSE.txt"
-cp docs/README-AWS.md "${TMPDIR}/README.md"
-
-zip -g "${TMPDIR}/lambda.zip" main_aws.py
-zip -r -g "${TMPDIR}/lambda.zip" handlers/aws -i "*.py"
-zip -r -g "${TMPDIR}/lambda.zip" share -i "*.py"
-zip -r -g "${TMPDIR}/lambda.zip" shippers -i "*.py"
-zip -r -g "${TMPDIR}/lambda.zip" storage -i "*.py"
-
 aws s3api get-bucket-location --bucket "${BUCKET}" || aws s3api create-bucket --acl private --bucket "${BUCKET}" --region "${REGION}" --create-bucket-configuration LocationConstraint="${REGION}"
-aws s3 cp "${TMPDIR}/lambda.zip" "s3://${BUCKET}/lambda.zip"
 
 cat <<EOF > "${TMPDIR}/policy.json"
 {
@@ -77,7 +60,16 @@ EOF
 
 aws s3api put-bucket-policy --bucket "${BUCKET}" --policy "file://${TMPDIR}/policy.json"
 
-sed -e "s/%sarAppName%/${SAR_APP_NAME}/g" -e "s/%sarAuthorName%/${SAR_AUTHOR_NAME}/g" -e "s/%semanticVersion%/${SEMANTIC_VERSION}/g" -e "s/%codeURIBucket%/${BUCKET}/g" -e "s/%accountID%/${ACCOUNT_ID}/g" -e "s/%awsRegion%/${REGION}/g" .internal/aws/cloudformation/template.yaml > "${TMPDIR}/template.yaml"
+mkdir -v -p "${CODE_URI}"
+cp -v requirements.txt "${CODE_URI}/"
+cp -v main_aws.py "${CODE_URI}/"
+find {handlers,share,shippers,storage} -not -name "*__pycache__*" -type d -print0|xargs -t -0 -Idirname mkdir -v -p "${CODE_URI}/dirname"
+find {handlers,share,shippers,storage} -not -name "*__pycache__*" -name "*.py" -exec cp -v '{}' "${CODE_URI}/{}" \;
+cp -v LICENSE.txt "${CODE_URI}/LICENSE.txt"
+cp -v docs/README-AWS.md "${CODE_URI}/README.md"
 
-sam package --template-file "${TMPDIR}/template.yaml" --output-template-file "${TMPDIR}/packaged.yaml" --s3-bucket "${BUCKET}" --region "${REGION}"
-sam publish --template "${TMPDIR}/packaged.yaml" --region "${REGION}"
+sed -e "s|%codeUri%|${CODE_URI}|g" -e "s/%sarAppName%/${SAR_APP_NAME}/g" -e "s/%sarAuthorName%/${SAR_AUTHOR_NAME}/g" -e "s/%semanticVersion%/${SEMANTIC_VERSION}/g" -e "s/%codeURIBucket%/${BUCKET}/g" -e "s/%accountID%/${ACCOUNT_ID}/g" -e "s/%awsRegion%/${REGION}/g" .internal/aws/cloudformation/template.yaml > "${TMPDIR}/template.yaml"
+
+sam build --debug --use-container --build-dir "${TMPDIR}/.aws-sam/build" --template-file "${TMPDIR}/template.yaml" --region "${REGION}"
+sam package --template-file "${TMPDIR}/.aws-sam/build/template.yaml" --output-template-file "${TMPDIR}/.aws-sam/build/packaged.yaml" --s3-bucket "${BUCKET}" --region "${REGION}"
+sam publish --template "${TMPDIR}/.aws-sam/build/packaged.yaml" --region "${REGION}"

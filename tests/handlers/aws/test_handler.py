@@ -845,12 +845,35 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
             key_name="folder/config.yaml",
         )
 
-        self._cloudwatch_log: str = (
-            '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}\n'
-            '{"ecs": {"version": "1.6.0"}, "log": {"logger": '
-            '"root", "origin": {"file": {"line": 30, "name": "handler.py"}, "function": "lambda_handler"}, '
-            '"original": "trigger"}}\n'
+        self._first_log_entry: str = (
+            "{\n"
+            '   "@timestamp": "2021-12-28T11:33:08.160Z",\n'
+            '   "log.level": "info",\n'
+            '   "message": "trigger"\n'
+            "}\n"
         )
+
+        self._second_log_entry: str = (
+            "{\n"
+            '    "ecs": {\n'
+            '        "version": "1.6.0"\n'
+            "    },\n"
+            '    "log": {\n'
+            '        "logger": "root",\n'
+            '        "origin": {\n'
+            '            "file": {\n'
+            '                "line": 30,\n'
+            '                "name": "handler.py"\n'
+            "            },\n"
+            '            "function": "lambda_handler"\n'
+            "        },\n"
+            '        "original": "trigger"\n'
+            "    }\n"
+            "}\n"
+            "\n"
+        )
+
+        self._cloudwatch_log: str = self._first_log_entry + self._second_log_entry
 
         _upload_content_to_bucket(
             content=gzip.compress(self._cloudwatch_log.encode("UTF-8")),
@@ -948,9 +971,9 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 query={
                                     "ids": {
                                         "values": [
-                                            "e69eaefedb-000000000086",
-                                            f"{hex_prefix_sqs}-000000000086",
-                                            f"{hex_prefix_cloudwatch_logs}-000000000086",
+                                            "e69eaefedb-000000000097",
+                                            f"{hex_prefix_sqs}-000000000097",
+                                            f"{hex_prefix_cloudwatch_logs}-000000000097",
                                         ]
                                     }
                                 },
@@ -966,18 +989,13 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             self._es_client.indices.refresh(index="logs-generic-default")
                             res = self._es_client.search(
                                 index="logs-generic-default",
-                                query={"ids": {"values": ["e69eaefedb-000000000086"]}},
+                                query={"ids": {"values": ["e69eaefedb-000000000097"]}},
                             )
 
-                            assert (
-                                res["hits"]["hits"][0]["_source"]["message"]
-                                == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": '
-                                '{"line": 30, "name": "handler.py"}, "function": "lambda_handler"}, '
-                                '"original": "trigger"}}'
-                            )
+                            assert res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry.rstrip("\n")
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
-                                "offset": 86,
+                                "offset": 97,
                                 "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
                             }
                             assert res["hits"]["hits"][0]["_source"]["aws"] == {
@@ -992,7 +1010,6 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             }
 
                             assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                                "preserve_original_event",
                                 "forwarded",
                                 "generic",
                                 "tag1",
@@ -1009,18 +1026,13 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             self._es_client.indices.refresh(index="logs-generic-default")
                             res = self._es_client.search(
                                 index="logs-generic-default",
-                                query={"ids": {"values": [f"{hex_prefix_sqs}-000000000086"]}},
+                                query={"ids": {"values": [f"{hex_prefix_sqs}-000000000097"]}},
                             )
 
-                            assert (
-                                res["hits"]["hits"][0]["_source"]["message"]
-                                == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": '
-                                '{"line": 30, "name": "handler.py"}, "function": "lambda_handler"}, '
-                                '"original": "trigger"}}'
-                            )
+                            assert res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry.rstrip("\n")
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
-                                "offset": 86,
+                                "offset": 97,
                                 "file": {"path": self._source_sqs_queue_info["QueueUrl"]},
                             }
                             assert res["hits"]["hits"][0]["_source"]["aws"] == {
@@ -1035,7 +1047,6 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             }
 
                             assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                                "preserve_original_event",
                                 "forwarded",
                                 "generic",
                                 "tag1",
@@ -1052,18 +1063,13 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             self._es_client.indices.refresh(index="logs-generic-default")
                             res = self._es_client.search(
                                 index="logs-generic-default",
-                                query={"ids": {"values": [f"{hex_prefix_cloudwatch_logs}-000000000086"]}},
+                                query={"ids": {"values": [f"{hex_prefix_cloudwatch_logs}-000000000097"]}},
                             )
 
-                            assert (
-                                res["hits"]["hits"][0]["_source"]["message"]
-                                == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": '
-                                '{"line": 30, "name": "handler.py"}, "function": "lambda_handler"}, '
-                                '"original": "trigger"}}'
-                            )
+                            assert res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry.rstrip("\n")
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
-                                "offset": 86,
+                                "offset": 97,
                                 "file": {"path": "source-group/source-stream"},
                             }
                             assert res["hits"]["hits"][0]["_source"]["aws"] == {
@@ -1079,7 +1085,6 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             }
 
                             assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                                "preserve_original_event",
                                 "forwarded",
                                 "generic",
                                 "tag1",
@@ -1120,11 +1125,9 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 index="logs-generic-default",
                                 query={"ids": {"values": ["e69eaefedb-000000000000"]}},
                             )
-                            assert (
-                                res["hits"]["hits"][0]["_source"]["message"]
-                                == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": '
-                                '"trigger"}'
-                            )
+
+                            assert res["hits"]["hits"][0]["_source"]["message"] == self._first_log_entry.rstrip("\n")
+
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 0,
                                 "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
@@ -1141,7 +1144,6 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             }
 
                             assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                                "preserve_original_event",
                                 "forwarded",
                                 "generic",
                                 "tag1",
@@ -1160,11 +1162,8 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 index="logs-generic-default",
                                 query={"ids": {"values": [f"{hex_prefix_sqs}-000000000000"]}},
                             )
-                            assert (
-                                res["hits"]["hits"][0]["_source"]["message"]
-                                == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": '
-                                '"trigger"}'
-                            )
+                            assert res["hits"]["hits"][0]["_source"]["message"] == self._first_log_entry.rstrip("\n")
+
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 0,
                                 "file": {"path": self._source_sqs_queue_info["QueueUrl"]},
@@ -1181,7 +1180,6 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             }
 
                             assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                                "preserve_original_event",
                                 "forwarded",
                                 "generic",
                                 "tag1",
@@ -1200,11 +1198,8 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 index="logs-generic-default",
                                 query={"ids": {"values": [f"{hex_prefix_cloudwatch_logs}-000000000000"]}},
                             )
-                            assert (
-                                res["hits"]["hits"][0]["_source"]["message"]
-                                == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": '
-                                '"trigger"}'
-                            )
+                            assert res["hits"]["hits"][0]["_source"]["message"] == self._first_log_entry.rstrip("\n")
+
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 0,
                                 "file": {"path": "source-group/source-stream"},
@@ -1222,7 +1217,6 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             }
 
                             assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                                "preserve_original_event",
                                 "forwarded",
                                 "generic",
                                 "tag1",
@@ -1283,11 +1277,8 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 query={"ids": {"values": ["e69eaefedb-000000000000"]}},
                             )
 
-                            assert (
-                                res["hits"]["hits"][0]["_source"]["message"]
-                                == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": '
-                                '"trigger"}'
-                            )
+                            assert res["hits"]["hits"][0]["_source"]["message"] == self._first_log_entry.rstrip("\n")
+
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 0,
                                 "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
@@ -1304,7 +1295,6 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             }
 
                             assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                                "preserve_original_event",
                                 "forwarded",
                                 "generic",
                                 "tag1",
@@ -1327,11 +1317,8 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 index="logs-generic-default",
                                 query={"ids": {"values": [f"{hex_prefix_sqs}-000000000000"]}},
                             )
-                            assert (
-                                res["hits"]["hits"][0]["_source"]["message"]
-                                == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", '
-                                '"message": "trigger"}'
-                            )
+                            assert res["hits"]["hits"][0]["_source"]["message"] == self._first_log_entry.rstrip("\n")
+
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 0,
                                 "file": {"path": self._source_sqs_queue_info["QueueUrl"]},
@@ -1348,7 +1335,6 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             }
 
                             assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                                "preserve_original_event",
                                 "forwarded",
                                 "generic",
                                 "tag1",
@@ -1371,11 +1357,9 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 index="logs-generic-default",
                                 query={"ids": {"values": [f"{hex_prefix_cloudwatch_logs}-000000000000"]}},
                             )
-                            assert (
-                                res["hits"]["hits"][0]["_source"]["message"]
-                                == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": '
-                                '"trigger"}'
-                            )
+
+                            assert res["hits"]["hits"][0]["_source"]["message"] == self._first_log_entry.rstrip("\n")
+
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 0,
                                 "file": {"path": "source-group/source-stream"},
@@ -1393,7 +1377,6 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             }
 
                             assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                                "preserve_original_event",
                                 "forwarded",
                                 "generic",
                                 "tag1",
@@ -1423,18 +1406,13 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
 
                             res = self._es_client.search(
                                 index="logs-generic-default",
-                                query={"ids": {"values": ["e69eaefedb-000000000086"]}},
+                                query={"ids": {"values": ["e69eaefedb-000000000097"]}},
                             )
 
-                            assert (
-                                res["hits"]["hits"][0]["_source"]["message"]
-                                == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": '
-                                '{"line": 30, "name": "handler.py"}, "function": "lambda_handler"}, '
-                                '"original": "trigger"}}'
-                            )
+                            assert res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry.rstrip("\n")
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
-                                "offset": 86,
+                                "offset": 97,
                                 "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
                             }
                             assert res["hits"]["hits"][0]["_source"]["aws"] == {
@@ -1449,7 +1427,6 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             }
 
                             assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                                "preserve_original_event",
                                 "forwarded",
                                 "generic",
                                 "tag1",
@@ -1459,18 +1436,13 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
 
                             res = self._es_client.search(
                                 index="logs-generic-default",
-                                query={"ids": {"values": [f"{hex_prefix_sqs}-000000000086"]}},
+                                query={"ids": {"values": [f"{hex_prefix_sqs}-000000000097"]}},
                             )
 
-                            assert (
-                                res["hits"]["hits"][0]["_source"]["message"]
-                                == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": '
-                                '{"line": 30, "name": "handler.py"}, "function": "lambda_handler"}, '
-                                '"original": "trigger"}}'
-                            )
+                            assert res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry.rstrip("\n")
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
-                                "offset": 86,
+                                "offset": 97,
                                 "file": {"path": self._source_sqs_queue_info["QueueUrl"]},
                             }
                             assert res["hits"]["hits"][0]["_source"]["aws"] == {
@@ -1485,7 +1457,6 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             }
 
                             assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                                "preserve_original_event",
                                 "forwarded",
                                 "generic",
                                 "tag1",
@@ -1495,18 +1466,13 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
 
                             res = self._es_client.search(
                                 index="logs-generic-default",
-                                query={"ids": {"values": [f"{hex_prefix_cloudwatch_logs}-000000000086"]}},
+                                query={"ids": {"values": [f"{hex_prefix_cloudwatch_logs}-000000000097"]}},
                             )
 
-                            assert (
-                                res["hits"]["hits"][0]["_source"]["message"]
-                                == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": '
-                                '{"line": 30, "name": "handler.py"}, "function": "lambda_handler"}, '
-                                '"original": "trigger"}}'
-                            )
+                            assert res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry.rstrip("\n")
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
-                                "offset": 86,
+                                "offset": 97,
                                 "file": {"path": "source-group/source-stream"},
                             }
                             assert res["hits"]["hits"][0]["_source"]["aws"] == {
@@ -1522,7 +1488,6 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             }
 
                             assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                                "preserve_original_event",
                                 "forwarded",
                                 "generic",
                                 "tag1",
@@ -1658,7 +1623,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(TestCase):
                     "Data": base64.b64encode(
                         b'{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}\n'
                         b'{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": {"line": 30, '
-                        b'"name": "handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}'
+                        b'"name": "handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}\n'
                     ),
                 },
                 {
@@ -1784,7 +1749,6 @@ class TestLambdaHandlerSuccessKinesisDataStream(TestCase):
                     }
 
                     assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                        "preserve_original_event",
                         "forwarded",
                         "generic",
                         "tag1",
@@ -1815,7 +1779,6 @@ class TestLambdaHandlerSuccessKinesisDataStream(TestCase):
                     }
 
                     assert res["hits"]["hits"][1]["_source"]["tags"] == [
-                        "preserve_original_event",
                         "forwarded",
                         "generic",
                         "tag1",
@@ -1857,7 +1820,6 @@ class TestLambdaHandlerSuccessKinesisDataStream(TestCase):
                     }
 
                     assert res["hits"]["hits"][2]["_source"]["tags"] == [
-                        "preserve_original_event",
                         "forwarded",
                         "generic",
                         "tag1",
@@ -2008,11 +1970,11 @@ class TestLambdaHandlerSuccessS3SQS(TestCase):
         )
 
         cloudwatch_log: bytes = (
-            '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}\n'
-            '{"ecs": {"version": "1.6.0"}, "log": {"logger": '
-            '"root", "origin": {"file": {"line": 30, "name": "handler.py"}, "function": "lambda_handler"}, '
-            '"original": "trigger"}}\n'
-        ).encode("UTF-8")
+            b'{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}\n'
+            b'{"ecs": {"version": "1.6.0"}, "log": {"logger": '
+            b'"root", "origin": {"file": {"line": 30, "name": "handler.py"}, "function": "lambda_handler"}, '
+            b'"original": "trigger"}}\n'
+        )
 
         _upload_content_to_bucket(
             content=gzip.compress(cloudwatch_log),
@@ -2103,7 +2065,6 @@ class TestLambdaHandlerSuccessS3SQS(TestCase):
                         }
 
                         assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                            "preserve_original_event",
                             "forwarded",
                             "aws-cloudwatch_logs",
                             "tag1",
@@ -2141,7 +2102,6 @@ class TestLambdaHandlerSuccessS3SQS(TestCase):
                         }
 
                         assert res["hits"]["hits"][1]["_source"]["tags"] == [
-                            "preserve_original_event",
                             "forwarded",
                             "aws-cloudwatch_logs",
                             "tag1",
@@ -2192,7 +2152,6 @@ class TestLambdaHandlerSuccessS3SQS(TestCase):
                         }
 
                         assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                            "preserve_original_event",
                             "forwarded",
                             "aws-cloudwatch_logs",
                             "tag1",
@@ -2233,7 +2192,6 @@ class TestLambdaHandlerSuccessS3SQS(TestCase):
                         }
 
                         assert res["hits"]["hits"][1]["_source"]["tags"] == [
-                            "preserve_original_event",
                             "forwarded",
                             "aws-cloudwatch_logs",
                             "tag1",
@@ -2451,7 +2409,6 @@ class TestLambdaHandlerSuccessSQS(TestCase):
                         }
 
                         assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                            "preserve_original_event",
                             "forwarded",
                             "generic",
                             "tag1",
@@ -2489,7 +2446,6 @@ class TestLambdaHandlerSuccessSQS(TestCase):
                         }
 
                         assert res["hits"]["hits"][1]["_source"]["tags"] == [
-                            "preserve_original_event",
                             "forwarded",
                             "generic",
                             "tag1",
@@ -2549,7 +2505,6 @@ class TestLambdaHandlerSuccessSQS(TestCase):
                         }
 
                         assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                            "preserve_original_event",
                             "forwarded",
                             "generic",
                             "tag1",
@@ -2592,7 +2547,6 @@ class TestLambdaHandlerSuccessSQS(TestCase):
                         }
 
                         assert res["hits"]["hits"][1]["_source"]["tags"] == [
-                            "preserve_original_event",
                             "forwarded",
                             "generic",
                             "tag1",
@@ -2867,7 +2821,6 @@ class TestLambdaHandlerSuccessCloudWatchLogs(TestCase):
                             }
 
                             assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                                "preserve_original_event",
                                 "forwarded",
                                 "generic",
                                 "tag1",
@@ -2907,7 +2860,6 @@ class TestLambdaHandlerSuccessCloudWatchLogs(TestCase):
                             }
 
                             assert res["hits"]["hits"][1]["_source"]["tags"] == [
-                                "preserve_original_event",
                                 "forwarded",
                                 "generic",
                                 "tag1",
@@ -2974,7 +2926,6 @@ class TestLambdaHandlerSuccessCloudWatchLogs(TestCase):
                             }
 
                             assert res["hits"]["hits"][0]["_source"]["tags"] == [
-                                "preserve_original_event",
                                 "forwarded",
                                 "generic",
                                 "tag1",
@@ -3017,7 +2968,6 @@ class TestLambdaHandlerSuccessCloudWatchLogs(TestCase):
                             }
 
                             assert res["hits"]["hits"][1]["_source"]["tags"] == [
-                                "preserve_original_event",
                                 "forwarded",
                                 "generic",
                                 "tag1",

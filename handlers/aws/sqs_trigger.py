@@ -78,13 +78,14 @@ def _handle_sqs_event(
         range_start=range_start,
     )
 
-    for log_event, ending_offset, newline_length in events:
+    for log_event, ending_offset, starting_offset, newline_length in events:
         assert isinstance(log_event, bytes)
 
         es_event = deepcopy(_default_event)
         es_event["@timestamp"] = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
         es_event["fields"]["message"] = log_event.decode("UTF-8")
-        es_event["fields"]["log"]["offset"] = ending_offset - (len(log_event) + newline_length)
+
+        es_event["fields"]["log"]["offset"] = starting_offset
 
         if is_continuation_of_cloudwatch_logs:
             event_id = ""

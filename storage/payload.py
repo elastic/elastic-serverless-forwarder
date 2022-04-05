@@ -9,7 +9,7 @@ from typing import Any, Iterator, Union
 
 from share import shared_logger
 
-from .decorator import by_lines, inflate
+from .decorator import JsonCollector, by_lines, inflate
 from .storage import CHUNK_SIZE, CommonStorage, StorageReader
 
 
@@ -23,11 +23,12 @@ class PayloadStorage(CommonStorage):
     def __init__(self, payload: str):
         self._payload: str = payload
 
+    @JsonCollector
     @by_lines
     @inflate
     def _generate(
         self, range_start: int, body: BytesIO, content_type: str, content_length: int
-    ) -> Iterator[tuple[Union[StorageReader, bytes], int, int]]:
+    ) -> Iterator[tuple[Union[StorageReader, bytes], int, int, int]]:
         """
         Concrete implementation of the iterator for get_by_lines
         """
@@ -39,15 +40,16 @@ class PayloadStorage(CommonStorage):
 
         if content_type == "application/x-gzip":
             reader: StorageReader = StorageReader(raw=body)
-            yield reader, 0, 0
+            yield reader, 0, 0, 0
         else:
             for chunk in iter(chunk_lambda, b""):
+                file_starting_offset = file_ending_offset
                 file_ending_offset += len(chunk)
 
                 shared_logger.debug("_generate flat", extra={"offset": file_ending_offset})
-                yield chunk, file_ending_offset, 0
+                yield chunk, file_ending_offset, file_starting_offset, 0
 
-    def get_by_lines(self, range_start: int) -> Iterator[tuple[Union[StorageReader, bytes], int, int]]:
+    def get_by_lines(self, range_start: int) -> Iterator[tuple[Union[StorageReader, bytes], int, int, int]]:
         original_range_start: int = range_start
 
         content_type = "plain/text"
@@ -68,13 +70,13 @@ class PayloadStorage(CommonStorage):
             file_content.flush()
             file_content.seek(range_start, SEEK_SET)
 
-            for log_event, line_ending_offset, newline_length in self._generate(
+            for log_event, line_ending_offset, file_starting_offset, newline_length in self._generate(
                 original_range_start,
                 file_content,
                 content_type,
                 content_length,
             ):
-                yield log_event, line_ending_offset, newline_length
+                yield log_event, line_ending_offset, file_starting_offset, newline_length
         else:
             shared_logger.info(f"requested payload content from {range_start}, payload size {content_length}: skip it")
 

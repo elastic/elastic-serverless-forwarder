@@ -1,8 +1,12 @@
-.PHONY: help test coverage docker-lint docker-test docker-coverage docker-black docker-flake8 docker-mypy docker-isort black flake8 mypy isort license all-reqs requirements lint-reqs test-reqs
+.PHONY: help license all-requirements requirements requirements-lint requirements-tests benchmark black coverage flake8 integration-test isort lint mypy test unit-test docker-benchmark docker-black docker-coverage docker-flake8 docker-integration-test docker-isort docker-lint docker-mypy docker-test docker-unit-test
 SHELL := /bin/bash
 
 help: ## Display this help text
 	@grep -E '^[a-zA-Z_-]+[%]?:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+
+benchmark: PYTEST_ARGS=-m benchmark ## Run benchmarks on the host
+coverage: export PYTEST_ADDOPTS=--benchmark-group-by=group
+benchmark: test
 
 unit-test: PYTEST_ARGS=-m unit ## Run unit tests on the host
 unit-test: test
@@ -10,60 +14,63 @@ unit-test: test
 integration-test: PYTEST_ARGS=-m integration ## Run integration tests on the host
 integration-test: test
 
-test:  ## Run all tests on the host
-	PYTEST_ARGS="${PYTEST_ARGS}" tests/scripts/${BASE_DIR}run_tests.sh
+test: PYTEST_ARGS_FLAGS=$(if $(PYTEST_ARGS),$(PYTEST_ARGS),-m not benchmark) ## Run unit tests on the host
+test:
+	PYTEST_ARGS="${PYTEST_ARGS_FLAGS}" tests/scripts/${SCRIPTS_BASE_DIR}run_tests.sh
 
-coverage: PYTEST_ARGS=--cov=. --cov-context=test --cov-config=.coveragerc --cov-branch  ## Run tests on the host with coverage
+coverage: export PYTEST_ADDOPTS=--cov=. --cov-context=test --cov-config=.coveragerc --cov-branch ## Run tests with coverage on the host
 coverage: export COVERAGE_FILE=.coverage
 coverage: test
 
 lint: black flake8 isort mypy  ## Lint the project on the host
 
 black:  ## Run black in the project on the host
-	tests/scripts/${BASE_DIR}black.sh diff
+	tests/scripts/${SCRIPTS_BASE_DIR}black.sh diff
 
 flake8:  ## Run flake8 in the project on the host
-	tests/scripts/${BASE_DIR}flake8.sh
+	tests/scripts/${SCRIPTS_BASE_DIR}flake8.sh
 
 isort:  ## Run isort in the project on the host
-	tests/scripts/${BASE_DIR}isort.sh diff
+	tests/scripts/${SCRIPTS_BASE_DIR}isort.sh diff
 
 mypy: ## Run mypy in the project on the host
-	tests/scripts/${BASE_DIR}mypy.sh
+	tests/scripts/${SCRIPTS_BASE_DIR}mypy.sh
 
-docker-test:  ## Run tests on docker
-docker-test: BASE_DIR=docker/
+docker-test:  ## Run all tests on docker
+docker-test: SCRIPTS_BASE_DIR=docker/
 docker-test: test
 
-docker-unit-test:  ## Run tests on docker
-docker-unit-test: PYTEST_ARGS=-m unit
-docker-unit-test: docker-test
+docker-benchmark:  ## Run benchmarks on docker
+docker-benchmark: SCRIPTS_BASE_DIR=docker/
+docker-benchmark: benchmark
 
-docker-integration-test:  ## Run tests on docker
-docker-integration-test: PYTEST_ARGS=-m integration
-docker-integration-test: docker-test
+docker-unit-test:  ## Run unit tests on docker
+docker-unit-test: SCRIPTS_BASE_DIR=docker/
+docker-unit-test: unit-test
 
+docker-integration-test:  ## Run integration tests on docker
+docker-integration-test: SCRIPTS_BASE_DIR=docker/
+docker-integration-test: integration-test
 
-docker-coverage: PYTEST_ARGS=--cov=. --cov-context=test --cov-config=.coveragerc --cov-branch  ## Run tests on docker with coverage
-docker-coverage: export COVERAGE_FILE=.coverage
-docker-coverage: docker-test
+docker-coverage: SCRIPTS_BASE_DIR=docker/
+docker-coverage: coverage
 
 docker-lint: docker-black docker-flake8 docker-isort docker-mypy  ## Lint the project on docker
 
 docker-black:  ## Run black in the project on docker
-docker-black: BASE_DIR=docker/
+docker-black: SCRIPTS_BASE_DIR=docker/
 docker-black: black
 
 docker-flake8:  ## Run flake8 in the project on docker
-docker-flake8: BASE_DIR=docker/
+docker-flake8: SCRIPTS_BASE_DIR=docker/
 docker-flake8: flake8
 
 docker-isort:  ## Run isort in the project on docker
-docker-isort: BASE_DIR=docker/
+docker-isort: SCRIPTS_BASE_DIR=docker/
 docker-isort: isort
 
 docker-mypy:  ## Run mypy in the project on docker
-docker-mypy: BASE_DIR=docker/
+docker-mypy: SCRIPTS_BASE_DIR=docker/
 docker-mypy: mypy
 
 license:  ## Run license validation in the project

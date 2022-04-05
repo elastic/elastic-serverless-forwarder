@@ -94,13 +94,14 @@ def _handle_cloudwatch_logs_event(event: dict[str, Any], aws_region: str) -> Ite
                 range_start=0,
             )
 
-            for log_event, ending_offset, newline_length in events:
+            for log_event, ending_offset, starting_offset, newline_length in events:
                 assert isinstance(log_event, bytes)
 
                 es_event = deepcopy(_default_event)
                 es_event["@timestamp"] = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
                 es_event["fields"]["message"] = log_event.decode("UTF-8")
-                es_event["fields"]["log"]["offset"] = ending_offset - (len(log_event) + newline_length)
+
+                es_event["fields"]["log"]["offset"] = starting_offset
 
                 es_event["fields"]["log"]["file"]["path"] = f"{log_group_name}/{log_stream_name}"
 
