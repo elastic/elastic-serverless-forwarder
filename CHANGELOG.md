@@ -1,6 +1,6 @@
 ### v0.28.0 - 2022/04/11
 ##### Features
-* Add support for providing `S3_CONFIG_FILE` env variable as cloudformation param: [#](https://github.com/elastic/elastic-serverless-forwarder/pull/)
+* Add support for providing `S3_CONFIG_FILE` env variable as cloudformation param: [#103](https://github.com/elastic/elastic-serverless-forwarder/pull/103)
 
 ### v0.27.0 - 2022/04/04
 ##### Features
