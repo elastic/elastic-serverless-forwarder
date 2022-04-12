@@ -585,10 +585,12 @@ def _upload_content_to_bucket(content: Union[bytes, str], content_type: str, buc
     client.put_object(Bucket=bucket_name, Key=key_name, Body=content, ContentType=content_type)
 
 
-def _event_from_sqs_message(queue_attributes: dict[str, Any]) -> dict[str, Any]:
+def _event_from_sqs_message(queue_attributes: dict[str, Any], limit_max_number_of_messages: int = 2) -> dict[str, Any]:
     sqs_client = aws_stack.connect_to_service("sqs")
     messages = sqs_client.receive_message(
-        QueueUrl=queue_attributes["QueueUrl"], MaxNumberOfMessages=2, MessageAttributeNames=["All"]
+        QueueUrl=queue_attributes["QueueUrl"],
+        MaxNumberOfMessages=limit_max_number_of_messages,
+        MessageAttributeNames=["All"],
     )
 
     assert "Messages" in messages
@@ -607,10 +609,13 @@ def _event_from_sqs_message(queue_attributes: dict[str, Any]) -> dict[str, Any]:
             for attribute_key in message["messageAttributes"][attribute]:
                 camel_case_key = "".join([attribute_key[0].lower(), attribute_key[1:]])
                 new_attribute[camel_case_key] = new_attribute[attribute_key]
-                message["messageAttributes"][attribute] = new_attribute
+
+            message["messageAttributes"][attribute] = new_attribute
 
     message["eventSource"] = "aws:sqs"
     message["eventSourceARN"] = queue_attributes["QueueArn"]
+
+    sqs_client.delete_message(QueueUrl=queue_attributes["QueueUrl"], ReceiptHandle=message["receiptHandle"])
 
     return dict(Records=[message])
 
@@ -851,6 +856,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
             '   "log.level": "info",\n'
             '   "message": "trigger"\n'
             "}\n"
+            "\n"
         )
 
         self._second_log_entry: str = (
@@ -873,7 +879,11 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
             "\n"
         )
 
-        self._cloudwatch_log: str = self._first_log_entry + self._second_log_entry
+        self._third_log_entry: str = (
+            "{\n" '    "another": "continuation",\n' '    "from": "the",\n' '    "continuing": "queue"\n' "}\n" "\n"
+        )
+
+        self._cloudwatch_log: str = self._first_log_entry + self._second_log_entry + self._third_log_entry
 
         _upload_content_to_bucket(
             content=gzip.compress(self._cloudwatch_log.encode("UTF-8")),
@@ -1017,6 +1027,36 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 "tag3",
                             ]
 
+                            res = self._es_client.search(
+                                index="logs-generic-default",
+                                query={"ids": {"values": ["e69eaefedb-000000000398"]}},
+                            )
+
+                            assert res["hits"]["hits"][0]["_source"]["message"] == self._third_log_entry.rstrip("\n")
+
+                            assert res["hits"]["hits"][0]["_source"]["log"] == {
+                                "offset": 398,
+                                "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
+                            }
+                            assert res["hits"]["hits"][0]["_source"]["aws"] == {
+                                "s3": {
+                                    "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
+                                    "object": {"key": f"{filename}"},
+                                }
+                            }
+                            assert res["hits"]["hits"][0]["_source"]["cloud"] == {
+                                "provider": "aws",
+                                "region": "eu-central-1",
+                            }
+
+                            assert res["hits"]["hits"][0]["_source"]["tags"] == [
+                                "forwarded",
+                                "generic",
+                                "tag1",
+                                "tag2",
+                                "tag3",
+                            ]
+
                             first_replayed_event = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
 
                             second_call = handler(event_sqs, ctx)  # type:ignore
@@ -1054,6 +1094,35 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 "tag3",
                             ]
 
+                            res = self._es_client.search(
+                                index="logs-generic-default",
+                                query={"ids": {"values": [f"{hex_prefix_sqs}-000000000398"]}},
+                            )
+
+                            assert res["hits"]["hits"][0]["_source"]["message"] == self._third_log_entry.rstrip("\n")
+
+                            assert res["hits"]["hits"][0]["_source"]["log"] == {
+                                "offset": 398,
+                                "file": {"path": self._source_sqs_queue_info["QueueUrl"]},
+                            }
+                            assert res["hits"]["hits"][0]["_source"]["aws"] == {
+                                "sqs": {
+                                    "name": "source-sqs-queue",
+                                    "message_id": message_id,
+                                }
+                            }
+                            assert res["hits"]["hits"][0]["_source"]["cloud"] == {
+                                "provider": "aws",
+                                "region": "us-east-1",
+                            }
+
+                            assert res["hits"]["hits"][0]["_source"]["tags"] == [
+                                "forwarded",
+                                "generic",
+                                "tag1",
+                                "tag2",
+                                "tag3",
+                            ]
                             second_replayed_event = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
 
                             third_call = handler(event_cloudwatch_logs, ctx)  # type:ignore
@@ -1092,6 +1161,36 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 "tag3",
                             ]
 
+                            res = self._es_client.search(
+                                index="logs-generic-default",
+                                query={"ids": {"values": [f"{hex_prefix_cloudwatch_logs}-000000000398"]}},
+                            )
+
+                            assert res["hits"]["hits"][0]["_source"]["message"] == self._third_log_entry.rstrip("\n")
+
+                            assert res["hits"]["hits"][0]["_source"]["log"] == {
+                                "offset": 398,
+                                "file": {"path": "source-group/source-stream"},
+                            }
+                            assert res["hits"]["hits"][0]["_source"]["aws"] == {
+                                "awscloudwatch": {
+                                    "log_group": "source-group",
+                                    "log_stream": "source-stream",
+                                    "event_id": event_id_cloudwatch_logs,
+                                }
+                            }
+                            assert res["hits"]["hits"][0]["_source"]["cloud"] == {
+                                "provider": "aws",
+                                "region": "us-east-1",
+                            }
+
+                            assert res["hits"]["hits"][0]["_source"]["tags"] == [
+                                "forwarded",
+                                "generic",
+                                "tag1",
+                                "tag2",
+                                "tag3",
+                            ]
                             # Remove the expected id for s3-sqs so that it can be replayed
                             self._es_client.delete_by_query(
                                 index="logs-generic-default",
@@ -1119,7 +1218,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             assert fourth_call == "replayed"
 
                             self._es_client.indices.refresh(index="logs-generic-default")
-                            assert self._es_client.count(index="logs-generic-default")["count"] == 4
+                            assert self._es_client.count(index="logs-generic-default")["count"] == 7
 
                             res = self._es_client.search(
                                 index="logs-generic-default",
@@ -1156,7 +1255,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             assert fifth_call == "replayed"
 
                             self._es_client.indices.refresh(index="logs-generic-default")
-                            assert self._es_client.count(index="logs-generic-default")["count"] == 5
+                            assert self._es_client.count(index="logs-generic-default")["count"] == 8
 
                             res = self._es_client.search(
                                 index="logs-generic-default",
@@ -1192,7 +1291,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             assert sixth_call == "replayed"
 
                             self._es_client.indices.refresh(index="logs-generic-default")
-                            assert self._es_client.count(index="logs-generic-default")["count"] == 6
+                            assert self._es_client.count(index="logs-generic-default")["count"] == 9
 
                             res = self._es_client.search(
                                 index="logs-generic-default",
@@ -1396,13 +1495,12 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 ]
                             )
 
-                            ctx = ContextMock(remaining_time_in_millis=2)
                             fourth_call = handler(continued_events, ctx)  # type:ignore
 
-                            assert fourth_call == "completed"
+                            assert fourth_call == "continuing"
 
                             self._es_client.indices.refresh(index="logs-generic-default")
-                            assert self._es_client.count(index="logs-generic-default")["count"] == 6
+                            assert self._es_client.count(index="logs-generic-default")["count"] == 4
 
                             res = self._es_client.search(
                                 index="logs-generic-default",
@@ -1433,6 +1531,37 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 "tag2",
                                 "tag3",
                             ]
+
+                            fourth_continued_event = _event_from_sqs_message(
+                                queue_attributes=self._continuing_queue_info,
+                                limit_max_number_of_messages=1,
+                            )
+
+                            fifth_continued_event = _event_from_sqs_message(
+                                queue_attributes=self._continuing_queue_info,
+                                limit_max_number_of_messages=1,
+                            )
+
+                            sixth_continued_event = _event_from_sqs_message(
+                                queue_attributes=self._continuing_queue_info,
+                                limit_max_number_of_messages=1,
+                            )
+
+                            continued_events = dict(
+                                Records=[
+                                    fourth_continued_event["Records"][0],
+                                    fifth_continued_event["Records"][0],
+                                    sixth_continued_event["Records"][0],
+                                ]
+                            )
+
+                            ctx = ContextMock(remaining_time_in_millis=2)
+                            fifth_call = handler(continued_events, ctx)  # type:ignore
+
+                            assert fifth_call == "completed"
+
+                            self._es_client.indices.refresh(index="logs-generic-default")
+                            assert self._es_client.count(index="logs-generic-default")["count"] == 9
 
                             res = self._es_client.search(
                                 index="logs-generic-default",
@@ -1473,6 +1602,97 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 97,
+                                "file": {"path": "source-group/source-stream"},
+                            }
+                            assert res["hits"]["hits"][0]["_source"]["aws"] == {
+                                "awscloudwatch": {
+                                    "log_group": "source-group",
+                                    "log_stream": "source-stream",
+                                    "event_id": event_id_cloudwatch_logs,
+                                }
+                            }
+                            assert res["hits"]["hits"][0]["_source"]["cloud"] == {
+                                "provider": "aws",
+                                "region": "us-east-1",
+                            }
+
+                            assert res["hits"]["hits"][0]["_source"]["tags"] == [
+                                "forwarded",
+                                "generic",
+                                "tag1",
+                                "tag2",
+                                "tag3",
+                            ]
+
+                            res = self._es_client.search(
+                                index="logs-generic-default",
+                                query={"ids": {"values": ["e69eaefedb-000000000398"]}},
+                            )
+
+                            assert res["hits"]["hits"][0]["_source"]["message"] == self._third_log_entry.rstrip("\n")
+
+                            assert res["hits"]["hits"][0]["_source"]["log"] == {
+                                "offset": 398,
+                                "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
+                            }
+                            assert res["hits"]["hits"][0]["_source"]["aws"] == {
+                                "s3": {
+                                    "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
+                                    "object": {"key": f"{filename}"},
+                                }
+                            }
+                            assert res["hits"]["hits"][0]["_source"]["cloud"] == {
+                                "provider": "aws",
+                                "region": "eu-central-1",
+                            }
+
+                            assert res["hits"]["hits"][0]["_source"]["tags"] == [
+                                "forwarded",
+                                "generic",
+                                "tag1",
+                                "tag2",
+                                "tag3",
+                            ]
+
+                            res = self._es_client.search(
+                                index="logs-generic-default",
+                                query={"ids": {"values": [f"{hex_prefix_sqs}-000000000398"]}},
+                            )
+
+                            assert res["hits"]["hits"][0]["_source"]["message"] == self._third_log_entry.rstrip("\n")
+
+                            assert res["hits"]["hits"][0]["_source"]["log"] == {
+                                "offset": 398,
+                                "file": {"path": self._source_sqs_queue_info["QueueUrl"]},
+                            }
+                            assert res["hits"]["hits"][0]["_source"]["aws"] == {
+                                "sqs": {
+                                    "name": "source-sqs-queue",
+                                    "message_id": message_id,
+                                }
+                            }
+                            assert res["hits"]["hits"][0]["_source"]["cloud"] == {
+                                "provider": "aws",
+                                "region": "us-east-1",
+                            }
+
+                            assert res["hits"]["hits"][0]["_source"]["tags"] == [
+                                "forwarded",
+                                "generic",
+                                "tag1",
+                                "tag2",
+                                "tag3",
+                            ]
+
+                            res = self._es_client.search(
+                                index="logs-generic-default",
+                                query={"ids": {"values": [f"{hex_prefix_cloudwatch_logs}-000000000398"]}},
+                            )
+
+                            assert res["hits"]["hits"][0]["_source"]["message"] == self._third_log_entry.rstrip("\n")
+
+                            assert res["hits"]["hits"][0]["_source"]["log"] == {
+                                "offset": 398,
                                 "file": {"path": "source-group/source-stream"},
                             }
                             assert res["hits"]["hits"][0]["_source"]["aws"] == {
@@ -1974,6 +2194,7 @@ class TestLambdaHandlerSuccessS3SQS(TestCase):
             b'{"ecs": {"version": "1.6.0"}, "log": {"logger": '
             b'"root", "origin": {"file": {"line": 30, "name": "handler.py"}, "function": "lambda_handler"}, '
             b'"original": "trigger"}}\n'
+            b'{"another": "continuation", "from": "the", "continuing": "queue"}\n'
         )
 
         _upload_content_to_bucket(
@@ -2038,10 +2259,10 @@ class TestLambdaHandlerSuccessS3SQS(TestCase):
                         )
                         self._es_client.indices.refresh(index="logs-aws.cloudwatch_logs-default")
 
-                        assert self._es_client.count(index="logs-aws.cloudwatch_logs-default")["count"] == 1
+                        assert self._es_client.count(index="logs-aws.cloudwatch_logs-default")["count"] == 2
 
                         res = self._es_client.search(index="logs-aws.cloudwatch_logs-default", sort="_seq_no")
-                        assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
+                        assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
 
                         assert (
                             res["hits"]["hits"][0]["_source"]["message"]
@@ -2072,22 +2293,13 @@ class TestLambdaHandlerSuccessS3SQS(TestCase):
                             "tag3",
                         ]
 
-                        event = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
-                        second_call = handler(event, ctx)  # type:ignore
-
-                        assert second_call == "replayed"
-
-                        self._es_client.indices.refresh(index="logs-aws.cloudwatch_logs-default")
-                        assert self._es_client.count(index="logs-aws.cloudwatch_logs-default")["count"] == 2
-
-                        res = self._es_client.search(index="logs-aws.cloudwatch_logs-default", sort="_seq_no")
-                        assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
                         assert (
                             res["hits"]["hits"][1]["_source"]["message"]
-                            == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}'
+                            == '{"another": "continuation", "from": "the", "continuing": "queue"}'
                         )
+
                         assert res["hits"]["hits"][1]["_source"]["log"] == {
-                            "offset": 0,
+                            "offset": 252,
                             "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
                         }
                         assert res["hits"]["hits"][1]["_source"]["aws"] == {
@@ -2102,6 +2314,43 @@ class TestLambdaHandlerSuccessS3SQS(TestCase):
                         }
 
                         assert res["hits"]["hits"][1]["_source"]["tags"] == [
+                            "forwarded",
+                            "aws-cloudwatch_logs",
+                            "tag1",
+                            "tag2",
+                            "tag3",
+                        ]
+
+                        event = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
+                        second_call = handler(event, ctx)  # type:ignore
+
+                        assert second_call == "replayed"
+
+                        self._es_client.indices.refresh(index="logs-aws.cloudwatch_logs-default")
+                        assert self._es_client.count(index="logs-aws.cloudwatch_logs-default")["count"] == 3
+
+                        res = self._es_client.search(index="logs-aws.cloudwatch_logs-default", sort="_seq_no")
+                        assert res["hits"]["total"] == {"value": 3, "relation": "eq"}
+                        assert (
+                            res["hits"]["hits"][2]["_source"]["message"]
+                            == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}'
+                        )
+                        assert res["hits"]["hits"][2]["_source"]["log"] == {
+                            "offset": 0,
+                            "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
+                        }
+                        assert res["hits"]["hits"][2]["_source"]["aws"] == {
+                            "s3": {
+                                "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
+                                "object": {"key": f"{filename}"},
+                            }
+                        }
+                        assert res["hits"]["hits"][2]["_source"]["cloud"] == {
+                            "provider": "aws",
+                            "region": "eu-central-1",
+                        }
+
+                        assert res["hits"]["hits"][2]["_source"]["tags"] == [
                             "forwarded",
                             "aws-cloudwatch_logs",
                             "tag1",
@@ -2202,7 +2451,46 @@ class TestLambdaHandlerSuccessS3SQS(TestCase):
                         event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
                         third_call = handler(event, ctx)  # type:ignore
 
-                        assert third_call == "completed"
+                        assert third_call == "continuing"
+
+                        self._es_client.indices.refresh(index="logs-aws.cloudwatch_logs-default")
+                        assert self._es_client.count(index="logs-aws.cloudwatch_logs-default")["count"] == 3
+
+                        res = self._es_client.search(index="logs-aws.cloudwatch_logs-default", sort="_seq_no")
+                        assert res["hits"]["total"] == {"value": 3, "relation": "eq"}
+
+                        assert (
+                            res["hits"]["hits"][2]["_source"]["message"]
+                            == '{"another": "continuation", "from": "the", "continuing": "queue"}'
+                        )
+
+                        assert res["hits"]["hits"][2]["_source"]["log"] == {
+                            "offset": 252,
+                            "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
+                        }
+                        assert res["hits"]["hits"][2]["_source"]["aws"] == {
+                            "s3": {
+                                "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
+                                "object": {"key": f"{filename}"},
+                            }
+                        }
+                        assert res["hits"]["hits"][2]["_source"]["cloud"] == {
+                            "provider": "aws",
+                            "region": "eu-central-1",
+                        }
+
+                        assert res["hits"]["hits"][2]["_source"]["tags"] == [
+                            "forwarded",
+                            "aws-cloudwatch_logs",
+                            "tag1",
+                            "tag2",
+                            "tag3",
+                        ]
+
+                        event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+                        fourth_call = handler(event, ctx)  # type:ignore
+
+                        assert fourth_call == "completed"
 
 
 @pytest.mark.integration
@@ -2350,6 +2638,7 @@ class TestLambdaHandlerSuccessSQS(TestCase):
                             '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}\n'
                             '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": {"line": 30, '
                             '"name": "handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}\n'
+                            '{"another": "continuation", "from": "the", "continuing": "queue"}\n'
                         )
 
                         _event_to_sqs_message(queue_attributes=self._source_queue_info, message_body=cloudwatch_log)
@@ -2382,10 +2671,10 @@ class TestLambdaHandlerSuccessSQS(TestCase):
                         )
                         self._es_client.indices.refresh(index="logs-generic-default")
 
-                        assert self._es_client.count(index="logs-generic-default")["count"] == 1
+                        assert self._es_client.count(index="logs-generic-default")["count"] == 2
 
                         res = self._es_client.search(index="logs-generic-default", sort="_seq_no")
-                        assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
+                        assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
 
                         assert (
                             res["hits"]["hits"][0]["_source"]["message"]
@@ -2416,22 +2705,13 @@ class TestLambdaHandlerSuccessSQS(TestCase):
                             "tag3",
                         ]
 
-                        event = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
-                        second_call = handler(event, ctx)  # type:ignore
-
-                        assert second_call == "replayed"
-
-                        self._es_client.indices.refresh(index="logs-generic-default")
-                        assert self._es_client.count(index="logs-generic-default")["count"] == 2
-
-                        res = self._es_client.search(index="logs-generic-default", sort="_seq_no")
-                        assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
                         assert (
                             res["hits"]["hits"][1]["_source"]["message"]
-                            == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}'
+                            == '{"another": "continuation", "from": "the", "continuing": "queue"}'
                         )
+
                         assert res["hits"]["hits"][1]["_source"]["log"] == {
-                            "offset": 0,
+                            "offset": 252,
                             "file": {"path": self._source_queue_info["QueueUrl"]},
                         }
                         assert res["hits"]["hits"][1]["_source"]["aws"] == {
@@ -2446,6 +2726,43 @@ class TestLambdaHandlerSuccessSQS(TestCase):
                         }
 
                         assert res["hits"]["hits"][1]["_source"]["tags"] == [
+                            "forwarded",
+                            "generic",
+                            "tag1",
+                            "tag2",
+                            "tag3",
+                        ]
+
+                        event = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
+                        second_call = handler(event, ctx)  # type:ignore
+
+                        assert second_call == "replayed"
+
+                        self._es_client.indices.refresh(index="logs-generic-default")
+                        assert self._es_client.count(index="logs-generic-default")["count"] == 3
+
+                        res = self._es_client.search(index="logs-generic-default", sort="_seq_no")
+                        assert res["hits"]["total"] == {"value": 3, "relation": "eq"}
+                        assert (
+                            res["hits"]["hits"][2]["_source"]["message"]
+                            == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}'
+                        )
+                        assert res["hits"]["hits"][2]["_source"]["log"] == {
+                            "offset": 0,
+                            "file": {"path": self._source_queue_info["QueueUrl"]},
+                        }
+                        assert res["hits"]["hits"][2]["_source"]["aws"] == {
+                            "sqs": {
+                                "name": "source-queue",
+                                "message_id": message_id,
+                            }
+                        }
+                        assert res["hits"]["hits"][2]["_source"]["cloud"] == {
+                            "provider": "aws",
+                            "region": "us-east-1",
+                        }
+
+                        assert res["hits"]["hits"][2]["_source"]["tags"] == [
                             "forwarded",
                             "generic",
                             "tag1",
@@ -2468,6 +2785,7 @@ class TestLambdaHandlerSuccessSQS(TestCase):
                             '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}\n'
                             '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": {"line": 30, '
                             '"name": "handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}\n'
+                            '{"another": "continuation", "from": "the", "continuing": "queue"}\n'
                         )
 
                         self._event_to_sqs_message(
@@ -2485,6 +2803,7 @@ class TestLambdaHandlerSuccessSQS(TestCase):
 
                         res = self._es_client.search(index="logs-generic-default", sort="_seq_no")
                         assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
+
                         assert (
                             res["hits"]["hits"][0]["_source"]["message"]
                             == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}'
@@ -2557,7 +2876,48 @@ class TestLambdaHandlerSuccessSQS(TestCase):
                         event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
                         third_call = handler(event, ctx)  # type:ignore
 
-                        assert third_call == "completed"
+                        assert third_call == "continuing"
+
+                        self._es_client.indices.refresh(index="logs-generic-default")
+                        assert self._es_client.count(index="logs-generic-default")["count"] == 3
+
+                        res = self._es_client.search(index="logs-generic-default", sort="_seq_no")
+                        assert res["hits"]["total"] == {"value": 3, "relation": "eq"}
+
+                        assert (
+                            res["hits"]["hits"][2]["_source"]["message"]
+                            == '{"another": "continuation", "from": "the", "continuing": "queue"}'
+                        )
+
+                        assert res["hits"]["hits"][2]["_source"]["log"] == {
+                            "offset": 252,
+                            "file": {"path": self._source_queue_info["QueueUrl"]},
+                        }
+                        assert res["hits"]["hits"][2]["_source"]["aws"] == {
+                            "sqs": {
+                                "name": "source-queue",
+                                "message_id": event["Records"][0]["messageAttributes"]["originalMessageId"][
+                                    "stringValue"
+                                ],
+                            }
+                        }
+                        assert res["hits"]["hits"][2]["_source"]["cloud"] == {
+                            "provider": "aws",
+                            "region": "us-east-1",
+                        }
+
+                        assert res["hits"]["hits"][2]["_source"]["tags"] == [
+                            "forwarded",
+                            "generic",
+                            "tag1",
+                            "tag2",
+                            "tag3",
+                        ]
+
+                        event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+                        fourth_call = handler(event, ctx)  # type:ignore
+
+                        assert fourth_call == "completed"
 
 
 @pytest.mark.integration
@@ -2756,7 +3116,8 @@ class TestLambdaHandlerSuccessCloudWatchLogs(TestCase):
                                 '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": '
                                 '"trigger"}\n{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": '
                                 '{"file": {"line": 30, "name": "handler.py"}, "function": "lambda_handler"}, '
-                                '"original": "trigger"}}\n'
+                                '"original": "trigger"}}\n{"another": "continuation", "from": "the", '
+                                '"continuing": "queue"}'
                             )
 
                             self._event_to_cloudwatch_logs(
@@ -2792,10 +3153,10 @@ class TestLambdaHandlerSuccessCloudWatchLogs(TestCase):
                             )
                             self._es_client.indices.refresh(index="logs-generic-default")
 
-                            assert self._es_client.count(index="logs-generic-default")["count"] == 1
+                            assert self._es_client.count(index="logs-generic-default")["count"] == 2
 
                             res = self._es_client.search(index="logs-generic-default", sort="_seq_no")
-                            assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
+                            assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
 
                             assert (
                                 res["hits"]["hits"][0]["_source"]["message"]
@@ -2828,23 +3189,13 @@ class TestLambdaHandlerSuccessCloudWatchLogs(TestCase):
                                 "tag3",
                             ]
 
-                            event = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
-                            second_call = handler(event, ctx)  # type:ignore
-
-                            assert second_call == "replayed"
-
-                            self._es_client.indices.refresh(index="logs-generic-default")
-                            assert self._es_client.count(index="logs-generic-default")["count"] == 2
-
-                            res = self._es_client.search(index="logs-generic-default", sort="_seq_no")
-                            assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
                             assert (
                                 res["hits"]["hits"][1]["_source"]["message"]
-                                == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": '
-                                '"trigger"}'
+                                == '{"another": "continuation", "from": "the", "continuing": "queue"}'
                             )
+
                             assert res["hits"]["hits"][1]["_source"]["log"] == {
-                                "offset": 0,
+                                "offset": 252,
                                 "file": {"path": "source-group/source-stream"},
                             }
                             assert res["hits"]["hits"][1]["_source"]["aws"] == {
@@ -2860,6 +3211,45 @@ class TestLambdaHandlerSuccessCloudWatchLogs(TestCase):
                             }
 
                             assert res["hits"]["hits"][1]["_source"]["tags"] == [
+                                "forwarded",
+                                "generic",
+                                "tag1",
+                                "tag2",
+                                "tag3",
+                            ]
+
+                            event = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
+                            second_call = handler(event, ctx)  # type:ignore
+
+                            assert second_call == "replayed"
+
+                            self._es_client.indices.refresh(index="logs-generic-default")
+                            assert self._es_client.count(index="logs-generic-default")["count"] == 3
+
+                            res = self._es_client.search(index="logs-generic-default", sort="_seq_no")
+                            assert res["hits"]["total"] == {"value": 3, "relation": "eq"}
+                            assert (
+                                res["hits"]["hits"][2]["_source"]["message"]
+                                == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": '
+                                '"trigger"}'
+                            )
+                            assert res["hits"]["hits"][2]["_source"]["log"] == {
+                                "offset": 0,
+                                "file": {"path": "source-group/source-stream"},
+                            }
+                            assert res["hits"]["hits"][2]["_source"]["aws"] == {
+                                "awscloudwatch": {
+                                    "log_group": "source-group",
+                                    "log_stream": "source-stream",
+                                    "event_id": event_id,
+                                }
+                            }
+                            assert res["hits"]["hits"][2]["_source"]["cloud"] == {
+                                "provider": "aws",
+                                "region": "us-east-1",
+                            }
+
+                            assert res["hits"]["hits"][2]["_source"]["tags"] == [
                                 "forwarded",
                                 "generic",
                                 "tag1",
@@ -2884,7 +3274,8 @@ class TestLambdaHandlerSuccessCloudWatchLogs(TestCase):
                                 '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": '
                                 '"trigger"}\n{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": '
                                 '{"file": {"line": 30, "name": "handler.py"}, "function": "lambda_handler"}, '
-                                '"original": "trigger"}}\n'
+                                '"original": "trigger"}}\n{"another": "continuation", "from": "the", '
+                                '"continuing": "queue"}'
                             )
 
                             _event_to_cloudwatch_logs(
@@ -2976,6 +3367,46 @@ class TestLambdaHandlerSuccessCloudWatchLogs(TestCase):
                             ]
 
                             event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
-                            third_call = handler(event, ctx)  # type:ignore
+                            second_call = handler(event, ctx)  # type:ignore
 
-                            assert third_call == "completed"
+                            assert second_call == "continuing"
+
+                            self._es_client.indices.refresh(index="logs-generic-default")
+                            assert self._es_client.count(index="logs-generic-default")["count"] == 3
+
+                            res = self._es_client.search(index="logs-generic-default", sort="_seq_no")
+                            assert res["hits"]["total"] == {"value": 3, "relation": "eq"}
+
+                            assert (
+                                res["hits"]["hits"][2]["_source"]["message"]
+                                == '{"another": "continuation", "from": "the", "continuing": "queue"}'
+                            )
+
+                            assert res["hits"]["hits"][2]["_source"]["log"] == {
+                                "offset": 252,
+                                "file": {"path": "source-group/source-stream"},
+                            }
+                            assert res["hits"]["hits"][2]["_source"]["aws"] == {
+                                "awscloudwatch": {
+                                    "log_group": "source-group",
+                                    "log_stream": "source-stream",
+                                    "event_id": event_id,
+                                }
+                            }
+                            assert res["hits"]["hits"][2]["_source"]["cloud"] == {
+                                "provider": "aws",
+                                "region": "us-east-1",
+                            }
+
+                            assert res["hits"]["hits"][2]["_source"]["tags"] == [
+                                "forwarded",
+                                "generic",
+                                "tag1",
+                                "tag2",
+                                "tag3",
+                            ]
+
+                            event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+                            fourth_call = handler(event, ctx)  # type:ignore
+
+                            assert fourth_call == "completed"
