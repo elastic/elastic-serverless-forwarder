@@ -1,3 +1,7 @@
+### v0.28.1 - 2022/04/12
+##### Bug fixes
+* Handle properly messages in the continuing queue originated from the continuing queue itself: [#104](https://github.com/elastic/elastic-serverless-forwarder/pull/104)
+
 ### v0.27.0 - 2022/04/04
 ##### Features
 * Add support for collecting json content spanning multiple lines: [#99](https://github.com/elastic/elastic-serverless-forwarder/pull/99)
