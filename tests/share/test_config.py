@@ -548,6 +548,21 @@ class TestInput(TestCase):
 
 @pytest.mark.unit
 class TestConfig(TestCase):
+    def test_get_input_type_by_id(self) -> None:
+        with self.subTest("none input"):
+            config = Config()
+            assert config.get_input_type_by_id(input_id="id") is None
+
+            config.add_input(Input(input_type="s3-sqs", input_id="id"))
+            assert config.get_input_type_by_id(input_id="another_id") is None
+
+        with self.subTest("sqs input"):
+            config = Config()
+            config.add_input(Input(input_type="s3-sqs", input_id="id"))
+            input_type = config.get_input_type_by_id(input_id="id")
+            assert isinstance(input_type, str)
+            assert input_type == "s3-sqs"
+
     def test_get_input_by_type_and_id(self) -> None:
         with self.subTest("none input"):
             config = Config()

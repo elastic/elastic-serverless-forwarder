@@ -301,6 +301,18 @@ class Config:
 
         return self._inputs[input_type][input_id] if input_id in self._inputs[input_type] else None
 
+    def get_input_type_by_id(self, input_id: str) -> Optional[str]:
+        """
+        Input type getter.
+        Returns a specific input type given an input id
+        """
+
+        for input_type in self._inputs.keys():
+            if input_id in self._inputs[input_type]:
+                return input_type
+
+        return None
+
     def add_input(self, new_input: Input) -> None:
         """
         Input setter.
