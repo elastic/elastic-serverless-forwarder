@@ -4,7 +4,7 @@
 
 import json
 import os
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 from aws_lambda_typing import context as context_
 
@@ -250,9 +250,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
         def handle_timeout(
             remaining_sqs_records: list[dict[str, Any]],
-            timeout_input_type: str,
-            timeout_input_id: str,
-            timeout_last_ending_offset: int,
+            timeout_last_ending_offset: Optional[int],
             timeout_sent_events: int,
             timeout_empty_events: int,
             timeout_skipped_events: int,
@@ -271,7 +269,20 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 },
             )
 
-            for timeout_sqs_record in remaining_sqs_records:
+            lambda_event["Records"] = remaining_sqs_records
+            for timeout_current_sqs_record, timeout_sqs_record in enumerate(lambda_event["Records"]):
+                if timeout_current_sqs_record > 0:
+                    timeout_last_ending_offset = None
+
+                timeout_input_id = timeout_sqs_record["eventSourceARN"]
+                if (
+                    "messageAttributes" in timeout_sqs_record
+                    and "originalEventSourceARN" in timeout_sqs_record["messageAttributes"]
+                ):
+                    timeout_input_id = timeout_sqs_record["messageAttributes"]["originalEventSourceARN"]["stringValue"]
+
+                timeout_input_type = config.get_input_type_by_id(input_id=timeout_input_id)
+
                 if timeout_input_type == "s3-sqs":
                     _handle_s3_sqs_continuation(
                         sqs_client=sqs_client,
@@ -304,21 +315,24 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
             is_continuation_of_cloudwatch_logs = is_continuing_of_cloudwatch_logs(sqs_record)
 
-            if is_continuation_of_cloudwatch_logs:
-                input_type = "cloudwatch-logs"
-            else:
-                input_type, _ = get_trigger_type_and_config_source(lambda_event, current_sqs_record)
-
             input_id = sqs_record["eventSourceARN"]
             if "messageAttributes" in sqs_record and "originalEventSourceARN" in sqs_record["messageAttributes"]:
                 input_id = sqs_record["messageAttributes"]["originalEventSourceARN"]["stringValue"]
+
+            input_type: Optional[str] = ""
+            if is_continuation_of_cloudwatch_logs:
+                input_type = "cloudwatch-logs"
+            else:
+                input_type = config.get_input_type_by_id(input_id=input_id)
+
+            assert input_type is not None
 
             event_input = config.get_input_by_type_and_id(input_type, input_id)
             if not event_input:
                 shared_logger.warning("no input defined", extra={"input_type": input_type, "input_id": input_id})
                 continue
 
-            if event_input.id in composite_shipper_cache:
+            if input_id in composite_shipper_cache:
                 composite_shipper = composite_shipper_cache[input_id]
             else:
                 composite_shipper = get_shipper_from_input(
@@ -352,14 +366,13 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
                         handle_timeout(
                             remaining_sqs_records=lambda_event["Records"][current_sqs_record:],
-                            timeout_input_type=input_type,
-                            timeout_input_id=input_id,
                             timeout_last_ending_offset=last_ending_offset,
                             timeout_sent_events=sent_events,
                             timeout_empty_events=empty_events,
                             timeout_skipped_events=skipped_events,
                             timeout_config_yaml=config_yaml,
                         )
+
                         return "continuing"
 
             elif input_type == "s3-sqs":
@@ -382,8 +395,6 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
                         handle_timeout(
                             remaining_sqs_records=lambda_event["Records"][current_sqs_record:],
-                            timeout_input_type=input_type,
-                            timeout_input_id=input_id,
                             timeout_last_ending_offset=last_ending_offset,
                             timeout_sent_events=sent_events,
                             timeout_empty_events=empty_events,
@@ -391,6 +402,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                             timeout_config_yaml=config_yaml,
                             timeout_current_s3_record=current_s3_record,
                         )
+
                         return "continuing"
 
         for composite_shipper in composite_shipper_cache.values():

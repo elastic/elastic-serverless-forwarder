@@ -4,7 +4,7 @@
 
 import datetime
 from copy import deepcopy
-from typing import Any, Iterator
+from typing import Any, Iterator, Optional
 
 from botocore.client import BaseClient as BotoBaseClient
 
@@ -18,7 +18,7 @@ from .utils import get_queue_url_from_sqs_arn, get_sqs_queue_name_and_region_fro
 def _handle_sqs_continuation(
     sqs_client: BotoBaseClient,
     sqs_continuing_queue: str,
-    last_ending_offset: int,
+    last_ending_offset: Optional[int],
     sqs_record: dict[str, Any],
     event_input_id: str,
     config_yaml: str,
@@ -31,15 +31,29 @@ def _handle_sqs_continuation(
     internal continuing sqs queue
     """
 
-    sqs_client.send_message(
-        QueueUrl=sqs_continuing_queue,
-        MessageBody=sqs_record["body"],
-        MessageAttributes={
+    message_attributes = {}
+    if "messageAttributes" in sqs_record:
+        for attribute in sqs_record["messageAttributes"]:
+            new_attribute = {}
+            for attribute_key in sqs_record["messageAttributes"][attribute]:
+                camel_case_key = "".join([attribute_key[0].upper(), attribute_key[1:]])
+                new_attribute[camel_case_key] = sqs_record["messageAttributes"][attribute][attribute_key]
+
+            message_attributes[attribute] = new_attribute
+    else:
+        message_attributes = {
             "config": {"StringValue": config_yaml, "DataType": "String"},
             "originalMessageId": {"StringValue": sqs_record["messageId"], "DataType": "String"},
             "originalEventSourceARN": {"StringValue": event_input_id, "DataType": "String"},
-            "originalLastEndingOffset": {"StringValue": str(last_ending_offset), "DataType": "Number"},
-        },
+        }
+
+    if last_ending_offset is not None:
+        message_attributes["originalLastEndingOffset"] = {"StringValue": str(last_ending_offset), "DataType": "Number"}
+
+    sqs_client.send_message(
+        QueueUrl=sqs_continuing_queue,
+        MessageBody=sqs_record["body"],
+        MessageAttributes=message_attributes,
     )
 
     shared_logger.debug(

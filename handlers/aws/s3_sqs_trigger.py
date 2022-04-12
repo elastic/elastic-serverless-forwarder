@@ -5,7 +5,7 @@
 import datetime
 import json
 from copy import deepcopy
-from typing import Any, Iterator
+from typing import Any, Iterator, Optional
 from urllib.parse import unquote_plus
 
 import elasticapm
@@ -21,7 +21,7 @@ from .utils import get_bucket_name_from_arn
 def _handle_s3_sqs_continuation(
     sqs_client: BotoBaseClient,
     sqs_continuing_queue: str,
-    last_ending_offset: int,
+    last_ending_offset: Optional[int],
     sqs_record: dict[str, Any],
     current_s3_record: int,
     event_input_id: str,
@@ -37,7 +37,9 @@ def _handle_s3_sqs_continuation(
 
     body = json.loads(sqs_record["body"])
     body["Records"] = body["Records"][current_s3_record:]
-    body["Records"][0]["last_ending_offset"] = last_ending_offset
+    if last_ending_offset is not None:
+        body["Records"][0]["last_ending_offset"] = last_ending_offset
+
     sqs_record["body"] = json.dumps(body)
 
     sqs_client.send_message(
