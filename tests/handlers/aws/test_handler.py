@@ -615,8 +615,6 @@ def _event_from_sqs_message(queue_attributes: dict[str, Any], limit_max_number_o
     message["eventSource"] = "aws:sqs"
     message["eventSourceARN"] = queue_attributes["QueueArn"]
 
-    sqs_client.delete_message(QueueUrl=queue_attributes["QueueUrl"], ReceiptHandle=message["receiptHandle"])
-
     return dict(Records=[message])
 
 
@@ -1071,8 +1069,6 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 "tag3",
                             ]
 
-                            first_replayed_event = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
-
                             second_call = handler(event_sqs, ctx)  # type:ignore
 
                             assert second_call == "completed"
@@ -1137,7 +1133,6 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 "tag2",
                                 "tag3",
                             ]
-                            second_replayed_event = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
 
                             third_call = handler(event_cloudwatch_logs, ctx)  # type:ignore
 
@@ -1205,6 +1200,25 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 "tag2",
                                 "tag3",
                             ]
+
+                            first_replayed_event = _event_from_sqs_message(queue_attributes=self._replay_queue_info, limit_max_number_of_messages=1)
+                            second_replayed_event = _event_from_sqs_message(queue_attributes=self._replay_queue_info, limit_max_number_of_messages=1)
+                            third_replayed_event = _event_from_sqs_message(queue_attributes=self._replay_queue_info, limit_max_number_of_messages=1)
+
+                            replayed_events = dict(
+                                Records=[
+                                    first_replayed_event["Records"][0],
+                                    second_replayed_event["Records"][0],
+                                    third_replayed_event["Records"][0],
+                                ]
+                            )
+
+                            fourth_call = handler(replayed_events, ctx)  # type:ignore
+
+                            assert fourth_call == "replayed"
+
+                            self._es_client.indices.refresh(index="logs-generic-default")
+
                             # Remove the expected id for s3-sqs so that it can be replayed
                             self._es_client.delete_by_query(
                                 index="logs-generic-default",
@@ -1217,7 +1231,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 body={"query": {"match": {"_id": f"{hex_prefix_sqs}-000000000000"}}},
                             )
 
-                            # Remove the expected id so that it can be replayed
+                            # Remove the expected id for cloudwatch logs so that it can be replayed
                             self._es_client.delete_by_query(
                                 index="logs-generic-default",
                                 body={"query": {"match": {"_id": f"{hex_prefix_cloudwatch_logs}-000000000000"}}},
@@ -1225,11 +1239,13 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
 
                             self._es_client.indices.refresh(index="logs-generic-default")
 
-                            third_replayed_event = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
+                            # implicit wait for the message to be back on the queue
+                            time.sleep(35)
+                            fourth_replayed_event = _event_from_sqs_message(queue_attributes=self._replay_queue_info, limit_max_number_of_messages=1)
 
-                            fourth_call = handler(first_replayed_event, ctx)  # type:ignore
+                            fifth_call = handler(fourth_replayed_event, ctx)  # type:ignore
 
-                            assert fourth_call == "replayed"
+                            assert fifth_call == "replayed"
 
                             self._es_client.indices.refresh(index="logs-generic-default")
                             assert self._es_client.count(index="logs-generic-default")["count"] == 7
@@ -1264,9 +1280,13 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 "tag3",
                             ]
 
-                            fifth_call = handler(second_replayed_event, ctx)  # type:ignore
+                            # implicit wait for the message to be back on the queue
+                            time.sleep(35)
+                            fifth_replayed_event = _event_from_sqs_message(queue_attributes=self._replay_queue_info, limit_max_number_of_messages=1)
 
-                            assert fifth_call == "replayed"
+                            sixth_call = handler(fifth_replayed_event, ctx)  # type:ignore
+
+                            assert sixth_call == "replayed"
 
                             self._es_client.indices.refresh(index="logs-generic-default")
                             assert self._es_client.count(index="logs-generic-default")["count"] == 8
@@ -1300,9 +1320,13 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 "tag3",
                             ]
 
-                            sixth_call = handler(third_replayed_event, ctx)  # type:ignore
+                            # implicit wait for the message to be back on the queue
+                            time.sleep(35)
+                            sixth_replayed_event = _event_from_sqs_message(queue_attributes=self._replay_queue_info, limit_max_number_of_messages=1)
 
-                            assert sixth_call == "replayed"
+                            seventh_call = handler(sixth_replayed_event, ctx)  # type:ignore
+
+                            assert seventh_call == "replayed"
 
                             self._es_client.indices.refresh(index="logs-generic-default")
                             assert self._es_client.count(index="logs-generic-default")["count"] == 9
@@ -2271,16 +2295,9 @@ class TestLambdaHandlerSuccessS3SQS(TestCase):
 
                         assert first_call == "completed"
 
-                        # Remove the expected id so that it can be replayed
-                        self._es_client.delete_by_query(
-                            index="logs-aws.cloudwatch_logs-default",
-                            body={"query": {"match": {"_id": "e69eaefedb-000000000000"}}},
-                        )
                         self._es_client.indices.refresh(index="logs-aws.cloudwatch_logs-default")
 
-                        assert self._es_client.count(index="logs-aws.cloudwatch_logs-default")["count"] == 2
-
-                        res = self._es_client.search(index="logs-aws.cloudwatch_logs-default", sort="_seq_no")
+                        res = self._es_client.search(index="logs-aws.cloudwatch_logs-default", query={ "ids": { "values": ["e69eaefedb-000000000086", "e69eaefedb-000000000252"] } } )
                         assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
 
                         assert (
@@ -2344,6 +2361,20 @@ class TestLambdaHandlerSuccessS3SQS(TestCase):
                         second_call = handler(event, ctx)  # type:ignore
 
                         assert second_call == "replayed"
+
+                        # Remove the expected id so that it can be replayed
+                        self._es_client.delete_by_query(
+                            index="logs-aws.cloudwatch_logs-default",
+                            body={"query": {"match": {"_id": "e69eaefedb-000000000000"}}},
+                        )
+                        self._es_client.indices.refresh(index="logs-aws.cloudwatch_logs-default")
+
+                        # implicit wait for the message to be back on the queue
+                        time.sleep(35)
+                        event = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
+                        third_call = handler(event, ctx)  # type:ignore
+
+                        assert third_call == "replayed"
 
                         self._es_client.indices.refresh(index="logs-aws.cloudwatch_logs-default")
                         assert self._es_client.count(index="logs-aws.cloudwatch_logs-default")["count"] == 3
@@ -2683,16 +2714,9 @@ class TestLambdaHandlerSuccessSQS(TestCase):
 
                         assert first_call == "completed"
 
-                        # Remove the expected id so that it can be replayed
-                        self._es_client.delete_by_query(
-                            index="logs-generic-default",
-                            body={"query": {"match": {"_id": f"{hex_prefix}-000000000000"}}},
-                        )
                         self._es_client.indices.refresh(index="logs-generic-default")
 
-                        assert self._es_client.count(index="logs-generic-default")["count"] == 2
-
-                        res = self._es_client.search(index="logs-generic-default", sort="_seq_no")
+                        res = self._es_client.search(index="logs-generic-default", query={ "ids": { "values": [f"{hex_prefix}-000000000086", f"{hex_prefix}-000000000252"] } } )
                         assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
 
                         assert (
@@ -2756,6 +2780,20 @@ class TestLambdaHandlerSuccessSQS(TestCase):
                         second_call = handler(event, ctx)  # type:ignore
 
                         assert second_call == "replayed"
+
+                        # Remove the expected id so that it can be replayed
+                        self._es_client.delete_by_query(
+                            index="logs-generic-default",
+                            body={"query": {"match": {"_id": f"{hex_prefix}-000000000000"}}},
+                        )
+                        self._es_client.indices.refresh(index="logs-generic-default")
+
+                        # implicit wait for the message to be back on the queue
+                        time.sleep(35)
+                        event = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
+                        third_call = handler(event, ctx)  # type:ignore
+
+                        assert third_call == "replayed"
 
                         self._es_client.indices.refresh(index="logs-generic-default")
                         assert self._es_client.count(index="logs-generic-default")["count"] == 3
@@ -3165,16 +3203,9 @@ class TestLambdaHandlerSuccessCloudWatchLogs(TestCase):
 
                             assert first_call == "completed"
 
-                            # Remove the expected id so that it can be replayed
-                            self._es_client.delete_by_query(
-                                index="logs-generic-default",
-                                body={"query": {"match": {"_id": f"{hex_prefix}-000000000000"}}},
-                            )
                             self._es_client.indices.refresh(index="logs-generic-default")
 
-                            assert self._es_client.count(index="logs-generic-default")["count"] == 2
-
-                            res = self._es_client.search(index="logs-generic-default", sort="_seq_no")
+                            res = self._es_client.search(index="logs-generic-default", query={"ids": {"values": [f"{hex_prefix}-000000000086", f"{hex_prefix}-000000000252"]}})
                             assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
 
                             assert (
@@ -3241,6 +3272,20 @@ class TestLambdaHandlerSuccessCloudWatchLogs(TestCase):
                             second_call = handler(event, ctx)  # type:ignore
 
                             assert second_call == "replayed"
+
+                            # Remove the expected id so that it can be replayed
+                            self._es_client.delete_by_query(
+                                index="logs-generic-default",
+                                body={"query": {"match": {"_id": f"{hex_prefix}-000000000000"}}},
+                            )
+                            self._es_client.indices.refresh(index="logs-generic-default")
+
+                            # implicit wait for the message to be back on the queue
+                            time.sleep(35)
+                            event = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
+                            third_call = handler(event, ctx)  # type:ignore
+
+                            assert third_call == "replayed"
 
                             self._es_client.indices.refresh(index="logs-generic-default")
                             assert self._es_client.count(index="logs-generic-default")["count"] == 3

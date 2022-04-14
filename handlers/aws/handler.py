@@ -18,7 +18,7 @@ from .cloudwatch_logs_trigger import (
     _handle_cloudwatch_logs_event,
 )
 from .kinesis_trigger import _handle_kinesis_record
-from .replay_trigger import _handle_replay_event
+from .replay_trigger import ReplayedEventReplayHandler, _handle_replay_event
 from .s3_sqs_trigger import _handle_s3_sqs_continuation, _handle_s3_sqs_event
 from .sqs_trigger import _handle_sqs_continuation, _handle_sqs_event
 from .utils import (
@@ -84,6 +84,8 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
     sqs_client = get_sqs_client()
 
     if trigger_type == "replay-sqs":
+        replay_queue_arn = lambda_event["Records"][0]["eventSourceARN"]
+        replay_handler = ReplayedEventReplayHandler(replay_queue_arn=replay_queue_arn)
         for replay_record in lambda_event["Records"]:
             event = json.loads(replay_record["body"])
             _handle_replay_event(
@@ -93,12 +95,15 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 event_input_id=event["event_input_id"],
                 event_input_type=event["event_input_type"],
                 event_payload=event["event_payload"],
+                replay_handler=replay_handler,
+                receipt_handle=replay_record["receiptHandle"],
             )
 
-            delete_sqs_record(replay_record["eventSourceARN"], replay_record["receiptHandle"])
             if lambda_context is not None and lambda_context.get_remaining_time_in_millis() < _completion_grace_period:
+                replay_handler.flush()
                 shared_logger.info("lambda is going to shutdown")
 
+        replay_handler.flush()
         return "replayed"
 
     sent_events: int = 0
