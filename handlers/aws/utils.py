@@ -254,7 +254,7 @@ def is_continuing_of_cloudwatch_logs(sqs_record: dict[str, Any]) -> bool:
     return original_event_source.startswith("arn:aws:logs")
 
 
-def get_trigger_type_and_config_source(event: dict[str, Any], at_record: int = 0) -> tuple[str, str]:
+def get_trigger_type_and_config_source(event: dict[str, Any]) -> tuple[str, str]:
     """
     Determines the trigger type according to the payload of the trigger event
     and if the config must be read from attributes or from S3 file in env
@@ -267,13 +267,19 @@ def get_trigger_type_and_config_source(event: dict[str, Any], at_record: int = 0
         raise Exception("Not supported trigger")
 
     event_source = ""
-    if "body" in event["Records"][at_record]:
-        event_body = event["Records"][at_record]["body"]
-        if "output_type" in event_body and "output_args" in event_body and "event_payload" in event_body:
-            return "replay-sqs", CONFIG_FROM_PAYLOAD
-
+    first_record = event["Records"][0]
+    if "body" in first_record:
+        event_body = first_record["body"]
         try:
-            body = json.loads(event["Records"][at_record]["body"])
+            body = json.loads(event_body)
+            if (
+                (body, dict)
+                and "output_type" in event_body
+                and "output_args" in event_body
+                and "event_payload" in event_body
+            ):
+                return "replay-sqs", CONFIG_FROM_PAYLOAD
+
             if (
                 isinstance(body, dict)
                 and "Records" in body
@@ -282,31 +288,33 @@ def get_trigger_type_and_config_source(event: dict[str, Any], at_record: int = 0
             ):
                 event_source = body["Records"][0]["eventSource"]
         except Exception:
-            if "eventSource" not in event["Records"][at_record]:
+            if "eventSource" not in first_record:
                 raise Exception("Not supported trigger")
 
-            event_source = event["Records"][at_record]["eventSource"]
+            event_source = first_record["eventSource"]
     else:
-        if "eventSource" not in event["Records"][at_record]:
+        if "eventSource" not in first_record:
             raise Exception("Not supported trigger")
 
-        event_source = event["Records"][at_record]["eventSource"]
+        event_source = first_record["eventSource"]
 
     if event_source not in _available_triggers:
         raise Exception("Not supported trigger")
 
-    trigger_type = _available_triggers[event_source]
+    trigger_type: Optional[str] = _available_triggers[event_source]
+    assert trigger_type is not None
+
     if (
         trigger_type == "kinesis-data-stream"
-        and "kinesis" not in event["Records"][at_record]
-        and "data" not in event["Records"][at_record]["kinesis"]
+        and "kinesis" not in first_record
+        and "data" not in first_record["kinesis"]
     ):
         raise Exception("Not supported trigger")
 
-    if "messageAttributes" not in event["Records"][at_record]:
+    if "messageAttributes" not in first_record:
         return trigger_type, CONFIG_FROM_S3FILE
 
-    if "originalEventSourceARN" not in event["Records"][at_record]["messageAttributes"]:
+    if "originalEventSourceARN" not in first_record["messageAttributes"]:
         return trigger_type, CONFIG_FROM_S3FILE
 
     return trigger_type, CONFIG_FROM_PAYLOAD

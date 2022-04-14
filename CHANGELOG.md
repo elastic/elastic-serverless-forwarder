@@ -1,3 +1,7 @@
+### v0.28.1 - 2022/04/12
+##### Bug fixes
+* Handle properly messages in the continuing queue originated from the continuing queue itself: [#104](https://github.com/elastic/elastic-serverless-forwarder/pull/104)
+
 ### v0.28.0 - 2022/04/11
 ##### Features
 * Add support for providing `S3_CONFIG_FILE` env variable as cloudformation param: [#103](https://github.com/elastic/elastic-serverless-forwarder/pull/103)
