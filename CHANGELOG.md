@@ -1,4 +1,4 @@
-### v0.28.1 - 2022/04/14
+### v0.28.2 - 2022/04/14
 ##### Bug fixes
 * Handle failure of replayed messages: [#105](https://github.com/elastic/elastic-serverless-forwarder/pull/105)
 
