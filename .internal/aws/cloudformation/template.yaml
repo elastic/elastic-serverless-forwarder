@@ -5,6 +5,10 @@ Description: >
 
   SAM Template for elastic-serverless-forwarder
 
+Parameters:
+  ElasticServerlessForwarderS3ConfigFile:
+    Type: String
+    Default: "s3://"
 Resources:
   ElasticServerlessForwarderContinuingDLQ:
     Type: AWS::SQS::Queue
@@ -44,7 +48,7 @@ Resources:
       Handler: main_aws.handler
       Environment:
           Variables:
-              S3_CONFIG_FILE: "s3://"
+              S3_CONFIG_FILE: !Ref ElasticServerlessForwarderS3ConfigFile
               SQS_CONTINUE_URL: !Ref ElasticServerlessForwarderContinuingQueue
               SQS_REPLAY_URL: !Ref ElasticServerlessForwarderReplayQueue
       Events:

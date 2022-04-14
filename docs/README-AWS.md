@@ -57,13 +57,13 @@ At a high level the deployment consists of the following steps:
   * Select "Public applications" tab
   * In the search box type "elastic-serverless-forwarder" and submit
   * Look for "elastic-serverless-forwarder" in the results and click on it
+  * On the "Application settings" fill the input `ElasticServerlessForwarderS3ConfigFile` with the value of the S3 url in the format "s3://bucket-name/config-file-name" pointing to the configuration file for your Elastic Forwarder for Serverless (see below), this will populate the `S3_CONFIG_FILE` environment variable of the deployed Lambda.
   * Click on the "Deploy" button in the bottom right corner
 * Once the Applications page for "serverlessrepo-elastic-serverless-forwarder" is loaded
   * Click on "Deployments" tab
     * Monitor the "Deployment history" refreshing its status until the Status shows as "Create complete
 * Go to "Lambda > Functions" page in the AWS console and look for the Function Name with prefix "serverlessrepo-elastic-se-ElasticServerlessForward-" and click on it
   * Go to "Configuration" tab and select "Environment Variables"
-  * Click on "Edit" on the "Environment Variables" tab and fill the environment variable `S3_CONFIG_FILE` with the value of the S3 url in the format "s3://bucket-name/config-file-name" point to the configuration file for your Elastic Forwarder for Serverless (see below)
   * You can additionally add the following environment variables to enable Elastic APM instrumentation to your deployment of Elastic Forwarder for Serverless
     * | Key                       | Value  |
       |---------------------------|--------|
