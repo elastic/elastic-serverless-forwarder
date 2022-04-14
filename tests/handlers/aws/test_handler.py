@@ -1201,9 +1201,15 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 "tag3",
                             ]
 
-                            first_replayed_event = _event_from_sqs_message(queue_attributes=self._replay_queue_info, limit_max_number_of_messages=1)
-                            second_replayed_event = _event_from_sqs_message(queue_attributes=self._replay_queue_info, limit_max_number_of_messages=1)
-                            third_replayed_event = _event_from_sqs_message(queue_attributes=self._replay_queue_info, limit_max_number_of_messages=1)
+                            first_replayed_event = _event_from_sqs_message(
+                                queue_attributes=self._replay_queue_info, limit_max_number_of_messages=1
+                            )
+                            second_replayed_event = _event_from_sqs_message(
+                                queue_attributes=self._replay_queue_info, limit_max_number_of_messages=1
+                            )
+                            third_replayed_event = _event_from_sqs_message(
+                                queue_attributes=self._replay_queue_info, limit_max_number_of_messages=1
+                            )
 
                             replayed_events = dict(
                                 Records=[
@@ -1241,7 +1247,9 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
 
                             # implicit wait for the message to be back on the queue
                             time.sleep(35)
-                            fourth_replayed_event = _event_from_sqs_message(queue_attributes=self._replay_queue_info, limit_max_number_of_messages=1)
+                            fourth_replayed_event = _event_from_sqs_message(
+                                queue_attributes=self._replay_queue_info, limit_max_number_of_messages=1
+                            )
 
                             fifth_call = handler(fourth_replayed_event, ctx)  # type:ignore
 
@@ -1282,7 +1290,9 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
 
                             # implicit wait for the message to be back on the queue
                             time.sleep(35)
-                            fifth_replayed_event = _event_from_sqs_message(queue_attributes=self._replay_queue_info, limit_max_number_of_messages=1)
+                            fifth_replayed_event = _event_from_sqs_message(
+                                queue_attributes=self._replay_queue_info, limit_max_number_of_messages=1
+                            )
 
                             sixth_call = handler(fifth_replayed_event, ctx)  # type:ignore
 
@@ -1322,7 +1332,9 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
 
                             # implicit wait for the message to be back on the queue
                             time.sleep(35)
-                            sixth_replayed_event = _event_from_sqs_message(queue_attributes=self._replay_queue_info, limit_max_number_of_messages=1)
+                            sixth_replayed_event = _event_from_sqs_message(
+                                queue_attributes=self._replay_queue_info, limit_max_number_of_messages=1
+                            )
 
                             seventh_call = handler(sixth_replayed_event, ctx)  # type:ignore
 
@@ -2297,7 +2309,10 @@ class TestLambdaHandlerSuccessS3SQS(TestCase):
 
                         self._es_client.indices.refresh(index="logs-aws.cloudwatch_logs-default")
 
-                        res = self._es_client.search(index="logs-aws.cloudwatch_logs-default", query={ "ids": { "values": ["e69eaefedb-000000000086", "e69eaefedb-000000000252"] } } )
+                        res = self._es_client.search(
+                            index="logs-aws.cloudwatch_logs-default",
+                            query={"ids": {"values": ["e69eaefedb-000000000086", "e69eaefedb-000000000252"]}},
+                        )
                         assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
 
                         assert (
@@ -2716,7 +2731,10 @@ class TestLambdaHandlerSuccessSQS(TestCase):
 
                         self._es_client.indices.refresh(index="logs-generic-default")
 
-                        res = self._es_client.search(index="logs-generic-default", query={ "ids": { "values": [f"{hex_prefix}-000000000086", f"{hex_prefix}-000000000252"] } } )
+                        res = self._es_client.search(
+                            index="logs-generic-default",
+                            query={"ids": {"values": [f"{hex_prefix}-000000000086", f"{hex_prefix}-000000000252"]}},
+                        )
                         assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
 
                         assert (
@@ -3205,7 +3223,10 @@ class TestLambdaHandlerSuccessCloudWatchLogs(TestCase):
 
                             self._es_client.indices.refresh(index="logs-generic-default")
 
-                            res = self._es_client.search(index="logs-generic-default", query={"ids": {"values": [f"{hex_prefix}-000000000086", f"{hex_prefix}-000000000252"]}})
+                            res = self._es_client.search(
+                                index="logs-generic-default",
+                                query={"ids": {"values": [f"{hex_prefix}-000000000086", f"{hex_prefix}-000000000252"]}},
+                            )
                             assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
 
                             assert (
