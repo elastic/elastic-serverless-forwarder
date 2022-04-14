@@ -273,6 +273,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             for timeout_current_sqs_record, timeout_sqs_record in enumerate(lambda_event["Records"]):
                 if timeout_current_sqs_record > 0:
                     timeout_last_ending_offset = None
+                    timeout_current_s3_record = 0
 
                 timeout_input_id = timeout_sqs_record["eventSourceARN"]
                 if (

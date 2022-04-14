@@ -678,35 +678,35 @@ def _event_to_sqs_message(queue_attributes: dict[str, Any], message_body: str) -
     )
 
 
-def _s3_event_to_sqs_message(queue_attributes: dict[str, Any], filename: str) -> None:
+def _s3_event_to_sqs_message(queue_attributes: dict[str, Any], filenames: list[str]) -> None:
     sqs_client = aws_stack.connect_to_service("sqs")
+
+    records = []
+    for filename in filenames:
+        records.append(
+            {
+                "eventVersion": "2.1",
+                "eventSource": "aws:s3",
+                "awsRegion": "eu-central-1",
+                "eventTime": "2021-09-08T18:34:25.042Z",
+                "eventName": "ObjectCreated:Put",
+                "s3": {
+                    "s3SchemaVersion": "1.0",
+                    "configurationId": "test-bucket",
+                    "bucket": {
+                        "name": "test-bucket",
+                        "arn": "arn:aws:s3:::test-bucket",
+                    },
+                    "object": {
+                        "key": f"{filename}",
+                    },
+                },
+            }
+        )
 
     sqs_client.send_message(
         QueueUrl=queue_attributes["QueueUrl"],
-        MessageBody=json.dumps(
-            {
-                "Records": [
-                    {
-                        "eventVersion": "2.1",
-                        "eventSource": "aws:s3",
-                        "awsRegion": "eu-central-1",
-                        "eventTime": "2021-09-08T18:34:25.042Z",
-                        "eventName": "ObjectCreated:Put",
-                        "s3": {
-                            "s3SchemaVersion": "1.0",
-                            "configurationId": "test-bucket",
-                            "bucket": {
-                                "name": "test-bucket",
-                                "arn": "arn:aws:s3:::test-bucket",
-                            },
-                            "object": {
-                                "key": f"{filename}",
-                            },
-                        },
-                    }
-                ]
-            }
-        ),
+        MessageBody=json.dumps({"Records": records}),
     )
 
 
@@ -884,12 +884,21 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
         )
 
         self._cloudwatch_log: str = self._first_log_entry + self._second_log_entry + self._third_log_entry
+        self._first_s3_log: str = self._first_log_entry + self._second_log_entry
+        self._second_s3_log: str = self._third_log_entry
 
         _upload_content_to_bucket(
-            content=gzip.compress(self._cloudwatch_log.encode("UTF-8")),
+            content=gzip.compress(self._first_s3_log.encode("UTF-8")),
             content_type="application/x-gzip",
             bucket_name="test-bucket",
             key_name="exportedlogs/uuid/yyyy-mm-dd-[$LATEST]hash/000000.gz",
+        )
+
+        _upload_content_to_bucket(
+            content=gzip.compress(self._second_s3_log.encode("UTF-8")),
+            content_type="application/x-gzip",
+            bucket_name="test-bucket",
+            key_name="exportedlogs/uuid/yyyy-mm-dd-[$LATEST]hash/000001.gz",
         )
 
         os.environ["S3_CONFIG_FILE"] = "s3://config-bucket/folder/config.yaml"
@@ -914,7 +923,8 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
 
     @mock.patch("handlers.aws.handler._completion_grace_period", 1)
     def test_lambda_handler_replay(self) -> None:
-        filename: str = "exportedlogs/uuid/yyyy-mm-dd-[$LATEST]hash/000000.gz"
+        first_filename: str = "exportedlogs/uuid/yyyy-mm-dd-[$LATEST]hash/000000.gz"
+        second_filename: str = "exportedlogs/uuid/yyyy-mm-dd-[$LATEST]hash/000001.gz"
         with mock.patch("storage.S3Storage._s3_client", _mock_awsclient(service_name="s3")):
             with mock.patch("handlers.aws.handler.get_sqs_client", lambda: _mock_awsclient(service_name="sqs")):
                 with mock.patch("handlers.aws.utils.get_sqs_client", lambda: _mock_awsclient(service_name="sqs")):
@@ -926,7 +936,9 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             "share.secretsmanager._get_aws_sm_client",
                             lambda region_name: _mock_awsclient(service_name="secretsmanager", region_name=region_name),
                         ):
-                            _s3_event_to_sqs_message(queue_attributes=self._source_s3_queue_info, filename=filename)
+                            _s3_event_to_sqs_message(
+                                queue_attributes=self._source_s3_queue_info, filenames=[first_filename, second_filename]
+                            )
                             event_s3 = _event_from_sqs_message(queue_attributes=self._source_s3_queue_info)
 
                             _event_to_sqs_message(
@@ -1006,12 +1018,12 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 97,
-                                "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
+                                "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{first_filename}"},
                             }
                             assert res["hits"]["hits"][0]["_source"]["aws"] == {
                                 "s3": {
                                     "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
-                                    "object": {"key": f"{filename}"},
+                                    "object": {"key": f"{first_filename}"},
                                 }
                             }
                             assert res["hits"]["hits"][0]["_source"]["cloud"] == {
@@ -1029,19 +1041,21 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
 
                             res = self._es_client.search(
                                 index="logs-generic-default",
-                                query={"ids": {"values": ["e69eaefedb-000000000398"]}},
+                                query={"ids": {"values": ["13bb9dbeab-000000000000"]}},
                             )
 
                             assert res["hits"]["hits"][0]["_source"]["message"] == self._third_log_entry.rstrip("\n")
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
-                                "offset": 398,
-                                "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
+                                "offset": 0,
+                                "file": {
+                                    "path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{second_filename}"
+                                },
                             }
                             assert res["hits"]["hits"][0]["_source"]["aws"] == {
                                 "s3": {
                                     "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
-                                    "object": {"key": f"{filename}"},
+                                    "object": {"key": f"{second_filename}"},
                                 }
                             }
                             assert res["hits"]["hits"][0]["_source"]["cloud"] == {
@@ -1229,12 +1243,12 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 0,
-                                "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
+                                "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{first_filename}"},
                             }
                             assert res["hits"]["hits"][0]["_source"]["aws"] == {
                                 "s3": {
                                     "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
-                                    "object": {"key": f"{filename}"},
+                                    "object": {"key": f"{first_filename}"},
                                 }
                             }
                             assert res["hits"]["hits"][0]["_source"]["cloud"] == {
@@ -1325,7 +1339,8 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
 
     @mock.patch("handlers.aws.handler._completion_grace_period", 1)
     def test_lambda_handler_continuing(self) -> None:
-        filename: str = "exportedlogs/uuid/yyyy-mm-dd-[$LATEST]hash/000000.gz"
+        first_filename: str = "exportedlogs/uuid/yyyy-mm-dd-[$LATEST]hash/000000.gz"
+        second_filename: str = "exportedlogs/uuid/yyyy-mm-dd-[$LATEST]hash/000001.gz"
         with mock.patch("storage.S3Storage._s3_client", _mock_awsclient(service_name="s3")):
             with mock.patch("handlers.aws.handler.get_sqs_client", lambda: _mock_awsclient(service_name="sqs")):
                 with mock.patch("handlers.aws.utils.get_sqs_client", lambda: _mock_awsclient(service_name="sqs")):
@@ -1340,7 +1355,9 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
 
                             ctx = ContextMock()
 
-                            _s3_event_to_sqs_message(queue_attributes=self._source_s3_queue_info, filename=filename)
+                            _s3_event_to_sqs_message(
+                                queue_attributes=self._source_s3_queue_info, filenames=[first_filename, second_filename]
+                            )
                             event_s3 = _event_from_sqs_message(queue_attributes=self._source_s3_queue_info)
 
                             _event_to_sqs_message(
@@ -1380,12 +1397,12 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 0,
-                                "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
+                                "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{first_filename}"},
                             }
                             assert res["hits"]["hits"][0]["_source"]["aws"] == {
                                 "s3": {
                                     "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
-                                    "object": {"key": f"{filename}"},
+                                    "object": {"key": f"{first_filename}"},
                                 }
                             }
                             assert res["hits"]["hits"][0]["_source"]["cloud"] == {
@@ -1511,12 +1528,12 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 97,
-                                "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
+                                "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{first_filename}"},
                             }
                             assert res["hits"]["hits"][0]["_source"]["aws"] == {
                                 "s3": {
                                     "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
-                                    "object": {"key": f"{filename}"},
+                                    "object": {"key": f"{first_filename}"},
                                 }
                             }
                             assert res["hits"]["hits"][0]["_source"]["cloud"] == {
@@ -1626,19 +1643,21 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
 
                             res = self._es_client.search(
                                 index="logs-generic-default",
-                                query={"ids": {"values": ["e69eaefedb-000000000398"]}},
+                                query={"ids": {"values": ["13bb9dbeab-000000000000"]}},
                             )
 
                             assert res["hits"]["hits"][0]["_source"]["message"] == self._third_log_entry.rstrip("\n")
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
-                                "offset": 398,
-                                "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
+                                "offset": 0,
+                                "file": {
+                                    "path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{second_filename}"
+                                },
                             }
                             assert res["hits"]["hits"][0]["_source"]["aws"] == {
                                 "s3": {
                                     "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
-                                    "object": {"key": f"{filename}"},
+                                    "object": {"key": f"{second_filename}"},
                                 }
                             }
                             assert res["hits"]["hits"][0]["_source"]["cloud"] == {
