@@ -81,6 +81,16 @@ class TestCompositeShipper(TestCase):
         assert EVENT_IS_EMPTY == composite_shipper.send({"message": ""})
         assert dummy_shipper._sent == []
 
+        assert EVENT_IS_SENT == composite_shipper.send({"message": "will pass"})
+        assert dummy_shipper._sent == [{"message": "will pass"}]
+
+        dummy_shipper._sent = []
+
+        assert EVENT_IS_SENT == composite_shipper.send({"fields": {"message": "will pass"}})
+        assert dummy_shipper._sent == [{"fields": {"message": "will pass"}}]
+
+        dummy_shipper._sent = []
+
         include_exclude_filter = IncludeExcludeFilter(include_patterns=[IncludeExcludeRule(pattern="match")])
         composite_shipper.add_include_exclude_filter(include_exclude_filter)
 
