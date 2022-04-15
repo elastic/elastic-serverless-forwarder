@@ -40,6 +40,22 @@ class DummyShipper(CommonShipper):
 
 @pytest.mark.unit
 class TestCompositeShipper(TestCase):
+    def test_set_integration_scope(self) -> None:
+        composite_shipper = CompositeShipper()
+        composite_shipper.set_integration_scope("integration_scope")
+        assert composite_shipper._integration_scope == "integration_scope"
+
+        dummy_shipper = DummyShipper()
+        composite_shipper.add_shipper(dummy_shipper)
+        composite_shipper.send({"message": "match"})
+
+        assert dummy_shipper._sent == [{"message": "match", "meta": {"integration_scope": "integration_scope"}}]
+
+    def test_get_integration_scope(self) -> None:
+        composite_shipper = CompositeShipper()
+        composite_shipper.set_integration_scope("integration_scope")
+        assert composite_shipper.get_integration_scope() == "integration_scope"
+
     def test_add_shipper(self) -> None:
         dummy_shipper = DummyShipper()
         composite_shipper = CompositeShipper()
