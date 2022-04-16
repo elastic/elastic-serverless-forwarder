@@ -30,6 +30,7 @@ from .utils import (
     config_yaml_from_payload,
     config_yaml_from_s3,
     delete_sqs_record,
+    discover_integration_scope,
     get_log_group_arn_and_region_from_log_group_name,
     get_shipper_from_input,
     get_sqs_client,
@@ -75,7 +76,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
     try:
         shared_logger.debug("config", extra={"yaml": config_yaml})
-        config = parse_config(config_yaml, _expanders)
+        config = parse_config(config_yaml, _expanders, discover_integration_scope)
     except Exception as e:
         raise ConfigFileException(e)
 

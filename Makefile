@@ -5,7 +5,7 @@ help: ## Display this help text
 	@grep -E '^[a-zA-Z_-]+[%]?:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 benchmark: PYTEST_ARGS=-m benchmark ## Run benchmarks on the host
-coverage: export PYTEST_ADDOPTS=--benchmark-group-by=group
+benchmark: export PYTEST_ADDOPTS=--benchmark-group-by=group
 benchmark: test
 
 unit-test: PYTEST_ARGS=-m unit ## Run unit tests on the host

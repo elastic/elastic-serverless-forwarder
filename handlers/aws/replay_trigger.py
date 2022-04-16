@@ -58,7 +58,6 @@ def _handle_replay_event(
         shared_logger.info("setting ElasticSearch shipper")
         elasticsearch: ElasticsearchShipper = ShipperFactory.create_from_output(output_type=output_type, output=output)
         elasticsearch.set_replay_handler(replay_handler=replay_handler.replay_handler)
-        elasticsearch.discover_dataset({})
         elasticsearch.send(event_payload)
         elasticsearch.flush()
 

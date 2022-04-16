@@ -2,7 +2,6 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
-import json
 from typing import Any, Dict, Optional, Union
 
 import elasticapm  # noqa: F401
@@ -159,10 +158,10 @@ class ElasticsearchShipper(CommonShipper):
     def send(self, event: dict[str, Any]) -> str:
         self._replay_args["es_index_or_datastream_name"] = self._es_index_or_datastream_name
 
-        self._enrich_event(event_payload=event)
-
         if not hasattr(self, "_es_index") or self._es_index == "":
-            raise ValueError("Elasticsearch index cannot be empty")
+            self._discover_dataset(event_payload=event)
+
+        self._enrich_event(event_payload=event)
 
         event["_op_type"] = "create"
 
@@ -194,7 +193,7 @@ class ElasticsearchShipper(CommonShipper):
 
         return
 
-    def discover_dataset(self, event: Dict[str, Any], at_record: int = 0) -> None:
+    def _discover_dataset(self, event_payload: Dict[str, Any]) -> None:
         if self._es_index_or_datastream_name != "":
             if self._es_index_or_datastream_name.startswith("logs-"):
                 datastream_components = self._es_index_or_datastream_name.split("-")
@@ -215,43 +214,13 @@ class ElasticsearchShipper(CommonShipper):
             return
         else:
             self._namespace = "default"
-
-            if "Records" not in event or len(event["Records"]) < at_record or "body" not in event["Records"][at_record]:
+            if "meta" not in event_payload or "integration_scope" not in event_payload["meta"]:
                 self._dataset = "generic"
             else:
-                body: str = event["Records"][at_record]["body"]
-                s3_object_key: str = ""
-                try:
-                    json_body: Dict[str, Any] = json.loads(body)
+                self._dataset = event_payload["meta"]["integration_scope"]
 
-                    if isinstance(json_body, dict) and "Records" in json_body and len(json_body["Records"]) > 0:
-                        if "s3" in json_body["Records"][0]:
-                            s3_object_key = json_body["Records"][0]["s3"]["object"]["key"]
-                except Exception:
-                    pass
-
-                if s3_object_key == "":
-                    shared_logger.info("s3 object key is empty, dataset set to `generic`")
-                    self._dataset = "generic"
-                else:
-                    if (
-                        "/CloudTrail/" in s3_object_key
-                        or "/CloudTrail-Digest/" in s3_object_key
-                        or "/CloudTrail-Insight/" in s3_object_key
-                    ):
-                        self._dataset = "aws.cloudtrail"
-                    elif "exportedlogs" in s3_object_key or "awslogs" in s3_object_key:
-                        self._dataset = "aws.cloudwatch_logs"
-                    elif "/elasticloadbalancing/" in s3_object_key:
-                        self._dataset = "aws.elb_logs"
-                    elif "/network-firewall/" in s3_object_key:
-                        self._dataset = "aws.firewall_logs"
-                    elif "/vpcflowlogs/" in s3_object_key:
-                        self._dataset = "aws.vpcflow"
-                    elif "/WAFLogs/" in s3_object_key:
-                        self._dataset = "aws.waf"
-                    else:
-                        self._dataset = "generic"
+        if self._dataset == "generic":
+            shared_logger.info("dataset set to generic")
 
         shared_logger.debug("dataset", extra={"dataset": self._dataset})
 

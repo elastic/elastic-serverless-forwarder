@@ -23,6 +23,7 @@ class CompositeShipper(CommonShipper):
     """
 
     def __init__(self, **kwargs: Any):
+        self._integration_scope: str = ""
         self._shippers: list[CommonShipper] = []
         self._include_exclude_filter: Optional[IncludeExcludeFilter] = None
 
@@ -39,6 +40,20 @@ class CompositeShipper(CommonShipper):
         Add a shipper to the composite
         """
         self._shippers.append(shipper)
+
+    def set_integration_scope(self, integration_scope: str) -> None:
+        """
+        Integration Scope setter.
+        Set the integration scope to the composite
+        """
+        self._integration_scope = integration_scope
+
+    def get_integration_scope(self) -> str:
+        """
+        Integration Scope getter.
+        Get the integration scope of the composite
+        """
+        return self._integration_scope
 
     def set_event_id_generator(self, event_id_generator: EventIdGeneratorCallable) -> None:
         for shipper in self._shippers:
@@ -59,8 +74,6 @@ class CompositeShipper(CommonShipper):
             if len(message) == 0:
                 shared_logger.debug("event is empty: message is zero length", extra={"es_event": event})
                 return EVENT_IS_EMPTY
-
-            pass
         elif self._include_exclude_filter is not None and not self._include_exclude_filter.filter(message):
             if len(message) == 0:
                 shared_logger.debug("event is empty: message is zero length", extra={"es_event": event})
@@ -68,6 +81,12 @@ class CompositeShipper(CommonShipper):
 
             shared_logger.debug("event is filtered according to filter rules", extra={"es_event": event})
             return EVENT_IS_FILTERED
+
+        if self._integration_scope != "":
+            if "meta" not in event:
+                event["meta"] = {}
+
+            event["meta"]["integration_scope"] = self._integration_scope
 
         for shipper in self._shippers:
             shipper.send(event)
