@@ -84,7 +84,7 @@ class PayloadStorage(CommonStorage):
         shared_logger.debug("get_as_string", extra={"payload": self._payload[0:11]})
 
         try:
-            base64_decoded = base64.b64decode(self._payload)
+            base64_decoded = base64.b64decode(self._payload, validate=True)
         except binascii.Error:
             base64_decoded = self._payload.encode("utf-8")
 

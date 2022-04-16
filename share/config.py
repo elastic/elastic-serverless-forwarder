@@ -12,6 +12,8 @@ from .logger import logger as shared_logger
 _available_input_types: list[str] = ["cloudwatch-logs", "s3-sqs", "sqs", "kinesis-data-stream"]
 _available_output_types: list[str] = ["elasticsearch"]
 
+IntegrationScopeDiscovererCallable = Callable[[dict[str, Any], int], str]
+
 
 class Output:
     """
@@ -177,12 +179,24 @@ class Input:
     Base class for Input component
     """
 
-    def __init__(self, input_type: str, input_id: str):
+    def __init__(
+        self,
+        input_type: str,
+        input_id: str,
+        integration_scope_discoverer: Optional[IntegrationScopeDiscovererCallable] = None,
+    ):
         self.type = input_type
         self.id = input_id
         self._tags: list[str] = []
         self._outputs: dict[str, Output] = {}
+        self._integration_scope_discoverer = integration_scope_discoverer
         self._include_exclude_filter: Optional[IncludeExcludeFilter] = None
+
+    def discover_integration_scope(self, lambda_event: dict[str, Any], at_record: int) -> str:
+        if self._integration_scope_discoverer is None:
+            return ""
+
+        return self._integration_scope_discoverer(lambda_event, at_record)
 
     @property
     def type(self) -> str:
@@ -330,7 +344,11 @@ class Config:
         self._inputs[new_input.type][new_input.id] = new_input
 
 
-def parse_config(config_yaml: str, expanders: list[Callable[[str], str]] = []) -> Config:
+def parse_config(
+    config_yaml: str,
+    expanders: list[Callable[[str], str]] = [],
+    integration_scoper_discoverer: Optional[IntegrationScopeDiscovererCallable] = None,
+) -> Config:
     """
     Config component factory
     Given a config yaml as string it return the Config instance as defined by the yaml
@@ -354,7 +372,11 @@ def parse_config(config_yaml: str, expanders: list[Callable[[str], str]] = []) -
         if "id" not in input_config or not isinstance(input_config["id"], str):
             raise ValueError("Must be provided str id for input")
 
-        current_input: Input = Input(input_type=input_config["type"], input_id=input_config["id"])
+        current_input: Input = Input(
+            input_type=input_config["type"],
+            input_id=input_config["id"],
+            integration_scope_discoverer=integration_scoper_discoverer,
+        )
 
         if "tags" in input_config:
             current_input.tags = input_config["tags"]

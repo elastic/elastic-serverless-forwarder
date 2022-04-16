@@ -1,3 +1,7 @@
+### v0.28.3 - 2022/04/15
+##### Enanchment
+* Make the integration scope discovery available at Input component: [#106](https://github.com/elastic/elastic-serverless-forwarder/pull/106)
+
 ### v0.28.1 - 2022/04/12
 ##### Bug fixes
 * Handle properly messages in the continuing queue originated from the continuing queue itself: [#104](https://github.com/elastic/elastic-serverless-forwarder/pull/104)

@@ -32,6 +32,5 @@ def _handle_replay_event(
         output.es_index_or_datastream_name = output_args["es_index_or_datastream_name"]
         shared_logger.info("setting ElasticSearch shipper")
         elasticsearch: ElasticsearchShipper = ShipperFactory.create_from_output(output_type=output_type, output=output)
-        elasticsearch.discover_dataset({})
         elasticsearch.send(event_payload)
         elasticsearch.flush()

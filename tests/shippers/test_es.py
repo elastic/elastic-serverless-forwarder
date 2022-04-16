@@ -94,6 +94,7 @@ _dummy_event: dict[str, Any] = {
             "region": "aws-region",
         },
     },
+    "meta": {},
 }
 
 
@@ -138,7 +139,6 @@ class TestElasticsearchShipper(TestCase):
             batch_max_actions=0,
         )
         es_event = deepcopy(_dummy_event)
-        shipper.discover_dataset(es_event)
         shipper.send(es_event)
 
         assert _documents == [
@@ -185,7 +185,6 @@ class TestElasticsearchShipper(TestCase):
             batch_max_actions=0,
         )
         es_event = deepcopy(_dummy_event)
-        shipper.discover_dataset(es_event)
 
         def event_id_generator(event: dict[str, Any]) -> str:
             return "_id"
@@ -195,20 +194,6 @@ class TestElasticsearchShipper(TestCase):
 
         assert _failures == [{"create": {"_id": "_id"}}]
         assert shipper._bulk_actions == []
-
-    @mock.patch("shippers.es.es_bulk", mock_bulk)
-    @mock.patch("shippers.es.Elasticsearch", new=MockClient)
-    def test_es_index_empty(self) -> None:
-        shipper = ElasticsearchShipper(
-            elasticsearch_url="elasticsearch_url",
-            username="username",
-            password="password",
-            tags=["tag1", "tag2", "tag3"],
-        )
-        es_event = deepcopy(_dummy_event)
-
-        with self.assertRaisesRegex(ValueError, "Elasticsearch index cannot be empty"):
-            shipper.send(es_event)
 
     @mock.patch("shippers.es.es_bulk", mock_bulk)
     @mock.patch("shippers.es.Elasticsearch", new=MockClient)
@@ -222,7 +207,6 @@ class TestElasticsearchShipper(TestCase):
             batch_max_actions=2,
         )
         es_event = deepcopy(_dummy_event)
-        shipper.discover_dataset(es_event)
         shipper.send(es_event)
 
         assert shipper._bulk_actions == [
@@ -259,7 +243,7 @@ class TestElasticsearchShipper(TestCase):
 
     @mock.patch("shippers.es.es_bulk", mock_bulk)
     @mock.patch("shippers.es.Elasticsearch", new=MockClient)
-    def test_discover_dataset(self) -> None:
+    def test_send_with_dataset_discovery(self) -> None:
         with self.subTest("empty es_index_or_datastream_name"):
             shipper = ElasticsearchShipper(
                 elasticsearch_url="elasticsearch_url",
@@ -269,8 +253,6 @@ class TestElasticsearchShipper(TestCase):
                 batch_max_actions=0,
             )
             es_event = deepcopy(_dummy_event)
-            lambda_event = deepcopy(_dummy_lambda_event)
-            shipper.discover_dataset(lambda_event)
             shipper.send(es_event)
 
             assert shipper._dataset == "generic"
@@ -318,8 +300,6 @@ class TestElasticsearchShipper(TestCase):
                 batch_max_actions=0,
             )
             es_event = deepcopy(_dummy_event)
-            lambda_event = deepcopy(_dummy_lambda_event)
-            shipper.discover_dataset(lambda_event)
             shipper.send(es_event)
 
             assert shipper._dataset == "unit"
@@ -367,8 +347,6 @@ class TestElasticsearchShipper(TestCase):
                 batch_max_actions=0,
             )
             es_event = deepcopy(_dummy_event)
-            lambda_event = deepcopy(_dummy_lambda_event)
-            shipper.discover_dataset(lambda_event)
             shipper.send(es_event)
 
             assert shipper._dataset == ""
@@ -415,9 +393,8 @@ class TestDiscoverDataset(TestCase):
             tags=["tag1", "tag2", "tag3"],
         )
 
-        lambda_event = deepcopy(_dummy_lambda_event)
-
-        shipper.discover_dataset(lambda_event)
+        es_event = deepcopy(_dummy_event)
+        shipper.send(es_event)
 
         assert shipper._es_index == "logs-es-index-no-datastream"
 
@@ -430,9 +407,8 @@ class TestDiscoverDataset(TestCase):
             tags=["tag1", "tag2", "tag3"],
         )
 
-        lambda_event = deepcopy(_dummy_lambda_event)
-
-        shipper.discover_dataset(lambda_event)
+        es_event = deepcopy(_dummy_event)
+        shipper.send(es_event)
 
         assert shipper._dataset == "dataset"
         assert shipper._namespace == "namespace"
@@ -446,59 +422,9 @@ class TestDiscoverDataset(TestCase):
             tags=["tag1", "tag2", "tag3"],
         )
 
-        lambda_event = deepcopy(_dummy_lambda_event)
-        lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
-        lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
-            "AWSLogs/aws-account-id/CloudTrail/region/yyyy/mm/dd/"
-            "aws-account-id_CloudTrail_region_end-time_random-string.log.gz"
-        )
-        lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
-
-        shipper.discover_dataset(lambda_event)
-
-        assert shipper._dataset == "aws.cloudtrail"
-        assert shipper._namespace == "default"
-        assert shipper._es_index == "logs-aws.cloudtrail-default"
-
-    def test_aws_cloudtrail_digest_dataset(self) -> None:
-        shipper = ElasticsearchShipper(
-            elasticsearch_url="elasticsearch_url",
-            username="username",
-            password="password",
-            tags=["tag1", "tag2", "tag3"],
-        )
-
-        lambda_event = deepcopy(_dummy_lambda_event)
-        lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
-        lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
-            "AWSLogs/aws-account-id/CloudTrail-Digest/region/yyyy/mm/dd/"
-            "aws-account-id_CloudTrail-Digest_region_end-time_random-string.log.gz"
-        )
-        lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
-
-        shipper.discover_dataset(lambda_event)
-
-        assert shipper._dataset == "aws.cloudtrail"
-        assert shipper._namespace == "default"
-        assert shipper._es_index == "logs-aws.cloudtrail-default"
-
-    def test_aws_cloudtrail_insight_dataset(self) -> None:
-        shipper = ElasticsearchShipper(
-            elasticsearch_url="elasticsearch_url",
-            username="username",
-            password="password",
-            tags=["tag1", "tag2", "tag3"],
-        )
-
-        lambda_event = deepcopy(_dummy_lambda_event)
-        lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
-        lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
-            "AWSLogs/aws-account-id/CloudTrail-Insight/region/yyyy/mm/dd/"
-            "aws-account-id_CloudTrail-Insight_region_end-time_random-string.log.gz"
-        )
-        lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
-
-        shipper.discover_dataset(lambda_event)
+        es_event = deepcopy(_dummy_event)
+        es_event["meta"]["integration_scope"] = "aws.cloudtrail"
+        shipper.send(es_event)
 
         assert shipper._dataset == "aws.cloudtrail"
         assert shipper._namespace == "default"
@@ -512,12 +438,9 @@ class TestDiscoverDataset(TestCase):
             tags=["tag1", "tag2", "tag3"],
         )
 
-        lambda_event = deepcopy(_dummy_lambda_event)
-        lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
-        lambda_event_body["Records"][0]["s3"]["object"]["key"] = "exportedlogs/111-222-333/2021-12-28/hash/file.gz"
-        lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
-
-        shipper.discover_dataset(lambda_event)
+        es_event = deepcopy(_dummy_event)
+        es_event["meta"]["integration_scope"] = "aws.cloudwatch_logs"
+        shipper.send(es_event)
 
         assert shipper._dataset == "aws.cloudwatch_logs"
         assert shipper._namespace == "default"
@@ -531,15 +454,9 @@ class TestDiscoverDataset(TestCase):
             tags=["tag1", "tag2", "tag3"],
         )
 
-        lambda_event = deepcopy(_dummy_lambda_event)
-        lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
-        lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
-            "AWSLogs/aws-account-id/elasticloadbalancing/region/yyyy/mm/dd/"
-            "aws-account-id_elasticloadbalancing_region_load-balancer-id_end-time_ip-address_random-string.log.gz"
-        )
-        lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
-
-        shipper.discover_dataset(lambda_event)
+        es_event = deepcopy(_dummy_event)
+        es_event["meta"]["integration_scope"] = "aws.elb_logs"
+        shipper.send(es_event)
 
         assert shipper._dataset == "aws.elb_logs"
         assert shipper._namespace == "default"
@@ -553,14 +470,9 @@ class TestDiscoverDataset(TestCase):
             tags=["tag1", "tag2", "tag3"],
         )
 
-        lambda_event = deepcopy(_dummy_lambda_event)
-        lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
-        lambda_event_body["Records"][0]["s3"]["object"][
-            "key"
-        ] = "AWSLogs/aws-account-id/network-firewall/log-type/Region/firewall-name/timestamp/"
-        lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
-
-        shipper.discover_dataset(lambda_event)
+        es_event = deepcopy(_dummy_event)
+        es_event["meta"]["integration_scope"] = "aws.firewall_logs"
+        shipper.send(es_event)
 
         assert shipper._dataset == "aws.firewall_logs"
         assert shipper._namespace == "default"
@@ -574,14 +486,9 @@ class TestDiscoverDataset(TestCase):
             tags=["tag1", "tag2", "tag3"],
         )
 
-        lambda_event = deepcopy(_dummy_lambda_event)
-        lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
-        lambda_event_body["Records"][0]["s3"]["object"][
-            "key"
-        ] = "AWSLogs/account-id/WAFLogs/Region/web-acl-name/YYYY/MM/dd/HH/mm"
-        lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
-
-        shipper.discover_dataset(lambda_event)
+        es_event = deepcopy(_dummy_event)
+        es_event["meta"]["integration_scope"] = "aws.waf"
+        shipper.send(es_event)
 
         assert shipper._dataset == "aws.waf"
         assert shipper._namespace == "default"
@@ -595,14 +502,9 @@ class TestDiscoverDataset(TestCase):
             tags=["tag1", "tag2", "tag3"],
         )
 
-        lambda_event = deepcopy(_dummy_lambda_event)
-        lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
-        lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
-            "AWSLogs/id/vpcflowlogs/region/" "date_vpcflowlogs_region_file.log.gz"
-        )
-        lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
-
-        shipper.discover_dataset(lambda_event)
+        es_event = deepcopy(_dummy_event)
+        es_event["meta"]["integration_scope"] = "aws.vpcflow"
+        shipper.send(es_event)
 
         assert shipper._dataset == "aws.vpcflow"
         assert shipper._namespace == "default"
@@ -616,67 +518,8 @@ class TestDiscoverDataset(TestCase):
             tags=["tag1", "tag2", "tag3"],
         )
 
-        lambda_event = deepcopy(_dummy_lambda_event)
-        lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
-        lambda_event_body["Records"][0]["s3"]["object"]["key"] = "random_hash"
-        lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
-
-        shipper.discover_dataset(lambda_event)
-
-        assert shipper._dataset == "generic"
-        assert shipper._namespace == "default"
-        assert shipper._es_index == "logs-generic-default"
-
-    def test_records_not_in_event(self) -> None:
-        shipper = ElasticsearchShipper(
-            elasticsearch_url="elasticsearch_url",
-            username="username",
-            password="password",
-            tags=["tag1", "tag2", "tag3"],
-        )
-
-        lambda_event = deepcopy(_dummy_lambda_event)
-        lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
-        del lambda_event_body["Records"]
-        lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
-        print(lambda_event)
-
-        shipper.discover_dataset(lambda_event)
-
-        assert shipper._dataset == "generic"
-        assert shipper._namespace == "default"
-        assert shipper._es_index == "logs-generic-default"
-
-    def test_s3_key_not_in_records(self) -> None:
-        shipper = ElasticsearchShipper(
-            elasticsearch_url="elasticsearch_url",
-            username="username",
-            password="password",
-            tags=["tag1", "tag2", "tag3"],
-        )
-
-        lambda_event = {"Records": [{"body": '{"Records": [{}]}'}]}
-
-        shipper.discover_dataset(lambda_event)
-
-        assert shipper._dataset == "generic"
-        assert shipper._namespace == "default"
-        assert shipper._es_index == "logs-generic-default"
-
-    def test_empty_s3_key(self) -> None:
-        shipper = ElasticsearchShipper(
-            elasticsearch_url="elasticsearch_url",
-            username="username",
-            password="password",
-            tags=["tag1", "tag2", "tag3"],
-        )
-
-        lambda_event = deepcopy(_dummy_lambda_event)
-        lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
-        lambda_event_body["Records"][0]["s3"]["object"]["key"] = ""
-        lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
-
-        shipper.discover_dataset(lambda_event)
+        es_event = deepcopy(_dummy_event)
+        shipper.send(es_event)
 
         assert shipper._dataset == "generic"
         assert shipper._namespace == "default"
