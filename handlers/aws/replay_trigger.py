@@ -7,7 +7,7 @@ from typing import Any, Optional
 from share import Config, ElasticsearchOutput, Input, Output, shared_logger
 from shippers import ElasticsearchShipper, ShipperFactory
 
-from .utils import InputConfigException, OutputConfigException, delete_sqs_record
+from .utils import InputConfigException, OutputConfigException, ReplayHandlerException, delete_sqs_record
 
 
 class ReplayedEventReplayHandler:
@@ -28,6 +28,9 @@ class ReplayedEventReplayHandler:
 
         for receipt_handle in self._event_ids_with_receipt_handle.values():
             delete_sqs_record(self._replay_queue_arn, receipt_handle)
+
+        if len(self._failed_event_ids) > 0:
+            raise ReplayHandlerException()
 
 
 def _handle_replay_event(

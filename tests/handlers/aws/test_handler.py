@@ -26,7 +26,7 @@ from elasticsearch import Elasticsearch
 from localstack.utils import testutil
 from localstack.utils.aws import aws_stack
 
-from handlers.aws.utils import ConfigFileException, TriggerTypeException
+from handlers.aws.utils import ConfigFileException, ReplayHandlerException, TriggerTypeException
 from main_aws import handler
 
 
@@ -1219,9 +1219,8 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 ]
                             )
 
-                            fourth_call = handler(replayed_events, ctx)  # type:ignore
-
-                            assert fourth_call == "replayed"
+                            with self.assertRaises(ReplayHandlerException):
+                                handler(replayed_events, ctx)  # type:ignore
 
                             self._es_client.indices.refresh(index="logs-generic-default")
 
@@ -2373,9 +2372,8 @@ class TestLambdaHandlerSuccessS3SQS(TestCase):
                         ]
 
                         event = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
-                        second_call = handler(event, ctx)  # type:ignore
-
-                        assert second_call == "replayed"
+                        with self.assertRaises(ReplayHandlerException):
+                            handler(event, ctx)  # type:ignore
 
                         # Remove the expected id so that it can be replayed
                         self._es_client.delete_by_query(
@@ -2795,9 +2793,9 @@ class TestLambdaHandlerSuccessSQS(TestCase):
                         ]
 
                         event = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
-                        second_call = handler(event, ctx)  # type:ignore
 
-                        assert second_call == "replayed"
+                        with self.assertRaises(ReplayHandlerException):
+                            handler(event, ctx)  # type:ignore
 
                         # Remove the expected id so that it can be replayed
                         self._es_client.delete_by_query(
@@ -3290,9 +3288,9 @@ class TestLambdaHandlerSuccessCloudWatchLogs(TestCase):
                             ]
 
                             event = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
-                            second_call = handler(event, ctx)  # type:ignore
 
-                            assert second_call == "replayed"
+                            with self.assertRaises(ReplayHandlerException):
+                                handler(event, ctx)  # type:ignore
 
                             # Remove the expected id so that it can be replayed
                             self._es_client.delete_by_query(
