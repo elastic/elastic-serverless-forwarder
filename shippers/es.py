@@ -219,6 +219,9 @@ class ElasticsearchShipper(CommonShipper):
             else:
                 self._dataset = event_payload["meta"]["integration_scope"]
 
+        if self._dataset == "generic":
+            shared_logger.info("dataset set to generic")
+
         shared_logger.debug("dataset", extra={"dataset": self._dataset})
 
         self._es_index = f"logs-{self._dataset}-{self._namespace}"
