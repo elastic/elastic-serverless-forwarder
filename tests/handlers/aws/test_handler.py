@@ -271,7 +271,7 @@ def reload_handlers_aws_handler() -> None:
 
     from handlers.aws.utils import get_cloudwatch_logs_client
 
-    os.environ["AWS_REGION"] = "us-east-1"
+    os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
     _ = get_cloudwatch_logs_client()
 
     mock.patch("handlers.aws.utils.get_cloudwatch_logs_client", lambda: _cloudwatch_logs_client).start()
@@ -281,8 +281,8 @@ def reload_handlers_aws_handler() -> None:
 
 
 def revert_handlers_aws_handler() -> None:
-    if "AWS_REGION" in os.environ:
-        del os.environ["AWS_REGION"]
+    if "AWS_DEFAULT_REGION" in os.environ:
+        del os.environ["AWS_DEFAULT_REGION"]
 
     if "ELASTIC_APM_ACTIVE" in os.environ:
         del os.environ["ELASTIC_APM_ACTIVE"]
