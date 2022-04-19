@@ -84,6 +84,12 @@ class OutputConfigException(Exception):
     pass
 
 
+class ReplayHandlerException(Exception):
+    """Raised when there is an error in ingestion in the replay queue"""
+
+    pass
+
+
 def wrap_try_except(
     func: Callable[[dict[str, Any], context_.Context], str]
 ) -> Callable[[dict[str, Any], context_.Context], str]:
@@ -100,7 +106,13 @@ def wrap_try_except(
 
         # NOTE: for all these cases we want the exception to bubble up to Lambda platform and let the defined retry
         # mechanism take action. These are non transient unrecoverable error from this code point of view.
-        except (ConfigFileException, InputConfigException, OutputConfigException, TriggerTypeException) as e:
+        except (
+            ConfigFileException,
+            InputConfigException,
+            OutputConfigException,
+            TriggerTypeException,
+            ReplayHandlerException,
+        ) as e:
             if apm_client:
                 apm_client.capture_exception()
 

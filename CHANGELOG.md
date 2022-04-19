@@ -1,6 +1,11 @@
+=======
 ### v0.28.3 - 2022/04/15
 ##### Enanchment
 * Make the integration scope discovery available at Input component: [#106](https://github.com/elastic/elastic-serverless-forwarder/pull/106)
+
+### v0.28.2 - 2022/04/14
+##### Bug fixes
+* Handle failure of replayed messages: [#105](https://github.com/elastic/elastic-serverless-forwarder/pull/105)
 
 ### v0.28.1 - 2022/04/12
 ##### Bug fixes
