@@ -23,7 +23,6 @@ from .s3_sqs_trigger import _handle_s3_sqs_continuation, _handle_s3_sqs_event
 from .sqs_trigger import _handle_sqs_continuation, _handle_sqs_event
 from .utils import (
     CONFIG_FROM_PAYLOAD,
-    CONFIG_FROM_S3FILE,
     ConfigFileException,
     TriggerTypeException,
     capture_serverless,
@@ -61,18 +60,17 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
     except Exception as e:
         raise TriggerTypeException(e)
 
+    config_yaml = ""
     try:
         if config_source == CONFIG_FROM_PAYLOAD:
             config_yaml = config_yaml_from_payload(lambda_event)
-        elif config_source == CONFIG_FROM_S3FILE:
-            config_yaml = config_yaml_from_s3()
         else:
-            raise ConfigFileException("cannot determine config source")
+            config_yaml = config_yaml_from_s3()
     except Exception as e:
         raise ConfigFileException(e)
 
     if config_yaml == "":
-        raise ConfigFileException("empty config")
+        raise ConfigFileException("Empty config")
 
     try:
         shared_logger.debug("config", extra={"yaml": config_yaml})
@@ -94,7 +92,6 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 output_type=event["output_type"],
                 output_args=event["output_args"],
                 event_input_id=event["event_input_id"],
-                event_input_type=event["event_input_type"],
                 event_payload=event["event_payload"],
                 replay_handler=replay_handler,
                 receipt_handle=replay_record["receiptHandle"],
@@ -116,14 +113,11 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         log_group_arn, aws_region = get_log_group_arn_and_region_from_log_group_name(cloudwatch_logs_event["logGroup"])
         input_id = log_group_arn
 
-        if "logGroup" not in cloudwatch_logs_event:
-            raise ValueError("logGroup key not present in the cloudwatch logs payload")
+        assert "logGroup" in cloudwatch_logs_event
+        assert "logStream" in cloudwatch_logs_event
 
-        if "logStream" not in cloudwatch_logs_event:
-            raise ValueError("logStream key not present in the cloudwatch logs payload")
-
-        event_input = config.get_input_by_type_and_id(trigger_type, input_id)
-        if not event_input:
+        event_input = config.get_input_by_id(input_id)
+        if event_input is None:
             shared_logger.warning("no input defined", extra={"input_type": trigger_type, "input_id": input_id})
 
             return "completed"
@@ -183,9 +177,9 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         ret: dict[Any, list[dict[str, str]]] = {"batchItemFailures": []}
 
         input_id = lambda_event["Records"][0]["eventSourceARN"]
-        event_input = config.get_input_by_type_and_id(trigger_type, input_id)
-        if not event_input:
-            shared_logger.warning("no input defined", extra={"input_type": trigger_type, "input_id": input_id})
+        event_input = config.get_input_by_id(input_id)
+        if event_input is None:
+            shared_logger.warning("no input defined", extra={"input_id": input_id})
 
             return "completed"
 
@@ -230,13 +224,13 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
                 return ret
 
-            composite_shipper.flush()
-            shared_logger.info(
-                "lambda processed all the events",
-                extra={"sent_event": sent_events, "empty_events": empty_events, "skipped_events": skipped_events},
-            )
+        composite_shipper.flush()
+        shared_logger.info(
+            "lambda processed all the events",
+            extra={"sent_event": sent_events, "empty_events": empty_events, "skipped_events": skipped_events},
+        )
 
-            return ret
+        return ret
 
     if trigger_type == "s3-sqs" or trigger_type == "sqs":
         composite_shipper_cache: dict[str, CompositeShipper] = {}
@@ -288,9 +282,12 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 ):
                     timeout_input_id = timeout_sqs_record["messageAttributes"]["originalEventSourceARN"]["stringValue"]
 
-                timeout_input_type = config.get_input_type_by_id(input_id=timeout_input_id)
+                timeout_input = config.get_input_by_id(input_id=timeout_input_id)
 
-                if timeout_input_type == "s3-sqs":
+                if timeout_input is None:
+                    continue
+
+                if timeout_input.type == "s3-sqs":
                     _handle_s3_sqs_continuation(
                         sqs_client=sqs_client,
                         sqs_continuing_queue=timeout_sqs_continuing_queue,
@@ -300,7 +297,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                         event_input_id=timeout_input_id,
                         config_yaml=timeout_config_yaml,
                     )
-                elif timeout_input_type == "sqs" or timeout_input_type == "cloudwatch-logs":
+                else:
                     _handle_sqs_continuation(
                         sqs_client=sqs_client,
                         sqs_continuing_queue=timeout_sqs_continuing_queue,
@@ -326,17 +323,9 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             if "messageAttributes" in sqs_record and "originalEventSourceARN" in sqs_record["messageAttributes"]:
                 input_id = sqs_record["messageAttributes"]["originalEventSourceARN"]["stringValue"]
 
-            input_type: Optional[str] = ""
-            if is_continuation_of_cloudwatch_logs:
-                input_type = "cloudwatch-logs"
-            else:
-                input_type = config.get_input_type_by_id(input_id=input_id)
-
-            assert input_type is not None
-
-            event_input = config.get_input_by_type_and_id(input_type, input_id)
-            if not event_input:
-                shared_logger.warning("no input defined", extra={"input_type": input_type, "input_id": input_id})
+            event_input = config.get_input_by_id(input_id)
+            if event_input is None:
+                shared_logger.warning("no input defined", extra={"input_id": input_id})
                 continue
 
             if input_id in composite_shipper_cache:
@@ -351,7 +340,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
                 composite_shipper_cache[event_input.id] = composite_shipper
 
-            if input_type == "sqs" or input_type == "cloudwatch-logs":
+            if event_input.type == "sqs" or event_input.type == "cloudwatch-logs":
                 for es_event, last_ending_offset in _handle_sqs_event(
                     sqs_record, is_continuation_of_cloudwatch_logs, input_id
                 ):
@@ -382,7 +371,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
                         return "continuing"
 
-            elif input_type == "s3-sqs":
+            elif event_input.type == "s3-sqs":
                 for es_event, last_ending_offset, current_s3_record in _handle_s3_sqs_event(sqs_record):
                     timeout, sent_outcome = event_processing(
                         processing_composing_shipper=composite_shipper,

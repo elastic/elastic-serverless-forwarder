@@ -638,9 +638,9 @@ inputs:
     outputs:
       - type: "elasticsearch"
         args:
-          elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_url"
-          username: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:es_secrets:username"
-          password: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:es_secrets:password"
+          elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_url"
+          username: "arn:aws:secretsmanager:eu-west-1:123456789:secret:es_secrets:username"
+          password: "arn:aws:secretsmanager:eu-west-1:123456789:secret:es_secrets:password"
           es_index_or_datastream_name: "logs-generic-default"
 ```
 There are 2 types of secrets that can be used:
@@ -676,9 +676,9 @@ inputs:
     outputs:
       - type: "elasticsearch"
         args:
-          elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_url"
-          username: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:es_secrets:username"
-          password: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:es_secrets:password"
+          elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_url"
+          username: "arn:aws:secretsmanager:eu-west-1:123456789:secret:es_secrets:username"
+          password: "arn:aws:secretsmanager:eu-west-1:123456789:secret:es_secrets:password"
           es_index_or_datastream_name: "logs-generic-default"
 ```
 Using the above configuration, the tags will be set in the following way`["forwarded", "generic", "tag1", "tag2", "tag3"]`
@@ -702,9 +702,9 @@ inputs:
     outputs:
       - type: "elasticsearch"
         args:
-          elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_url"
-          username: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:es_secrets:username"
-          password: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:es_secrets:password"
+          elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_url"
+          username: "arn:aws:secretsmanager:eu-west-1:123456789:secret:es_secrets:username"
+          password: "arn:aws:secretsmanager:eu-west-1:123456789:secret:es_secrets:password"
           es_index_or_datastream_name: "logs-generic-default"
 ```
 

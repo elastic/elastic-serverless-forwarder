@@ -29,7 +29,6 @@ class JsonCollector:
 
         self._starting_offset: int = 0
         self._ending_offset: int = 0
-        self._offset_skew: int = 0
         self._newline_length = -1
         self._unfinished_line: bytes = b""
 
@@ -55,10 +54,7 @@ class JsonCollector:
 
             # let's increase the offset for yielding
             self._starting_offset = self._ending_offset
-            self._ending_offset += len(data_to_yield) + self._offset_skew
-
-            # let's reset the offset skew
-            self._offset_skew = 0
+            self._ending_offset += len(data_to_yield)
 
             # let's decrease the circuit breaker
             if newline != b"":
@@ -67,7 +63,7 @@ class JsonCollector:
                 self._is_a_json_object_circuit_breaker -= 1
 
             # let's trim leading newline
-            data_to_yield = data_to_yield.strip(newline)
+            data_to_yield = data_to_yield.strip(b"\r\n").strip(b"\n")
 
             # let's set the flag for json object
             self._is_a_json_object = True
@@ -76,13 +72,25 @@ class JsonCollector:
             yield data_to_yield
         # it raised: we didn't collect enough content to reach the end of the json object: let's keep iterating
         except ValueError:
-            # buffer was not a complete json object
-            # let's increase the circuit breaker
-            self._is_a_json_object_circuit_breaker += 1
+            if self._is_a_json_object and len(self._unfinished_line.strip(b"\r\n").strip(b"\n")) == 0:
+                # it's an empty line, let's yield it and we collected a json object
+                # let's reset the buffer
+                self._unfinished_line = b""
 
-            # if the first 1k lines are not a json object let's give up
-            if self._is_a_json_object_circuit_breaker > 1000:
-                self._is_a_json_object_circuit_broken = True
+                # let's increase the offset for yielding
+                self._starting_offset = self._ending_offset
+                self._ending_offset += len(newline)
+
+                # finally yield
+                yield b""
+            else:
+                # buffer was not a complete json object
+                # let's increase the circuit breaker
+                self._is_a_json_object_circuit_breaker += 1
+
+                # if the first 1k lines are not a json object let's give up
+                if self._is_a_json_object_circuit_breaker > 1000:
+                    self._is_a_json_object_circuit_broken = True
 
     @staticmethod
     def _buffer_yield(buffer: bytes) -> GetByLinesCallable[CommonStorageType]:
@@ -105,7 +113,6 @@ class JsonCollector:
 
         self._ending_offset = range_start
         self._starting_offset = 0
-        self._offset_skew = 0
         self._newline_length = -1
         self._unfinished_line = b""
 
@@ -160,8 +167,15 @@ class JsonCollector:
                     wait_for_object_start_buffer = b""
                     yield data, original_line_ending_offset, original_line_starting_offset, newline_length
                 else:
-                    # let's balance the offset skew, wait_for_object_start_buffer is newline only content
-                    self._offset_skew += len(wait_for_object_start_buffer)
+                    # let's yield wait_for_object_start_buffer: it is newline only content
+                    iterator = by_lines(self._buffer_yield(wait_for_object_start_buffer))(
+                        storage, range_start, body, content_type, content_length  # type:ignore
+                    )
+
+                    for line, ending_offset, starting_offset, original_newline_length in iterator:
+                        self._starting_offset = self._ending_offset
+                        self._ending_offset += ending_offset - self._ending_offset
+                        yield line, self._ending_offset, self._starting_offset, newline_length
 
                     # let's reset the buffer
                     wait_for_object_start_buffer = b""

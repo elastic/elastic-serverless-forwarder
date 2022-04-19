@@ -2,5 +2,11 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
+from .exceptions import (
+    ConfigFileException,
+    InputConfigException,
+    OutputConfigException,
+    ReplayHandlerException,
+    TriggerTypeException,
+)
 from .handler import lambda_handler
-from .utils import ConfigFileException, TriggerTypeException

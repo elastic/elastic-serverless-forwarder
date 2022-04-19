@@ -19,7 +19,7 @@ from share.secretsmanager import _get_aws_sm_client, aws_sm_expander
 
 class MockContent:
     SECRETS_MANAGER_MOCK_DATA: dict[str, dict[str, str]] = {
-        "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets": {
+        "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets": {
             "type": "SecretString",
             "data": json.dumps(
                 {
@@ -30,23 +30,23 @@ class MockContent:
                 }
             ),
         },
-        "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret": {
+        "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret": {
             "type": "SecretString",
             "data": "mock_plain_text_sqs_arn",
         },
-        "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret_not_str_byte": {
+        "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret_not_str_byte": {
             "type": "SecretString",
             "data": b"i am not a str",  # type:ignore
         },
-        "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret_not_str_int": {
+        "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret_not_str_int": {
             "type": "SecretString",
             "data": 2021,  # type:ignore
         },
-        "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:binary_secret": {
+        "arn:aws:secretsmanager:eu-west-1:123456789:secret:binary_secret": {
             "type": "SecretBinary",
             "data": "bW9ja19uZ2lueC5sb2c=",
         },
-        "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:empty_secret": {"type": "SecretString", "data": ""},
+        "arn:aws:secretsmanager:eu-west-1:123456789:secret:empty_secret": {"type": "SecretString", "data": ""},
     }
 
     @staticmethod
@@ -86,19 +86,19 @@ class TestAWSSecretsManager(TestCase):
             config_yaml = """
                 inputs:
                   - type: s3-sqs
-                    id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret:THIS:IS:INVALID"
+                    id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret:THIS:IS:INVALID"
                     outputs:
                       - type: elasticsearch
                         args:
-                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
-                            username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
-                            password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+                            username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
+                            password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
                             es_index_or_datastream_name: "es_index_or_datastream_name"
             """
 
             with self.assertRaisesRegex(
                 SyntaxError,
-                "Invalid arn format: arn:aws:secretsmanager:eu-central-1:123-456-789:"
+                "Invalid arn format: arn:aws:secretsmanager:eu-central-1:123456789:"
                 + "secret:plain_secret:THIS:IS:INVALID",
             ):
                 aws_sm_expander(config_yaml)
@@ -108,17 +108,17 @@ class TestAWSSecretsManager(TestCase):
             config_yaml = """
                 inputs:
                   - type: s3-sqs
-                    id: "arn:aws:secretsmanager::123-456-789:secret:plain_secret"
+                    id: "arn:aws:secretsmanager::123456789:secret:plain_secret"
                     outputs:
                       - type: elasticsearch
                         args:
-                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
-                            username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
-                            password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+                            username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
+                            password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
                             es_index_or_datastream_name: "es_index_or_datastream_name"
             """
             with self.assertRaisesRegex(
-                ValueError, "Must be provided region in arn: arn:aws:secretsmanager::123-456-789:secret:plain_secret"
+                ValueError, "Must be provided region in arn: arn:aws:secretsmanager::123456789:secret:plain_secret"
             ):
                 aws_sm_expander(config_yaml)
 
@@ -127,18 +127,18 @@ class TestAWSSecretsManager(TestCase):
             config_yaml = """
                 inputs:
                   - type: s3-sqs
-                    id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:"
+                    id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:"
                     outputs:
                       - type: elasticsearch
                         args:
-                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
-                            username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
-                            password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+                            username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
+                            password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
                             es_index_or_datastream_name: "es_index_or_datastream_name"
             """
             with self.assertRaisesRegex(
                 ValueError,
-                "Must be provided secrets manager name in arn: arn:aws:secretsmanager:eu-central-1:123-456-789:secret:",
+                "Must be provided secrets manager name in arn: arn:aws:secretsmanager:eu-central-1:123456789:secret:",
             ):
                 aws_sm_expander(config_yaml)
 
@@ -147,18 +147,18 @@ class TestAWSSecretsManager(TestCase):
             config_yaml = """
                 inputs:
                   - type: s3-sqs
-                    id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret"
+                    id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret"
                     outputs:
                       - type: elasticsearch
                         args:
-                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:"
-                            username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
-                            password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:"
+                            username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
+                            password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
                             es_index_or_datastream_name: "es_index_or_datastream_name"
             """
             with self.assertRaisesRegex(
                 ValueError,
-                "Error for secret arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:: "
+                "Error for secret arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:: "
                 "key must not be empty",
             ):
                 aws_sm_expander(config_yaml)
@@ -168,20 +168,20 @@ class TestAWSSecretsManager(TestCase):
             config_yaml = """
                 inputs:
                   - type: s3-sqs
-                    id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:sqs_secret"
+                    id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:sqs_secret"
                     outputs:
                       - type: elasticsearch
                         args:
-                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
-                            username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets"
-                            password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+                            username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets"
+                            password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
                             es_index_or_datastream_name: "es_index_or_datastream_name"
             """
 
             with self.assertRaisesRegex(
                 ValueError,
                 "You cannot have both plain text and json key for the same secret: "
-                + "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets",
+                + "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets",
             ):
                 aws_sm_expander(config_yaml)
 
@@ -189,13 +189,13 @@ class TestAWSSecretsManager(TestCase):
             config_yaml = """
                 inputs:
                   - type: s3-sqs
-                    id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:DOES_NOT_EXIST"
+                    id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:DOES_NOT_EXIST"
                     outputs:
                       - type: elasticsearch
                         args:
-                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
-                            username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
-                            password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+                            username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+                            password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
                             es_index_or_datastream_name: "es_index_or_datastream_name"
             """
 
@@ -206,19 +206,19 @@ class TestAWSSecretsManager(TestCase):
             config_yaml = """
                 inputs:
                   - type: s3-sqs
-                    id: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:empty_secret"
+                    id: "arn:aws:secretsmanager:eu-west-1:123456789:secret:empty_secret"
                     outputs:
                       - type: elasticsearch
                         args:
-                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
-                            username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
-                            password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+                            username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+                            password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
                             es_index_or_datastream_name: "es_index_or_datastream_name"
             """
 
             with self.assertRaisesRegex(
                 ValueError,
-                "Error for secret arn:aws:secretsmanager:eu-west-1:123-456-789:secret:empty_secret: must not be empty",
+                "Error for secret arn:aws:secretsmanager:eu-west-1:123456789:secret:empty_secret: must not be empty",
             ):
                 aws_sm_expander(config_yaml)
 
@@ -226,19 +226,19 @@ class TestAWSSecretsManager(TestCase):
             config_yaml = """
                 inputs:
                   - type: s3-sqs
-                    id: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:es_secrets:empty"
+                    id: "arn:aws:secretsmanager:eu-west-1:123456789:secret:es_secrets:empty"
                     outputs:
                       - type: elasticsearch
                         args:
-                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
-                            username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
-                            password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+                            username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+                            password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
                             es_index_or_datastream_name: "es_index_or_datastream_name"
             """
 
             with self.assertRaisesRegex(
                 ValueError,
-                "Error for secret arn:aws:secretsmanager:eu-west-1:123-456-789:secret:es_secrets:empty: "
+                "Error for secret arn:aws:secretsmanager:eu-west-1:123456789:secret:es_secrets:empty: "
                 "must not be empty",
             ):
                 aws_sm_expander(config_yaml)
@@ -247,20 +247,20 @@ class TestAWSSecretsManager(TestCase):
             config_yaml = """
                 inputs:
                   - type: s3-sqs
-                    id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret:I_SHOULD_NOT_HAVE_A_KEY"
+                    id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret:I_SHOULD_NOT_HAVE_A_KEY"
                     outputs:
                       - type: elasticsearch
                         args:
-                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
-                            username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
-                            password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+                            username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+                            password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
                             es_index_or_datastream_name: "es_index_or_datastream_name"
             """
 
             with self.assertRaisesRegex(
                 ValueError,
                 "Error for secret "
-                "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret:I_SHOULD_NOT_HAVE_A_KEY: "
+                "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret:I_SHOULD_NOT_HAVE_A_KEY: "
                 "expected to be keys/values pair",
             ):
                 aws_sm_expander(config_yaml)
@@ -269,19 +269,19 @@ class TestAWSSecretsManager(TestCase):
             config_yaml = """
                 inputs:
                   - type: s3-sqs
-                    id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:I_DO_NOT_EXIST"
+                    id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:I_DO_NOT_EXIST"
                     outputs:
                       - type: elasticsearch
                         args:
-                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
-                            username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
-                            password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+                            username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+                            password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
                             es_index_or_datastream_name: "es_index_or_datastream_name"
             """
 
             with self.assertRaisesRegex(
                 KeyError,
-                "Error for secret arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:I_DO_NOT_EXIST: "
+                "Error for secret arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:I_DO_NOT_EXIST: "
                 "key not found",
             ):
                 aws_sm_expander(config_yaml)
@@ -290,19 +290,19 @@ class TestAWSSecretsManager(TestCase):
             config_yaml = """
                 inputs:
                   - type: s3-sqs
-                    id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret_not_str_byte"
+                    id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret_not_str_byte"
                     outputs:
                       - type: elasticsearch
                         args:
-                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
-                            username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
-                            password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+                            username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+                            password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
                             es_index_or_datastream_name: "es_index_or_datastream_name"
             """
 
             with self.assertRaisesRegex(
                 ValueError,
-                "Error for secret arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret_not_str_byte: "
+                "Error for secret arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret_not_str_byte: "
                 "expected to be a string",
             ):
                 aws_sm_expander(config_yaml)
@@ -311,20 +311,20 @@ class TestAWSSecretsManager(TestCase):
             config_yaml = """
                 inputs:
                   - type: s3-sqs
-                    id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret_not_str_int"
+                    id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret_not_str_int"
                     outputs:
                       - type: elasticsearch
                         args:
-                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
-                            username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
-                            password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+                            username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+                            password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
                             es_index_or_datastream_name: "es_index_or_datastream_name"
             """
 
             with self.assertRaisesRegex(
                 Exception,
                 "the JSON object must be str, bytes or bytearray, not int while parsing "
-                "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret_not_str_in",
+                "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret_not_str_in",
             ):
                 aws_sm_expander(config_yaml)
 
@@ -334,13 +334,13 @@ class TestAWSSecretsManager(TestCase):
             config_yaml = """
                 inputs:
                   - type: s3-sqs
-                    id: "aws:arn:secretsmanager:eu-central-1:123-456-789:secret:plain_secret"
+                    id: "aws:arn:secretsmanager:eu-central-1:123456789:secret:plain_secret"
                     outputs:
                       - type: elasticsearch
                         args:
-                            elasticsearch_url: "arn:aws:secrets_manager:eu-central-1:123-456-789:secret:es_secrets:url"
-                            username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
-                            password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                            elasticsearch_url: "arn:aws:secrets_manager:eu-central-1:123456789:secret:es_secrets:url"
+                            username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
+                            password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
                             es_index_or_datastream_name: "es_index_or_datastream_name"
             """
             mock_fetched_data = aws_sm_expander(config_yaml)
@@ -348,11 +348,11 @@ class TestAWSSecretsManager(TestCase):
             parsed_config_yaml = """
                 inputs:
                   - type: s3-sqs
-                    id: "aws:arn:secretsmanager:eu-central-1:123-456-789:secret:plain_secret"
+                    id: "aws:arn:secretsmanager:eu-central-1:123456789:secret:plain_secret"
                     outputs:
                       - type: elasticsearch
                         args:
-                            elasticsearch_url: "arn:aws:secrets_manager:eu-central-1:123-456-789:secret:es_secrets:url"
+                            elasticsearch_url: "arn:aws:secrets_manager:eu-central-1:123456789:secret:es_secrets:url"
                             username: "mock_elastic_username"
                             password: "mock_elastic_password"
                             es_index_or_datastream_name: "es_index_or_datastream_name"
@@ -365,13 +365,13 @@ class TestAWSSecretsManager(TestCase):
             config_yaml = """
                 inputs:
                   - type: s3-sqs
-                    id: "arn:AWS:secretsmanager:eu-central-1:123-456-789:secret:plain_secret"
+                    id: "arn:AWS:secretsmanager:eu-central-1:123456789:secret:plain_secret"
                     outputs:
                       - type: elasticsearch
                         args:
-                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
-                            username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
-                            password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
+                            elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+                            username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
+                            password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
                             es_index_or_datastream_name: "es_index_or_datastream_name"
             """
             mock_fetched_data = aws_sm_expander(config_yaml)
@@ -379,7 +379,7 @@ class TestAWSSecretsManager(TestCase):
             parsed_config_yaml = """
                 inputs:
                   - type: s3-sqs
-                    id: "arn:AWS:secretsmanager:eu-central-1:123-456-789:secret:plain_secret"
+                    id: "arn:AWS:secretsmanager:eu-central-1:123456789:secret:plain_secret"
                     outputs:
                       - type: elasticsearch
                         args:
@@ -395,14 +395,14 @@ class TestAWSSecretsManager(TestCase):
             config_yaml = """
               inputs:
                 - type: s3-sqs
-                  id: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:plain_secret"
+                  id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret"
                   outputs:
                     - type: elasticsearch
                       args:
-                        elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:url"
-                        username: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:username"
-                        password: "arn:aws:secretsmanager:eu-central-1:123-456-789:secret:es_secrets:password"
-                        es_index_or_datastream_name: "arn:aws:secretsmanager:eu-west-1:123-456-789:secret:binary_secret"
+                        elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+                        username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
+                        password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
+                        es_index_or_datastream_name: "arn:aws:secretsmanager:eu-west-1:123456789:secret:binary_secret"
             """
             mock_fetched_data = aws_sm_expander(config_yaml)
 

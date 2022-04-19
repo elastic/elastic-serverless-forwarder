@@ -3,7 +3,6 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 import datetime
-import json
 from copy import deepcopy
 from typing import Any
 from unittest import TestCase
@@ -15,59 +14,7 @@ import pytest
 from shippers import ElasticsearchShipper
 
 _now = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-_dummy_lambda_event: dict[str, Any] = {
-    "Records": [
-        {
-            "messageId": "dummy_message_id",
-            "receiptHandle": "dummy_receipt_handle",
-            "body": json.dumps(
-                {
-                    "Records": [
-                        {
-                            "eventVersion": "2.1",
-                            "eventSource": "aws:s3",
-                            "awsRegion": "eu-central-1",
-                            "eventTime": _now,
-                            "eventName": "ObjectCreated:Put",
-                            "userIdentity": {"principalId": "dummy_principal_id"},
-                            "requestParameters": {"sourceIPAddress": "dummy_source_ip_address"},
-                            "responseElements": {
-                                "x-amz-request-id": "dummy_request_id",
-                                "x-amz-id-2": "dummy_request_id_2",
-                            },
-                            "s3": {
-                                "s3SchemaVersion": "1.0",
-                                "configurationId": "sqs_event",
-                                "bucket": {
-                                    "name": "dummy_bucket_name",
-                                    "ownerIdentity": {"principalId": "dummy_principal_id"},
-                                    "arn": "arn:aws:s3:::dummy_bucket_name",
-                                },
-                                "object": {
-                                    "key": "file.log",
-                                    "size": 27,
-                                    "eTag": "",
-                                    "sequencer": "",
-                                },
-                            },
-                        }
-                    ]
-                }
-            ),
-            "attributes": {
-                "ApproximateReceiveCount": "1",
-                "SentTimestamp": _now,
-                "SenderId": "dummy_sender_id",
-                "ApproximateFirstReceiveTimestamp": _now,
-            },
-            "messageAttributes": {},
-            "md5OfBody": "dummy_hash",
-            "eventSource": "aws:sqs",
-            "eventSourceARN": "dummy_source_arn",
-            "awsRegion": "eu-central-1",
-        }
-    ]
-}
+
 _dummy_event: dict[str, Any] = {
     "@timestamp": _now,
     "fields": {
