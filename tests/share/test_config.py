@@ -20,8 +20,8 @@ class DummyOutput(Output):
 class TestOutput(TestCase):
     def test_init(self) -> None:
         with self.subTest("not valid type"):
-            with self.assertRaisesRegex(ValueError, "Type must be one of elasticsearch"):
-                DummyOutput(output_type="type")
+            with self.assertRaisesRegex(ValueError, "^Type must be one of elasticsearch: another-type given$"):
+                DummyOutput(output_type="another-type")
 
         with self.subTest("type not str"):
             with self.assertRaisesRegex(ValueError, "Output type must be of type str"):
@@ -397,9 +397,10 @@ class TestInput(TestCase):
 
         with self.subTest("not valid type"):
             with self.assertRaisesRegex(
-                ValueError, "^Input type must be one of cloudwatch-logs,s3-sqs,sqs,kinesis-data-stream$"
+                ValueError,
+                "^Input type must be one of cloudwatch-logs,s3-sqs,sqs,kinesis-data-stream: another-type given$",
             ):
-                Input(input_type="type", input_id="id")
+                Input(input_type="another-type", input_id="id")
 
         with self.subTest("type not str"):
             with self.assertRaisesRegex(ValueError, "Input type must be of type str"):
@@ -475,8 +476,8 @@ class TestInput(TestCase):
 
         with self.subTest("not elasticsearch output"):
             input_sqs = Input(input_type="s3-sqs", input_id="id")
-            with self.assertRaisesRegex(ValueError, "Type must be one of elasticsearch"):
-                input_sqs.add_output(output_type="not_elasticsearch")
+            with self.assertRaisesRegex(ValueError, "^Type must be one of elasticsearch: another-type given$"):
+                input_sqs.add_output(output_type="another-type")
 
         with self.subTest("type is not str"):
             input_sqs = Input(input_type="s3-sqs", input_id="id")
@@ -665,12 +666,13 @@ class TestParseConfig(TestCase):
 
         with self.subTest("no valid input type"):
             with self.assertRaisesRegex(
-                ValueError, "^Input type must be one of cloudwatch-logs,s3-sqs,sqs,kinesis-data-stream$"
+                ValueError,
+                "^Input type must be one of cloudwatch-logs,s3-sqs,sqs,kinesis-data-stream: another-type given$",
             ):
                 parse_config(
                     config_yaml="""
             inputs:
-              - type: type
+              - type: another-type
                 id: id
             """
                 )
@@ -743,14 +745,14 @@ class TestParseConfig(TestCase):
                 )
 
         with self.subTest("not valid input output"):
-            with self.assertRaisesRegex(ValueError, "Type must be one of elasticsearch"):
+            with self.assertRaisesRegex(ValueError, "^Type must be one of elasticsearch: another-type given$"):
                 parse_config(
                     config_yaml="""
             inputs:
               - type: s3-sqs
                 id: id
                 outputs:
-                  - type: type
+                  - type: another-type
                     args:
                       key: value
             """

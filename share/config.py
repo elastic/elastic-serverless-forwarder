@@ -33,7 +33,7 @@ class Output:
             raise ValueError("Output type must be of type str")
 
         if value not in _available_output_types:
-            raise ValueError(f"Type must be one of {','.join(_available_output_types)}")
+            raise ValueError(f"Type must be one of {','.join(_available_output_types)}: {value} given")
         self._type = value
 
 
@@ -208,7 +208,7 @@ class Input:
             raise ValueError("Input type must be of type str")
 
         if value not in _available_input_types:
-            raise ValueError(f"Input type must be one of {','.join(_available_input_types)}")
+            raise ValueError(f"Input type must be one of {','.join(_available_input_types)}: {value} given")
         self._type = value
 
     @property
