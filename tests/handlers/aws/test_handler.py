@@ -1100,10 +1100,10 @@ def _wait_for_container(container: Container, port: str) -> None:
         time.sleep(1)
 
 
-def _wait_for_localstack_service(wait_callback: Callable[[], None]) -> None:
+def _wait_for_localstack_service(wait_function: Callable[[], None]) -> None:
     while True:
         try:
-            wait_callback()
+            wait_function()
         except Exception:
             time.sleep(1)
         else:
@@ -1208,6 +1208,29 @@ def _event_from_cloudwatch_logs(group_name: str, stream_name: str) -> tuple[dict
     return {"event": {"awslogs": {"data": data_base64encoded}}}, event_id
 
 
+def _event_from_kinesis_records(records: dict[str, Any], stream_attribute: dict[str, Any]) -> dict[str, Any]:
+    assert "Records" in records
+
+    new_records: list[dict[str, Any]] = []
+    for original_record in records["Records"]:
+        kinesis_record = {}
+
+        for key in original_record:
+            new_value = deepcopy(original_record[key])
+            camel_case_key = "".join([key[0].lower(), key[1:]])
+            kinesis_record[camel_case_key] = new_value
+
+        new_records.append(
+            {
+                "kinesis": kinesis_record,
+                "eventSource": "aws:kinesis",
+                "eventSourceARN": stream_attribute["StreamDescription"]["StreamARN"],
+            }
+        )
+
+    return dict(Records=new_records)
+
+
 def _event_to_sqs_message(queue_attributes: dict[str, Any], message_body: str) -> None:
     sqs_client = aws_stack.connect_to_service("sqs")
 
@@ -1258,8 +1281,15 @@ def _s3_event_to_sqs_message(
             )
 
 
-@pytest.mark.integration
-class TestLambdaHandlerSuccessMixedInput(TestCase):
+class IntegrationTestCase(TestCase):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super(IntegrationTestCase, self).__init__(*args, **kwargs)
+
+        self._services: list[str] = []
+        self._queues: list[dict[str, str]] = []
+        self._kinesis_streams: list[str] = []
+        self._cloudwatch_logs_groups: list[dict[str, str]] = []
+
     def setUp(self) -> None:
         revert_handlers_aws_handler()
 
@@ -1269,31 +1299,30 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
         self._localstack_container = docker_client.containers.run(
             "localstack/localstack",
             detach=True,
-            environment=["SERVICES=logs,s3,sqs,secretsmanager"],
+            environment=[f"SERVICES={','.join(self._services)}"],
             ports={"4566/tcp": None},
         )
 
         _wait_for_container(self._localstack_container, "4566/tcp")
 
-        self._LOGS_BACKEND = os.environ.get("S3_BACKEND", "")
-        self._S3_BACKEND = os.environ.get("S3_BACKEND", "")
-        self._SQS_BACKEND = os.environ.get("SQS_BACKEND", "")
-        self._SECRETSMANAGER_BACKEND = os.environ.get("SECRETSMANAGER_BACKEND", "")
-
         self._LOCALSTACK_HOST_PORT: str = self._localstack_container.ports["4566/tcp"][0]["HostPort"]
 
-        os.environ["LOGS_BACKEND"] = f"http://localhost:{self._LOCALSTACK_HOST_PORT}"
-        os.environ["S3_BACKEND"] = f"http://localhost:{self._LOCALSTACK_HOST_PORT}"
-        os.environ["SQS_BACKEND"] = f"http://localhost:{self._LOCALSTACK_HOST_PORT}"
-        os.environ["SECRETSMANAGER_BACKEND"] = f"http://localhost:{self._LOCALSTACK_HOST_PORT}"
+        services_wait_method = {
+            "logs": "describe_log_groups",
+            "s3": "list_buckets",
+            "sqs": "list_queues",
+            "secretsmanager": "list_secrets",
+            "kinesis": "list_streams",
+        }
 
-        _wait_for_localstack_service(aws_stack.connect_to_service(service_name="logs").describe_log_groups)
-
-        _wait_for_localstack_service(aws_stack.connect_to_service(service_name="s3").list_buckets)
-
-        _wait_for_localstack_service(aws_stack.connect_to_service(service_name="sqs").list_queues)
-
-        _wait_for_localstack_service(aws_stack.connect_to_service(service_name="secretsmanager").list_secrets)
+        self._BACKEND = {}
+        for service in self._services:
+            backend_env = f"{service.upper()}_BACKEND"
+            self._BACKEND[service] = os.environ.get(backend_env, "")
+            os.environ[backend_env] = f"http://localhost:{self._LOCALSTACK_HOST_PORT}"
+            _wait_for_localstack_service(
+                aws_stack.connect_to_service(service_name=service).__getattribute__(services_wait_method[service])
+            )
 
         self._ELASTIC_USER: str = "elastic"
         self._ELASTIC_PASSWORD: str = "password"
@@ -1343,56 +1372,92 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
 
             time.sleep(1)
 
-        self._source_cloudwatch_logs_group_info = _create_cloudwatch_logs_group_and_stream(
-            group_name="source-group", stream_name="source-stream"
-        )
+        self._config_yaml: str = """
+            inputs:
+        """
+
+        self._kinesis_streams_info = {}
+        self._kinesis_client = aws_stack.connect_to_service("kinesis")
+        for kinesis_stream in self._kinesis_streams:
+            self._kinesis_streams_info[kinesis_stream] = self._kinesis_client.describe_stream(
+                StreamName=aws_stack.create_kinesis_stream(kinesis_stream).stream_name
+            )
+
+            self._config_yaml += f"""
+              - type: "kinesis-data-stream"
+                id: "{self._kinesis_streams_info[kinesis_stream]["StreamDescription"]["StreamARN"]}"
+                exclude:
+                  - "excluded"
+                tags:
+                  - "tag1"
+                  - "tag2"
+                  - "tag3"
+                outputs:
+                  - type: "elasticsearch"
+                    args:
+                      elasticsearch_url: "http://127.0.0.1:{self._ES_HOST_PORT}"
+                      username: "{self._secret_arn}:username"
+                      password: "{self._secret_arn}:password"
+                    """
+
+            kinesis_waiter = self._kinesis_client.get_waiter("stream_exists")
+            while True:
+                try:
+                    kinesis_waiter.wait(
+                        StreamName=self._kinesis_streams_info[kinesis_stream]["StreamDescription"]["StreamName"]
+                    )
+                except Exception:
+                    time.sleep(1)
+                else:
+                    break
+
+        self._cloudwatch_logs_groups_info = {}
+        for cloudwatch_logs_group in self._cloudwatch_logs_groups:
+            self._cloudwatch_logs_groups_info[
+                cloudwatch_logs_group["group_name"]
+            ] = _create_cloudwatch_logs_group_and_stream(
+                group_name=cloudwatch_logs_group["group_name"], stream_name=cloudwatch_logs_group["stream_name"]
+            )
+
+            self._config_yaml += f"""
+              - type: "cloudwatch-logs"
+                id: "{self._cloudwatch_logs_groups_info[cloudwatch_logs_group["group_name"]]["arn"]}"
+                tags:
+                  - "tag1"
+                  - "tag2"
+                  - "tag3"
+                outputs:
+                  - type: "elasticsearch"
+                    args:
+                      elasticsearch_url: "http://127.0.0.1:{self._ES_HOST_PORT}"
+                      username: "{self._secret_arn}:username"
+                      password: "{self._secret_arn}:password"
+                """
+
+        self._queues_info = {}
+        for queue in self._queues:
+            self._queues_info[queue["name"]] = testutil.create_sqs_queue(queue["name"])
+
+            if "type" not in queue:
+                continue
+
+            self._config_yaml += f"""
+              - type: {queue["type"]}
+                id: "{self._queues_info[queue["name"]]["QueueArn"]}"
+                tags:
+                  - "tag1"
+                  - "tag2"
+                  - "tag3"
+                outputs:
+                  - type: "elasticsearch"
+                    args:
+                      elasticsearch_url: "http://127.0.0.1:{self._ES_HOST_PORT}"
+                      username: "{self._secret_arn}:username"
+                      password: "{self._secret_arn}:password"
+                    """
 
         self._continuing_queue_info = testutil.create_sqs_queue("continuing-queue")
         self._replay_queue_info = testutil.create_sqs_queue("replay-queue")
-        self._source_s3_queue_info = testutil.create_sqs_queue("source-s3-sqs-queue")
-        self._source_sqs_queue_info = testutil.create_sqs_queue("source-sqs-queue")
-        self._source_no_config_queue_info = testutil.create_sqs_queue("source-no-conf-queue")
-
-        self._config_yaml: str = f"""
-        inputs:
-          - type: "cloudwatch-logs"
-            id: "{self._source_cloudwatch_logs_group_info["arn"]}"
-            tags:
-              - "tag1"
-              - "tag2"
-              - "tag3"
-            outputs:
-              - type: "elasticsearch"
-                args:
-                  elasticsearch_url: "http://127.0.0.1:{self._ES_HOST_PORT}"
-                  username: "{self._secret_arn}:username"
-                  password: "{self._secret_arn}:password"
-          - type: "s3-sqs"
-            id: "{self._source_s3_queue_info["QueueArn"]}"
-            tags:
-              - "tag1"
-              - "tag2"
-              - "tag3"
-            outputs:
-              - type: "elasticsearch"
-                args:
-                  elasticsearch_url: "http://127.0.0.1:{self._ES_HOST_PORT}"
-                  username: "{self._secret_arn}:username"
-                  password: "{self._secret_arn}:password"
-                  es_index_or_datastream_name: logs-generic-default
-          - type: "sqs"
-            id: "{self._source_sqs_queue_info["QueueArn"]}"
-            tags:
-              - "tag1"
-              - "tag2"
-              - "tag3"
-            outputs:
-              - type: "elasticsearch"
-                args:
-                  elasticsearch_url: "http://127.0.0.1:{self._ES_HOST_PORT}"
-                  username: "{self._secret_arn}:username"
-                  password: "{self._secret_arn}:password"
-                """
 
         _upload_content_to_bucket(
             content=self._config_yaml,
@@ -1400,6 +1465,38 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
             bucket_name="config-bucket",
             key_name="folder/config.yaml",
         )
+
+        os.environ["S3_CONFIG_FILE"] = "s3://config-bucket/folder/config.yaml"
+        os.environ["SQS_CONTINUE_URL"] = self._continuing_queue_info["QueueUrl"]
+        os.environ["SQS_REPLAY_URL"] = self._replay_queue_info["QueueUrl"]
+
+    def tearDown(self) -> None:
+        for backend_env in self._BACKEND:
+            os.environ[backend_env] = self._BACKEND[backend_env]
+
+        del os.environ["S3_CONFIG_FILE"]
+        del os.environ["SQS_CONTINUE_URL"]
+        del os.environ["SQS_REPLAY_URL"]
+
+        self._elastic_container.stop()
+        self._elastic_container.remove()
+
+        self._localstack_container.stop()
+        self._localstack_container.remove()
+
+
+@pytest.mark.integration
+class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
+    def setUp(self) -> None:
+        self._services = ["logs", "s3", "sqs", "secretsmanager"]
+        self._queues = [
+            {"name": "source-s3-sqs-queue", "type": "s3-sqs"},
+            {"name": "source-sqs-queue", "type": "sqs"},
+            {"name": "source-no-conf-queue"},
+        ]
+        self._cloudwatch_logs_groups = [{"group_name": "source-group", "stream_name": "source-stream"}]
+
+        super(TestLambdaHandlerSuccessMixedInput, self).setUp()
 
         self._first_log_entry: str = (
             "{\n"
@@ -1442,40 +1539,23 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
             content=gzip.compress(self._first_s3_log.encode("UTF-8")),
             content_type="application/x-gzip",
             bucket_name="test-bucket",
-            key_name="exportedlogs/uuid/yyyy-mm-dd-[$LATEST]hash/000000.gz",
+            key_name="exportedlog/uuid/yyyy-mm-dd-[$LATEST]hash/000000.gz",
         )
 
         _upload_content_to_bucket(
             content=gzip.compress(self._second_s3_log.encode("UTF-8")),
             content_type="application/x-gzip",
             bucket_name="test-bucket",
-            key_name="exportedlogs/uuid/yyyy-mm-dd-[$LATEST]hash/000001.gz",
+            key_name="exportedlog/uuid/yyyy-mm-dd-[$LATEST]hash/000001.gz",
         )
 
-        os.environ["S3_CONFIG_FILE"] = "s3://config-bucket/folder/config.yaml"
-        os.environ["SQS_CONTINUE_URL"] = self._continuing_queue_info["QueueUrl"]
-        os.environ["SQS_REPLAY_URL"] = self._replay_queue_info["QueueUrl"]
-
     def tearDown(self) -> None:
-        os.environ["LOGS_BACKEND"] = self._LOGS_BACKEND
-        os.environ["S3_BACKEND"] = self._S3_BACKEND
-        os.environ["SQS_BACKEND"] = self._SQS_BACKEND
-        os.environ["SECRETSMANAGER_BACKEND"] = self._SECRETSMANAGER_BACKEND
-
-        del os.environ["S3_CONFIG_FILE"]
-        del os.environ["SQS_CONTINUE_URL"]
-        del os.environ["SQS_REPLAY_URL"]
-
-        self._elastic_container.stop()
-        self._elastic_container.remove()
-
-        self._localstack_container.stop()
-        self._localstack_container.remove()
+        super(TestLambdaHandlerSuccessMixedInput, self).tearDown()
 
     @mock.patch("handlers.aws.handler._completion_grace_period", 1)
     def test_lambda_handler_replay(self) -> None:
-        first_filename: str = "exportedlogs/uuid/yyyy-mm-dd-[$LATEST]hash/000000.gz"
-        second_filename: str = "exportedlogs/uuid/yyyy-mm-dd-[$LATEST]hash/000001.gz"
+        first_filename: str = "exportedlog/uuid/yyyy-mm-dd-[$LATEST]hash/000000.gz"
+        second_filename: str = "exportedlog/uuid/yyyy-mm-dd-[$LATEST]hash/000001.gz"
         with mock.patch("storage.S3Storage._s3_client", _mock_awsclient(service_name="s3")):
             with mock.patch("handlers.aws.handler.get_sqs_client", lambda: _mock_awsclient(service_name="sqs")):
                 with mock.patch("handlers.aws.utils.get_sqs_client", lambda: _mock_awsclient(service_name="sqs")):
@@ -1488,14 +1568,18 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             lambda region_name: _mock_awsclient(service_name="secretsmanager", region_name=region_name),
                         ):
                             _s3_event_to_sqs_message(
-                                queue_attributes=self._source_s3_queue_info, filenames=[first_filename, second_filename]
+                                queue_attributes=self._queues_info["source-s3-sqs-queue"],
+                                filenames=[first_filename, second_filename],
                             )
-                            event_s3 = _event_from_sqs_message(queue_attributes=self._source_s3_queue_info)
+                            event_s3 = _event_from_sqs_message(
+                                queue_attributes=self._queues_info["source-s3-sqs-queue"]
+                            )
 
                             _event_to_sqs_message(
-                                queue_attributes=self._source_sqs_queue_info, message_body=self._cloudwatch_log
+                                queue_attributes=self._queues_info["source-sqs-queue"],
+                                message_body=self._cloudwatch_log,
                             )
-                            event_sqs = _event_from_sqs_message(queue_attributes=self._source_sqs_queue_info)
+                            event_sqs = _event_from_sqs_message(queue_attributes=self._queues_info["source-sqs-queue"])
 
                             message_id = event_sqs["Records"][0]["messageId"]
                             src: str = f"source-sqs-queue{message_id}"
@@ -1517,7 +1601,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             self._es_client.index(
                                 index="logs-generic-default",
                                 op_type="create",
-                                id="e69eaefedb-000000000000",
+                                id="17b2d3c934-000000000000",
                                 document={"@timestamp": datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
                             )
 
@@ -1544,7 +1628,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                                 query={
                                     "ids": {
                                         "values": [
-                                            "e69eaefedb-000000000098",
+                                            "17b2d3c934-000000000098",
                                             f"{hex_prefix_sqs}-000000000098",
                                             f"{hex_prefix_cloudwatch_logs}-000000000098",
                                         ]
@@ -1562,7 +1646,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             self._es_client.indices.refresh(index="logs-generic-default")
                             res = self._es_client.search(
                                 index="logs-generic-default",
-                                query={"ids": {"values": ["e69eaefedb-000000000098"]}},
+                                query={"ids": {"values": ["17b2d3c934-000000000098"]}},
                             )
 
                             assert res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry.rstrip("\n")
@@ -1592,7 +1676,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
 
                             res = self._es_client.search(
                                 index="logs-generic-default",
-                                query={"ids": {"values": ["13bb9dbeab-000000000000"]}},
+                                query={"ids": {"values": ["f627fc186f-000000000000"]}},
                             )
 
                             assert res["hits"]["hits"][0]["_source"]["message"] == self._third_log_entry.rstrip("\n")
@@ -1636,7 +1720,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 98,
-                                "file": {"path": self._source_sqs_queue_info["QueueUrl"]},
+                                "file": {"path": self._queues_info["source-sqs-queue"]["QueueUrl"]},
                             }
                             assert res["hits"]["hits"][0]["_source"]["aws"] == {
                                 "sqs": {
@@ -1666,7 +1750,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 399,
-                                "file": {"path": self._source_sqs_queue_info["QueueUrl"]},
+                                "file": {"path": self._queues_info["source-sqs-queue"]["QueueUrl"]},
                             }
                             assert res["hits"]["hits"][0]["_source"]["aws"] == {
                                 "sqs": {
@@ -1780,7 +1864,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             # Remove the expected id for s3-sqs so that it can be replayed
                             self._es_client.delete_by_query(
                                 index="logs-generic-default",
-                                body={"query": {"match": {"_id": "e69eaefedb-000000000000"}}},
+                                body={"query": {"match": {"_id": "17b2d3c934-000000000000"}}},
                             )
 
                             # Remove the expected id for sqs so that it can be replayed
@@ -1812,7 +1896,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
 
                             res = self._es_client.search(
                                 index="logs-generic-default",
-                                query={"ids": {"values": ["e69eaefedb-000000000000"]}},
+                                query={"ids": {"values": ["17b2d3c934-000000000000"]}},
                             )
 
                             assert res["hits"]["hits"][0]["_source"]["message"] == self._first_log_entry.rstrip("\n")
@@ -1861,7 +1945,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 0,
-                                "file": {"path": self._source_sqs_queue_info["QueueUrl"]},
+                                "file": {"path": self._queues_info["source-sqs-queue"]["QueueUrl"]},
                             }
                             assert res["hits"]["hits"][0]["_source"]["aws"] == {
                                 "sqs": {
@@ -1927,8 +2011,8 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
 
     @mock.patch("handlers.aws.handler._completion_grace_period", 1)
     def test_lambda_handler_continuing(self) -> None:
-        first_filename: str = "exportedlogs/uuid/yyyy-mm-dd-[$LATEST]hash/000000.gz"
-        second_filename: str = "exportedlogs/uuid/yyyy-mm-dd-[$LATEST]hash/000001.gz"
+        first_filename: str = "exportedlog/uuid/yyyy-mm-dd-[$LATEST]hash/000000.gz"
+        second_filename: str = "exportedlog/uuid/yyyy-mm-dd-[$LATEST]hash/000001.gz"
         with mock.patch("storage.S3Storage._s3_client", _mock_awsclient(service_name="s3")):
             with mock.patch("handlers.aws.handler.get_sqs_client", lambda: _mock_awsclient(service_name="sqs")):
                 with mock.patch("handlers.aws.utils.get_sqs_client", lambda: _mock_awsclient(service_name="sqs")):
@@ -1944,27 +2028,31 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
                             ctx = ContextMock()
 
                             _s3_event_to_sqs_message(
-                                queue_attributes=self._source_s3_queue_info,
+                                queue_attributes=self._queues_info["source-s3-sqs-queue"],
                                 filenames=[first_filename, second_filename],
                                 single_message=False,
                             )
                             first_s3_event = _event_from_sqs_message(
-                                queue_attributes=self._source_s3_queue_info, limit_max_number_of_messages=1
+                                queue_attributes=self._queues_info["source-s3-sqs-queue"],
+                                limit_max_number_of_messages=1,
                             )
                             second_s3_event = _event_from_sqs_message(
-                                queue_attributes=self._source_s3_queue_info, limit_max_number_of_messages=1
+                                queue_attributes=self._queues_info["source-s3-sqs-queue"],
+                                limit_max_number_of_messages=1,
                             )
 
                             _event_to_sqs_message(
-                                queue_attributes=self._source_sqs_queue_info, message_body=self._cloudwatch_log
+                                queue_attributes=self._queues_info["source-sqs-queue"],
+                                message_body=self._cloudwatch_log,
                             )
-                            event_sqs = _event_from_sqs_message(queue_attributes=self._source_sqs_queue_info)
+                            event_sqs = _event_from_sqs_message(queue_attributes=self._queues_info["source-sqs-queue"])
 
                             _event_to_sqs_message(
-                                queue_attributes=self._source_no_config_queue_info, message_body=self._cloudwatch_log
+                                queue_attributes=self._queues_info["source-no-conf-queue"],
+                                message_body=self._cloudwatch_log,
                             )
                             event_no_config = _event_from_sqs_message(
-                                queue_attributes=self._source_no_config_queue_info
+                                queue_attributes=self._queues_info["source-no-conf-queue"]
                             )
 
                             message_id = event_sqs["Records"][0]["messageId"]
@@ -1998,7 +2086,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
 
                             res = self._es_client.search(
                                 index="logs-generic-default",
-                                query={"ids": {"values": ["e69eaefedb-000000000000"]}},
+                                query={"ids": {"values": ["17b2d3c934-000000000000"]}},
                             )
 
                             assert res["hits"]["hits"][0]["_source"]["message"] == self._first_log_entry.rstrip("\n")
@@ -2049,7 +2137,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 0,
-                                "file": {"path": self._source_sqs_queue_info["QueueUrl"]},
+                                "file": {"path": self._queues_info["source-sqs-queue"]["QueueUrl"]},
                             }
                             assert res["hits"]["hits"][0]["_source"]["aws"] == {
                                 "sqs": {
@@ -2167,7 +2255,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
 
                             res = self._es_client.search(
                                 index="logs-generic-default",
-                                query={"ids": {"values": ["e69eaefedb-000000000098"]}},
+                                query={"ids": {"values": ["17b2d3c934-000000000098"]}},
                             )
 
                             assert res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry.rstrip("\n")
@@ -2237,7 +2325,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 98,
-                                "file": {"path": self._source_sqs_queue_info["QueueUrl"]},
+                                "file": {"path": self._queues_info["source-sqs-queue"]["QueueUrl"]},
                             }
                             assert res["hits"]["hits"][0]["_source"]["aws"] == {
                                 "sqs": {
@@ -2291,7 +2379,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
 
                             res = self._es_client.search(
                                 index="logs-generic-default",
-                                query={"ids": {"values": ["13bb9dbeab-000000000000"]}},
+                                query={"ids": {"values": ["f627fc186f-000000000000"]}},
                             )
 
                             assert res["hits"]["hits"][0]["_source"]["message"] == self._third_log_entry.rstrip("\n")
@@ -2330,7 +2418,7 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
 
                             assert res["hits"]["hits"][0]["_source"]["log"] == {
                                 "offset": 399,
-                                "file": {"path": self._source_sqs_queue_info["QueueUrl"]},
+                                "file": {"path": self._queues_info["source-sqs-queue"]["QueueUrl"]},
                             }
                             assert res["hits"]["hits"][0]["_source"]["aws"] == {
                                 "sqs": {
@@ -2384,170 +2472,15 @@ class TestLambdaHandlerSuccessMixedInput(TestCase):
 
 
 @pytest.mark.integration
-class TestLambdaHandlerSuccessKinesisDataStream(TestCase):
+class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
     def setUp(self) -> None:
-        revert_handlers_aws_handler()
+        self._services = ["kinesis", "s3", "sqs", "secretsmanager"]
+        self._kinesis_streams = ["source-kinesis"]
 
-        docker_client = docker.from_env()
-        localstack.utils.aws.aws_stack.BOTO_CLIENTS_CACHE = {}
-
-        self._localstack_container = docker_client.containers.run(
-            "localstack/localstack",
-            detach=True,
-            environment=["SERVICES=s3,sqs,kinesis,secretsmanager"],
-            ports={"4566/tcp": None},
-        )
-
-        _wait_for_container(self._localstack_container, "4566/tcp")
-
-        self._KINESIS_BACKEND = os.environ.get("KINESIS_BACKEND", "")
-        self._S3_BACKEND = os.environ.get("S3_BACKEND", "")
-        self._SQS_BACKEND = os.environ.get("SQS_BACKEND", "")
-        self._SECRETSMANAGER_BACKEND = os.environ.get("SECRETSMANAGER_BACKEND", "")
-
-        self._LOCALSTACK_HOST_PORT: str = self._localstack_container.ports["4566/tcp"][0]["HostPort"]
-
-        os.environ["KINESIS_BACKEND"] = f"http://localhost:{self._LOCALSTACK_HOST_PORT}"
-        os.environ["S3_BACKEND"] = f"http://localhost:{self._LOCALSTACK_HOST_PORT}"
-        os.environ["SQS_BACKEND"] = f"http://localhost:{self._LOCALSTACK_HOST_PORT}"
-        os.environ["SECRETSMANAGER_BACKEND"] = f"http://localhost:{self._LOCALSTACK_HOST_PORT}"
-
-        _wait_for_localstack_service(aws_stack.connect_to_service(service_name="kinesis").list_streams)
-
-        _wait_for_localstack_service(aws_stack.connect_to_service(service_name="s3").list_buckets)
-
-        _wait_for_localstack_service(aws_stack.connect_to_service(service_name="sqs").list_queues)
-
-        _wait_for_localstack_service(aws_stack.connect_to_service(service_name="secretsmanager").list_secrets)
-
-        self._ELASTIC_USER: str = "elastic"
-        self._ELASTIC_PASSWORD: str = "password"
-
-        self._secret_arn = _create_secrets(
-            "es_secrets",
-            {"username": self._ELASTIC_USER, "password": self._ELASTIC_PASSWORD},
-            self._LOCALSTACK_HOST_PORT,
-        )
-
-        self._elastic_container = docker_client.containers.run(
-            "docker.elastic.co/elasticsearch/elasticsearch:7.16.2",
-            detach=True,
-            environment=[
-                "ES_JAVA_OPTS=-Xms1g -Xmx1g",
-                f"ELASTIC_PASSWORD={self._ELASTIC_PASSWORD}",
-                "xpack.security.enabled=true",
-                "discovery.type=single-node",
-                "network.bind_host=0.0.0.0",
-                "logger.org.elasticsearch=DEBUG",
-            ],
-            ports={"9200/tcp": None},
-        )
-
-        _wait_for_container(self._elastic_container, "9200/tcp")
-
-        self._ES_HOST_PORT: str = self._elastic_container.ports["9200/tcp"][0]["HostPort"]
-
-        self._es_client = Elasticsearch(
-            hosts=[f"127.0.0.1:{self._ES_HOST_PORT}"],
-            scheme="http",
-            http_auth=(self._ELASTIC_USER, self._ELASTIC_PASSWORD),
-            timeout=30,
-            max_retries=10,
-            retry_on_timeout=True,
-        )
-
-        while not self._es_client.ping():
-            time.sleep(1)
-
-        while True:
-            cluster_health = self._es_client.cluster.health(wait_for_status="green")
-            if "status" in cluster_health and cluster_health["status"] == "green":
-                break
-
-            time.sleep(1)
-
-        self._kinesis_stream = aws_stack.create_kinesis_stream("source-kinesis")
-        self._kinesis_client = aws_stack.connect_to_service("kinesis")
-
-        self._source_kinesis_info = self._kinesis_client.describe_stream(StreamName=self._kinesis_stream.stream_name)
-        self._continuing_queue_info = testutil.create_sqs_queue("continuing-queue")
-        self._replay_queue_info = testutil.create_sqs_queue("replay-queue")
-
-        self._config_yaml: str = f"""
-        inputs:
-          - type: "kinesis-data-stream"
-            id: "{self._source_kinesis_info["StreamDescription"]["StreamARN"]}"
-            exclude:
-              - "excluded"
-            tags:
-              - "tag1"
-              - "tag2"
-              - "tag3"
-            outputs:
-              - type: "elasticsearch"
-                args:
-                  elasticsearch_url: "http://127.0.0.1:{self._ES_HOST_PORT}"
-                  username: "{self._secret_arn}:username"
-                  password: "{self._secret_arn}:password"
-                """
-
-        _upload_content_to_bucket(
-            content=self._config_yaml,
-            content_type="text/plain",
-            bucket_name="config-bucket",
-            key_name="folder/config.yaml",
-        )
-
-        kinesis_waiter = self._kinesis_client.get_waiter("stream_exists")
-        while True:
-            try:
-                kinesis_waiter.wait(StreamName=self._kinesis_stream.stream_name)
-            except Exception:
-                time.sleep(1)
-            else:
-                break
-
-        os.environ["S3_CONFIG_FILE"] = "s3://config-bucket/folder/config.yaml"
-        os.environ["SQS_CONTINUE_URL"] = self._continuing_queue_info["QueueUrl"]
-        os.environ["SQS_REPLAY_URL"] = self._replay_queue_info["QueueUrl"]
+        super(TestLambdaHandlerSuccessKinesisDataStream, self).setUp()
 
     def tearDown(self) -> None:
-        os.environ["KINESIS_BACKEND"] = self._KINESIS_BACKEND
-        os.environ["S3_BACKEND"] = self._S3_BACKEND
-        os.environ["SQS_BACKEND"] = self._SQS_BACKEND
-
-        del os.environ["S3_CONFIG_FILE"]
-        del os.environ["SQS_CONTINUE_URL"]
-        del os.environ["SQS_REPLAY_URL"]
-
-        self._elastic_container.stop()
-        self._elastic_container.remove()
-
-        self._localstack_container.stop()
-        self._localstack_container.remove()
-
-    @staticmethod
-    def _event_from_kinesis_records(records: dict[str, Any], stream_attribute: dict[str, Any]) -> dict[str, Any]:
-        assert "Records" in records
-
-        new_records: list[dict[str, Any]] = []
-        for original_record in records["Records"]:
-            kinesis_record = {}
-
-            for key in original_record:
-                new_value = deepcopy(original_record[key])
-                camel_case_key = "".join([key[0].lower(), key[1:]])
-                kinesis_record[camel_case_key] = new_value
-
-            new_records.append(
-                {
-                    "kinesis": kinesis_record,
-                    "eventSource": "aws:kinesis",
-                    "eventSourceARN": stream_attribute["StreamDescription"]["StreamARN"],
-                }
-            )
-
-        return dict(Records=new_records)
+        super(TestLambdaHandlerSuccessKinesisDataStream, self).tearDown()
 
     @mock.patch("handlers.aws.handler._completion_grace_period", 1)
     def test_lambda_handler_kinesis_full(self) -> None:
@@ -2577,14 +2510,14 @@ class TestLambdaHandlerSuccessKinesisDataStream(TestCase):
                                 ),
                             },
                         ],
-                        StreamName=self._kinesis_stream.stream_name,
+                        StreamName=self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
                     )
 
                     shards_paginator = self._kinesis_client.get_paginator("list_shards")
                     shards_available = [
                         shard
                         for shard in shards_paginator.paginate(
-                            StreamName=self._kinesis_stream.stream_name,
+                            StreamName=self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
                             ShardFilter={"Type": "FROM_TRIM_HORIZON", "Timestamp": datetime.datetime(2015, 1, 1)},
                             PaginationConfig={
                                 "MaxItems": 1,
@@ -2596,7 +2529,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(TestCase):
                     assert len(shards_available) == 1 and len(shards_available[0]["Shards"]) == 1
 
                     shard_iterator = self._kinesis_client.get_shard_iterator(
-                        StreamName=self._kinesis_stream.stream_name,
+                        StreamName=self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
                         ShardId=shards_available[0]["Shards"][0]["ShardId"],
                         ShardIteratorType="TRIM_HORIZON",
                         Timestamp=datetime.datetime(2015, 1, 1),
@@ -2605,8 +2538,8 @@ class TestLambdaHandlerSuccessKinesisDataStream(TestCase):
                     records = self._kinesis_client.get_records(ShardIterator=shard_iterator["ShardIterator"], Limit=2)
 
                     ctx = ContextMock(remaining_time_in_millis=2)
-                    event = self._event_from_kinesis_records(
-                        records=records, stream_attribute=self._source_kinesis_info
+                    event = _event_from_kinesis_records(
+                        records=records, stream_attribute=self._kinesis_streams_info["source-kinesis"]
                     )
 
                     first_call = handler(event, ctx)  # type:ignore
@@ -2625,12 +2558,14 @@ class TestLambdaHandlerSuccessKinesisDataStream(TestCase):
                     )
                     assert res["hits"]["hits"][0]["_source"]["log"] == {
                         "offset": 0,
-                        "file": {"path": self._source_kinesis_info["StreamDescription"]["StreamARN"]},
+                        "file": {
+                            "path": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamARN"]
+                        },
                     }
                     assert res["hits"]["hits"][0]["_source"]["aws"] == {
                         "kinesis": {
                             "type": "stream",
-                            "name": self._kinesis_stream.stream_name,
+                            "name": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
                             "sequence_number": event["Records"][0]["kinesis"]["sequenceNumber"],
                         }
                     }
@@ -2655,12 +2590,14 @@ class TestLambdaHandlerSuccessKinesisDataStream(TestCase):
 
                     assert res["hits"]["hits"][1]["_source"]["log"] == {
                         "offset": 86,
-                        "file": {"path": self._source_kinesis_info["StreamDescription"]["StreamARN"]},
+                        "file": {
+                            "path": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamARN"]
+                        },
                     }
                     assert res["hits"]["hits"][1]["_source"]["aws"] == {
                         "kinesis": {
                             "type": "stream",
-                            "name": self._kinesis_stream.stream_name,
+                            "name": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
                             "sequence_number": event["Records"][0]["kinesis"]["sequenceNumber"],
                         }
                     }
@@ -2685,12 +2622,14 @@ class TestLambdaHandlerSuccessKinesisDataStream(TestCase):
 
                     assert res["hits"]["hits"][2]["_source"]["log"] == {
                         "offset": 27,
-                        "file": {"path": self._source_kinesis_info["StreamDescription"]["StreamARN"]},
+                        "file": {
+                            "path": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamARN"]
+                        },
                     }
                     assert res["hits"]["hits"][2]["_source"]["aws"] == {
                         "kinesis": {
                             "type": "stream",
-                            "name": self._kinesis_stream.stream_name,
+                            "name": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
                             "sequence_number": event["Records"][1]["kinesis"]["sequenceNumber"],
                         }
                     }
@@ -2739,14 +2678,14 @@ class TestLambdaHandlerSuccessKinesisDataStream(TestCase):
                                 ),
                             },
                         ],
-                        StreamName=self._kinesis_stream.stream_name,
+                        StreamName=self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
                     )
 
                     shards_paginator = self._kinesis_client.get_paginator("list_shards")
                     shards_available = [
                         shard
                         for shard in shards_paginator.paginate(
-                            StreamName=self._kinesis_stream.stream_name,
+                            StreamName=self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
                             ShardFilter={"Type": "FROM_TRIM_HORIZON", "Timestamp": datetime.datetime(2015, 1, 1)},
                             PaginationConfig={
                                 "MaxItems": 1,
@@ -2758,7 +2697,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(TestCase):
                     assert len(shards_available) == 1 and len(shards_available[0]["Shards"]) == 1
 
                     shard_iterator = self._kinesis_client.get_shard_iterator(
-                        StreamName=self._kinesis_stream.stream_name,
+                        StreamName=self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
                         ShardId=shards_available[0]["Shards"][0]["ShardId"],
                         ShardIteratorType="TRIM_HORIZON",
                         Timestamp=datetime.datetime(2015, 1, 1),
@@ -2767,8 +2706,8 @@ class TestLambdaHandlerSuccessKinesisDataStream(TestCase):
                     records = self._kinesis_client.get_records(ShardIterator=shard_iterator["ShardIterator"], Limit=2)
 
                     ctx = ContextMock()
-                    event = self._event_from_kinesis_records(
-                        records=records, stream_attribute=self._source_kinesis_info
+                    event = _event_from_kinesis_records(
+                        records=records, stream_attribute=self._kinesis_streams_info["source-kinesis"]
                     )
 
                     first_call = handler(event, ctx)  # type:ignore
@@ -2789,12 +2728,14 @@ class TestLambdaHandlerSuccessKinesisDataStream(TestCase):
                     )
                     assert res["hits"]["hits"][0]["_source"]["log"] == {
                         "offset": 0,
-                        "file": {"path": self._source_kinesis_info["StreamDescription"]["StreamARN"]},
+                        "file": {
+                            "path": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamARN"]
+                        },
                     }
                     assert res["hits"]["hits"][0]["_source"]["aws"] == {
                         "kinesis": {
                             "type": "stream",
-                            "name": self._kinesis_stream.stream_name,
+                            "name": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
                             "sequence_number": event["Records"][0]["kinesis"]["sequenceNumber"],
                         }
                     }
@@ -2819,12 +2760,14 @@ class TestLambdaHandlerSuccessKinesisDataStream(TestCase):
 
                     assert res["hits"]["hits"][1]["_source"]["log"] == {
                         "offset": 86,
-                        "file": {"path": self._source_kinesis_info["StreamDescription"]["StreamARN"]},
+                        "file": {
+                            "path": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamARN"]
+                        },
                     }
                     assert res["hits"]["hits"][1]["_source"]["aws"] == {
                         "kinesis": {
                             "type": "stream",
-                            "name": self._kinesis_stream.stream_name,
+                            "name": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
                             "sequence_number": event["Records"][0]["kinesis"]["sequenceNumber"],
                         }
                     }
@@ -2860,12 +2803,14 @@ class TestLambdaHandlerSuccessKinesisDataStream(TestCase):
 
                     assert res["hits"]["hits"][2]["_source"]["log"] == {
                         "offset": 0,
-                        "file": {"path": self._source_kinesis_info["StreamDescription"]["StreamARN"]},
+                        "file": {
+                            "path": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamARN"]
+                        },
                     }
                     assert res["hits"]["hits"][2]["_source"]["aws"] == {
                         "kinesis": {
                             "type": "stream",
-                            "name": self._kinesis_stream.stream_name,
+                            "name": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
                             "sequence_number": event["Records"][0]["kinesis"]["sequenceNumber"],
                         }
                     }
@@ -2889,112 +2834,12 @@ class TestLambdaHandlerSuccessKinesisDataStream(TestCase):
 
 
 @pytest.mark.integration
-class TestLambdaHandlerSuccessS3SQS(TestCase):
+class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
     def setUp(self) -> None:
-        revert_handlers_aws_handler()
+        self._services = ["s3", "sqs", "secretsmanager"]
+        self._queues = [{"name": "source-queue", "type": "s3-sqs"}]
 
-        docker_client = docker.from_env()
-        localstack.utils.aws.aws_stack.BOTO_CLIENTS_CACHE = {}
-
-        self._localstack_container = docker_client.containers.run(
-            "localstack/localstack",
-            detach=True,
-            environment=["SERVICES=s3,sqs,secretsmanager"],
-            ports={"4566/tcp": None},
-        )
-
-        _wait_for_container(self._localstack_container, "4566/tcp")
-
-        self._S3_BACKEND = os.environ.get("S3_BACKEND", "")
-        self._SQS_BACKEND = os.environ.get("SQS_BACKEND", "")
-        self._SECRETSMANAGER_BACKEND = os.environ.get("SECRETSMANAGER_BACKEND", "")
-
-        self._LOCALSTACK_HOST_PORT: str = self._localstack_container.ports["4566/tcp"][0]["HostPort"]
-
-        os.environ["S3_BACKEND"] = f"http://localhost:{self._LOCALSTACK_HOST_PORT}"
-        os.environ["SQS_BACKEND"] = f"http://localhost:{self._LOCALSTACK_HOST_PORT}"
-        os.environ["SECRETSMANAGER_BACKEND"] = f"http://localhost:{self._LOCALSTACK_HOST_PORT}"
-
-        _wait_for_localstack_service(aws_stack.connect_to_service(service_name="s3").list_buckets)
-
-        _wait_for_localstack_service(aws_stack.connect_to_service(service_name="sqs").list_queues)
-
-        _wait_for_localstack_service(aws_stack.connect_to_service(service_name="secretsmanager").list_secrets)
-
-        self._ELASTIC_USER: str = "elastic"
-        self._ELASTIC_PASSWORD: str = "password"
-
-        self._secret_arn = _create_secrets(
-            "es_secrets",
-            {"username": self._ELASTIC_USER, "password": self._ELASTIC_PASSWORD},
-            self._LOCALSTACK_HOST_PORT,
-        )
-
-        self._elastic_container = docker_client.containers.run(
-            "docker.elastic.co/elasticsearch/elasticsearch:7.16.3",
-            detach=True,
-            environment=[
-                "ES_JAVA_OPTS=-Xms1g -Xmx1g",
-                f"ELASTIC_PASSWORD={self._ELASTIC_PASSWORD}",
-                "xpack.security.enabled=true",
-                "discovery.type=single-node",
-                "network.bind_host=0.0.0.0",
-                "logger.org.elasticsearch=DEBUG",
-            ],
-            ports={"9200/tcp": None},
-        )
-
-        _wait_for_container(self._elastic_container, "9200/tcp")
-
-        self._ES_HOST_PORT: str = self._elastic_container.ports["9200/tcp"][0]["HostPort"]
-
-        self._es_client = Elasticsearch(
-            hosts=[f"127.0.0.1:{self._ES_HOST_PORT}"],
-            scheme="http",
-            http_auth=(self._ELASTIC_USER, self._ELASTIC_PASSWORD),
-            timeout=30,
-            max_retries=10,
-            retry_on_timeout=True,
-        )
-
-        while not self._es_client.ping():
-            time.sleep(1)
-
-        while True:
-            cluster_health = self._es_client.cluster.health(wait_for_status="green")
-            if "status" in cluster_health and cluster_health["status"] == "green":
-                break
-
-            time.sleep(1)
-
-        self._source_queue_info = testutil.create_sqs_queue("source-queue")
-        self._continuing_queue_info = testutil.create_sqs_queue("continuing-queue")
-        self._replay_queue_info = testutil.create_sqs_queue("replay-queue")
-
-        self._config_yaml: str = f"""
-        inputs:
-          - type: "s3-sqs"
-            id: "{self._source_queue_info["QueueArn"]}"
-            exclude:
-              - "excluded"
-            tags:
-              - "tag1"
-              - "tag2"
-              - "tag3"
-            outputs:
-              - type: "elasticsearch"
-                args:
-                  elasticsearch_url: "http://127.0.0.1:{self._ES_HOST_PORT}"
-                  username: "{self._secret_arn}:username"
-                  password: "{self._secret_arn}:password"
-                """
-
-        _upload_content_to_bucket(
-            content=self._config_yaml,
-            content_type="text/plain",
-            bucket_name="config-bucket",
-            key_name="folder/config.yaml",
-        )
+        super(TestLambdaHandlerSuccessS3SQS, self).setUp()
 
         cloudwatch_log: bytes = (
             b'{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}\n'
@@ -3026,24 +2871,8 @@ class TestLambdaHandlerSuccessS3SQS(TestCase):
             key_name="exportedlogs/uuid/yyyy-mm-dd-[$LATEST]hash/000001.gz",
         )
 
-        os.environ["S3_CONFIG_FILE"] = "s3://config-bucket/folder/config.yaml"
-        os.environ["SQS_CONTINUE_URL"] = self._continuing_queue_info["QueueUrl"]
-        os.environ["SQS_REPLAY_URL"] = self._replay_queue_info["QueueUrl"]
-
     def tearDown(self) -> None:
-        os.environ["S3_BACKEND"] = self._S3_BACKEND
-        os.environ["SQS_BACKEND"] = self._SQS_BACKEND
-        os.environ["SECRETSMANAGER_BACKEND"] = self._SECRETSMANAGER_BACKEND
-
-        del os.environ["S3_CONFIG_FILE"]
-        del os.environ["SQS_CONTINUE_URL"]
-        del os.environ["SQS_REPLAY_URL"]
-
-        self._elastic_container.stop()
-        self._elastic_container.remove()
-
-        self._localstack_container.stop()
-        self._localstack_container.remove()
+        super(TestLambdaHandlerSuccessS3SQS, self).tearDown()
 
     @mock.patch("handlers.aws.handler._completion_grace_period", 1)
     def test_lambda_handler_replay(self) -> None:
@@ -3067,8 +2896,10 @@ class TestLambdaHandlerSuccessS3SQS(TestCase):
 
                         ctx = ContextMock(remaining_time_in_millis=2)
 
-                        _s3_event_to_sqs_message(queue_attributes=self._source_queue_info, filenames=[filename])
-                        event = _event_from_sqs_message(queue_attributes=self._source_queue_info)
+                        _s3_event_to_sqs_message(
+                            queue_attributes=self._queues_info["source-queue"], filenames=[filename]
+                        )
+                        event = _event_from_sqs_message(queue_attributes=self._queues_info["source-queue"])
 
                         first_call = handler(event, ctx)  # type:ignore
 
@@ -3200,8 +3031,10 @@ class TestLambdaHandlerSuccessS3SQS(TestCase):
                     ):
 
                         ctx = ContextMock()
-                        _s3_event_to_sqs_message(queue_attributes=self._source_queue_info, filenames=[filename])
-                        event = _event_from_sqs_message(queue_attributes=self._source_queue_info)
+                        _s3_event_to_sqs_message(
+                            queue_attributes=self._queues_info["source-queue"], filenames=[filename]
+                        )
+                        event = _event_from_sqs_message(queue_attributes=self._queues_info["source-queue"])
 
                         first_call = handler(event, ctx)  # type:ignore
 
@@ -3325,140 +3158,15 @@ class TestLambdaHandlerSuccessS3SQS(TestCase):
 
 
 @pytest.mark.integration
-class TestLambdaHandlerSuccessSQS(TestCase):
-    @staticmethod
-    def _event_to_sqs_message(queue_attributes: dict[str, Any], message_body: str) -> None:
-        sqs_client = aws_stack.connect_to_service("sqs")
-
-        sqs_client.send_message(
-            QueueUrl=queue_attributes["QueueUrl"],
-            MessageBody=message_body,
-        )
-
+class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
     def setUp(self) -> None:
-        revert_handlers_aws_handler()
+        self._services = ["s3", "sqs", "secretsmanager"]
+        self._queues = [{"name": "source-queue", "type": "sqs"}]
 
-        docker_client = docker.from_env()
-        localstack.utils.aws.aws_stack.BOTO_CLIENTS_CACHE = {}
-
-        self._localstack_container = docker_client.containers.run(
-            "localstack/localstack",
-            detach=True,
-            environment=["SERVICES=s3,sqs,secretsmanager"],
-            ports={"4566/tcp": None},
-        )
-
-        _wait_for_container(self._localstack_container, "4566/tcp")
-
-        self._S3_BACKEND = os.environ.get("S3_BACKEND", "")
-        self._SQS_BACKEND = os.environ.get("SQS_BACKEND", "")
-        self._SECRETSMANAGER_BACKEND = os.environ.get("SECRETSMANAGER_BACKEND", "")
-
-        self._LOCALSTACK_HOST_PORT: str = self._localstack_container.ports["4566/tcp"][0]["HostPort"]
-
-        os.environ["S3_BACKEND"] = f"http://localhost:{self._LOCALSTACK_HOST_PORT}"
-        os.environ["SQS_BACKEND"] = f"http://localhost:{self._LOCALSTACK_HOST_PORT}"
-        os.environ["SECRETSMANAGER_BACKEND"] = f"http://localhost:{self._LOCALSTACK_HOST_PORT}"
-
-        _wait_for_localstack_service(aws_stack.connect_to_service(service_name="s3").list_buckets)
-
-        _wait_for_localstack_service(aws_stack.connect_to_service(service_name="sqs").list_queues)
-
-        _wait_for_localstack_service(aws_stack.connect_to_service(service_name="secretsmanager").list_secrets)
-
-        self._ELASTIC_USER: str = "elastic"
-        self._ELASTIC_PASSWORD: str = "password"
-
-        self._secret_arn = _create_secrets(
-            "es_secrets",
-            {"username": self._ELASTIC_USER, "password": self._ELASTIC_PASSWORD},
-            self._LOCALSTACK_HOST_PORT,
-        )
-
-        self._elastic_container = docker_client.containers.run(
-            "docker.elastic.co/elasticsearch/elasticsearch:7.16.3",
-            detach=True,
-            environment=[
-                "ES_JAVA_OPTS=-Xms1g -Xmx1g",
-                f"ELASTIC_PASSWORD={self._ELASTIC_PASSWORD}",
-                "xpack.security.enabled=true",
-                "discovery.type=single-node",
-                "network.bind_host=0.0.0.0",
-                "logger.org.elasticsearch=DEBUG",
-            ],
-            ports={"9200/tcp": None},
-        )
-
-        _wait_for_container(self._elastic_container, "9200/tcp")
-
-        self._ES_HOST_PORT: str = self._elastic_container.ports["9200/tcp"][0]["HostPort"]
-
-        self._es_client = Elasticsearch(
-            hosts=[f"127.0.0.1:{self._ES_HOST_PORT}"],
-            scheme="http",
-            http_auth=(self._ELASTIC_USER, self._ELASTIC_PASSWORD),
-            timeout=30,
-            max_retries=10,
-            retry_on_timeout=True,
-        )
-
-        while not self._es_client.ping():
-            time.sleep(1)
-
-        while True:
-            cluster_health = self._es_client.cluster.health(wait_for_status="green")
-            if "status" in cluster_health and cluster_health["status"] == "green":
-                break
-
-            time.sleep(1)
-
-        self._source_queue_info = testutil.create_sqs_queue("source-queue")
-        self._continuing_queue_info = testutil.create_sqs_queue("continuing-queue")
-        self._replay_queue_info = testutil.create_sqs_queue("replay-queue")
-
-        self._config_yaml: str = f"""
-        inputs:
-          - type: "sqs"
-            id: "{self._source_queue_info["QueueArn"]}"
-            exclude:
-              - "excluded"
-            tags:
-              - "tag1"
-              - "tag2"
-              - "tag3"
-            outputs:
-              - type: "elasticsearch"
-                args:
-                  elasticsearch_url: "http://127.0.0.1:{self._ES_HOST_PORT}"
-                  username: "{self._secret_arn}:username"
-                  password: "{self._secret_arn}:password"
-                """
-
-        _upload_content_to_bucket(
-            content=self._config_yaml,
-            content_type="text/plain",
-            bucket_name="config-bucket",
-            key_name="folder/config.yaml",
-        )
-
-        os.environ["S3_CONFIG_FILE"] = "s3://config-bucket/folder/config.yaml"
-        os.environ["SQS_CONTINUE_URL"] = self._continuing_queue_info["QueueUrl"]
-        os.environ["SQS_REPLAY_URL"] = self._replay_queue_info["QueueUrl"]
+        super(TestLambdaHandlerSuccessSQS, self).setUp()
 
     def tearDown(self) -> None:
-        os.environ["S3_BACKEND"] = self._S3_BACKEND
-        os.environ["SQS_BACKEND"] = self._SQS_BACKEND
-        os.environ["SECRETSMANAGER_BACKEND"] = self._SECRETSMANAGER_BACKEND
-
-        del os.environ["S3_CONFIG_FILE"]
-        del os.environ["SQS_CONTINUE_URL"]
-        del os.environ["SQS_REPLAY_URL"]
-
-        self._elastic_container.stop()
-        self._elastic_container.remove()
-
-        self._localstack_container.stop()
-        self._localstack_container.remove()
+        super(TestLambdaHandlerSuccessSQS, self).tearDown()
 
     @mock.patch("handlers.aws.handler._completion_grace_period", 1)
     def test_lambda_handler_replay(self) -> None:
@@ -3477,9 +3185,11 @@ class TestLambdaHandlerSuccessSQS(TestCase):
                             '"from": "the", "continuing": "queue"}'
                         )
 
-                        _event_to_sqs_message(queue_attributes=self._source_queue_info, message_body=cloudwatch_log)
+                        _event_to_sqs_message(
+                            queue_attributes=self._queues_info["source-queue"], message_body=cloudwatch_log
+                        )
 
-                        event = _event_from_sqs_message(queue_attributes=self._source_queue_info)
+                        event = _event_from_sqs_message(queue_attributes=self._queues_info["source-queue"])
 
                         message_id = event["Records"][0]["messageId"]
                         src: str = f"source-queue{message_id}"
@@ -3516,7 +3226,7 @@ class TestLambdaHandlerSuccessSQS(TestCase):
 
                         assert res["hits"]["hits"][0]["_source"]["log"] == {
                             "offset": 113,
-                            "file": {"path": self._source_queue_info["QueueUrl"]},
+                            "file": {"path": self._queues_info["source-queue"]["QueueUrl"]},
                         }
                         assert res["hits"]["hits"][0]["_source"]["aws"] == {
                             "sqs": {
@@ -3544,7 +3254,7 @@ class TestLambdaHandlerSuccessSQS(TestCase):
 
                         assert res["hits"]["hits"][1]["_source"]["log"] == {
                             "offset": 279,
-                            "file": {"path": self._source_queue_info["QueueUrl"]},
+                            "file": {"path": self._queues_info["source-queue"]["QueueUrl"]},
                         }
                         assert res["hits"]["hits"][1]["_source"]["aws"] == {
                             "sqs": {
@@ -3595,7 +3305,7 @@ class TestLambdaHandlerSuccessSQS(TestCase):
                         )
                         assert res["hits"]["hits"][2]["_source"]["log"] == {
                             "offset": 0,
-                            "file": {"path": self._source_queue_info["QueueUrl"]},
+                            "file": {"path": self._queues_info["source-queue"]["QueueUrl"]},
                         }
                         assert res["hits"]["hits"][2]["_source"]["aws"] == {
                             "sqs": {
@@ -3634,11 +3344,11 @@ class TestLambdaHandlerSuccessSQS(TestCase):
                             '{"another": "continuation", "from": "the", "continuing": "queue"}\n'
                         )
 
-                        self._event_to_sqs_message(
-                            queue_attributes=self._source_queue_info, message_body=cloudwatch_log
+                        _event_to_sqs_message(
+                            queue_attributes=self._queues_info["source-queue"], message_body=cloudwatch_log
                         )
 
-                        event = _event_from_sqs_message(queue_attributes=self._source_queue_info)
+                        event = _event_from_sqs_message(queue_attributes=self._queues_info["source-queue"])
 
                         first_call = handler(event, ctx)  # type:ignore
 
@@ -3656,7 +3366,7 @@ class TestLambdaHandlerSuccessSQS(TestCase):
                         )
                         assert res["hits"]["hits"][0]["_source"]["log"] == {
                             "offset": 0,
-                            "file": {"path": self._source_queue_info["QueueUrl"]},
+                            "file": {"path": self._queues_info["source-queue"]["QueueUrl"]},
                         }
                         assert res["hits"]["hits"][0]["_source"]["aws"] == {
                             "sqs": {
@@ -3696,7 +3406,7 @@ class TestLambdaHandlerSuccessSQS(TestCase):
 
                         assert res["hits"]["hits"][1]["_source"]["log"] == {
                             "offset": 86,
-                            "file": {"path": self._source_queue_info["QueueUrl"]},
+                            "file": {"path": self._queues_info["source-queue"]["QueueUrl"]},
                         }
                         assert res["hits"]["hits"][1]["_source"]["aws"] == {
                             "sqs": {
@@ -3737,7 +3447,7 @@ class TestLambdaHandlerSuccessSQS(TestCase):
 
                         assert res["hits"]["hits"][2]["_source"]["log"] == {
                             "offset": 252,
-                            "file": {"path": self._source_queue_info["QueueUrl"]},
+                            "file": {"path": self._queues_info["source-queue"]["QueueUrl"]},
                         }
                         assert res["hits"]["hits"][2]["_source"]["aws"] == {
                             "sqs": {
@@ -3767,188 +3477,15 @@ class TestLambdaHandlerSuccessSQS(TestCase):
 
 
 @pytest.mark.integration
-class TestLambdaHandlerSuccessCloudWatchLogs(TestCase):
-    @staticmethod
-    def _create_cloudwatch_logs_group_and_stream(group_name: str, stream_name: str) -> Any:
-        logs_client = aws_stack.connect_to_service("logs")
-        logs_client.create_log_group(logGroupName=group_name)
-        logs_client.create_log_stream(logGroupName=group_name, logStreamName=stream_name)
-
-        return logs_client.describe_log_groups(logGroupNamePrefix=group_name)["logGroups"][0]
-
-    @staticmethod
-    def _event_to_cloudwatch_logs(group_name: str, stream_name: str, message_body: str) -> None:
-        now = int(datetime.datetime.utcnow().strftime("%s")) * 1000
-        logs_client = aws_stack.connect_to_service("logs")
-        logs_client.put_log_events(
-            logGroupName=group_name,
-            logStreamName=stream_name,
-            logEvents=[{"timestamp": now, "message": message_body}],
-        )
-
-    @staticmethod
-    def _event_from_cloudwatch_logs(group_name: str, stream_name: str) -> tuple[dict[str, Any], str]:
-        logs_client = aws_stack.connect_to_service("logs")
-        events = logs_client.get_log_events(logGroupName=group_name, logStreamName=stream_name)
-
-        assert "events" in events
-        assert len(events["events"]) == 1
-
-        event_id = "".join(random.choices(string.digits, k=56))
-        data_json = json.dumps(
-            {
-                "messageType": "DATA_MESSAGE",
-                "owner": "000000000000",
-                "logGroup": group_name,
-                "logStream": stream_name,
-                "subscriptionFilters": ["a-subscription-filter"],
-                "logEvents": [
-                    {
-                        "id": event_id,
-                        "timestamp": events["events"][0]["timestamp"],
-                        "message": events["events"][0]["message"],
-                    }
-                ],
-            }
-        )
-
-        data_gzip = gzip.compress(data_json.encode("UTF-8"))
-        data_base64encoded = base64.b64encode(data_gzip)
-
-        return {"event": {"awslogs": {"data": data_base64encoded}}}, event_id
-
+class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
     def setUp(self) -> None:
-        revert_handlers_aws_handler()
+        self._services = ["logs", "s3", "sqs", "secretsmanager"]
+        self._cloudwatch_logs_groups = [{"group_name": "source-group", "stream_name": "source-stream"}]
 
-        docker_client = docker.from_env()
-        localstack.utils.aws.aws_stack.BOTO_CLIENTS_CACHE = {}
-
-        self._localstack_container = docker_client.containers.run(
-            "localstack/localstack",
-            detach=True,
-            environment=["SERVICES=logs,s3,sqs,secretsmanager"],
-            ports={"4566/tcp": None},
-        )
-
-        _wait_for_container(self._localstack_container, "4566/tcp")
-
-        self._LOGS_BACKEND = os.environ.get("S3_BACKEND", "")
-        self._S3_BACKEND = os.environ.get("S3_BACKEND", "")
-        self._SQS_BACKEND = os.environ.get("SQS_BACKEND", "")
-        self._SECRETSMANAGER_BACKEND = os.environ.get("SECRETSMANAGER_BACKEND", "")
-
-        self._LOCALSTACK_HOST_PORT: str = self._localstack_container.ports["4566/tcp"][0]["HostPort"]
-
-        os.environ["LOGS_BACKEND"] = f"http://localhost:{self._LOCALSTACK_HOST_PORT}"
-        os.environ["S3_BACKEND"] = f"http://localhost:{self._LOCALSTACK_HOST_PORT}"
-        os.environ["SQS_BACKEND"] = f"http://localhost:{self._LOCALSTACK_HOST_PORT}"
-        os.environ["SECRETSMANAGER_BACKEND"] = f"http://localhost:{self._LOCALSTACK_HOST_PORT}"
-
-        _wait_for_localstack_service(aws_stack.connect_to_service(service_name="logs").describe_log_groups)
-
-        _wait_for_localstack_service(aws_stack.connect_to_service(service_name="s3").list_buckets)
-
-        _wait_for_localstack_service(aws_stack.connect_to_service(service_name="sqs").list_queues)
-
-        _wait_for_localstack_service(aws_stack.connect_to_service(service_name="secretsmanager").list_secrets)
-
-        self._ELASTIC_USER: str = "elastic"
-        self._ELASTIC_PASSWORD: str = "password"
-
-        self._secret_arn = _create_secrets(
-            "es_secrets",
-            {"username": self._ELASTIC_USER, "password": self._ELASTIC_PASSWORD},
-            self._LOCALSTACK_HOST_PORT,
-        )
-
-        self._elastic_container = docker_client.containers.run(
-            "docker.elastic.co/elasticsearch/elasticsearch:7.16.3",
-            detach=True,
-            environment=[
-                "ES_JAVA_OPTS=-Xms1g -Xmx1g",
-                f"ELASTIC_PASSWORD={self._ELASTIC_PASSWORD}",
-                "xpack.security.enabled=true",
-                "discovery.type=single-node",
-                "network.bind_host=0.0.0.0",
-                "logger.org.elasticsearch=DEBUG",
-            ],
-            ports={"9200/tcp": None},
-        )
-
-        _wait_for_container(self._elastic_container, "9200/tcp")
-
-        self._ES_HOST_PORT: str = self._elastic_container.ports["9200/tcp"][0]["HostPort"]
-
-        self._es_client = Elasticsearch(
-            hosts=[f"127.0.0.1:{self._ES_HOST_PORT}"],
-            scheme="http",
-            http_auth=(self._ELASTIC_USER, self._ELASTIC_PASSWORD),
-            timeout=30,
-            max_retries=10,
-            retry_on_timeout=True,
-        )
-
-        while not self._es_client.ping():
-            time.sleep(1)
-
-        while True:
-            cluster_health = self._es_client.cluster.health(wait_for_status="green")
-            if "status" in cluster_health and cluster_health["status"] == "green":
-                break
-
-            time.sleep(1)
-
-        self._source_cloudwatch_logs_group_info = self._create_cloudwatch_logs_group_and_stream(
-            group_name="source-group", stream_name="source-stream"
-        )
-
-        self._continuing_queue_info = testutil.create_sqs_queue("continuing-queue")
-        self._replay_queue_info = testutil.create_sqs_queue("replay-queue")
-
-        self._config_yaml: str = f"""
-        inputs:
-          - type: "cloudwatch-logs"
-            id: "{self._source_cloudwatch_logs_group_info["arn"]}"
-            exclude:
-              - "excluded"
-            tags:
-              - "tag1"
-              - "tag2"
-              - "tag3"
-            outputs:
-              - type: "elasticsearch"
-                args:
-                  elasticsearch_url: "http://127.0.0.1:{self._ES_HOST_PORT}"
-                  username: "{self._secret_arn}:username"
-                  password: "{self._secret_arn}:password"
-                """
-
-        _upload_content_to_bucket(
-            content=self._config_yaml,
-            content_type="text/plain",
-            bucket_name="config-bucket",
-            key_name="folder/config.yaml",
-        )
-
-        os.environ["S3_CONFIG_FILE"] = "s3://config-bucket/folder/config.yaml"
-        os.environ["SQS_CONTINUE_URL"] = self._continuing_queue_info["QueueUrl"]
-        os.environ["SQS_REPLAY_URL"] = self._replay_queue_info["QueueUrl"]
+        super(TestLambdaHandlerSuccessCloudWatchLogs, self).setUp()
 
     def tearDown(self) -> None:
-        os.environ["LOGS_BACKEND"] = self._LOGS_BACKEND
-        os.environ["S3_BACKEND"] = self._S3_BACKEND
-        os.environ["SQS_BACKEND"] = self._SQS_BACKEND
-        os.environ["SECRETSMANAGER_BACKEND"] = self._SECRETSMANAGER_BACKEND
-
-        del os.environ["S3_CONFIG_FILE"]
-        del os.environ["SQS_CONTINUE_URL"]
-        del os.environ["SQS_REPLAY_URL"]
-
-        self._elastic_container.stop()
-        self._elastic_container.remove()
-
-        self._localstack_container.stop()
-        self._localstack_container.remove()
+        super(TestLambdaHandlerSuccessCloudWatchLogs, self).tearDown()
 
     @mock.patch("handlers.aws.handler._completion_grace_period", 1)
     def test_lambda_handler_replay(self) -> None:
@@ -3970,11 +3507,11 @@ class TestLambdaHandlerSuccessCloudWatchLogs(TestCase):
                                 '"from": "the", "continuing": "queue"}'
                             )
 
-                            self._event_to_cloudwatch_logs(
+                            _event_to_cloudwatch_logs(
                                 group_name="source-group", stream_name="source-stream", message_body=cloudwatch_log
                             )
 
-                            event, event_id = self._event_from_cloudwatch_logs(
+                            event, event_id = _event_from_cloudwatch_logs(
                                 group_name="source-group", stream_name="source-stream"
                             )
 
