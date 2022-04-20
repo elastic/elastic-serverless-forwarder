@@ -1422,6 +1422,8 @@ class IntegrationTestCase(TestCase):
             self._config_yaml += f"""
               - type: "cloudwatch-logs"
                 id: "{self._cloudwatch_logs_groups_info[cloudwatch_logs_group["group_name"]]["arn"]}"
+                exclude:
+                  - "excluded"
                 tags:
                   - "tag1"
                   - "tag2"
@@ -1444,6 +1446,8 @@ class IntegrationTestCase(TestCase):
             self._config_yaml += f"""
               - type: {queue["type"]}
                 id: "{self._queues_info[queue["name"]]["QueueArn"]}"
+                exclude:
+                  - "excluded"
                 tags:
                   - "tag1"
                   - "tag2"
