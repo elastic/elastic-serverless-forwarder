@@ -559,9 +559,12 @@ class TestLambdaHandlerNoop(TestCase):
 
 @pytest.mark.unit
 class TestLambdaHandlerFailure(TestCase):
-    @mock.patch("share.secretsmanager._get_aws_sm_client", new=MockContent._get_aws_sm_client)
-    def test_lambda_handler_failure(self) -> None:
+    def setUp(self) -> None:
         revert_handlers_aws_handler()
+
+    @mock.patch("share.secretsmanager._get_aws_sm_client", new=MockContent._get_aws_sm_client)
+    @mock.patch("handlers.aws.handler.get_sqs_client", lambda: _mock_awsclient(service_name="sqs"))
+    def test_lambda_handler_failure(self) -> None:
 
         dummy_event: dict[str, Any] = {
             "Records": [
