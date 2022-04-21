@@ -29,7 +29,6 @@ class MockContent(MockContentBase):
 
         MockContent.f_content_gzip = base64.b64encode(gzip.compress(MockContentBase.mock_content))
         MockContent.f_content_plain = base64.b64encode(MockContentBase.mock_content)
-
         MockContent.f_size_gzip = len(MockContent.f_content_gzip)
         MockContent.f_size_plain = len(MockContent.f_content_plain)
 
@@ -77,8 +76,6 @@ class TestPayloadStorage(TestCase):
                         payload_content_plain = MockContent.f_content_plain.decode("utf-8")
 
                         joiner_token: bytes = newline
-                        if content_type is _IS_JSON:
-                            joiner_token += newline
 
                         original: bytes = base64.b64decode(MockContent.f_content_plain)
                         original_length: int = len(original)

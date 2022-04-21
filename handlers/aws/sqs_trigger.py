@@ -102,18 +102,14 @@ def _handle_sqs_event(
         es_event["fields"]["log"]["offset"] = starting_offset
 
         if is_continuation_of_cloudwatch_logs:
-            event_id = ""
-            log_group_name = ""
-            log_stream_name = ""
+            assert "originalEventId" in payload
+            event_id = payload["originalEventId"]["stringValue"]
 
-            if "originalEventId" in payload:
-                event_id = payload["originalEventId"]["stringValue"]
+            assert "originalLogGroup" in payload
+            log_group_name = payload["originalLogGroup"]["stringValue"]
 
-            if "originalLogGroup" in payload:
-                log_group_name = payload["originalLogGroup"]["stringValue"]
-
-            if "originalLogStream" in payload:
-                log_stream_name = payload["originalLogStream"]["stringValue"]
+            assert "originalLogStream" in payload
+            log_stream_name = payload["originalLogStream"]["stringValue"]
 
             es_event["fields"]["log"]["file"]["path"] = f"{log_group_name}/{log_stream_name}"
 

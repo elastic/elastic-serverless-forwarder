@@ -33,7 +33,7 @@ class Output:
             raise ValueError("Output type must be of type str")
 
         if value not in _available_output_types:
-            raise ValueError(f"Type must be one of {','.join(_available_output_types)}")
+            raise ValueError(f"Type must be one of {','.join(_available_output_types)}: {value} given")
         self._type = value
 
 
@@ -208,7 +208,7 @@ class Input:
             raise ValueError("Input type must be of type str")
 
         if value not in _available_input_types:
-            raise ValueError(f"Input type must be one of {','.join(_available_input_types)}")
+            raise ValueError(f"Input type must be one of {','.join(_available_input_types)}: {value} given")
         self._type = value
 
     @property
@@ -291,8 +291,9 @@ class Input:
         output: Optional[Output] = None
         if output_type == "elasticsearch":
             output = ElasticsearchOutput(**kwargs)
+        else:
+            output = Output(output_type=output_type)
 
-        assert output is not None
         self._outputs[output.type] = output
 
 
@@ -302,28 +303,16 @@ class Config:
     """
 
     def __init__(self) -> None:
-        self._inputs: dict[str, dict[str, Input]] = {}
+        self._inputs: dict[str, Input] = {}
 
-    def get_input_by_type_and_id(self, input_type: str, input_id: str) -> Optional[Input]:
+    def get_input_by_id(self, input_id: str) -> Optional[Input]:
         """
         Input getter.
-        Returns a specific input given its type and id
+        Returns a specific input given its id
         """
 
-        if input_type not in self._inputs:
-            return None
-
-        return self._inputs[input_type][input_id] if input_id in self._inputs[input_type] else None
-
-    def get_input_type_by_id(self, input_id: str) -> Optional[str]:
-        """
-        Input type getter.
-        Returns a specific input type given an input id
-        """
-
-        for input_type in self._inputs.keys():
-            if input_id in self._inputs[input_type]:
-                return input_type
+        if input_id in self._inputs:
+            return self._inputs[input_id]
 
         return None
 
@@ -333,15 +322,10 @@ class Config:
         Set an input.
         """
 
-        if new_input.type not in self._inputs:
-            self._inputs[new_input.type] = {new_input.id: new_input}
+        if new_input.id in self._inputs:
+            raise ValueError(f"duplicated input {new_input.id}")
 
-            return
-
-        if new_input.id in self._inputs[new_input.type]:
-            raise ValueError(f"duplicated input {new_input.type}/{new_input.id}")
-
-        self._inputs[new_input.type][new_input.id] = new_input
+        self._inputs[new_input.id] = new_input
 
 
 def parse_config(

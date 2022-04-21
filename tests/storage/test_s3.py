@@ -109,8 +109,6 @@ class TestS3Storage(TestCase):
                         )
 
                         joiner_token: bytes = newline
-                        if content_type is _IS_JSON:
-                            joiner_token += newline
 
                         original_length: int = MockContent.f_size_plain
 

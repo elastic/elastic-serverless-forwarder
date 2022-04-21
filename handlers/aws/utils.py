@@ -10,12 +10,21 @@ from typing import Any, Callable, Optional
 import boto3
 from aws_lambda_typing import context as context_
 from botocore.client import BaseClient as BotoBaseClient
-from elasticapm import Client, get_client
+from elasticapm import Client
+from elasticapm import get_client as get_apm_client
 from elasticapm.contrib.serverless.aws import capture_serverless as apm_capture_serverless  # noqa: F401
 
 from share import Input, Output, shared_logger
 from shippers import CompositeShipper, ElasticsearchShipper, ShipperFactory
 from storage import CommonStorage, StorageFactory
+
+from .exceptions import (
+    ConfigFileException,
+    InputConfigException,
+    OutputConfigException,
+    ReplayHandlerException,
+    TriggerTypeException,
+)
 
 _available_triggers: dict[str, str] = {"aws:s3": "s3-sqs", "aws:sqs": "sqs", "aws:kinesis": "kinesis-data-stream"}
 
@@ -60,36 +69,6 @@ def capture_serverless(
     return apm_capture_serverless()(func)  # type:ignore
 
 
-class TriggerTypeException(Exception):
-    """Raised when there is an error related to the trigger type"""
-
-    pass
-
-
-class ConfigFileException(Exception):
-    """Raised when there is an error related to the config file"""
-
-    pass
-
-
-class InputConfigException(Exception):
-    """Raised when there is an error related to the configured input"""
-
-    pass
-
-
-class OutputConfigException(Exception):
-    """Raised when there is an error related to the configured output"""
-
-    pass
-
-
-class ReplayHandlerException(Exception):
-    """Raised when there is an error in ingestion in the replay queue"""
-
-    pass
-
-
 def wrap_try_except(
     func: Callable[[dict[str, Any], context_.Context], str]
 ) -> Callable[[dict[str, Any], context_.Context], str]:
@@ -100,7 +79,7 @@ def wrap_try_except(
     """
 
     def wrapper(lambda_event: dict[str, Any], lambda_context: context_.Context) -> str:
-        apm_client: Client = get_client()
+        apm_client: Client = get_apm_client()
         try:
             return func(lambda_event, lambda_context)
 
@@ -146,10 +125,7 @@ def discover_integration_scope(lambda_event: dict[str, Any], at_record: int) -> 
     s3_object_key: str = ""
     try:
         json_body: dict[str, Any] = json.loads(body)
-
-        if isinstance(json_body, dict) and "Records" in json_body and len(json_body["Records"]) > 0:
-            if "s3" in json_body["Records"][0]:
-                s3_object_key = json_body["Records"][0]["s3"]["object"]["key"]
+        s3_object_key = json_body["Records"][0]["s3"]["object"]["key"]
     except Exception:
         pass
 
@@ -187,28 +163,24 @@ def get_shipper_from_input(
         if output_type == "elasticsearch":
             shared_logger.info("setting ElasticSearch shipper")
             output: Optional[Output] = event_input.get_output_by_type("elasticsearch")
-            if output is None:
-                raise OutputConfigException("no available output for elasticsearch type")
+            assert output is not None
 
-            try:
-                shipper: ElasticsearchShipper = ShipperFactory.create_from_output(
-                    output_type="elasticsearch", output=output
-                )
-                composite_shipper.add_shipper(shipper=shipper)
-                composite_shipper.set_integration_scope(integration_scope=integration_scope)
-                replay_handler = ReplayEventHandler(config_yaml=config_yaml, event_input=event_input)
-                composite_shipper.set_replay_handler(replay_handler=replay_handler.replay_handler)
+            shipper: ElasticsearchShipper = ShipperFactory.create_from_output(
+                output_type="elasticsearch", output=output
+            )
+            composite_shipper.add_shipper(shipper=shipper)
+            composite_shipper.set_integration_scope(integration_scope=integration_scope)
+            replay_handler = ReplayEventHandler(config_yaml=config_yaml, event_input=event_input)
+            composite_shipper.set_replay_handler(replay_handler=replay_handler.replay_handler)
 
-                if event_input.type == "cloudwatch-logs":
-                    composite_shipper.set_event_id_generator(event_id_generator=cloudwatch_logs_object_id)
-                elif event_input.type == "sqs":
-                    composite_shipper.set_event_id_generator(event_id_generator=sqs_object_id)
-                elif event_input.type == "s3-sqs":
-                    composite_shipper.set_event_id_generator(event_id_generator=s3_object_id)
-                elif event_input.type == "kinesis-data-stream":
-                    composite_shipper.set_event_id_generator(event_id_generator=kinesis_record_id)
-            except Exception as e:
-                raise OutputConfigException(e)
+            if event_input.type == "cloudwatch-logs":
+                composite_shipper.set_event_id_generator(event_id_generator=cloudwatch_logs_object_id)
+            elif event_input.type == "sqs":
+                composite_shipper.set_event_id_generator(event_id_generator=sqs_object_id)
+            elif event_input.type == "s3-sqs":
+                composite_shipper.set_event_id_generator(event_id_generator=s3_object_id)
+            elif event_input.type == "kinesis-data-stream":
+                composite_shipper.set_event_id_generator(event_id_generator=kinesis_record_id)
 
     composite_shipper.add_include_exclude_filter(event_input.include_exclude_filter)
 
@@ -316,7 +288,7 @@ def get_trigger_type_and_config_source(event: dict[str, Any]) -> tuple[str, str]
     and if the config must be read from attributes or from S3 file in env
     """
 
-    if "event" in event and "awslogs" in event["event"] and "data" in event["event"]["awslogs"]:
+    if "awslogs" in event and "data" in event["awslogs"]:
         return "cloudwatch-logs", CONFIG_FROM_S3FILE
 
     if "Records" not in event or len(event["Records"]) < 1:
@@ -329,7 +301,7 @@ def get_trigger_type_and_config_source(event: dict[str, Any]) -> tuple[str, str]
         try:
             body = json.loads(event_body)
             if (
-                (body, dict)
+                isinstance(body, dict)
                 and "output_type" in event_body
                 and "output_args" in event_body
                 and "event_payload" in event_body
@@ -343,6 +315,8 @@ def get_trigger_type_and_config_source(event: dict[str, Any]) -> tuple[str, str]
                 and "eventSource" in body["Records"][0]
             ):
                 event_source = body["Records"][0]["eventSource"]
+            else:
+                raise Exception
         except Exception:
             if "eventSource" not in first_record:
                 raise Exception("Not supported trigger")
@@ -360,13 +334,6 @@ def get_trigger_type_and_config_source(event: dict[str, Any]) -> tuple[str, str]
     trigger_type: Optional[str] = _available_triggers[event_source]
     assert trigger_type is not None
 
-    if (
-        trigger_type == "kinesis-data-stream"
-        and "kinesis" not in first_record
-        and "data" not in first_record["kinesis"]
-    ):
-        raise Exception("Not supported trigger")
-
     if "messageAttributes" not in first_record:
         return trigger_type, CONFIG_FROM_S3FILE
 
@@ -380,7 +347,6 @@ class ReplayEventHandler:
     def __init__(self, config_yaml: str, event_input: Input):
         self._config_yaml: str = config_yaml
         self._event_input_id: str = event_input.id
-        self._event_input_type: str = event_input.type
 
     def replay_handler(self, output_type: str, output_args: dict[str, Any], event_payload: dict[str, Any]) -> None:
         sqs_replay_queue = os.environ["SQS_REPLAY_URL"]
@@ -392,7 +358,6 @@ class ReplayEventHandler:
             "output_args": output_args,
             "event_payload": event_payload,
             "event_input_id": self._event_input_id,
-            "event_input_type": self._event_input_type,
         }
 
         sqs_client.send_message(

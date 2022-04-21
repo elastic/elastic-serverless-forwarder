@@ -7,7 +7,8 @@ from typing import Any, Optional
 from share import Config, ElasticsearchOutput, Input, Output, shared_logger
 from shippers import ElasticsearchShipper, ShipperFactory
 
-from .utils import InputConfigException, OutputConfigException, ReplayHandlerException, delete_sqs_record
+from .exceptions import InputConfigException, OutputConfigException, ReplayHandlerException
+from .utils import delete_sqs_record
 
 
 class ReplayedEventReplayHandler:
@@ -38,19 +39,18 @@ def _handle_replay_event(
     output_type: str,
     output_args: dict[str, Any],
     event_input_id: str,
-    event_input_type: str,
     event_payload: dict[str, Any],
     replay_handler: ReplayedEventReplayHandler,
     receipt_handle: str,
 ) -> None:
 
-    event_input: Optional[Input] = config.get_input_by_type_and_id(event_input_type, event_input_id)
+    event_input: Optional[Input] = config.get_input_by_id(event_input_id)
     if event_input is None:
-        raise InputConfigException(f"cannot load input for type {event_input_type} with id {event_input_id}")
+        raise InputConfigException(f"Cannot load input for input id {event_input_id}")
 
     output: Optional[Output] = event_input.get_output_by_type(output_type)
     if output is None:
-        raise OutputConfigException(f"cannot load output of type {output_type}")
+        raise OutputConfigException(f"Cannot load output of type {output_type}")
 
     if output_type == "elasticsearch":
         assert isinstance(output, ElasticsearchOutput)

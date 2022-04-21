@@ -67,8 +67,8 @@ def _handle_s3_sqs_event(sqs_record: dict[str, Any]) -> Iterator[tuple[dict[str,
         object_key = unquote_plus(s3_record["s3"]["object"]["key"], "utf-8")
         last_ending_offset = s3_record["last_ending_offset"] if "last_ending_offset" in s3_record else 0
 
-        if len(bucket_arn) == 0 or len(object_key) == 0:
-            raise Exception("Cannot find bucket_arn or object_key for s3")
+        assert len(bucket_arn) > 0
+        assert len(object_key) > 0
 
         bucket_name: str = get_bucket_name_from_arn(bucket_arn)
         storage: CommonStorage = StorageFactory.create(
@@ -91,19 +91,6 @@ def _handle_s3_sqs_event(sqs_record: dict[str, Any]) -> Iterator[tuple[dict[str,
         )
         for log_event, ending_offset, starting_offset, newline_length in events:
             assert isinstance(log_event, bytes)
-
-            # let's be sure that on the first yield `ending_offset`
-            # doesn't overlap `last_ending_offset`: in case we
-            # skip in order to not ingest twice the same event
-            if ending_offset < last_ending_offset:
-                shared_logger.warning(
-                    "skipping event",
-                    extra={
-                        "ending_offset": ending_offset,
-                        "last_ending_offset": last_ending_offset,
-                    },
-                )
-                continue
 
             if span:
                 span.__exit__(None, None, None)

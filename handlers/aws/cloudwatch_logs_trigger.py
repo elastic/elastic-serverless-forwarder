@@ -82,37 +82,37 @@ def _handle_cloudwatch_logs_event(event: dict[str, Any], aws_region: str) -> Ite
     log_group_name = event["logGroup"]
     log_stream_name = event["logStream"]
 
-    if "logEvents" in event:
-        for cloudwatch_log_event_n, cloudwatch_log_event in enumerate(event["logEvents"]):
-            event_id = cloudwatch_log_event["id"]
+    assert "logEvents" in event
+    for cloudwatch_log_event_n, cloudwatch_log_event in enumerate(event["logEvents"]):
+        event_id = cloudwatch_log_event["id"]
 
-            storage_message: CommonStorage = StorageFactory.create(
-                storage_type="payload", payload=cloudwatch_log_event["message"]
-            )
+        storage_message: CommonStorage = StorageFactory.create(
+            storage_type="payload", payload=cloudwatch_log_event["message"]
+        )
 
-            events = storage_message.get_by_lines(
-                range_start=0,
-            )
+        events = storage_message.get_by_lines(
+            range_start=0,
+        )
 
-            for log_event, ending_offset, starting_offset, newline_length in events:
-                assert isinstance(log_event, bytes)
+        for log_event, ending_offset, starting_offset, newline_length in events:
+            assert isinstance(log_event, bytes)
 
-                es_event = deepcopy(_default_event)
-                es_event["@timestamp"] = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-                es_event["fields"]["message"] = log_event.decode("UTF-8")
+            es_event = deepcopy(_default_event)
+            es_event["@timestamp"] = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            es_event["fields"]["message"] = log_event.decode("UTF-8")
 
-                es_event["fields"]["log"]["offset"] = starting_offset
+            es_event["fields"]["log"]["offset"] = starting_offset
 
-                es_event["fields"]["log"]["file"]["path"] = f"{log_group_name}/{log_stream_name}"
+            es_event["fields"]["log"]["file"]["path"] = f"{log_group_name}/{log_stream_name}"
 
-                es_event["fields"]["aws"] = {
-                    "awscloudwatch": {
-                        "log_group": log_group_name,
-                        "log_stream": log_stream_name,
-                        "event_id": event_id,
-                    }
+            es_event["fields"]["aws"] = {
+                "awscloudwatch": {
+                    "log_group": log_group_name,
+                    "log_stream": log_stream_name,
+                    "event_id": event_id,
                 }
+            }
 
-                es_event["fields"]["cloud"]["region"] = aws_region
+            es_event["fields"]["cloud"]["region"] = aws_region
 
-                yield es_event, ending_offset, cloudwatch_log_event_n
+            yield es_event, ending_offset, cloudwatch_log_event_n
