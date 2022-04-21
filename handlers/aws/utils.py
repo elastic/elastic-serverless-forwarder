@@ -288,7 +288,7 @@ def get_trigger_type_and_config_source(event: dict[str, Any]) -> tuple[str, str]
     and if the config must be read from attributes or from S3 file in env
     """
 
-    if "event" in event and "awslogs" in event["event"] and "data" in event["event"]["awslogs"]:
+    if "awslogs" in event and "data" in event["awslogs"]:
         return "cloudwatch-logs", CONFIG_FROM_S3FILE
 
     if "Records" not in event or len(event["Records"]) < 1:

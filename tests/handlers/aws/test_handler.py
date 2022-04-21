@@ -321,9 +321,7 @@ class TestLambdaHandlerNoop(TestCase):
         with self.subTest("no input defined for cloudwatch_logs"):
             ctx = ContextMock()
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
-            lambda_event = {
-                "event": {"awslogs": {"data": json.dumps({"logGroup": "logGroup", "logStream": "logStream"})}}
-            }
+            lambda_event = {"awslogs": {"data": json.dumps({"logGroup": "logGroup", "logStream": "logStream"})}}
             assert handler(lambda_event, ctx) == "completed"  # type:ignore
 
         with self.subTest("output not elasticsearch from payload config"):
@@ -526,9 +524,7 @@ class TestLambdaHandlerNoop(TestCase):
             ctx = ContextMock()
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
             lambda_event = {
-                "event": {
-                    "awslogs": {"data": json.dumps({"logGroup": "logGroupNotMatching", "logStream": "logStream"})}
-                }
+                "awslogs": {"data": json.dumps({"logGroup": "logGroupNotMatching", "logStream": "logStream"})}
             }
             assert (
                 handler(lambda_event, ctx) == "exception raised: "  # type:ignore
@@ -1206,7 +1202,7 @@ def _event_from_cloudwatch_logs(group_name: str, stream_name: str) -> tuple[dict
     data_gzip = gzip.compress(data_json.encode("UTF-8"))
     data_base64encoded = base64.b64encode(data_gzip)
 
-    return {"event": {"awslogs": {"data": data_base64encoded}}}, event_id
+    return {"awslogs": {"data": data_base64encoded}}, event_id
 
 
 def _event_from_kinesis_records(records: dict[str, Any], stream_attribute: dict[str, Any]) -> dict[str, Any]:

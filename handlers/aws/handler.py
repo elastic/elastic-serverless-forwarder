@@ -109,7 +109,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
     skipped_events: int = 0
 
     if trigger_type == "cloudwatch-logs":
-        cloudwatch_logs_event = _from_awslogs_data_to_event(lambda_event["event"]["awslogs"]["data"])
+        cloudwatch_logs_event = _from_awslogs_data_to_event(lambda_event["awslogs"]["data"])
         log_group_arn, aws_region = get_log_group_arn_and_region_from_log_group_name(cloudwatch_logs_event["logGroup"])
         input_id = log_group_arn
 
