@@ -133,12 +133,10 @@ def discover_integration_scope(lambda_event: dict[str, Any], at_record: int) -> 
         shared_logger.info("s3 object key is empty, dataset set to `generic`")
         return "generic"
     else:
-        if (
-            "/CloudTrail/" in s3_object_key
-            or "/CloudTrail-Digest/" in s3_object_key
-            or "/CloudTrail-Insight/" in s3_object_key
-        ):
+        if "/CloudTrail/" in s3_object_key or "/CloudTrail-Insight/" in s3_object_key:
             return "aws.cloudtrail"
+        elif "/CloudTrail-Digest/" in s3_object_key:
+            return "aws.cloudtrail-digest"
         elif "exportedlogs" in s3_object_key or "awslogs" in s3_object_key:
             return "aws.cloudwatch_logs"
         elif "/elasticloadbalancing/" in s3_object_key:
