@@ -5,7 +5,7 @@
 import hashlib
 import json
 import os
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Iterator, Optional
 
 import boto3
 from aws_lambda_typing import context as context_
@@ -479,3 +479,16 @@ def kinesis_record_id(event_payload: dict[str, Any]) -> str:
     hex_prefix = hashlib.sha256(src.encode("UTF-8")).hexdigest()[:10]
 
     return f"{hex_prefix}-{offset:012d}"
+
+
+def extractor_events_from_field(
+    integration_scope: str, json_object: dict[str, Any], starting_offset: int, ending_offset: int
+) -> Iterator[tuple[dict[str, Any], int, bool]]:
+    if integration_scope != "aws.cloudtrail" or "Records" not in json_object:
+        yield json_object, starting_offset, True
+    else:
+        events_list: list[dict[str, Any]] = json_object["Records"]
+        envets_list_legnth = len(events_list)
+        avg_event_length = (ending_offset - starting_offset) / envets_list_legnth
+        for event_n, event in enumerate(events_list):
+            yield event, int(starting_offset + (event_n * avg_event_length)), event_n == envets_list_legnth - 1

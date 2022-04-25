@@ -16,7 +16,7 @@ from .storage import CHUNK_SIZE, CommonStorageType, GetByLinesCallable, StorageR
 
 # For overriding in benchmark
 def json_parser(payload: bytes) -> Any:
-    ujson.loads(payload)
+    return ujson.loads(payload)
 
 
 class JsonCollector:
@@ -72,8 +72,8 @@ class JsonCollector:
             yield data_to_yield, json_object
         # it raised: we didn't collect enough content to reach the end of the json object: let's keep iterating
         except ValueError:
+            # it's an empty line, let's yield it
             if self._is_a_json_object and len(self._unfinished_line.strip(b"\r\n").strip(b"\n")) == 0:
-                # it's an empty line, let's yield it and we collected a json object
                 # let's reset the buffer
                 self._unfinished_line = b""
 
