@@ -128,7 +128,7 @@ def wrap(payload: str) -> int:
     lines = payload_storage.get_by_lines(range_start=0)
     last_length: int = 0
     for line in lines:
-        last_length = line[1]
+        last_length = line[2]
 
     return last_length
 
