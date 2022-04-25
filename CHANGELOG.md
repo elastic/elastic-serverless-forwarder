@@ -1,3 +1,7 @@
+### v0.29.0 - 2022/04/25
+##### Features
+* Add support for AWS CloudTrail logs: [#110](https://github.com/elastic/elastic-serverless-forwarder/pull/110)
+
 ### v0.28.4 - 2022/04/19
 ##### Bug fixes
 * Handle properly flushing in `kinesis-data-stream` input type, handle properly empty messages in include exclude filters, handle properly empty lines in `JsonCollector` decorator, identify properly CloudWatch Logs payload: [#107](https://github.com/elastic/elastic-serverless-forwarder/pull/107)
