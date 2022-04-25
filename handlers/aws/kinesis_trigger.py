@@ -15,7 +15,7 @@ from .utils import extractor_events_from_field, get_kinesis_stream_name_type_and
 
 def _handle_kinesis_record(
     kinesis_record: dict[str, Any], integration_scope: str
-) -> Iterator[tuple[dict[str, Any], int, bool]]:
+) -> Iterator[tuple[dict[str, Any], int]]:
     """
     Handler for kinesis data stream inputs.
     It iterates through kinesis records in the kinesis trigger and process
@@ -34,7 +34,7 @@ def _handle_kinesis_record(
     for log_event, json_object, ending_offset, starting_offset, newline_length in events:
         assert isinstance(log_event, bytes)
 
-        for extracted_log_event, extracted_starting_offset, last_extracted_event in extract_events_from_field(
+        for extracted_log_event, extracted_starting_offset, _ in extract_events_from_field(
             log_event, json_object, starting_offset, ending_offset, integration_scope, extractor_events_from_field
         ):
             es_event = deepcopy(_default_event)
@@ -55,4 +55,4 @@ def _handle_kinesis_record(
 
             es_event["fields"]["cloud"]["region"] = aws_region
 
-            yield es_event, ending_offset, last_extracted_event
+            yield es_event, ending_offset

@@ -98,7 +98,7 @@ def _handle_s3_sqs_event(
                 span.__exit__(None, None, None)
                 span = None
 
-            for extracted_log_event, extracted_starting_offset, last_extracted_event in extract_events_from_field(
+            for extracted_log_event, extracted_starting_offset, is_last_event_extracted in extract_events_from_field(
                 log_event, json_object, starting_offset, ending_offset, integration_scope, extractor_events_from_field
             ):
                 es_event = deepcopy(_default_event)
@@ -120,4 +120,4 @@ def _handle_s3_sqs_event(
 
                 es_event["fields"]["cloud"]["region"] = aws_region
 
-                yield es_event, ending_offset, s3_record_n, last_extracted_event
+                yield es_event, ending_offset, s3_record_n, is_last_event_extracted

@@ -204,9 +204,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             integration_scope = event_input.discover_integration_scope(
                 lambda_event=lambda_event, at_record=kinesis_record_n
             )
-            for es_event, last_ending_offset, is_last_event_extracted in _handle_kinesis_record(
-                kinesis_record, integration_scope
-            ):
+            for es_event, last_ending_offset in _handle_kinesis_record(kinesis_record, integration_scope):
                 shared_logger.debug("es_event", extra={"es_event": es_event})
 
                 sent_outcome = composite_shipper.send(es_event)
@@ -219,11 +217,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
             del all_sequence_numbers[lambda_event["Records"][kinesis_record_n]["kinesis"]["sequenceNumber"]]
 
-            if (
-                is_last_event_extracted
-                and lambda_context is not None
-                and lambda_context.get_remaining_time_in_millis() < _completion_grace_period
-            ):
+            if lambda_context is not None and lambda_context.get_remaining_time_in_millis() < _completion_grace_period:
                 composite_shipper.flush()
 
                 shared_logger.info(

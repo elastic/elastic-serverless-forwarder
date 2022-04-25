@@ -6,7 +6,9 @@ from typing import Any, Callable, Iterator, Optional
 
 import ujson
 
-ExtractEventsFromFieldCallable = Callable[[str, dict[str, Any], int, int], Iterator[tuple[dict[str, Any], int, bool]]]
+ExtractEventsFromFieldCallable = Callable[
+    [dict[str, Any], int, int, str], Iterator[tuple[dict[str, Any], int, bool, bool]]
+]
 
 
 def extract_events_from_field(
@@ -20,8 +22,12 @@ def extract_events_from_field(
     if json_object is None:
         yield log_event, starting_offset, True
     else:
-        for extracted_event, extracted_starting_offset, last_extracted_event in extractor(
-            integration_scope, json_object, starting_offset, ending_offset
+        for extracted_event, extracted_starting_offset, is_last_event_extracted, event_was_extracted in extractor(
+            json_object, starting_offset, ending_offset, integration_scope
         ):
-            extracted_log_event = ujson.dumps(extracted_event).encode("utf-8")
-            yield extracted_log_event, extracted_starting_offset, last_extracted_event
+            if event_was_extracted:
+                extracted_log_event = ujson.dumps(extracted_event).encode("utf-8")
+            else:
+                extracted_log_event = log_event
+
+            yield extracted_log_event, extracted_starting_offset, is_last_event_extracted

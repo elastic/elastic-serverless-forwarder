@@ -84,20 +84,20 @@ class TestPayloadStorage(TestCase):
                             original_length -= len(newline)
 
                         payload_storage = PayloadStorage(payload=payload_content_gzip)
-                        gzip_full: list[
-                            tuple[Union[StorageReader, bytes], Optional[dict[str, Any]], int, int, int]
-                        ] = list(payload_storage.get_by_lines(range_start=0))
+                        gzip_full: list[tuple[Union[StorageReader, bytes], int, int, int]] = [
+                            (x[0], x[2], x[3], x[4]) for x in payload_storage.get_by_lines(range_start=0)
+                        ]
 
                         payload_storage = PayloadStorage(payload=payload_content_plain)
-                        plain_full: list[
-                            tuple[Union[StorageReader, bytes], Optional[dict[str, Any]], int, int, int]
-                        ] = list(payload_storage.get_by_lines(range_start=0))
+                        plain_full: list[tuple[Union[StorageReader, bytes], int, int, int]] = [
+                            (x[0], x[2], x[3], x[4]) for x in payload_storage.get_by_lines(range_start=0)
+                        ]
 
                         diff = set(gzip_full) ^ set(plain_full)
                         assert not diff
                         assert plain_full == gzip_full
-                        assert gzip_full[-1][2] == original_length
-                        assert plain_full[-1][2] == original_length
+                        assert gzip_full[-1][1] == original_length
+                        assert plain_full[-1][1] == original_length
 
                         joined = joiner_token.join([x[0] for x in plain_full])  # type:ignore
                         if original.endswith(newline):
@@ -111,16 +111,16 @@ class TestPayloadStorage(TestCase):
                         gzip_full_01 = gzip_full[: int(len(gzip_full) / 2)]
                         plain_full_01 = plain_full[: int(len(plain_full) / 2)]
 
-                        range_start = plain_full_01[-1][2]
+                        range_start = plain_full_01[-1][1]
                         payload_storage = PayloadStorage(payload=payload_content_gzip)
-                        gzip_full_02: list[
-                            tuple[Union[StorageReader, bytes], Optional[dict[str, Any]], int, int, int]
-                        ] = list(payload_storage.get_by_lines(range_start=range_start))
+                        gzip_full_02: list[tuple[Union[StorageReader, bytes], int, int, int]] = [
+                            (x[0], x[2], x[3], x[4]) for x in payload_storage.get_by_lines(range_start=range_start)
+                        ]
 
                         payload_storage = PayloadStorage(payload=payload_content_plain)
-                        plain_full_02: list[
-                            tuple[Union[StorageReader, bytes], Optional[dict[str, Any]], int, int, int]
-                        ] = list(payload_storage.get_by_lines(range_start=range_start))
+                        plain_full_02: list[tuple[Union[StorageReader, bytes], int, int, int]] = [
+                            (x[0], x[2], x[3], x[4]) for x in payload_storage.get_by_lines(range_start=range_start)
+                        ]
 
                         diff = set(gzip_full_01) ^ set(plain_full_01)
                         assert not diff
@@ -131,8 +131,8 @@ class TestPayloadStorage(TestCase):
                         assert plain_full_02 == gzip_full_02
 
                         assert plain_full_01 + plain_full_02 == plain_full
-                        assert gzip_full_02[-1][2] == original_length
-                        assert plain_full_02[-1][2] == original_length
+                        assert gzip_full_02[-1][1] == original_length
+                        assert plain_full_02[-1][1] == original_length
 
                         joined = (
                             joiner_token.join([x[0] for x in plain_full_01])  # type:ignore
@@ -147,16 +147,16 @@ class TestPayloadStorage(TestCase):
                         gzip_full_02 = gzip_full_02[: int(len(gzip_full_02) / 2)]
                         plain_full_02 = plain_full_02[: int(len(plain_full_02) / 2)]
 
-                        range_start = plain_full_02[-1][2]
+                        range_start = plain_full_02[-1][1]
                         payload_storage = PayloadStorage(payload=payload_content_gzip)
-                        gzip_full_03: list[
-                            tuple[Union[StorageReader, bytes], Optional[dict[str, Any]], int, int, int]
-                        ] = list(payload_storage.get_by_lines(range_start=range_start))
+                        gzip_full_03: list[tuple[Union[StorageReader, bytes], int, int, int]] = [
+                            (x[0], x[2], x[3], x[4]) for x in payload_storage.get_by_lines(range_start=range_start)
+                        ]
 
                         payload_storage = PayloadStorage(payload=payload_content_plain)
-                        plain_full_03: list[
-                            tuple[Union[StorageReader, bytes], Optional[dict[str, Any]], int, int, int]
-                        ] = list(payload_storage.get_by_lines(range_start=range_start))
+                        plain_full_03: list[tuple[Union[StorageReader, bytes], int, int, int]] = [
+                            (x[0], x[2], x[3], x[4]) for x in payload_storage.get_by_lines(range_start=range_start)
+                        ]
 
                         diff = set(gzip_full_02) ^ set(plain_full_02)
                         assert not diff
@@ -167,8 +167,8 @@ class TestPayloadStorage(TestCase):
                         assert plain_full_03 == gzip_full_03
 
                         assert plain_full_01 + plain_full_02 + plain_full_03 == plain_full
-                        assert gzip_full_03[-1][2] == original_length
-                        assert plain_full_03[-1][2] == original_length
+                        assert gzip_full_03[-1][1] == original_length
+                        assert plain_full_03[-1][1] == original_length
 
                         joined = (
                             joiner_token.join([x[0] for x in plain_full_01])  # type:ignore
@@ -182,7 +182,7 @@ class TestPayloadStorage(TestCase):
 
                         assert joined == original
 
-                        range_start = plain_full[-1][2] + random.randint(1, 100)
+                        range_start = plain_full[-1][1] + random.randint(1, 100)
 
                         payload_storage = PayloadStorage(payload=payload_content_gzip)
                         gzip_full_empty: list[

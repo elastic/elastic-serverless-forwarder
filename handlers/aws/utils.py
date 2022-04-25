@@ -482,13 +482,16 @@ def kinesis_record_id(event_payload: dict[str, Any]) -> str:
 
 
 def extractor_events_from_field(
-    integration_scope: str, json_object: dict[str, Any], starting_offset: int, ending_offset: int
-) -> Iterator[tuple[dict[str, Any], int, bool]]:
+    json_object: dict[str, Any],
+    starting_offset: int,
+    ending_offset: int,
+    integration_scope: str,
+) -> Iterator[tuple[dict[str, Any], int, bool, bool]]:
     if integration_scope != "aws.cloudtrail" or "Records" not in json_object:
-        yield json_object, starting_offset, True
+        yield json_object, starting_offset, True, False
     else:
         events_list: list[dict[str, Any]] = json_object["Records"]
-        envets_list_legnth = len(events_list)
-        avg_event_length = (ending_offset - starting_offset) / envets_list_legnth
+        events_list_length = len(events_list)
+        avg_event_length = (ending_offset - starting_offset) / events_list_length
         for event_n, event in enumerate(events_list):
-            yield event, int(starting_offset + (event_n * avg_event_length)), event_n == envets_list_legnth - 1
+            yield event, int(starting_offset + (event_n * avg_event_length)), event_n == events_list_length - 1, True
