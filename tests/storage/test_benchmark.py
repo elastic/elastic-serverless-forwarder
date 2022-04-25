@@ -101,7 +101,7 @@ class MockContentBase:
                 )
             else:
                 # every line is from 0 to 20 chars, repeated for length_multiplier
-                mock_content = newline.join(
+                mock_content = newline + newline.join(
                     [
                         "".join(random.choices(string.ascii_letters + string.digits, k=random.randint(0, 20))).encode(
                             "utf-8"

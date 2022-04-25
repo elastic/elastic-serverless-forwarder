@@ -491,7 +491,8 @@ def extractor_events_from_field(
         yield json_object, starting_offset, True, False
     else:
         events_list: list[dict[str, Any]] = json_object["Records"]
-        events_list_length = len(events_list)
+        # let's set to 1 if empty list, for loop will be not executed anyway
+        events_list_length = max(1, len(events_list))
         avg_event_length = (ending_offset - starting_offset) / events_list_length
         for event_n, event in enumerate(events_list):
             yield event, int(starting_offset + (event_n * avg_event_length)), event_n == events_list_length - 1, True

@@ -2491,7 +2491,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
 
         super(TestLambdaHandlerSuccessS3SQS, self).setUp()
 
-        self._first_cloudtrail_record_entry: bytes = (
+        self._first_cloudtrail_record: bytes = (
             b"{\n"
             b'    "eventVersion": "1.0",\n'
             b'    "userIdentity": {\n'
@@ -2523,7 +2523,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
             b"}\n"
         )
 
-        self._second_cloudtrail_record_entry: bytes = (
+        self._second_cloudtrail_record: bytes = (
             b"{\n"
             b'    "eventVersion": "1.0",\n'
             b'    "userIdentity": {\n'
@@ -2552,7 +2552,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
             b"}\n"
         )
 
-        self._third_cloudtrail_record_entry: bytes = (
+        self._third_cloudtrail_record: bytes = (
             b"{\n"
             b'    "eventVersion": "1.04",\n'
             b'    "userIdentity": {\n'
@@ -2580,7 +2580,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
             b"}\n"
         )
 
-        self._fourth_cloudtrail_record_entry: bytes = (
+        self._fourth_cloudtrail_record: bytes = (
             b"{\n"
             b'     "eventVersion": "1.0",\n'
             b'     "userIdentity": {\n'
@@ -2621,7 +2621,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
             b"}\n"
         )
 
-        self._fifth_cloudtrail_record_entry: bytes = (
+        self._fifth_cloudtrail_record: bytes = (
             b"{\n"
             b'    "eventVersion": "1.0",\n'
             b'    "userIdentity": {\n'
@@ -2650,17 +2650,10 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         )
 
         cloudtrail_log: bytes = (
-            b'{"Records": ['
-            + self._first_cloudtrail_record_entry
-            + b",\n"
-            + self._second_cloudtrail_record_entry
-            + b"]}\n"
-            b'{"Records": ['
-            + self._third_cloudtrail_record_entry
-            + b",\n"
-            + self._fourth_cloudtrail_record_entry
-            + b"]}\n"
-            b'{"Records": [' + self._fifth_cloudtrail_record_entry + b"]}\n"
+            b'{"Records": [' + self._first_cloudtrail_record + b",\n" + self._second_cloudtrail_record + b"]}\n"
+            b'{"Records": [' + self._third_cloudtrail_record + b",\n" + self._fourth_cloudtrail_record + b"]}\n"
+            b'{"Records": []}\n'
+            b'{"Records": [' + self._fifth_cloudtrail_record + b"]}\n"
         )
 
         _upload_content_to_bucket(
@@ -2829,9 +2822,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
 
         res = self._es_client.search(index="logs-aws.cloudtrail-default", sort="_seq_no")
         assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
-        assert res["hits"]["hits"][0]["_source"]["message"] == ujson.dumps(
-            ujson.loads(self._first_cloudtrail_record_entry)
-        )
+        assert res["hits"]["hits"][0]["_source"]["message"] == ujson.dumps(ujson.loads(self._first_cloudtrail_record))
 
         assert res["hits"]["hits"][0]["_source"]["log"] == {
             "offset": 0,
@@ -2847,9 +2838,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
 
-        assert res["hits"]["hits"][1]["_source"]["message"] == ujson.dumps(
-            ujson.loads(self._second_cloudtrail_record_entry)
-        )
+        assert res["hits"]["hits"][1]["_source"]["message"] == ujson.dumps(ujson.loads(self._second_cloudtrail_record))
 
         assert res["hits"]["hits"][1]["_source"]["log"] == {
             "offset": 837,
@@ -2876,9 +2865,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         res = self._es_client.search(index="logs-aws.cloudtrail-default", sort="_seq_no")
         assert res["hits"]["total"] == {"value": 3, "relation": "eq"}
 
-        assert res["hits"]["hits"][2]["_source"]["message"] == ujson.dumps(
-            ujson.loads(self._third_cloudtrail_record_entry)
-        )
+        assert res["hits"]["hits"][2]["_source"]["message"] == ujson.dumps(ujson.loads(self._third_cloudtrail_record))
 
         assert res["hits"]["hits"][2]["_source"]["log"] == {
             "offset": 1674,
@@ -2905,12 +2892,10 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         res = self._es_client.search(index="logs-aws.cloudtrail-default", sort="_seq_no")
         assert res["hits"]["total"] == {"value": 4, "relation": "eq"}
 
-        assert res["hits"]["hits"][3]["_source"]["message"] == ujson.dumps(
-            ujson.loads(self._fifth_cloudtrail_record_entry)
-        )
+        assert res["hits"]["hits"][3]["_source"]["message"] == ujson.dumps(ujson.loads(self._fifth_cloudtrail_record))
 
         assert res["hits"]["hits"][3]["_source"]["log"] == {
-            "offset": 4309,
+            "offset": 4325,
             "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
         }
         assert res["hits"]["hits"][3]["_source"]["aws"] == {
