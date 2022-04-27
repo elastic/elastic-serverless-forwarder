@@ -114,7 +114,7 @@ class MockContent:
         return None
 
 
-_now = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+_now = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 _dummy_lambda_event: dict[str, Any] = {
     "Records": [
         {
@@ -1634,7 +1634,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             index="logs-generic-default",
             op_type="create",
             id="17b2d3c934-000000000000",
-            document={"@timestamp": datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
+            document={"@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
         )
 
         # Create an expected id so that es.send will fail
@@ -1642,7 +1642,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             index="logs-generic-default",
             op_type="create",
             id=f"{hex_prefix_sqs}-000000000000",
-            document={"@timestamp": datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
+            document={"@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
         )
 
         # Create an expected id for cloudwatch-logs so that es.send will fail
@@ -1650,7 +1650,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             index="logs-generic-default",
             op_type="create",
             id=f"{hex_prefix_cloudwatch_logs}-000000000000",
-            document={"@timestamp": datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
+            document={"@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
         )
 
         self._es_client.indices.refresh(index="logs-generic-default")
@@ -2728,7 +2728,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
             index="logs-aws.cloudtrail-default",
             op_type="create",
             id="c2fe2a3df7-000000000000",
-            document={"@timestamp": datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
+            document={"@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
         )
         self._es_client.indices.refresh(index="logs-aws.cloudtrail-default")
 
@@ -2981,7 +2981,7 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
             index="logs-generic-default",
             op_type="create",
             id=f"{hex_prefix}-000000000000",
-            document={"@timestamp": datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
+            document={"@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
         )
         self._es_client.indices.refresh(index="logs-generic-default")
 
@@ -3215,7 +3215,7 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
             index="logs-generic-default",
             op_type="create",
             id=f"{hex_prefix}-000000000000",
-            document={"@timestamp": datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
+            document={"@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
         )
         self._es_client.indices.refresh(index="logs-generic-default")
 

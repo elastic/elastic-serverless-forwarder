@@ -102,7 +102,7 @@ def _handle_s3_sqs_event(
                 log_event, json_object, starting_offset, ending_offset, integration_scope, extractor_events_from_field
             ):
                 es_event = deepcopy(_default_event)
-                es_event["@timestamp"] = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+                es_event["@timestamp"] = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
                 es_event["fields"]["message"] = extracted_log_event.decode("UTF-8")
 
                 es_event["fields"]["log"]["offset"] = extracted_starting_offset
