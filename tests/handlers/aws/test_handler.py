@@ -244,12 +244,34 @@ _s3_client_mock.download_fileobj = _download_fileobj
 _s3_client_mock.get_object = _get_object
 
 
-def _describe_log_groups(logGroupNamePrefix: str) -> dict[str, Any]:
+def _describe_log_groups(*args: Any, **kwargs: Any) -> dict[str, Any]:
+    if "nextToken" not in kwargs:
+        next_token = "0"
+    else:
+        next_token = "0" * (len(kwargs["nextToken"]) + 1)
+
+    if len(next_token) > 2:
+        if kwargs["logGroupNamePrefix"] == "logGroupNotMatching":
+            log_group_name = "let_not_match"
+        else:
+            log_group_name = kwargs["logGroupNamePrefix"]
+
+        return {
+            "logGroups": [
+                {"logGroupName": "string", "arn": "string"},
+                {
+                    "logGroupName": log_group_name,
+                    "arn": f"arn:aws:logs:us-east-1:000000000000:log-group:{log_group_name}",
+                },
+            ]
+        }
+
     return {
         "logGroups": [
-            {"logGroupName": "string", "arn": "string"},
-            {"logGroupName": "logGroup", "arn": "arn:aws:logs:eu-central-1:123456789:log-group:logGroup:*"},
-        ]
+            {"logGroupName": "another_string", "arn": "another_string"},
+            {"logGroupName": "another_string_2", "arn": "another_string_2"},
+        ],
+        "nextToken": next_token,
     }
 
 
@@ -358,7 +380,7 @@ class TestLambdaHandlerNoop(TestCase):
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
             lambda_event = deepcopy(_dummy_lambda_event)
             lambda_event["Records"][0]["messageAttributes"]["originalEventSourceARN"] = {
-                "stringValue": "arn:aws:logs:eu-central-1:123456789:log-group:test-esf-loggroup:*"
+                "stringValue": "arn:aws:logs:eu-central-1:123456789:log-group:test-not-existing-esf-loggroup:*"
             }
             assert handler(lambda_event, ctx) == "completed"  # type:ignore
 
@@ -1448,6 +1470,10 @@ class IntegrationTestCase(TestCase):
         self._queues_info = {}
         for queue in self._queues:
             self._queues_info[queue["name"]] = testutil.create_sqs_queue(queue["name"])
+            queue_url: str = self._queues_info[queue["name"]]["QueueUrl"]
+            self._queues_info[queue["name"]]["QueueUrlPath"] = queue_url.replace(
+                os.environ["SQS_BACKEND"], "https://sqs.us-east-1.amazonaws.com"
+            )
 
             if "type" not in queue:
                 continue
@@ -1703,7 +1729,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["log"] == {
             "offset": 98,
-            "file": {"path": self._queues_info["source-sqs-queue"]["QueueUrl"]},
+            "file": {"path": self._queues_info["source-sqs-queue"]["QueueUrlPath"]},
         }
         assert res["hits"]["hits"][0]["_source"]["aws"] == {
             "sqs": {"name": "source-sqs-queue", "message_id": message_id}
@@ -1720,7 +1746,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["log"] == {
             "offset": 399,
-            "file": {"path": self._queues_info["source-sqs-queue"]["QueueUrl"]},
+            "file": {"path": self._queues_info["source-sqs-queue"]["QueueUrlPath"]},
         }
         assert res["hits"]["hits"][0]["_source"]["aws"] == {
             "sqs": {"name": "source-sqs-queue", "message_id": message_id}
@@ -1860,7 +1886,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["log"] == {
             "offset": 0,
-            "file": {"path": self._queues_info["source-sqs-queue"]["QueueUrl"]},
+            "file": {"path": self._queues_info["source-sqs-queue"]["QueueUrlPath"]},
         }
         assert res["hits"]["hits"][0]["_source"]["aws"] == {
             "sqs": {"name": "source-sqs-queue", "message_id": message_id}
@@ -1979,7 +2005,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["log"] == {
             "offset": 0,
-            "file": {"path": self._queues_info["source-sqs-queue"]["QueueUrl"]},
+            "file": {"path": self._queues_info["source-sqs-queue"]["QueueUrlPath"]},
         }
         assert res["hits"]["hits"][0]["_source"]["aws"] == {
             "sqs": {"name": "source-sqs-queue", "message_id": message_id}
@@ -2111,7 +2137,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["log"] == {
             "offset": 98,
-            "file": {"path": self._queues_info["source-sqs-queue"]["QueueUrl"]},
+            "file": {"path": self._queues_info["source-sqs-queue"]["QueueUrlPath"]},
         }
         assert res["hits"]["hits"][0]["_source"]["aws"] == {
             "sqs": {"name": "source-sqs-queue", "message_id": message_id}
@@ -2169,7 +2195,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["log"] == {
             "offset": 399,
-            "file": {"path": self._queues_info["source-sqs-queue"]["QueueUrl"]},
+            "file": {"path": self._queues_info["source-sqs-queue"]["QueueUrlPath"]},
         }
         assert res["hits"]["hits"][0]["_source"]["aws"] == {
             "sqs": {"name": "source-sqs-queue", "message_id": message_id}
@@ -2981,7 +3007,7 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["log"] == {
             "offset": 113,
-            "file": {"path": self._queues_info["source-queue"]["QueueUrl"]},
+            "file": {"path": self._queues_info["source-queue"]["QueueUrlPath"]},
         }
         assert res["hits"]["hits"][0]["_source"]["aws"] == {"sqs": {"name": "source-queue", "message_id": message_id}}
         assert res["hits"]["hits"][0]["_source"]["cloud"] == {"provider": "aws", "region": "us-east-1"}
@@ -2995,7 +3021,7 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
 
         assert res["hits"]["hits"][1]["_source"]["log"] == {
             "offset": 279,
-            "file": {"path": self._queues_info["source-queue"]["QueueUrl"]},
+            "file": {"path": self._queues_info["source-queue"]["QueueUrlPath"]},
         }
         assert res["hits"]["hits"][1]["_source"]["aws"] == {"sqs": {"name": "source-queue", "message_id": message_id}}
         assert res["hits"]["hits"][1]["_source"]["cloud"] == {"provider": "aws", "region": "us-east-1"}
@@ -3032,7 +3058,7 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
 
         assert res["hits"]["hits"][2]["_source"]["log"] == {
             "offset": 0,
-            "file": {"path": self._queues_info["source-queue"]["QueueUrl"]},
+            "file": {"path": self._queues_info["source-queue"]["QueueUrlPath"]},
         }
         assert res["hits"]["hits"][2]["_source"]["aws"] == {"sqs": {"name": "source-queue", "message_id": message_id}}
         assert res["hits"]["hits"][2]["_source"]["cloud"] == {"provider": "aws", "region": "us-east-1"}
@@ -3070,7 +3096,7 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["log"] == {
             "offset": 0,
-            "file": {"path": self._queues_info["source-queue"]["QueueUrl"]},
+            "file": {"path": self._queues_info["source-queue"]["QueueUrlPath"]},
         }
         assert res["hits"]["hits"][0]["_source"]["aws"] == {
             "sqs": {"name": "source-queue", "message_id": event["Records"][0]["messageId"]}
@@ -3098,7 +3124,7 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
 
         assert res["hits"]["hits"][1]["_source"]["log"] == {
             "offset": 86,
-            "file": {"path": self._queues_info["source-queue"]["QueueUrl"]},
+            "file": {"path": self._queues_info["source-queue"]["QueueUrlPath"]},
         }
         assert res["hits"]["hits"][1]["_source"]["aws"] == {
             "sqs": {
@@ -3128,7 +3154,7 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
 
         assert res["hits"]["hits"][2]["_source"]["log"] == {
             "offset": 252,
-            "file": {"path": self._queues_info["source-queue"]["QueueUrl"]},
+            "file": {"path": self._queues_info["source-queue"]["QueueUrlPath"]},
         }
         assert res["hits"]["hits"][2]["_source"]["aws"] == {
             "sqs": {

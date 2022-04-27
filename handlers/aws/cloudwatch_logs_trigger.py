@@ -85,7 +85,6 @@ def _handle_cloudwatch_logs_event(
     log_group_name = event["logGroup"]
     log_stream_name = event["logStream"]
 
-    assert "logEvents" in event
     for cloudwatch_log_event_n, cloudwatch_log_event in enumerate(event["logEvents"]):
         event_id = cloudwatch_log_event["id"]
 

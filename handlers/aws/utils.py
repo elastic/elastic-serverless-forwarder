@@ -228,7 +228,7 @@ def from_s3_uri_to_bucket_name_and_object_key(s3_uri: str) -> tuple[str, str]:
     if not s3_uri.startswith("s3://"):
         raise ValueError(f"Invalid s3 uri provided: `{s3_uri}`")
 
-    stripped_s3_uri = s3_uri.strip("s3://")
+    stripped_s3_uri = s3_uri.replace("s3://", "")
 
     bucket_name_and_object_key = stripped_s3_uri.split("/", 1)
     if len(bucket_name_and_object_key) < 2:
@@ -251,8 +251,8 @@ def get_kinesis_stream_name_type_and_region_from_arn(kinesis_stream_arn: str) ->
     """
 
     arn_components = kinesis_stream_arn.split(":")
-    stream_componets = arn_components[-1].split("/")
-    return stream_componets[0], stream_componets[1], arn_components[3]
+    stream_components = arn_components[-1].split("/")
+    return stream_components[0], stream_components[1], arn_components[3]
 
 
 def get_sqs_queue_name_and_region_from_arn(sqs_queue_arn: str) -> tuple[str, str]:
@@ -374,15 +374,10 @@ def get_queue_url_from_sqs_arn(sqs_arn: str) -> str:
     Return sqs queue url given an sqs queue arn
     """
     arn_components = sqs_arn.split(":")
+    region = arn_components[3]
     account_id = arn_components[4]
     queue_name = arn_components[5]
-
-    sqs_client = get_sqs_client()
-
-    queue_info = sqs_client.get_queue_url(QueueName=queue_name, QueueOwnerAWSAccountId=account_id)
-    assert isinstance(queue_info["QueueUrl"], str)
-
-    return queue_info["QueueUrl"]
+    return f"https://sqs.{region}.amazonaws.com/{account_id}/{queue_name}"
 
 
 def get_log_group_arn_and_region_from_log_group_name(log_group_name: str) -> tuple[str, str]:
@@ -391,16 +386,24 @@ def get_log_group_arn_and_region_from_log_group_name(log_group_name: str) -> tup
     """
     logs_client = get_cloudwatch_logs_client()
 
-    log_groups = logs_client.describe_log_groups(logGroupNamePrefix=log_group_name)
+    describe_log_groups_kwargs = {"logGroupNamePrefix": log_group_name, "limit": 50}
+    while True:
+        log_groups = logs_client.describe_log_groups(**describe_log_groups_kwargs)
 
-    assert "logGroups" in log_groups
+        assert "logGroups" in log_groups
 
-    for log_group in log_groups["logGroups"]:
-        if "logGroupName" in log_group and log_group["logGroupName"] == log_group_name:
-            log_group_arn = log_group["arn"]
-            region = log_group_arn.split(":")[3]
+        for log_group in log_groups["logGroups"]:
+            if "logGroupName" in log_group and log_group["logGroupName"] == log_group_name:
+                log_group_arn = log_group["arn"]
+                region = log_group_arn.split(":")[3]
 
-            return log_group_arn, region
+                return log_group_arn, region
+
+        if "nextToken" in log_groups and len(log_groups["nextToken"]) > 0:
+            describe_log_groups_kwargs["nextToken"] = log_groups["nextToken"]
+        else:
+            del describe_log_groups_kwargs["nextToken"]
+            break
 
     raise ValueError("Cannot find cloudwatch log group ARN")
 

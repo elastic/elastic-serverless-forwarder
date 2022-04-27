@@ -113,9 +113,6 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         log_group_arn, aws_region = get_log_group_arn_and_region_from_log_group_name(cloudwatch_logs_event["logGroup"])
         input_id = log_group_arn
 
-        assert "logGroup" in cloudwatch_logs_event
-        assert "logStream" in cloudwatch_logs_event
-
         event_input = config.get_input_by_id(input_id)
         if event_input is None:
             shared_logger.warning("no input defined", extra={"input_type": trigger_type, "input_id": input_id})
