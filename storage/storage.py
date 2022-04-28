@@ -4,7 +4,7 @@
 
 from abc import ABCMeta, abstractmethod
 from io import BytesIO
-from typing import Any, Callable, Iterator, TypeVar, Union
+from typing import Any, Callable, Iterator, Optional, TypeVar, Union
 
 CHUNK_SIZE: int = 1024
 
@@ -32,7 +32,9 @@ class CommonStorage(metaclass=ABCMeta):
         raise NotImplementedError
 
     @abstractmethod
-    def get_by_lines(self, range_start: int) -> Iterator[tuple[Union[StorageReader, bytes], int, int, int]]:
+    def get_by_lines(
+        self, range_start: int
+    ) -> Iterator[tuple[Union[StorageReader, bytes], Optional[dict[str, Any]], int, int, int]]:
         """
         Interface for getting content from storage line by line.
         Decorators defining the specific meaning of "line" will be applied in concrete implementations.
@@ -51,5 +53,6 @@ class CommonStorage(metaclass=ABCMeta):
 
 CommonStorageType = TypeVar("CommonStorageType", bound=CommonStorage)
 GetByLinesCallable = Callable[
-    [CommonStorageType, int, BytesIO, str, int], Iterator[tuple[Union[StorageReader, bytes], int, int, int]]
+    [CommonStorageType, int, BytesIO, str, int],
+    Iterator[tuple[Union[StorageReader, bytes], Optional[dict[str, Any]], int, int, int]],
 ]

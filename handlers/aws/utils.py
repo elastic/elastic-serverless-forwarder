@@ -5,7 +5,7 @@
 import hashlib
 import json
 import os
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Iterator, Optional
 
 import boto3
 from aws_lambda_typing import context as context_
@@ -133,12 +133,10 @@ def discover_integration_scope(lambda_event: dict[str, Any], at_record: int) -> 
         shared_logger.info("s3 object key is empty, dataset set to `generic`")
         return "generic"
     else:
-        if (
-            "/CloudTrail/" in s3_object_key
-            or "/CloudTrail-Digest/" in s3_object_key
-            or "/CloudTrail-Insight/" in s3_object_key
-        ):
+        if "/CloudTrail/" in s3_object_key or "/CloudTrail-Insight/" in s3_object_key:
             return "aws.cloudtrail"
+        elif "/CloudTrail-Digest/" in s3_object_key:
+            return "aws.cloudtrail-digest"
         elif "exportedlogs" in s3_object_key or "awslogs" in s3_object_key:
             return "aws.cloudwatch_logs"
         elif "/elasticloadbalancing/" in s3_object_key:
@@ -230,7 +228,7 @@ def from_s3_uri_to_bucket_name_and_object_key(s3_uri: str) -> tuple[str, str]:
     if not s3_uri.startswith("s3://"):
         raise ValueError(f"Invalid s3 uri provided: `{s3_uri}`")
 
-    stripped_s3_uri = s3_uri.strip("s3://")
+    stripped_s3_uri = s3_uri.replace("s3://", "")
 
     bucket_name_and_object_key = stripped_s3_uri.split("/", 1)
     if len(bucket_name_and_object_key) < 2:
@@ -253,8 +251,8 @@ def get_kinesis_stream_name_type_and_region_from_arn(kinesis_stream_arn: str) ->
     """
 
     arn_components = kinesis_stream_arn.split(":")
-    stream_componets = arn_components[-1].split("/")
-    return stream_componets[0], stream_componets[1], arn_components[3]
+    stream_components = arn_components[-1].split("/")
+    return stream_components[0], stream_components[1], arn_components[3]
 
 
 def get_sqs_queue_name_and_region_from_arn(sqs_queue_arn: str) -> tuple[str, str]:
@@ -376,15 +374,10 @@ def get_queue_url_from_sqs_arn(sqs_arn: str) -> str:
     Return sqs queue url given an sqs queue arn
     """
     arn_components = sqs_arn.split(":")
+    region = arn_components[3]
     account_id = arn_components[4]
     queue_name = arn_components[5]
-
-    sqs_client = get_sqs_client()
-
-    queue_info = sqs_client.get_queue_url(QueueName=queue_name, QueueOwnerAWSAccountId=account_id)
-    assert isinstance(queue_info["QueueUrl"], str)
-
-    return queue_info["QueueUrl"]
+    return f"https://sqs.{region}.amazonaws.com/{account_id}/{queue_name}"
 
 
 def get_log_group_arn_and_region_from_log_group_name(log_group_name: str) -> tuple[str, str]:
@@ -393,16 +386,24 @@ def get_log_group_arn_and_region_from_log_group_name(log_group_name: str) -> tup
     """
     logs_client = get_cloudwatch_logs_client()
 
-    log_groups = logs_client.describe_log_groups(logGroupNamePrefix=log_group_name)
+    describe_log_groups_kwargs = {"logGroupNamePrefix": log_group_name, "limit": 50}
+    while True:
+        log_groups = logs_client.describe_log_groups(**describe_log_groups_kwargs)
 
-    assert "logGroups" in log_groups
+        assert "logGroups" in log_groups
 
-    for log_group in log_groups["logGroups"]:
-        if "logGroupName" in log_group and log_group["logGroupName"] == log_group_name:
-            log_group_arn = log_group["arn"]
-            region = log_group_arn.split(":")[3]
+        for log_group in log_groups["logGroups"]:
+            if "logGroupName" in log_group and log_group["logGroupName"] == log_group_name:
+                log_group_arn = log_group["arn"]
+                region = log_group_arn.split(":")[3]
 
-            return log_group_arn, region
+                return log_group_arn, region
+
+        if "nextToken" in log_groups and len(log_groups["nextToken"]) > 0:
+            describe_log_groups_kwargs["nextToken"] = log_groups["nextToken"]
+        else:
+            describe_log_groups_kwargs["nextToken"] = ""
+            break
 
     raise ValueError("Cannot find cloudwatch log group ARN")
 
@@ -481,3 +482,20 @@ def kinesis_record_id(event_payload: dict[str, Any]) -> str:
     hex_prefix = hashlib.sha256(src.encode("UTF-8")).hexdigest()[:10]
 
     return f"{hex_prefix}-{offset:012d}"
+
+
+def extractor_events_from_field(
+    json_object: dict[str, Any],
+    starting_offset: int,
+    ending_offset: int,
+    integration_scope: str,
+) -> Iterator[tuple[dict[str, Any], int, bool, bool]]:
+    if integration_scope != "aws.cloudtrail" or "Records" not in json_object:
+        yield json_object, starting_offset, True, False
+    else:
+        events_list: list[dict[str, Any]] = json_object["Records"]
+        # let's set to 1 if empty list, for loop will be not executed anyway
+        events_list_length = max(1, len(events_list))
+        avg_event_length = (ending_offset - starting_offset) / events_list_length
+        for event_n, event in enumerate(events_list):
+            yield event, int(starting_offset + (event_n * avg_event_length)), event_n == events_list_length - 1, True

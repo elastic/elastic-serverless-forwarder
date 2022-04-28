@@ -118,14 +118,14 @@ class TestS3Storage(TestCase):
                         bucket_name: str = "dummy_bucket"
 
                         s3_storage = S3Storage(bucket_name=bucket_name, object_key="dummy.key.gz")
-                        gzip_full: list[tuple[Union[StorageReader, bytes], int, int, int]] = list(
-                            s3_storage.get_by_lines(range_start=0)
-                        )
+                        gzip_full: list[tuple[Union[StorageReader, bytes], int, int, int]] = [
+                            (x[0], x[2], x[3], x[4]) for x in s3_storage.get_by_lines(range_start=0)
+                        ]
 
                         s3_storage = S3Storage(bucket_name=bucket_name, object_key="dummy.key")
-                        plain_full: list[tuple[Union[StorageReader, bytes], int, int, int]] = list(
-                            s3_storage.get_by_lines(range_start=0)
-                        )
+                        plain_full: list[tuple[Union[StorageReader, bytes], int, int, int]] = [
+                            (x[0], x[2], x[3], x[4]) for x in s3_storage.get_by_lines(range_start=0)
+                        ]
 
                         diff = set(gzip_full) ^ set(plain_full)
                         assert not diff
@@ -149,14 +149,14 @@ class TestS3Storage(TestCase):
 
                         range_start = plain_full_01[-1][1]
                         s3_storage = S3Storage(bucket_name=bucket_name, object_key="dummy.key.gz")
-                        gzip_full_02: list[tuple[Union[StorageReader, bytes], int, int, int]] = list(
-                            s3_storage.get_by_lines(range_start=range_start)
-                        )
+                        gzip_full_02: list[tuple[Union[StorageReader, bytes], int, int, int]] = [
+                            (x[0], x[2], x[3], x[4]) for x in s3_storage.get_by_lines(range_start=range_start)
+                        ]
 
                         s3_storage = S3Storage(bucket_name=bucket_name, object_key="dummy.key")
-                        plain_full_02: list[tuple[Union[StorageReader, bytes], int, int, int]] = list(
-                            s3_storage.get_by_lines(range_start=range_start)
-                        )
+                        plain_full_02: list[tuple[Union[StorageReader, bytes], int, int, int]] = [
+                            (x[0], x[2], x[3], x[4]) for x in s3_storage.get_by_lines(range_start=range_start)
+                        ]
 
                         diff = set(gzip_full_01) ^ set(plain_full_01)
                         assert not diff
@@ -187,14 +187,14 @@ class TestS3Storage(TestCase):
 
                         range_start = plain_full_02[-1][1]
                         s3_storage = S3Storage(bucket_name=bucket_name, object_key="dummy.key.gz")
-                        gzip_full_03: list[tuple[Union[StorageReader, bytes], int, int, int]] = list(
-                            s3_storage.get_by_lines(range_start=range_start)
-                        )
+                        gzip_full_03: list[tuple[Union[StorageReader, bytes], int, int, int]] = [
+                            (x[0], x[2], x[3], x[4]) for x in s3_storage.get_by_lines(range_start=range_start)
+                        ]
 
                         s3_storage = S3Storage(bucket_name=bucket_name, object_key="dummy.key")
-                        plain_full_03: list[tuple[Union[StorageReader, bytes], int, int, int]] = list(
-                            s3_storage.get_by_lines(range_start=range_start)
-                        )
+                        plain_full_03: list[tuple[Union[StorageReader, bytes], int, int, int]] = [
+                            (x[0], x[2], x[3], x[4]) for x in s3_storage.get_by_lines(range_start=range_start)
+                        ]
 
                         diff = set(gzip_full_02) ^ set(plain_full_02)
                         assert not diff
@@ -225,14 +225,14 @@ class TestS3Storage(TestCase):
                         range_start = plain_full[-1][1] + random.randint(1, 100)
 
                         s3_storage = S3Storage(bucket_name=bucket_name, object_key="dummy.key.gz")
-                        gzip_full_empty: list[tuple[Union[StorageReader, bytes], int, int, int]] = list(
-                            s3_storage.get_by_lines(range_start=range_start)
-                        )
+                        gzip_full_empty: list[
+                            tuple[Union[StorageReader, bytes], Optional[dict[str, Any]], int, int, int]
+                        ] = list(s3_storage.get_by_lines(range_start=range_start))
 
                         s3_storage = S3Storage(bucket_name=bucket_name, object_key="dummy.key")
-                        plain_full_empty: list[tuple[Union[StorageReader, bytes], int, int, int]] = list(
-                            s3_storage.get_by_lines(range_start=range_start)
-                        )
+                        plain_full_empty: list[
+                            tuple[Union[StorageReader, bytes], Optional[dict[str, Any]], int, int, int]
+                        ] = list(s3_storage.get_by_lines(range_start=range_start))
 
                         assert not gzip_full_empty
                         assert not plain_full_empty

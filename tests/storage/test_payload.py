@@ -5,7 +5,7 @@
 import base64
 import gzip
 import random
-from typing import Union
+from typing import Any, Optional, Union
 from unittest import TestCase
 
 import pytest
@@ -84,14 +84,14 @@ class TestPayloadStorage(TestCase):
                             original_length -= len(newline)
 
                         payload_storage = PayloadStorage(payload=payload_content_gzip)
-                        gzip_full: list[tuple[Union[StorageReader, bytes], int, int, int]] = list(
-                            payload_storage.get_by_lines(range_start=0)
-                        )
+                        gzip_full: list[tuple[Union[StorageReader, bytes], int, int, int]] = [
+                            (x[0], x[2], x[3], x[4]) for x in payload_storage.get_by_lines(range_start=0)
+                        ]
 
                         payload_storage = PayloadStorage(payload=payload_content_plain)
-                        plain_full: list[tuple[Union[StorageReader, bytes], int, int, int]] = list(
-                            payload_storage.get_by_lines(range_start=0)
-                        )
+                        plain_full: list[tuple[Union[StorageReader, bytes], int, int, int]] = [
+                            (x[0], x[2], x[3], x[4]) for x in payload_storage.get_by_lines(range_start=0)
+                        ]
 
                         diff = set(gzip_full) ^ set(plain_full)
                         assert not diff
@@ -113,14 +113,14 @@ class TestPayloadStorage(TestCase):
 
                         range_start = plain_full_01[-1][1]
                         payload_storage = PayloadStorage(payload=payload_content_gzip)
-                        gzip_full_02: list[tuple[Union[StorageReader, bytes], int, int, int]] = list(
-                            payload_storage.get_by_lines(range_start=range_start)
-                        )
+                        gzip_full_02: list[tuple[Union[StorageReader, bytes], int, int, int]] = [
+                            (x[0], x[2], x[3], x[4]) for x in payload_storage.get_by_lines(range_start=range_start)
+                        ]
 
                         payload_storage = PayloadStorage(payload=payload_content_plain)
-                        plain_full_02: list[tuple[Union[StorageReader, bytes], int, int, int]] = list(
-                            payload_storage.get_by_lines(range_start=range_start)
-                        )
+                        plain_full_02: list[tuple[Union[StorageReader, bytes], int, int, int]] = [
+                            (x[0], x[2], x[3], x[4]) for x in payload_storage.get_by_lines(range_start=range_start)
+                        ]
 
                         diff = set(gzip_full_01) ^ set(plain_full_01)
                         assert not diff
@@ -149,14 +149,14 @@ class TestPayloadStorage(TestCase):
 
                         range_start = plain_full_02[-1][1]
                         payload_storage = PayloadStorage(payload=payload_content_gzip)
-                        gzip_full_03: list[tuple[Union[StorageReader, bytes], int, int, int]] = list(
-                            payload_storage.get_by_lines(range_start=range_start)
-                        )
+                        gzip_full_03: list[tuple[Union[StorageReader, bytes], int, int, int]] = [
+                            (x[0], x[2], x[3], x[4]) for x in payload_storage.get_by_lines(range_start=range_start)
+                        ]
 
                         payload_storage = PayloadStorage(payload=payload_content_plain)
-                        plain_full_03: list[tuple[Union[StorageReader, bytes], int, int, int]] = list(
-                            payload_storage.get_by_lines(range_start=range_start)
-                        )
+                        plain_full_03: list[tuple[Union[StorageReader, bytes], int, int, int]] = [
+                            (x[0], x[2], x[3], x[4]) for x in payload_storage.get_by_lines(range_start=range_start)
+                        ]
 
                         diff = set(gzip_full_02) ^ set(plain_full_02)
                         assert not diff
@@ -185,14 +185,14 @@ class TestPayloadStorage(TestCase):
                         range_start = plain_full[-1][1] + random.randint(1, 100)
 
                         payload_storage = PayloadStorage(payload=payload_content_gzip)
-                        gzip_full_empty: list[tuple[Union[StorageReader, bytes], int, int, int]] = list(
-                            payload_storage.get_by_lines(range_start=range_start)
-                        )
+                        gzip_full_empty: list[
+                            tuple[Union[StorageReader, bytes], Optional[dict[str, Any]], int, int, int]
+                        ] = list(payload_storage.get_by_lines(range_start=range_start))
 
                         payload_storage = PayloadStorage(payload=payload_content_plain)
-                        plain_full_empty: list[tuple[Union[StorageReader, bytes], int, int, int]] = list(
-                            payload_storage.get_by_lines(range_start=range_start)
-                        )
+                        plain_full_empty: list[
+                            tuple[Union[StorageReader, bytes], Optional[dict[str, Any]], int, int, int]
+                        ] = list(payload_storage.get_by_lines(range_start=range_start))
 
                         assert not gzip_full_empty
                         assert not plain_full_empty

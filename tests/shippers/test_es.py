@@ -13,7 +13,7 @@ import pytest
 
 from shippers import ElasticsearchShipper
 
-_now = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+_now = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
 _dummy_event: dict[str, Any] = {
     "@timestamp": _now,

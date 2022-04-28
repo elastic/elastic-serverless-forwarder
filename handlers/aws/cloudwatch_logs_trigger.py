@@ -9,10 +9,11 @@ from typing import Any, Iterator
 
 from botocore.client import BaseClient as BotoBaseClient
 
-from share import shared_logger
+from share import extract_events_from_field, shared_logger
 from storage import CommonStorage, StorageFactory
 
 from .event import _default_event
+from .utils import extractor_events_from_field
 
 
 def _from_awslogs_data_to_event(awslogs_data: str) -> Any:
@@ -70,7 +71,9 @@ def _handle_cloudwatch_logs_continuation(
         )
 
 
-def _handle_cloudwatch_logs_event(event: dict[str, Any], aws_region: str) -> Iterator[tuple[dict[str, Any], int, int]]:
+def _handle_cloudwatch_logs_event(
+    event: dict[str, Any], integration_scope: str, aws_region: str
+) -> Iterator[tuple[dict[str, Any], int, int, bool]]:
     """
     Handler for cloudwatch logs inputs.
     It iterates through the logEvents in cloudwatch logs trigger payload and process
@@ -82,7 +85,6 @@ def _handle_cloudwatch_logs_event(event: dict[str, Any], aws_region: str) -> Ite
     log_group_name = event["logGroup"]
     log_stream_name = event["logStream"]
 
-    assert "logEvents" in event
     for cloudwatch_log_event_n, cloudwatch_log_event in enumerate(event["logEvents"]):
         event_id = cloudwatch_log_event["id"]
 
@@ -94,25 +96,28 @@ def _handle_cloudwatch_logs_event(event: dict[str, Any], aws_region: str) -> Ite
             range_start=0,
         )
 
-        for log_event, ending_offset, starting_offset, newline_length in events:
+        for log_event, json_object, ending_offset, starting_offset, newline_length in events:
             assert isinstance(log_event, bytes)
 
-            es_event = deepcopy(_default_event)
-            es_event["@timestamp"] = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            es_event["fields"]["message"] = log_event.decode("UTF-8")
+            for extracted_log_event, extracted_starting_offset, is_last_event_extracted in extract_events_from_field(
+                log_event, json_object, starting_offset, ending_offset, integration_scope, extractor_events_from_field
+            ):
+                es_event = deepcopy(_default_event)
+                es_event["@timestamp"] = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+                es_event["fields"]["message"] = extracted_log_event.decode("UTF-8")
 
-            es_event["fields"]["log"]["offset"] = starting_offset
+                es_event["fields"]["log"]["offset"] = extracted_starting_offset
 
-            es_event["fields"]["log"]["file"]["path"] = f"{log_group_name}/{log_stream_name}"
+                es_event["fields"]["log"]["file"]["path"] = f"{log_group_name}/{log_stream_name}"
 
-            es_event["fields"]["aws"] = {
-                "awscloudwatch": {
-                    "log_group": log_group_name,
-                    "log_stream": log_stream_name,
-                    "event_id": event_id,
+                es_event["fields"]["aws"] = {
+                    "awscloudwatch": {
+                        "log_group": log_group_name,
+                        "log_stream": log_stream_name,
+                        "event_id": event_id,
+                    }
                 }
-            }
 
-            es_event["fields"]["cloud"]["region"] = aws_region
+                es_event["fields"]["cloud"]["region"] = aws_region
 
-            yield es_event, ending_offset, cloudwatch_log_event_n
+                yield es_event, ending_offset, cloudwatch_log_event_n, is_last_event_extracted

@@ -101,7 +101,7 @@ class MockContentBase:
                 )
             else:
                 # every line is from 0 to 20 chars, repeated for length_multiplier
-                mock_content = newline.join(
+                mock_content = newline + newline.join(
                     [
                         "".join(random.choices(string.ascii_letters + string.digits, k=random.randint(0, 20))).encode(
                             "utf-8"
@@ -128,7 +128,7 @@ def wrap(payload: str) -> int:
     lines = payload_storage.get_by_lines(range_start=0)
     last_length: int = 0
     for line in lines:
-        last_length = line[1]
+        last_length = line[2]
 
     return last_length
 

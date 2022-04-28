@@ -22,6 +22,7 @@ import docker
 import localstack.utils.aws.aws_stack
 import mock
 import pytest
+import ujson
 from botocore.client import BaseClient as BotoBaseClient
 from botocore.exceptions import ClientError
 from botocore.response import StreamingBody
@@ -38,6 +39,7 @@ from handlers.aws.exceptions import (
     TriggerTypeException,
 )
 from main_aws import handler
+from share import Input
 
 
 class ContextMock:
@@ -112,7 +114,7 @@ class MockContent:
         return None
 
 
-_now = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+_now = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 _dummy_lambda_event: dict[str, Any] = {
     "Records": [
         {
@@ -242,12 +244,34 @@ _s3_client_mock.download_fileobj = _download_fileobj
 _s3_client_mock.get_object = _get_object
 
 
-def _describe_log_groups(logGroupNamePrefix: str) -> dict[str, Any]:
+def _describe_log_groups(*args: Any, **kwargs: Any) -> dict[str, Any]:
+    if "nextToken" not in kwargs:
+        next_token = "0"
+    else:
+        next_token = "0" * (len(kwargs["nextToken"]) + 1)
+
+    if len(next_token) > 2:
+        if kwargs["logGroupNamePrefix"] == "logGroupNotMatching":
+            log_group_name = "let_not_match"
+        else:
+            log_group_name = kwargs["logGroupNamePrefix"]
+
+        return {
+            "logGroups": [
+                {"logGroupName": "string", "arn": "string"},
+                {
+                    "logGroupName": log_group_name,
+                    "arn": f"arn:aws:logs:us-east-1:000000000000:log-group:{log_group_name}",
+                },
+            ]
+        }
+
     return {
         "logGroups": [
-            {"logGroupName": "string", "arn": "string"},
-            {"logGroupName": "logGroup", "arn": "arn:aws:logs:eu-central-1:123456789:log-group:logGroup:*"},
-        ]
+            {"logGroupName": "another_string", "arn": "another_string"},
+            {"logGroupName": "another_string_2", "arn": "another_string_2"},
+        ],
+        "nextToken": next_token,
     }
 
 
@@ -269,12 +293,14 @@ def reload_handlers_aws_handler() -> None:
     os.environ["ELASTIC_APM_ACTIVE"] = "ELASTIC_APM_ACTIVE"
     os.environ["AWS_LAMBDA_FUNCTION_NAME"] = "AWS_LAMBDA_FUNCTION_NAME"
 
-    from handlers.aws.utils import get_cloudwatch_logs_client
+    from handlers.aws.utils import get_cloudwatch_logs_client, get_sqs_client
 
     os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
     _ = get_cloudwatch_logs_client()
+    _ = get_sqs_client()
 
     mock.patch("handlers.aws.utils.get_cloudwatch_logs_client", lambda: _cloudwatch_logs_client).start()
+    mock.patch("handlers.aws.utils.get_sqs_client", lambda: _sqs_client_mock).start()
 
     handlers_aws_handler = sys.modules["handlers.aws.handler"]
     importlib.reload(handlers_aws_handler)
@@ -303,7 +329,6 @@ class TestLambdaHandlerNoop(TestCase):
     @mock.patch("handlers.aws.handler.get_sqs_client", lambda: _sqs_client_mock)
     @mock.patch("storage.S3Storage._s3_client", _s3_client_mock)
     @mock.patch("handlers.aws.utils.apm_capture_serverless", _apm_capture_serverless)
-    @mock.patch("handlers.aws.utils.get_sqs_client", lambda: _sqs_client_mock)
     @mock.patch(
         "handlers.aws.utils._available_triggers",
         new={"aws:s3": "s3-sqs", "aws:sqs": "sqs", "aws:kinesis": "kinesis-data-stream", "dummy": "s3-sqs"},
@@ -355,7 +380,7 @@ class TestLambdaHandlerNoop(TestCase):
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
             lambda_event = deepcopy(_dummy_lambda_event)
             lambda_event["Records"][0]["messageAttributes"]["originalEventSourceARN"] = {
-                "stringValue": "arn:aws:logs:eu-central-1:123456789:log-group:test-esf-loggroup:*"
+                "stringValue": "arn:aws:logs:eu-central-1:123456789:log-group:test-not-existing-esf-loggroup:*"
             }
             assert handler(lambda_event, ctx) == "completed"  # type:ignore
 
@@ -403,123 +428,6 @@ class TestLambdaHandlerNoop(TestCase):
             del lambda_event["Records"][0]["messageAttributes"]["originalEventSourceARN"]
             assert handler(lambda_event, ctx) == "completed"  # type:ignore
 
-        with self.subTest("discover_integration_scope no integration scope"):
-            ctx = ContextMock()
-            lambda_event = deepcopy(_dummy_lambda_event)
-            assert handler(lambda_event, ctx) == "completed"  # type:ignore
-
-        with self.subTest("discover_integration_scope aws.cloudtrail integration scope"):
-            ctx = ContextMock()
-            lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
-            lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
-                "AWSLogs/aws-account-id/CloudTrail/region/"
-                "yyyy/mm/dd/aws-account-id_CloudTrail_region_end-time_random-string.log.gz"
-            )
-            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
-
-            assert handler(lambda_event, ctx) == "completed"  # type:ignore
-
-        with self.subTest("discover_integration_scope aws.cloudtrail digest integration scope"):
-            ctx = ContextMock()
-            lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
-            lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
-                "AWSLogs/aws-account-id/CloudTrail-Digest/region/"
-                "yyyy/mm/dd/aws-account-id_CloudTrail-Digest_region_end-time_random-string.log.gz"
-            )
-            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
-
-            assert handler(lambda_event, ctx) == "completed"  # type:ignore
-
-        with self.subTest("discover_integration_scope aws.cloudtrail insight integration scope"):
-            ctx = ContextMock()
-            lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
-            lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
-                "AWSLogs/aws-account-id/CloudTrail-Insight/region/"
-                "yyyy/mm/dd/aws-account-id_CloudTrail-Insight_region_end-time_random-string.log.gz"
-            )
-            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
-
-            assert handler(lambda_event, ctx) == "completed"  # type:ignore
-
-        with self.subTest("discover_integration_scope aws.cloudtrail insight integration scope"):
-            ctx = ContextMock()
-            lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
-            lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
-                "AWSLogs/aws-account-id/CloudTrail-Insight/region/"
-                "yyyy/mm/dd/aws-account-id_CloudTrail-Insight_region_end-time_random-string.log.gz"
-            )
-            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
-
-            assert handler(lambda_event, ctx) == "completed"  # type:ignore
-
-        with self.subTest("discover_integration_scope aws.cloudwatch_logs integration scope"):
-            ctx = ContextMock()
-            lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
-            lambda_event_body["Records"][0]["s3"]["object"]["key"] = "exportedlogs/111-222-333/2021-12-28/hash/file.gz"
-            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
-
-            assert handler(lambda_event, ctx) == "completed"  # type:ignore
-
-        with self.subTest("discover_integration_scope aws.elb_logs integration scope"):
-            ctx = ContextMock()
-            lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
-            lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
-                "AWSLogs/aws-account-id/elasticloadbalancing/"
-                "region/yyyy/mm/dd/"
-                "aws-account-id_elasticloadbalancing_region_load-balancer-id_end-time_ip-address_random-string.log.gz"
-            )
-            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
-
-            assert handler(lambda_event, ctx) == "completed"  # type:ignore
-
-        with self.subTest("discover_integration_scope aws.firewall_logs integration scope"):
-            ctx = ContextMock()
-            lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
-            lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
-                "AWSLogs/aws-account-id/network-firewall/" "log-type/Region/firewall-name/timestamp/"
-            )
-            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
-
-            assert handler(lambda_event, ctx) == "completed"  # type:ignore
-
-        with self.subTest("discover_integration_scope aws.waf integration scope"):
-            ctx = ContextMock()
-            lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
-            lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
-                "AWSLogs/account-id/" "WAFLogs/Region/web-acl-name/YYYY/MM/dd/HH/mm"
-            )
-            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
-
-            assert handler(lambda_event, ctx) == "completed"  # type:ignore
-
-        with self.subTest("discover_integration_scope aws.vpcflow integration scope"):
-            ctx = ContextMock()
-            lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
-            lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
-                "AWSLogs/id/vpcflowlogs/" "region/date_vpcflowlogs_region_file.log.gz"
-            )
-            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
-
-            assert handler(lambda_event, ctx) == "completed"  # type:ignore
-
-        with self.subTest("discover_integration_scope unknown integration scope"):
-            ctx = ContextMock()
-            lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
-            lambda_event_body["Records"][0]["s3"]["object"]["key"] = "random_hash"
-            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
-
-            assert handler(lambda_event, ctx) == "completed"  # type:ignore
-
         with self.subTest("raising cannot find cloudwatch_logs ARN"):
             ctx = ContextMock()
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
@@ -551,6 +459,132 @@ class TestLambdaHandlerNoop(TestCase):
                 lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
 
                 assert handler(lambda_event, ctx) == "exception raised: Exception('raised')"  # type:ignore
+
+
+@pytest.mark.unit
+class TestDiscoverIntegrationScope(TestCase):
+    def test_discover_integration_scope(self) -> None:
+        from handlers.aws.utils import discover_integration_scope
+
+        input_s3 = Input(input_type="s3-sqs", input_id="id", integration_scope_discoverer=discover_integration_scope)
+
+        with self.subTest("discover_integration_scope no integration scope"):
+            lambda_event = deepcopy(_dummy_lambda_event)
+            assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "generic"
+
+        with self.subTest("discover_integration_scope aws.cloudtrail integration scope"):
+            lambda_event = deepcopy(_dummy_lambda_event)
+            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+            lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
+                "AWSLogs/aws-account-id/CloudTrail/region/"
+                "yyyy/mm/dd/aws-account-id_CloudTrail_region_end-time_random-string.log.gz"
+            )
+            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+
+            assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "aws.cloudtrail"
+
+        with self.subTest("discover_integration_scope aws.cloudtrail digest integration scope"):
+            lambda_event = deepcopy(_dummy_lambda_event)
+            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+            lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
+                "AWSLogs/aws-account-id/CloudTrail-Digest/region/"
+                "yyyy/mm/dd/aws-account-id_CloudTrail-Digest_region_end-time_random-string.log.gz"
+            )
+            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+
+            assert (
+                input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "aws.cloudtrail-digest"
+            )
+
+        with self.subTest("discover_integration_scope aws.cloudtrail insight integration scope"):
+            lambda_event = deepcopy(_dummy_lambda_event)
+            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+            lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
+                "AWSLogs/aws-account-id/CloudTrail-Insight/region/"
+                "yyyy/mm/dd/aws-account-id_CloudTrail-Insight_region_end-time_random-string.log.gz"
+            )
+            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+
+            assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "aws.cloudtrail"
+
+        with self.subTest("discover_integration_scope aws.cloudwatch_logs integration scope"):
+            lambda_event = deepcopy(_dummy_lambda_event)
+            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+            lambda_event_body["Records"][0]["s3"]["object"]["key"] = "exportedlogs/111-222-333/2021-12-28/hash/file.gz"
+            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+
+            assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "aws.cloudwatch_logs"
+
+        with self.subTest("discover_integration_scope aws.elb_logs integration scope"):
+            lambda_event = deepcopy(_dummy_lambda_event)
+            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+            lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
+                "AWSLogs/aws-account-id/elasticloadbalancing/"
+                "region/yyyy/mm/dd/"
+                "aws-account-id_elasticloadbalancing_region_load-balancer-id_end-time_ip-address_random-string.log.gz"
+            )
+            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+
+            assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "aws.elb_logs"
+
+        with self.subTest("discover_integration_scope aws.firewall_logs integration scope"):
+            lambda_event = deepcopy(_dummy_lambda_event)
+            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+            lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
+                "AWSLogs/aws-account-id/network-firewall/" "log-type/Region/firewall-name/timestamp/"
+            )
+            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+
+            assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "aws.firewall_logs"
+
+        with self.subTest("discover_integration_scope aws.waf integration scope"):
+            lambda_event = deepcopy(_dummy_lambda_event)
+            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+            lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
+                "AWSLogs/account-id/" "WAFLogs/Region/web-acl-name/YYYY/MM/dd/HH/mm"
+            )
+            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+
+            assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "aws.waf"
+
+        with self.subTest("discover_integration_scope aws.vpcflow integration scope"):
+            lambda_event = deepcopy(_dummy_lambda_event)
+            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+            lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
+                "AWSLogs/id/vpcflowlogs/" "region/date_vpcflowlogs_region_file.log.gz"
+            )
+            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+
+            assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "aws.vpcflow"
+
+        with self.subTest("discover_integration_scope unknown integration scope"):
+            lambda_event = deepcopy(_dummy_lambda_event)
+            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+            lambda_event_body["Records"][0]["s3"]["object"]["key"] = "random_hash"
+            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+
+            assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "generic"
+
+        with self.subTest("discover_integration_scope records not in event"):
+            lambda_event = deepcopy(_dummy_lambda_event)
+            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+            del lambda_event_body["Records"]
+            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+
+            assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "generic"
+
+        with self.subTest("discover_integration_scope s3 key not in record"):
+            lambda_event = {"Records": [{"body": '{"Records": [{}]}'}]}
+
+            assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "generic"
+
+        with self.subTest("discover_integration_scope empty s3"):
+            lambda_event = deepcopy(_dummy_lambda_event)
+            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+            lambda_event_body["Records"][0]["s3"]["object"]["key"] = ""
+            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+
+            assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "generic"
 
 
 @pytest.mark.unit
@@ -1436,6 +1470,10 @@ class IntegrationTestCase(TestCase):
         self._queues_info = {}
         for queue in self._queues:
             self._queues_info[queue["name"]] = testutil.create_sqs_queue(queue["name"])
+            queue_url: str = self._queues_info[queue["name"]]["QueueUrl"]
+            self._queues_info[queue["name"]]["QueueUrlPath"] = queue_url.replace(
+                os.environ["SQS_BACKEND"], "https://sqs.us-east-1.amazonaws.com"
+            )
 
             if "type" not in queue:
                 continue
@@ -1596,7 +1634,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             index="logs-generic-default",
             op_type="create",
             id="17b2d3c934-000000000000",
-            document={"@timestamp": datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
+            document={"@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
         )
 
         # Create an expected id so that es.send will fail
@@ -1604,7 +1642,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             index="logs-generic-default",
             op_type="create",
             id=f"{hex_prefix_sqs}-000000000000",
-            document={"@timestamp": datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
+            document={"@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
         )
 
         # Create an expected id for cloudwatch-logs so that es.send will fail
@@ -1612,7 +1650,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             index="logs-generic-default",
             op_type="create",
             id=f"{hex_prefix_cloudwatch_logs}-000000000000",
-            document={"@timestamp": datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
+            document={"@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
         )
 
         self._es_client.indices.refresh(index="logs-generic-default")
@@ -1691,7 +1729,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["log"] == {
             "offset": 98,
-            "file": {"path": self._queues_info["source-sqs-queue"]["QueueUrl"]},
+            "file": {"path": self._queues_info["source-sqs-queue"]["QueueUrlPath"]},
         }
         assert res["hits"]["hits"][0]["_source"]["aws"] == {
             "sqs": {"name": "source-sqs-queue", "message_id": message_id}
@@ -1708,7 +1746,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["log"] == {
             "offset": 399,
-            "file": {"path": self._queues_info["source-sqs-queue"]["QueueUrl"]},
+            "file": {"path": self._queues_info["source-sqs-queue"]["QueueUrlPath"]},
         }
         assert res["hits"]["hits"][0]["_source"]["aws"] == {
             "sqs": {"name": "source-sqs-queue", "message_id": message_id}
@@ -1848,7 +1886,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["log"] == {
             "offset": 0,
-            "file": {"path": self._queues_info["source-sqs-queue"]["QueueUrl"]},
+            "file": {"path": self._queues_info["source-sqs-queue"]["QueueUrlPath"]},
         }
         assert res["hits"]["hits"][0]["_source"]["aws"] == {
             "sqs": {"name": "source-sqs-queue", "message_id": message_id}
@@ -1967,7 +2005,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["log"] == {
             "offset": 0,
-            "file": {"path": self._queues_info["source-sqs-queue"]["QueueUrl"]},
+            "file": {"path": self._queues_info["source-sqs-queue"]["QueueUrlPath"]},
         }
         assert res["hits"]["hits"][0]["_source"]["aws"] == {
             "sqs": {"name": "source-sqs-queue", "message_id": message_id}
@@ -2099,7 +2137,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["log"] == {
             "offset": 98,
-            "file": {"path": self._queues_info["source-sqs-queue"]["QueueUrl"]},
+            "file": {"path": self._queues_info["source-sqs-queue"]["QueueUrlPath"]},
         }
         assert res["hits"]["hits"][0]["_source"]["aws"] == {
             "sqs": {"name": "source-sqs-queue", "message_id": message_id}
@@ -2157,7 +2195,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["log"] == {
             "offset": 399,
-            "file": {"path": self._queues_info["source-sqs-queue"]["QueueUrl"]},
+            "file": {"path": self._queues_info["source-sqs-queue"]["QueueUrlPath"]},
         }
         assert res["hits"]["hits"][0]["_source"]["aws"] == {
             "sqs": {"name": "source-sqs-queue", "message_id": message_id}
@@ -2479,21 +2517,180 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
 
         super(TestLambdaHandlerSuccessS3SQS, self).setUp()
 
-        cloudwatch_log: bytes = (
-            b'{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}\n{"ecs": '
-            b'{"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": {"line": 30, "name": "handler.py"}, '
-            b'"function": "lambda_handler"}, "original": "trigger"}}\n{"another": "continuation", '
-            b'"from": "the", "continuing": "queue"}\n'
+        self._first_cloudtrail_record: bytes = (
+            b"{\n"
+            b'    "eventVersion": "1.0",\n'
+            b'    "userIdentity": {\n'
+            b'        "type": "IAMUser",\n'
+            b'        "principalId": "EX_PRINCIPAL_ID",\n'
+            b'        "arn": "arn:aws:iam::123456789012:user/Alice",\n'
+            b'        "accessKeyId": "EXAMPLE_KEY_ID",\n'
+            b'        "accountId": "123456789012",\n'
+            b'        "userName": "Alice"\n'
+            b"    },\n"
+            b'    "eventTime": "2014-03-06T21:22:54Z",\n'
+            b'    "eventSource": "ec2.amazonaws.com",\n'
+            b'    "eventName": "StartInstances",\n'
+            b'    "awsRegion": "us-east-2",\n'
+            b'    "sourceIPAddress": "205.251.233.176",\n'
+            b'    "userAgent": "ec2-api-tools 1.6.12.2",\n'
+            b'    "requestParameters": {"instancesSet": {"items": [{"instanceId": "i-ebeaf9e2"}]}},\n'
+            b'    "responseElements": {"instancesSet": {"items": [{\n'
+            b'        "instanceId": "i-ebeaf9e2",\n'
+            b'        "currentState": {\n'
+            b'            "code": 0,\n'
+            b'            "name": "pending"\n'
+            b"        },\n"
+            b'        "previousState": {\n'
+            b'            "code": 80,\n'
+            b'            "name": "stopped"\n'
+            b"        }\n"
+            b"    }]}}\n"
+            b"}\n"
+        )
+
+        self._second_cloudtrail_record: bytes = (
+            b"{\n"
+            b'    "eventVersion": "1.0",\n'
+            b'    "userIdentity": {\n'
+            b'        "type": "IAMUser",\n'
+            b'        "principalId": "EX_PRINCIPAL_ID",\n'
+            b'        "arn": "arn:aws:iam::123456789012:user/Alice",\n'
+            b'        "accountId": "123456789012",\n'
+            b'        "accessKeyId": "EXAMPLE_KEY_ID",\n'
+            b'        "userName": "Alice",\n'
+            b'        "sessionContext": {"attributes": {\n'
+            b'            "mfaAuthenticated": "false",\n'
+            b'            "creationDate": "2014-03-25T18:45:11Z"\n'
+            b"        }}\n"
+            b"    },\n"
+            b'    "eventTime": "2014-03-25T21:08:14Z",\n'
+            b'    "eventSource": "iam.amazonaws.com",\n'
+            b'    "eventName": "AddUserToGroup",\n'
+            b'    "awsRegion": "us-east-2",\n'
+            b'    "sourceIPAddress": "127.0.0.1",\n'
+            b'    "userAgent": "AWSConsole",\n'
+            b'    "requestParameters": {\n'
+            b'        "userName": "Bob",\n'
+            b'        "groupName": "admin"\n'
+            b"    },\n"
+            b'    "responseElements": null\n'
+            b"}\n"
+        )
+
+        self._third_cloudtrail_record: bytes = (
+            b"{\n"
+            b'    "eventVersion": "1.04",\n'
+            b'    "userIdentity": {\n'
+            b'        "type": "IAMUser",\n'
+            b'        "principalId": "EX_PRINCIPAL_ID",\n'
+            b'        "arn": "arn:aws:iam::123456789012:user/Alice",\n'
+            b'        "accountId": "123456789012",\n'
+            b'        "accessKeyId": "EXAMPLE_KEY_ID",\n'
+            b'        "userName": "Alice"\n'
+            b"    },\n"
+            b'    "eventTime": "2016-07-14T19:15:45Z",\n'
+            b'    "eventSource": "cloudtrail.amazonaws.com",\n'
+            b'    "eventName": "UpdateTrail",\n'
+            b'    "awsRegion": "us-east-2",\n'
+            b'    "sourceIPAddress": "205.251.233.182",\n'
+            b'    "userAgent": "aws-cli/1.10.32 Python/2.7.9 Windows/7 botocore/1.4.22",\n'
+            b'    "errorCode": "TrailNotFoundException",\n'
+            b'    "errorMessage": "Unknown trail: myTrail2 for the user: 123456789012",\n'
+            b'    "requestParameters": {"name": "myTrail2"},\n'
+            b'    "responseElements": null,\n'
+            b'    "requestID": "5d40662a-49f7-11e6-97e4-d9cb6ff7d6a3",\n'
+            b'    "eventID": "b7d4398e-b2f0-4faa-9c76-e2d316a8d67f",\n'
+            b'    "eventType": "AwsApiCall",\n'
+            b'    "recipientAccountId": "123456789012"\n'
+            b"}\n"
+        )
+
+        self._fourth_cloudtrail_record: bytes = (
+            b"{\n"
+            b'     "eventVersion": "1.0",\n'
+            b'     "userIdentity": {\n'
+            b'         "type": "IAMUser",\n'
+            b'         "principalId": "EX_PRINCIPAL_ID",\n'
+            b'         "arn": "arn:aws:iam::123456789012:user/Alice",\n'
+            b'         "accountId": "123456789012",\n'
+            b'         "accessKeyId": "EXAMPLE_KEY_ID",\n'
+            b'         "userName": "Alice"\n'
+            b"     },\n"
+            b'     "eventTime": "2014-03-25T20:17:37Z",\n'
+            b'     "eventSource": "iam.amazonaws.com",\n'
+            b'     "eventName": "CreateRole",\n'
+            b'     "awsRegion": "us-east-2",\n'
+            b'     "sourceIPAddress": "127.0.0.1",\n'
+            b'     "userAgent": "aws-cli/1.3.2 Python/2.7.5 Windows/7",\n'
+            b'     "requestParameters": {\n'
+            b'         "assumeRolePolicyDocument": "{\\n  \\"Version\\": \\">2012-10-17\\",\\n  \\"Statement\\": [\\n'
+            b'    {\\n      \\"Sid\\": \\"\\",     \\n\\"Effect\\": \\"Allow\\",\\n      \\"Principal\\": {\\n'
+            b'     \\"AWS\\": \\n\\"arn:aws:iam::210987654321:root\\"\\n      },\\n      \\"Action\\":'
+            b' \\"sts:AssumeRole\\"\\n    }\\n  ]\\n}",'
+            b'         "roleName": "TestRole"\n'
+            b"     },\n"
+            b'     "responseElements": {\n'
+            b'         "role": {\n'
+            b'          "assumeRolePolicyDocument": "%7B%0A%20%20%22Version%22%3A%20%222012-10-17%22%2C%0A%20%20%22'
+            b"Statement%22%3A%20%5B%0A%20%20%20%20%7B%0A%20%20%20%20%20%20%22Sid%22%3A%20%22%22%2C%0A%20%20%20%20%20%20"
+            b"%22Effect%22%3A%20%22Allow%22%2C%0A%20%20%20%20%20%20%22Principal%22%3A%20%7B%0A%20%20%20%20%20%20%20%20"
+            b"%22AWS%22%3A%20%22arn%3Aaws%3Aiam%3A%3A803981987763%3Aroot%22%0A%20%20%20%20%20%20%7D%2C%0A%20%20%20%20"
+            b'%20%20%22Action%22%3A%20%22sts%3AAssumeRole%22%0A%20%20%20%20%7D%0A%20%20%5D%0A%7D",\n'
+            b'          "roleName": "TestRole",\n'
+            b'          "roleId": "AROAIUU2EOWSWPGX2UJUO",\n'
+            b'          "arn": "arn:aws:iam::123456789012:role/TestRole",\n'
+            b'          "createDate": "Mar 25, 2014 8:17:37 PM",\n'
+            b'          "path": "/excluded"\n'
+            b"         }\n"
+            b"     }\n"
+            b"}\n"
+        )
+
+        self._fifth_cloudtrail_record: bytes = (
+            b"{\n"
+            b'    "eventVersion": "1.0",\n'
+            b'    "userIdentity": {\n'
+            b'        "type": "IAMUser",\n'
+            b'        "principalId": "EX_PRINCIPAL_ID",\n'
+            b'        "arn": "arn:aws:iam::123456789012:user/Alice",\n'
+            b'        "accountId": "123456789012",\n'
+            b'        "accessKeyId": "EXAMPLE_KEY_ID",\n'
+            b'        "userName": "Alice"\n'
+            b"    },\n"
+            b'    "eventTime": "2014-03-24T21:11:59Z",\n'
+            b'    "eventSource": "iam.amazonaws.com",\n'
+            b'    "eventName": "CreateUser",\n'
+            b'    "awsRegion": "us-east-2",\n'
+            b'    "sourceIPAddress": "127.0.0.1",\n'
+            b'    "userAgent": "aws-cli/1.3.2 Python/2.7.5 Windows/7",\n'
+            b'    "requestParameters": {"userName": "Bob"},\n'
+            b'    "responseElements": {"user": {\n'
+            b'        "createDate": "Mar 24, 2014 9:11:59 PM",\n'
+            b'        "userName": "Bob",\n'
+            b'        "arn": "arn:aws:iam::123456789012:user/Bob",\n'
+            b'        "path": "/",\n'
+            b'        "userId": "EXAMPLEUSERID"\n'
+            b"    }}\n"
+            b"}\n"
+        )
+
+        cloudtrail_log: bytes = (
+            b'{"Records": [' + self._first_cloudtrail_record + b",\n" + self._second_cloudtrail_record + b"]}\n"
+            b'{"Records": [' + self._third_cloudtrail_record + b",\n" + self._fourth_cloudtrail_record + b"]}\n"
+            b'{"Records": []}\n'
+            b'{"Records": [' + self._fifth_cloudtrail_record + b"]}\n"
         )
 
         _upload_content_to_bucket(
-            content=gzip.compress(cloudwatch_log),
+            content=gzip.compress(cloudtrail_log),
             content_type="application/x-gzip",
             bucket_name="test-bucket",
-            key_name="exportedlogs/uuid/yyyy-mm-dd-[$LATEST]hash/000000.gz",
+            key_name="AWSLogs/aws-account-id/CloudTrail/region/yyyy/mm/dd/"
+            "aws-account-id_CloudTrail_region_end-time_random-string.log.gz",
         )
 
-        cloudwatch_log_with_exclude: bytes = (
+        cloudtrail_digest_log_with_exclude: bytes = (
             b'{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}\n\n{"excluded": '
             b'"by filter"}\n{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": {"line": 30, '
             b'"name": "handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}\n{"another": '
@@ -2501,10 +2698,11 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         )
 
         _upload_content_to_bucket(
-            content=gzip.compress(cloudwatch_log_with_exclude),
+            content=gzip.compress(cloudtrail_digest_log_with_exclude),
             content_type="application/x-gzip",
             bucket_name="test-bucket",
-            key_name="exportedlogs/uuid/yyyy-mm-dd-[$LATEST]hash/000001.gz",
+            key_name="AWSLogs/aws-account-id/CloudTrail-Digest/region/yyyy/mm/dd/"
+            "aws-account-id_CloudTrail-Digest_region_end-time_random-string.log.gz",
         )
 
         mock.patch("storage.S3Storage._s3_client", _mock_awsclient(service_name="s3")).start()
@@ -2520,15 +2718,19 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
 
     @mock.patch("handlers.aws.handler._completion_grace_period", 1)
     def test_lambda_handler_replay(self) -> None:
-        filename: str = "exportedlogs/uuid/yyyy-mm-dd-[$LATEST]hash/000001.gz"
+        filename: str = (
+            "AWSLogs/aws-account-id/CloudTrail-Digest/region/yyyy/mm/dd/"
+            "aws-account-id_CloudTrail-Digest_region_end-time_random-string.log.gz"
+        )
+
         # Create an expected id so that es.send will fail
         self._es_client.index(
-            index="logs-aws.cloudwatch_logs-default",
+            index="logs-aws.cloudtrail-default",
             op_type="create",
-            id="13bb9dbeab-000000000000",
-            document={"@timestamp": datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
+            id="c2fe2a3df7-000000000000",
+            document={"@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
         )
-        self._es_client.indices.refresh(index="logs-aws.cloudwatch_logs-default")
+        self._es_client.indices.refresh(index="logs-aws.cloudtrail-default")
 
         ctx = ContextMock(remaining_time_in_millis=2)
 
@@ -2539,11 +2741,11 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
 
         assert first_call == "completed"
 
-        self._es_client.indices.refresh(index="logs-aws.cloudwatch_logs-default")
+        self._es_client.indices.refresh(index="logs-aws.cloudtrail-default")
 
         res = self._es_client.search(
-            index="logs-aws.cloudwatch_logs-default",
-            query={"ids": {"values": ["13bb9dbeab-000000000113", "13bb9dbeab-000000000279"]}},
+            index="logs-aws.cloudtrail-default",
+            query={"ids": {"values": ["c2fe2a3df7-000000000113", "c2fe2a3df7-000000000279"]}},
         )
         assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
 
@@ -2565,7 +2767,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         }
         assert res["hits"]["hits"][0]["_source"]["cloud"] == {"provider": "aws", "region": "eu-central-1"}
 
-        assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "aws-cloudwatch_logs", "tag1", "tag2", "tag3"]
+        assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
 
         assert (
             res["hits"]["hits"][1]["_source"]["message"]
@@ -2584,7 +2786,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         }
         assert res["hits"]["hits"][1]["_source"]["cloud"] == {"provider": "aws", "region": "eu-central-1"}
 
-        assert res["hits"]["hits"][1]["_source"]["tags"] == ["forwarded", "aws-cloudwatch_logs", "tag1", "tag2", "tag3"]
+        assert res["hits"]["hits"][1]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
 
         event = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
         with self.assertRaises(ReplayHandlerException):
@@ -2592,9 +2794,9 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
 
         # Remove the expected id so that it can be replayed
         self._es_client.delete_by_query(
-            index="logs-aws.cloudwatch_logs-default", body={"query": {"ids": {"values": ["13bb9dbeab-000000000000"]}}}
+            index="logs-aws.cloudtrail-default", body={"query": {"ids": {"values": ["c2fe2a3df7-000000000000"]}}}
         )
-        self._es_client.indices.refresh(index="logs-aws.cloudwatch_logs-default")
+        self._es_client.indices.refresh(index="logs-aws.cloudtrail-default")
 
         # implicit wait for the message to be back on the queue
         time.sleep(35)
@@ -2603,10 +2805,10 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
 
         assert third_call == "replayed"
 
-        self._es_client.indices.refresh(index="logs-aws.cloudwatch_logs-default")
-        assert self._es_client.count(index="logs-aws.cloudwatch_logs-default")["count"] == 3
+        self._es_client.indices.refresh(index="logs-aws.cloudtrail-default")
+        assert self._es_client.count(index="logs-aws.cloudtrail-default")["count"] == 3
 
-        res = self._es_client.search(index="logs-aws.cloudwatch_logs-default", sort="_seq_no")
+        res = self._es_client.search(index="logs-aws.cloudtrail-default", sort="_seq_no")
         assert res["hits"]["total"] == {"value": 3, "relation": "eq"}
         assert (
             res["hits"]["hits"][2]["_source"]["message"]
@@ -2625,10 +2827,14 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         }
         assert res["hits"]["hits"][2]["_source"]["cloud"] == {"provider": "aws", "region": "eu-central-1"}
 
-        assert res["hits"]["hits"][2]["_source"]["tags"] == ["forwarded", "aws-cloudwatch_logs", "tag1", "tag2", "tag3"]
+        assert res["hits"]["hits"][2]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
 
     def test_lambda_handler_continuing(self) -> None:
-        filename: str = "exportedlogs/uuid/yyyy-mm-dd-[$LATEST]hash/000000.gz"
+        filename: str = (
+            "AWSLogs/aws-account-id/CloudTrail/region/yyyy/mm/dd/"
+            "aws-account-id_CloudTrail_region_end-time_random-string.log.gz"
+        )
+
         ctx = ContextMock()
         _s3_event_to_sqs_message(queue_attributes=self._queues_info["source-queue"], filenames=[filename])
         event = _event_from_sqs_message(queue_attributes=self._queues_info["source-queue"])
@@ -2637,15 +2843,12 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
 
         assert first_call == "continuing"
 
-        self._es_client.indices.refresh(index="logs-aws.cloudwatch_logs-default")
-        assert self._es_client.count(index="logs-aws.cloudwatch_logs-default")["count"] == 1
+        self._es_client.indices.refresh(index="logs-aws.cloudtrail-default")
+        assert self._es_client.count(index="logs-aws.cloudtrail-default")["count"] == 2
 
-        res = self._es_client.search(index="logs-aws.cloudwatch_logs-default", sort="_seq_no")
-        assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
-        assert (
-            res["hits"]["hits"][0]["_source"]["message"]
-            == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}'
-        )
+        res = self._es_client.search(index="logs-aws.cloudtrail-default", sort="_seq_no")
+        assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
+        assert res["hits"]["hits"][0]["_source"]["message"] == ujson.dumps(ujson.loads(self._first_cloudtrail_record))
 
         assert res["hits"]["hits"][0]["_source"]["log"] == {
             "offset": 0,
@@ -2659,27 +2862,12 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         }
         assert res["hits"]["hits"][0]["_source"]["cloud"] == {"provider": "aws", "region": "eu-central-1"}
 
-        assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "aws-cloudwatch_logs", "tag1", "tag2", "tag3"]
+        assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
 
-        event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
-        second_call = handler(event, ctx)  # type:ignore
-
-        assert second_call == "continuing"
-
-        self._es_client.indices.refresh(index="logs-aws.cloudwatch_logs-default")
-        assert self._es_client.count(index="logs-aws.cloudwatch_logs-default")["count"] == 2
-
-        res = self._es_client.search(index="logs-aws.cloudwatch_logs-default", sort="_seq_no")
-        assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
-
-        assert (
-            res["hits"]["hits"][1]["_source"]["message"]
-            == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": {"line": 30, "name": '
-            '"handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}'
-        )
+        assert res["hits"]["hits"][1]["_source"]["message"] == ujson.dumps(ujson.loads(self._second_cloudtrail_record))
 
         assert res["hits"]["hits"][1]["_source"]["log"] == {
-            "offset": 86,
+            "offset": 837,
             "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
         }
         assert res["hits"]["hits"][1]["_source"]["aws"] == {
@@ -2690,26 +2878,23 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         }
         assert res["hits"]["hits"][1]["_source"]["cloud"] == {"provider": "aws", "region": "eu-central-1"}
 
-        assert res["hits"]["hits"][1]["_source"]["tags"] == ["forwarded", "aws-cloudwatch_logs", "tag1", "tag2", "tag3"]
+        assert res["hits"]["hits"][1]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
 
         event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
-        third_call = handler(event, ctx)  # type:ignore
+        second_call = handler(event, ctx)  # type:ignore
 
-        assert third_call == "continuing"
+        assert second_call == "continuing"
 
-        self._es_client.indices.refresh(index="logs-aws.cloudwatch_logs-default")
-        assert self._es_client.count(index="logs-aws.cloudwatch_logs-default")["count"] == 3
+        self._es_client.indices.refresh(index="logs-aws.cloudtrail-default")
+        assert self._es_client.count(index="logs-aws.cloudtrail-default")["count"] == 3
 
-        res = self._es_client.search(index="logs-aws.cloudwatch_logs-default", sort="_seq_no")
+        res = self._es_client.search(index="logs-aws.cloudtrail-default", sort="_seq_no")
         assert res["hits"]["total"] == {"value": 3, "relation": "eq"}
 
-        assert (
-            res["hits"]["hits"][2]["_source"]["message"]
-            == '{"another": "continuation", "from": "the", "continuing": "queue"}'
-        )
+        assert res["hits"]["hits"][2]["_source"]["message"] == ujson.dumps(ujson.loads(self._third_cloudtrail_record))
 
         assert res["hits"]["hits"][2]["_source"]["log"] == {
-            "offset": 252,
+            "offset": 1674,
             "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
         }
         assert res["hits"]["hits"][2]["_source"]["aws"] == {
@@ -2720,7 +2905,34 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         }
         assert res["hits"]["hits"][2]["_source"]["cloud"] == {"provider": "aws", "region": "eu-central-1"}
 
-        assert res["hits"]["hits"][2]["_source"]["tags"] == ["forwarded", "aws-cloudwatch_logs", "tag1", "tag2", "tag3"]
+        assert res["hits"]["hits"][2]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
+
+        event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        third_call = handler(event, ctx)  # type:ignore
+
+        assert third_call == "continuing"
+
+        self._es_client.indices.refresh(index="logs-aws.cloudtrail-default")
+        assert self._es_client.count(index="logs-aws.cloudtrail-default")["count"] == 4
+
+        res = self._es_client.search(index="logs-aws.cloudtrail-default", sort="_seq_no")
+        assert res["hits"]["total"] == {"value": 4, "relation": "eq"}
+
+        assert res["hits"]["hits"][3]["_source"]["message"] == ujson.dumps(ujson.loads(self._fifth_cloudtrail_record))
+
+        assert res["hits"]["hits"][3]["_source"]["log"] == {
+            "offset": 4325,
+            "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
+        }
+        assert res["hits"]["hits"][3]["_source"]["aws"] == {
+            "s3": {
+                "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
+                "object": {"key": f"{filename}"},
+            }
+        }
+        assert res["hits"]["hits"][3]["_source"]["cloud"] == {"provider": "aws", "region": "eu-central-1"}
+
+        assert res["hits"]["hits"][3]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
 
         event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
         fourth_call = handler(event, ctx)  # type:ignore
@@ -2769,7 +2981,7 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
             index="logs-generic-default",
             op_type="create",
             id=f"{hex_prefix}-000000000000",
-            document={"@timestamp": datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
+            document={"@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
         )
         self._es_client.indices.refresh(index="logs-generic-default")
 
@@ -2795,7 +3007,7 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["log"] == {
             "offset": 113,
-            "file": {"path": self._queues_info["source-queue"]["QueueUrl"]},
+            "file": {"path": self._queues_info["source-queue"]["QueueUrlPath"]},
         }
         assert res["hits"]["hits"][0]["_source"]["aws"] == {"sqs": {"name": "source-queue", "message_id": message_id}}
         assert res["hits"]["hits"][0]["_source"]["cloud"] == {"provider": "aws", "region": "us-east-1"}
@@ -2809,7 +3021,7 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
 
         assert res["hits"]["hits"][1]["_source"]["log"] == {
             "offset": 279,
-            "file": {"path": self._queues_info["source-queue"]["QueueUrl"]},
+            "file": {"path": self._queues_info["source-queue"]["QueueUrlPath"]},
         }
         assert res["hits"]["hits"][1]["_source"]["aws"] == {"sqs": {"name": "source-queue", "message_id": message_id}}
         assert res["hits"]["hits"][1]["_source"]["cloud"] == {"provider": "aws", "region": "us-east-1"}
@@ -2846,7 +3058,7 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
 
         assert res["hits"]["hits"][2]["_source"]["log"] == {
             "offset": 0,
-            "file": {"path": self._queues_info["source-queue"]["QueueUrl"]},
+            "file": {"path": self._queues_info["source-queue"]["QueueUrlPath"]},
         }
         assert res["hits"]["hits"][2]["_source"]["aws"] == {"sqs": {"name": "source-queue", "message_id": message_id}}
         assert res["hits"]["hits"][2]["_source"]["cloud"] == {"provider": "aws", "region": "us-east-1"}
@@ -2884,7 +3096,7 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["log"] == {
             "offset": 0,
-            "file": {"path": self._queues_info["source-queue"]["QueueUrl"]},
+            "file": {"path": self._queues_info["source-queue"]["QueueUrlPath"]},
         }
         assert res["hits"]["hits"][0]["_source"]["aws"] == {
             "sqs": {"name": "source-queue", "message_id": event["Records"][0]["messageId"]}
@@ -2912,7 +3124,7 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
 
         assert res["hits"]["hits"][1]["_source"]["log"] == {
             "offset": 86,
-            "file": {"path": self._queues_info["source-queue"]["QueueUrl"]},
+            "file": {"path": self._queues_info["source-queue"]["QueueUrlPath"]},
         }
         assert res["hits"]["hits"][1]["_source"]["aws"] == {
             "sqs": {
@@ -2942,7 +3154,7 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
 
         assert res["hits"]["hits"][2]["_source"]["log"] == {
             "offset": 252,
-            "file": {"path": self._queues_info["source-queue"]["QueueUrl"]},
+            "file": {"path": self._queues_info["source-queue"]["QueueUrlPath"]},
         }
         assert res["hits"]["hits"][2]["_source"]["aws"] == {
             "sqs": {
@@ -3003,7 +3215,7 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
             index="logs-generic-default",
             op_type="create",
             id=f"{hex_prefix}-000000000000",
-            document={"@timestamp": datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
+            document={"@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
         )
         self._es_client.indices.refresh(index="logs-generic-default")
 

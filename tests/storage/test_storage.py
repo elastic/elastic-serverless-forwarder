@@ -2,7 +2,7 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
-from typing import Any, Iterator
+from typing import Any, Iterator, Optional
 from unittest import TestCase
 
 import pytest
@@ -14,8 +14,8 @@ class DummyStorage(CommonStorage):
     def get_as_string(self) -> str:
         return ""
 
-    def get_by_lines(self, range_start: int) -> Iterator[tuple[bytes, int, int, int]]:
-        yield b"", 0, 0, 0
+    def get_by_lines(self, range_start: int) -> Iterator[tuple[bytes, Optional[dict[str, Any]], int, int, int]]:
+        yield b"", None, 0, 0, 0
 
     def __init__(self, **kwargs: Any):
         pass

@@ -5,7 +5,7 @@
 import gzip
 from functools import partial
 from io import BytesIO
-from typing import Any, Iterator, Union
+from typing import Any, Iterator, Optional, Union
 
 import ujson
 
@@ -16,7 +16,7 @@ from .storage import CHUNK_SIZE, CommonStorageType, GetByLinesCallable, StorageR
 
 # For overriding in benchmark
 def json_parser(payload: bytes) -> Any:
-    ujson.loads(payload)
+    return ujson.loads(payload)
 
 
 class JsonCollector:
@@ -36,7 +36,7 @@ class JsonCollector:
         self._is_a_json_object_circuit_broken: bool = True
         self._is_a_json_object_circuit_breaker: int = 0
 
-    def _collector(self, data: bytes, newline: bytes) -> Iterator[bytes]:
+    def _collector(self, data: bytes, newline: bytes) -> Iterator[tuple[bytes, Optional[dict[str, Any]]]]:
         try:
             # let's buffer the content
             # we receive data without newline
@@ -44,7 +44,7 @@ class JsonCollector:
             self._unfinished_line += data + newline
 
             # let's try to decode
-            json_parser(self._unfinished_line)
+            json_object = json_parser(self._unfinished_line)
 
             # it didn't raise: we collected a json object
             data_to_yield = self._unfinished_line
@@ -69,11 +69,11 @@ class JsonCollector:
             self._is_a_json_object = True
 
             # finally yield
-            yield data_to_yield
+            yield data_to_yield, json_object
         # it raised: we didn't collect enough content to reach the end of the json object: let's keep iterating
         except ValueError:
+            # it's an empty line, let's yield it
             if self._is_a_json_object and len(self._unfinished_line.strip(b"\r\n").strip(b"\n")) == 0:
-                # it's an empty line, let's yield it and we collected a json object
                 # let's reset the buffer
                 self._unfinished_line = b""
 
@@ -82,7 +82,7 @@ class JsonCollector:
                 self._ending_offset += len(newline)
 
                 # finally yield
-                yield b""
+                yield b"", None
             else:
                 # buffer was not a complete json object
                 # let's increase the circuit breaker
@@ -96,15 +96,15 @@ class JsonCollector:
     def _buffer_yield(buffer: bytes) -> GetByLinesCallable[CommonStorageType]:
         def wrapper(
             storage: CommonStorageType, range_start: int, body: BytesIO, content_type: str, content_length: int
-        ) -> Iterator[tuple[Union[StorageReader, bytes], int, int, int]]:
+        ) -> Iterator[tuple[Union[StorageReader, bytes], Optional[dict[str, Any]], int, int, int]]:
 
-            yield buffer, range_start, 0, 0
+            yield buffer, None, range_start, 0, 0
 
         return wrapper
 
     def __call__(
         self, storage: CommonStorageType, range_start: int, body: BytesIO, content_type: str, content_length: int
-    ) -> Iterator[tuple[Union[StorageReader, bytes], int, int, int]]:
+    ) -> Iterator[tuple[Union[StorageReader, bytes], Optional[dict[str, Any]], int, int, int]]:
         newline: bytes = b""
 
         has_an_object_start: bool = False
@@ -121,7 +121,7 @@ class JsonCollector:
         self._is_a_json_object_circuit_breaker = 0
 
         iterator = self._function(storage, range_start, body, content_type, content_length)
-        for data, original_line_ending_offset, original_line_starting_offset, newline_length in iterator:
+        for data, _, original_line_ending_offset, original_line_starting_offset, newline_length in iterator:
             assert isinstance(data, bytes)
 
             if newline_length != self._newline_length:
@@ -160,37 +160,37 @@ class JsonCollector:
                         storage, range_start, body, content_type, content_length  # type:ignore
                     )
 
-                    for line, ending_offset, starting_offset, original_newline_length in iterator:
-                        yield line, ending_offset, starting_offset, original_newline_length
+                    for line, _, ending_offset, starting_offset, original_newline_length in iterator:
+                        yield line, None, ending_offset, starting_offset, original_newline_length
 
                     # let's reset the buffer
                     wait_for_object_start_buffer = b""
-                    yield data, original_line_ending_offset, original_line_starting_offset, newline_length
+                    yield data, None, original_line_ending_offset, original_line_starting_offset, newline_length
                 else:
                     # let's yield wait_for_object_start_buffer: it is newline only content
                     iterator = by_lines(self._buffer_yield(wait_for_object_start_buffer))(
                         storage, range_start, body, content_type, content_length  # type:ignore
                     )
 
-                    for line, ending_offset, starting_offset, original_newline_length in iterator:
+                    for line, _, ending_offset, starting_offset, original_newline_length in iterator:
                         self._starting_offset = self._ending_offset
                         self._ending_offset += ending_offset - self._ending_offset
-                        yield line, self._ending_offset, self._starting_offset, newline_length
+                        yield line, None, self._ending_offset, self._starting_offset, newline_length
 
                     # let's reset the buffer
                     wait_for_object_start_buffer = b""
 
-                    for data_to_yield in self._collector(data, newline):
+                    for data_to_yield, json_object in self._collector(data, newline):
                         shared_logger.debug("JsonCollector objects", extra={"offset": self._ending_offset})
-                        yield data_to_yield, self._ending_offset, self._starting_offset, newline_length
+                        yield data_to_yield, json_object, self._ending_offset, self._starting_offset, newline_length
 
                     if self._is_a_json_object_circuit_broken:
                         # let's yield what we have so far
                         iterator = by_lines(self._buffer_yield(self._unfinished_line))(
                             storage, range_start, body, content_type, content_length  # type:ignore
                         )
-                        for line, ending_offset, starting_offset, original_newline_length in iterator:
-                            yield line, ending_offset, starting_offset, original_newline_length
+                        for line, _, ending_offset, starting_offset, original_newline_length in iterator:
+                            yield line, None, ending_offset, starting_offset, original_newline_length
 
                         # let's set the flag for direct yield from now on
                         has_an_object_start = False
@@ -205,15 +205,15 @@ class JsonCollector:
             iterator = by_lines(self._buffer_yield(self._unfinished_line))(
                 storage, range_start, body, content_type, content_length  # type:ignore
             )
-            for line, ending_offset, starting_offset, newline_length in iterator:
+            for line, _, ending_offset, starting_offset, newline_length in iterator:
                 self._starting_offset = self._ending_offset
                 self._ending_offset += ending_offset - self._ending_offset
 
-                yield line, self._ending_offset, self._starting_offset, newline_length
+                yield line, None, self._ending_offset, self._starting_offset, newline_length
 
     def __get__(
         self, storage: CommonStorageType, owner: Any
-    ) -> partial[Iterator[tuple[Union[StorageReader, bytes], int, int, int]]]:
+    ) -> partial[Iterator[tuple[Union[StorageReader, bytes], Optional[dict[str, Any]], int, int, int]]]:
         return partial(self, storage)
 
 
@@ -224,7 +224,7 @@ def by_lines(func: GetByLinesCallable[CommonStorageType]) -> GetByLinesCallable[
 
     def wrapper(
         storage: CommonStorageType, range_start: int, body: Any, content_type: str, content_length: int
-    ) -> Iterator[tuple[Union[StorageReader, bytes], int, int, int]]:
+    ) -> Iterator[tuple[Union[StorageReader, bytes], Optional[dict[str, Any]], int, int, int]]:
         ending_offset: int = range_start
         unfinished_line: bytes = b""
 
@@ -232,7 +232,7 @@ def by_lines(func: GetByLinesCallable[CommonStorageType]) -> GetByLinesCallable[
         newline_length: int = 0
 
         iterator = func(storage, range_start, body, content_type, content_length)
-        for data, line_ending_offset, line_starting_offset, _newline_length in iterator:
+        for data, _, line_ending_offset, line_starting_offset, _newline_length in iterator:
             assert isinstance(data, bytes)
 
             unfinished_line += data
@@ -260,7 +260,7 @@ def by_lines(func: GetByLinesCallable[CommonStorageType]) -> GetByLinesCallable[
                 ending_offset += len(line_encoded) + newline_length
                 shared_logger.debug("by_line lines", extra={"offset": ending_offset})
 
-                yield line_encoded, ending_offset, starting_offset, newline_length
+                yield line_encoded, None, ending_offset, starting_offset, newline_length
 
         if len(unfinished_line) > 0:
             starting_offset = ending_offset
@@ -273,7 +273,7 @@ def by_lines(func: GetByLinesCallable[CommonStorageType]) -> GetByLinesCallable[
 
             shared_logger.debug("by_line unfinished_line", extra={"offset": ending_offset})
 
-            yield unfinished_line, ending_offset, starting_offset, newline_length
+            yield unfinished_line, None, ending_offset, starting_offset, newline_length
 
     return wrapper
 
@@ -285,9 +285,9 @@ def inflate(func: GetByLinesCallable[CommonStorageType]) -> GetByLinesCallable[C
 
     def wrapper(
         storage: CommonStorageType, range_start: int, body: Any, content_type: str, content_length: int
-    ) -> Iterator[tuple[Union[StorageReader, bytes], int, int, int]]:
+    ) -> Iterator[tuple[Union[StorageReader, bytes], Optional[dict[str, Any]], int, int, int]]:
         iterator = func(storage, range_start, body, content_type, content_length)
-        for data, line_ending_offset, line_starting_offset, newline_length in iterator:
+        for data, _, line_ending_offset, line_starting_offset, newline_length in iterator:
             if content_type == "application/x-gzip":
                 gzip_stream = gzip.GzipFile(fileobj=data)  # type:ignore
                 gzip_stream.seek(range_start)
@@ -300,9 +300,9 @@ def inflate(func: GetByLinesCallable[CommonStorageType]) -> GetByLinesCallable[C
                     buffer.write(inflated_chunk)
 
                     shared_logger.debug("inflate inflate", extra={"offset": line_ending_offset})
-                    yield buffer.getvalue(), line_ending_offset, line_starting_offset, 0
+                    yield buffer.getvalue(), None, line_ending_offset, line_starting_offset, 0
             else:
                 shared_logger.debug("inflate plain", extra={"offset": line_ending_offset})
-                yield data, line_ending_offset, line_starting_offset, 0
+                yield data, None, line_ending_offset, line_starting_offset, 0
 
     return wrapper
