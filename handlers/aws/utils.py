@@ -402,7 +402,7 @@ def get_log_group_arn_and_region_from_log_group_name(log_group_name: str) -> tup
         if "nextToken" in log_groups and len(log_groups["nextToken"]) > 0:
             describe_log_groups_kwargs["nextToken"] = log_groups["nextToken"]
         else:
-            del describe_log_groups_kwargs["nextToken"]
+            describe_log_groups_kwargs["nextToken"] = ""
             break
 
     raise ValueError("Cannot find cloudwatch log group ARN")
