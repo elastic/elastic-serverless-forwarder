@@ -30,6 +30,7 @@ from .utils import (
     config_yaml_from_s3,
     delete_sqs_record,
     discover_integration_scope,
+    get_account_id_from_lambda_arn,
     get_log_group_arn_and_region_from_log_group_name,
     get_shipper_from_input,
     get_sqs_client,
@@ -60,7 +61,6 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
     except Exception as e:
         raise TriggerTypeException(e)
 
-    config_yaml = ""
     try:
         if config_source == CONFIG_FROM_PAYLOAD:
             config_yaml = config_yaml_from_payload(lambda_event)
@@ -108,6 +108,8 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
     empty_events: int = 0
     skipped_events: int = 0
 
+    account_id: str = get_account_id_from_lambda_arn(lambda_context.invoked_function_arn)
+
     if trigger_type == "cloudwatch-logs":
         cloudwatch_logs_event = _from_awslogs_data_to_event(lambda_event["awslogs"]["data"])
         log_group_arn, aws_region = get_log_group_arn_and_region_from_log_group_name(cloudwatch_logs_event["logGroup"])
@@ -129,7 +131,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             last_ending_offset,
             current_log_event_n,
             is_last_event_extracted,
-        ) in _handle_cloudwatch_logs_event(cloudwatch_logs_event, integration_scope, aws_region):
+        ) in _handle_cloudwatch_logs_event(cloudwatch_logs_event, integration_scope, aws_region, account_id):
             shared_logger.debug("es_event", extra={"es_event": es_event})
 
             sent_outcome = composite_shipper.send(es_event)
@@ -201,7 +203,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             integration_scope = event_input.discover_integration_scope(
                 lambda_event=lambda_event, at_record=kinesis_record_n
             )
-            for es_event, last_ending_offset in _handle_kinesis_record(kinesis_record, integration_scope):
+            for es_event, last_ending_offset in _handle_kinesis_record(kinesis_record, integration_scope, account_id):
                 shared_logger.debug("es_event", extra={"es_event": es_event})
 
                 sent_outcome = composite_shipper.send(es_event)
@@ -359,7 +361,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
             if event_input.type == "sqs" or event_input.type == "cloudwatch-logs":
                 for es_event, last_ending_offset, is_last_event_extracted in _handle_sqs_event(
-                    sqs_record, is_continuation_of_cloudwatch_logs, input_id, integration_scope
+                    sqs_record, is_continuation_of_cloudwatch_logs, input_id, integration_scope, account_id
                 ):
                     timeout, sent_outcome = event_processing(
                         processing_composing_shipper=composite_shipper,
@@ -391,7 +393,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
             elif event_input.type == "s3-sqs":
                 for es_event, last_ending_offset, current_s3_record, is_last_event_extracted in _handle_s3_sqs_event(
-                    sqs_record, integration_scope
+                    sqs_record, integration_scope, account_id
                 ):
                     timeout, sent_outcome = event_processing(
                         processing_composing_shipper=composite_shipper,

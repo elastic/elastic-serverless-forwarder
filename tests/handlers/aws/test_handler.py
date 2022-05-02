@@ -47,7 +47,7 @@ class ContextMock:
         self._remaining_time_in_millis = remaining_time_in_millis
 
     aws_request_id = "aws_request_id"
-    invoked_function_arn = "invoked:function:arn:invoked:function:arn"
+    invoked_function_arn = "arn:aws:lambda:us-east-1:123456789:function:elastic-serverless-forwarder"
 
     def get_remaining_time_in_millis(self) -> int:
         return self._remaining_time_in_millis
@@ -1692,7 +1692,11 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
                 "object": {"key": f"{first_filename}"},
             }
         }
-        assert res["hits"]["hits"][0]["_source"]["cloud"] == {"provider": "aws", "region": "eu-central-1"}
+        assert res["hits"]["hits"][0]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "eu-central-1",
+        }
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
@@ -1712,7 +1716,11 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
                 "object": {"key": f"{second_filename}"},
             }
         }
-        assert res["hits"]["hits"][0]["_source"]["cloud"] == {"provider": "aws", "region": "eu-central-1"}
+        assert res["hits"]["hits"][0]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "eu-central-1",
+        }
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
@@ -1734,7 +1742,11 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         assert res["hits"]["hits"][0]["_source"]["aws"] == {
             "sqs": {"name": "source-sqs-queue", "message_id": message_id}
         }
-        assert res["hits"]["hits"][0]["_source"]["cloud"] == {"provider": "aws", "region": "us-east-1"}
+        assert res["hits"]["hits"][0]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "us-east-1",
+        }
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
@@ -1751,7 +1763,11 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         assert res["hits"]["hits"][0]["_source"]["aws"] == {
             "sqs": {"name": "source-sqs-queue", "message_id": message_id}
         }
-        assert res["hits"]["hits"][0]["_source"]["cloud"] == {"provider": "aws", "region": "us-east-1"}
+        assert res["hits"]["hits"][0]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "us-east-1",
+        }
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
@@ -1777,7 +1793,11 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
                 "event_id": event_id_cloudwatch_logs,
             }
         }
-        assert res["hits"]["hits"][0]["_source"]["cloud"] == {"provider": "aws", "region": "us-east-1"}
+        assert res["hits"]["hits"][0]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "us-east-1",
+        }
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
@@ -1798,7 +1818,11 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
                 "event_id": event_id_cloudwatch_logs,
             }
         }
-        assert res["hits"]["hits"][0]["_source"]["cloud"] == {"provider": "aws", "region": "us-east-1"}
+        assert res["hits"]["hits"][0]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "us-east-1",
+        }
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
@@ -1864,7 +1888,11 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
                 "object": {"key": f"{first_filename}"},
             }
         }
-        assert res["hits"]["hits"][0]["_source"]["cloud"] == {"provider": "aws", "region": "eu-central-1"}
+        assert res["hits"]["hits"][0]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "eu-central-1",
+        }
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
@@ -1891,7 +1919,11 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         assert res["hits"]["hits"][0]["_source"]["aws"] == {
             "sqs": {"name": "source-sqs-queue", "message_id": message_id}
         }
-        assert res["hits"]["hits"][0]["_source"]["cloud"] == {"provider": "aws", "region": "us-east-1"}
+        assert res["hits"]["hits"][0]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "us-east-1",
+        }
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
@@ -1919,7 +1951,11 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
                 "event_id": event_id_cloudwatch_logs,
             }
         }
-        assert res["hits"]["hits"][0]["_source"]["cloud"] == {"provider": "aws", "region": "us-east-1"}
+        assert res["hits"]["hits"][0]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "us-east-1",
+        }
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
@@ -1983,7 +2019,11 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
                 "object": {"key": f"{first_filename}"},
             }
         }
-        assert res["hits"]["hits"][0]["_source"]["cloud"] == {"provider": "aws", "region": "eu-central-1"}
+        assert res["hits"]["hits"][0]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "eu-central-1",
+        }
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
@@ -2010,7 +2050,11 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         assert res["hits"]["hits"][0]["_source"]["aws"] == {
             "sqs": {"name": "source-sqs-queue", "message_id": message_id}
         }
-        assert res["hits"]["hits"][0]["_source"]["cloud"] == {"provider": "aws", "region": "us-east-1"}
+        assert res["hits"]["hits"][0]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "us-east-1",
+        }
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
@@ -2037,7 +2081,11 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
                 "event_id": event_id_cloudwatch_logs,
             }
         }
-        assert res["hits"]["hits"][0]["_source"]["cloud"] == {"provider": "aws", "region": "us-east-1"}
+        assert res["hits"]["hits"][0]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "us-east-1",
+        }
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
@@ -2100,7 +2148,11 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
                 "object": {"key": f"{first_filename}"},
             }
         }
-        assert res["hits"]["hits"][0]["_source"]["cloud"] == {"provider": "aws", "region": "eu-central-1"}
+        assert res["hits"]["hits"][0]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "eu-central-1",
+        }
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
@@ -2142,7 +2194,11 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         assert res["hits"]["hits"][0]["_source"]["aws"] == {
             "sqs": {"name": "source-sqs-queue", "message_id": message_id}
         }
-        assert res["hits"]["hits"][0]["_source"]["cloud"] == {"provider": "aws", "region": "us-east-1"}
+        assert res["hits"]["hits"][0]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "us-east-1",
+        }
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
@@ -2163,7 +2219,11 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
                 "event_id": event_id_cloudwatch_logs,
             }
         }
-        assert res["hits"]["hits"][0]["_source"]["cloud"] == {"provider": "aws", "region": "us-east-1"}
+        assert res["hits"]["hits"][0]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "us-east-1",
+        }
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
@@ -2183,7 +2243,11 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
                 "object": {"key": f"{second_filename}"},
             }
         }
-        assert res["hits"]["hits"][0]["_source"]["cloud"] == {"provider": "aws", "region": "eu-central-1"}
+        assert res["hits"]["hits"][0]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "eu-central-1",
+        }
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
@@ -2200,7 +2264,11 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         assert res["hits"]["hits"][0]["_source"]["aws"] == {
             "sqs": {"name": "source-sqs-queue", "message_id": message_id}
         }
-        assert res["hits"]["hits"][0]["_source"]["cloud"] == {"provider": "aws", "region": "us-east-1"}
+        assert res["hits"]["hits"][0]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "us-east-1",
+        }
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
@@ -2221,7 +2289,11 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
                 "event_id": event_id_cloudwatch_logs,
             }
         }
-        assert res["hits"]["hits"][0]["_source"]["cloud"] == {"provider": "aws", "region": "us-east-1"}
+        assert res["hits"]["hits"][0]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "us-east-1",
+        }
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
@@ -2319,7 +2391,11 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
                 "sequence_number": event["Records"][0]["kinesis"]["sequenceNumber"],
             }
         }
-        assert res["hits"]["hits"][0]["_source"]["cloud"] == {"provider": "aws", "region": "us-east-1"}
+        assert res["hits"]["hits"][0]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "us-east-1",
+        }
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
@@ -2340,7 +2416,11 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
                 "sequence_number": event["Records"][0]["kinesis"]["sequenceNumber"],
             }
         }
-        assert res["hits"]["hits"][1]["_source"]["cloud"] == {"provider": "aws", "region": "us-east-1"}
+        assert res["hits"]["hits"][1]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "us-east-1",
+        }
 
         assert res["hits"]["hits"][1]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
@@ -2361,7 +2441,11 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
                 "sequence_number": event["Records"][1]["kinesis"]["sequenceNumber"],
             }
         }
-        assert res["hits"]["hits"][2]["_source"]["cloud"] == {"provider": "aws", "region": "us-east-1"}
+        assert res["hits"]["hits"][2]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "us-east-1",
+        }
 
         assert res["hits"]["hits"][2]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
@@ -2446,7 +2530,11 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
                 "sequence_number": event["Records"][0]["kinesis"]["sequenceNumber"],
             }
         }
-        assert res["hits"]["hits"][0]["_source"]["cloud"] == {"provider": "aws", "region": "us-east-1"}
+        assert res["hits"]["hits"][0]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "us-east-1",
+        }
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
@@ -2467,7 +2555,11 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
                 "sequence_number": event["Records"][0]["kinesis"]["sequenceNumber"],
             }
         }
-        assert res["hits"]["hits"][1]["_source"]["cloud"] == {"provider": "aws", "region": "us-east-1"}
+        assert res["hits"]["hits"][1]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "us-east-1",
+        }
 
         assert res["hits"]["hits"][1]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
@@ -2499,7 +2591,11 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
                 "sequence_number": event["Records"][0]["kinesis"]["sequenceNumber"],
             }
         }
-        assert res["hits"]["hits"][2]["_source"]["cloud"] == {"provider": "aws", "region": "us-east-1"}
+        assert res["hits"]["hits"][2]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "us-east-1",
+        }
 
         assert res["hits"]["hits"][2]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
@@ -2765,7 +2861,11 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
                 "object": {"key": f"{filename}"},
             }
         }
-        assert res["hits"]["hits"][0]["_source"]["cloud"] == {"provider": "aws", "region": "eu-central-1"}
+        assert res["hits"]["hits"][0]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "eu-central-1",
+        }
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
 
@@ -2784,7 +2884,11 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
                 "object": {"key": f"{filename}"},
             },
         }
-        assert res["hits"]["hits"][1]["_source"]["cloud"] == {"provider": "aws", "region": "eu-central-1"}
+        assert res["hits"]["hits"][1]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "eu-central-1",
+        }
 
         assert res["hits"]["hits"][1]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
 
@@ -2825,7 +2929,11 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
                 "object": {"key": f"{filename}"},
             }
         }
-        assert res["hits"]["hits"][2]["_source"]["cloud"] == {"provider": "aws", "region": "eu-central-1"}
+        assert res["hits"]["hits"][2]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "eu-central-1",
+        }
 
         assert res["hits"]["hits"][2]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
 
@@ -2860,7 +2968,11 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
                 "object": {"key": f"{filename}"},
             }
         }
-        assert res["hits"]["hits"][0]["_source"]["cloud"] == {"provider": "aws", "region": "eu-central-1"}
+        assert res["hits"]["hits"][0]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "eu-central-1",
+        }
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
 
@@ -2876,7 +2988,11 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
                 "object": {"key": f"{filename}"},
             }
         }
-        assert res["hits"]["hits"][1]["_source"]["cloud"] == {"provider": "aws", "region": "eu-central-1"}
+        assert res["hits"]["hits"][1]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "eu-central-1",
+        }
 
         assert res["hits"]["hits"][1]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
 
@@ -2903,7 +3019,11 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
                 "object": {"key": f"{filename}"},
             }
         }
-        assert res["hits"]["hits"][2]["_source"]["cloud"] == {"provider": "aws", "region": "eu-central-1"}
+        assert res["hits"]["hits"][2]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "eu-central-1",
+        }
 
         assert res["hits"]["hits"][2]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
 
@@ -2930,7 +3050,11 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
                 "object": {"key": f"{filename}"},
             }
         }
-        assert res["hits"]["hits"][3]["_source"]["cloud"] == {"provider": "aws", "region": "eu-central-1"}
+        assert res["hits"]["hits"][3]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "eu-central-1",
+        }
 
         assert res["hits"]["hits"][3]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
 
@@ -3010,7 +3134,11 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
             "file": {"path": self._queues_info["source-queue"]["QueueUrlPath"]},
         }
         assert res["hits"]["hits"][0]["_source"]["aws"] == {"sqs": {"name": "source-queue", "message_id": message_id}}
-        assert res["hits"]["hits"][0]["_source"]["cloud"] == {"provider": "aws", "region": "us-east-1"}
+        assert res["hits"]["hits"][0]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "us-east-1",
+        }
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
@@ -3024,7 +3152,11 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
             "file": {"path": self._queues_info["source-queue"]["QueueUrlPath"]},
         }
         assert res["hits"]["hits"][1]["_source"]["aws"] == {"sqs": {"name": "source-queue", "message_id": message_id}}
-        assert res["hits"]["hits"][1]["_source"]["cloud"] == {"provider": "aws", "region": "us-east-1"}
+        assert res["hits"]["hits"][1]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "us-east-1",
+        }
 
         assert res["hits"]["hits"][1]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
@@ -3061,7 +3193,11 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
             "file": {"path": self._queues_info["source-queue"]["QueueUrlPath"]},
         }
         assert res["hits"]["hits"][2]["_source"]["aws"] == {"sqs": {"name": "source-queue", "message_id": message_id}}
-        assert res["hits"]["hits"][2]["_source"]["cloud"] == {"provider": "aws", "region": "us-east-1"}
+        assert res["hits"]["hits"][2]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "us-east-1",
+        }
 
         assert res["hits"]["hits"][2]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
@@ -3101,7 +3237,11 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
         assert res["hits"]["hits"][0]["_source"]["aws"] == {
             "sqs": {"name": "source-queue", "message_id": event["Records"][0]["messageId"]}
         }
-        assert res["hits"]["hits"][0]["_source"]["cloud"] == {"provider": "aws", "region": "us-east-1"}
+        assert res["hits"]["hits"][0]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "us-east-1",
+        }
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
@@ -3132,7 +3272,11 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
                 "message_id": event["Records"][0]["messageAttributes"]["originalMessageId"]["stringValue"],
             }
         }
-        assert res["hits"]["hits"][1]["_source"]["cloud"] == {"provider": "aws", "region": "us-east-1"}
+        assert res["hits"]["hits"][1]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "us-east-1",
+        }
 
         assert res["hits"]["hits"][1]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
@@ -3162,7 +3306,11 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
                 "message_id": event["Records"][0]["messageAttributes"]["originalMessageId"]["stringValue"],
             }
         }
-        assert res["hits"]["hits"][2]["_source"]["cloud"] == {"provider": "aws", "region": "us-east-1"}
+        assert res["hits"]["hits"][2]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "us-east-1",
+        }
 
         assert res["hits"]["hits"][2]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
@@ -3250,7 +3398,11 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
                 "event_id": event_id,
             }
         }
-        assert res["hits"]["hits"][0]["_source"]["cloud"] == {"provider": "aws", "region": "us-east-1"}
+        assert res["hits"]["hits"][0]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "us-east-1",
+        }
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
@@ -3266,7 +3418,11 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
         assert res["hits"]["hits"][1]["_source"]["aws"] == {
             "awscloudwatch": {"log_group": "source-group", "log_stream": "source-stream", "event_id": event_id}
         }
-        assert res["hits"]["hits"][1]["_source"]["cloud"] == {"provider": "aws", "region": "us-east-1"}
+        assert res["hits"]["hits"][1]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "us-east-1",
+        }
 
         assert res["hits"]["hits"][1]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
@@ -3302,7 +3458,11 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
         assert res["hits"]["hits"][2]["_source"]["aws"] == {
             "awscloudwatch": {"log_group": "source-group", "log_stream": "source-stream", "event_id": event_id}
         }
-        assert res["hits"]["hits"][2]["_source"]["cloud"] == {"provider": "aws", "region": "us-east-1"}
+        assert res["hits"]["hits"][2]["_source"]["cloud"] == {
+            "account": {"id": "123456789"},
+            "provider": "aws",
+            "region": "us-east-1",
+        }
 
         assert res["hits"]["hits"][2]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
@@ -3344,7 +3504,11 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
             assert res["hits"]["hits"][0]["_source"]["aws"] == {
                 "awscloudwatch": {"log_group": "source-group", "log_stream": "source-stream", "event_id": event_id}
             }
-            assert res["hits"]["hits"][0]["_source"]["cloud"] == {"provider": "aws", "region": "us-east-1"}
+            assert res["hits"]["hits"][0]["_source"]["cloud"] == {
+                "account": {"id": "123456789"},
+                "provider": "aws",
+                "region": "us-east-1",
+            }
 
             assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
@@ -3372,7 +3536,11 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
             assert res["hits"]["hits"][1]["_source"]["aws"] == {
                 "awscloudwatch": {"log_group": "source-group", "log_stream": "source-stream", "event_id": event_id}
             }
-            assert res["hits"]["hits"][1]["_source"]["cloud"] == {"provider": "aws", "region": "us-east-1"}
+            assert res["hits"]["hits"][1]["_source"]["cloud"] == {
+                "account": {"id": "123456789"},
+                "provider": "aws",
+                "region": "us-east-1",
+            }
 
             assert res["hits"]["hits"][1]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
@@ -3399,7 +3567,11 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
             assert res["hits"]["hits"][2]["_source"]["aws"] == {
                 "awscloudwatch": {"log_group": "source-group", "log_stream": "source-stream", "event_id": event_id}
             }
-            assert res["hits"]["hits"][2]["_source"]["cloud"] == {"provider": "aws", "region": "us-east-1"}
+            assert res["hits"]["hits"][2]["_source"]["cloud"] == {
+                "account": {"id": "123456789"},
+                "provider": "aws",
+                "region": "us-east-1",
+            }
 
             assert res["hits"]["hits"][2]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 

@@ -68,7 +68,11 @@ def _handle_sqs_continuation(
 
 
 def _handle_sqs_event(
-    sqs_record: dict[str, Any], is_continuation_of_cloudwatch_logs: bool, input_id: str, integration_scope: str
+    sqs_record: dict[str, Any],
+    is_continuation_of_cloudwatch_logs: bool,
+    input_id: str,
+    integration_scope: str,
+    account_id: str,
 ) -> Iterator[tuple[dict[str, Any], int, bool]]:
     """
     Handler for sqs inputs.
@@ -139,5 +143,6 @@ def _handle_sqs_event(
                 }
 
             es_event["fields"]["cloud"]["region"] = aws_region
+            es_event["fields"]["cloud"]["account"] = {"id": account_id}
 
             yield es_event, ending_offset, is_last_event_extracted

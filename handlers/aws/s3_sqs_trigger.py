@@ -55,7 +55,7 @@ def _handle_s3_sqs_continuation(
 
 
 def _handle_s3_sqs_event(
-    sqs_record: dict[str, Any], integration_scope: str
+    sqs_record: dict[str, Any], integration_scope: str, account_id: str
 ) -> Iterator[tuple[dict[str, Any], int, int, bool]]:
     """
     Handler for s3-sqs input.
@@ -119,5 +119,6 @@ def _handle_s3_sqs_event(
                 }
 
                 es_event["fields"]["cloud"]["region"] = aws_region
+                es_event["fields"]["cloud"]["account"] = {"id": account_id}
 
                 yield es_event, ending_offset, s3_record_n, is_last_event_extracted

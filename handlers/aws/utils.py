@@ -380,6 +380,12 @@ def get_queue_url_from_sqs_arn(sqs_arn: str) -> str:
     return f"https://sqs.{region}.amazonaws.com/{account_id}/{queue_name}"
 
 
+def get_account_id_from_lambda_arn(lambda_arn: str) -> str:
+    arn_components = lambda_arn.split(":")
+
+    return arn_components[4]
+
+
 def get_log_group_arn_and_region_from_log_group_name(log_group_name: str) -> tuple[str, str]:
     """
     Return cloudwatch log group arn given a log group name

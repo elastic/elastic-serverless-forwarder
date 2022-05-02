@@ -14,7 +14,7 @@ from .utils import extractor_events_from_field, get_kinesis_stream_name_type_and
 
 
 def _handle_kinesis_record(
-    kinesis_record: dict[str, Any], integration_scope: str
+    kinesis_record: dict[str, Any], integration_scope: str, account_id: str
 ) -> Iterator[tuple[dict[str, Any], int]]:
     """
     Handler for kinesis data stream inputs.
@@ -54,5 +54,6 @@ def _handle_kinesis_record(
             }
 
             es_event["fields"]["cloud"]["region"] = aws_region
+            es_event["fields"]["cloud"]["account"] = {"id": account_id}
 
             yield es_event, ending_offset

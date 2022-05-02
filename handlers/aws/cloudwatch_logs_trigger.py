@@ -72,7 +72,10 @@ def _handle_cloudwatch_logs_continuation(
 
 
 def _handle_cloudwatch_logs_event(
-    event: dict[str, Any], integration_scope: str, aws_region: str
+    event: dict[str, Any],
+    integration_scope: str,
+    aws_region: str,
+    account_id: str,
 ) -> Iterator[tuple[dict[str, Any], int, int, bool]]:
     """
     Handler for cloudwatch logs inputs.
@@ -119,5 +122,6 @@ def _handle_cloudwatch_logs_event(
                 }
 
                 es_event["fields"]["cloud"]["region"] = aws_region
+                es_event["fields"]["cloud"]["account"] = {"id": account_id}
 
                 yield es_event, ending_offset, cloudwatch_log_event_n, is_last_event_extracted
