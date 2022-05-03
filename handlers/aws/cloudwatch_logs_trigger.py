@@ -13,7 +13,7 @@ from share import extract_events_from_field, shared_logger
 from storage import CommonStorage, StorageFactory
 
 from .event import _default_event
-from .utils import extractor_events_from_field
+from .utils import extractor_events_from_field, get_account_id_from_lambda_arn
 
 
 def _from_awslogs_data_to_event(awslogs_data: str) -> Any:
@@ -72,10 +72,7 @@ def _handle_cloudwatch_logs_continuation(
 
 
 def _handle_cloudwatch_logs_event(
-    event: dict[str, Any],
-    integration_scope: str,
-    aws_region: str,
-    account_id: str,
+    event: dict[str, Any], integration_scope: str, aws_region: str, input_id: str
 ) -> Iterator[tuple[dict[str, Any], int, int, bool]]:
     """
     Handler for cloudwatch logs inputs.
@@ -84,6 +81,8 @@ def _handle_cloudwatch_logs_event(
     If a log event cannot be fully processed before the
     timeout of the lambda it will call the sqs continuing handler
     """
+
+    account_id = get_account_id_from_lambda_arn(input_id)
 
     log_group_name = event["logGroup"]
     log_stream_name = event["logStream"]

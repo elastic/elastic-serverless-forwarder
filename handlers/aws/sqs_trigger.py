@@ -12,7 +12,12 @@ from share import extract_events_from_field, shared_logger
 from storage import CommonStorage, StorageFactory
 
 from .event import _default_event
-from .utils import extractor_events_from_field, get_queue_url_from_sqs_arn, get_sqs_queue_name_and_region_from_arn
+from .utils import (
+    extractor_events_from_field,
+    get_account_id_from_lambda_arn,
+    get_queue_url_from_sqs_arn,
+    get_sqs_queue_name_and_region_from_arn,
+)
 
 
 def _handle_sqs_continuation(
@@ -68,17 +73,15 @@ def _handle_sqs_continuation(
 
 
 def _handle_sqs_event(
-    sqs_record: dict[str, Any],
-    is_continuation_of_cloudwatch_logs: bool,
-    input_id: str,
-    integration_scope: str,
-    account_id: str,
+    sqs_record: dict[str, Any], is_continuation_of_cloudwatch_logs: bool, input_id: str, integration_scope: str
 ) -> Iterator[tuple[dict[str, Any], int, bool]]:
     """
     Handler for sqs inputs.
     It iterates through sqs records in the sqs trigger and process
     content of body payload in the record.
     """
+
+    account_id = get_account_id_from_lambda_arn(input_id)
 
     queue_name, aws_region = get_sqs_queue_name_and_region_from_arn(input_id)
     storage: CommonStorage = StorageFactory.create(storage_type="payload", payload=sqs_record["body"])
