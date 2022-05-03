@@ -261,7 +261,7 @@ def _describe_log_groups(*args: Any, **kwargs: Any) -> dict[str, Any]:
                 {"logGroupName": "string", "arn": "string"},
                 {
                     "logGroupName": log_group_name,
-                    "arn": f"arn:aws:logs:us-east-1:000000000000:log-group:{log_group_name}",
+                    "arn": f"arn:aws:logs:us-east-1:000000000000:log-group:{log_group_name}:*",
                 },
             ]
         }
