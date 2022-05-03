@@ -1693,7 +1693,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             }
         }
         assert res["hits"]["hits"][0]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "eu-central-1",
         }
@@ -1717,7 +1717,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             }
         }
         assert res["hits"]["hits"][0]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "eu-central-1",
         }
@@ -1743,7 +1743,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             "sqs": {"name": "source-sqs-queue", "message_id": message_id}
         }
         assert res["hits"]["hits"][0]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "us-east-1",
         }
@@ -1764,7 +1764,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             "sqs": {"name": "source-sqs-queue", "message_id": message_id}
         }
         assert res["hits"]["hits"][0]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "us-east-1",
         }
@@ -1794,7 +1794,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             }
         }
         assert res["hits"]["hits"][0]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "us-east-1",
         }
@@ -1819,7 +1819,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             }
         }
         assert res["hits"]["hits"][0]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "us-east-1",
         }
@@ -1889,7 +1889,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             }
         }
         assert res["hits"]["hits"][0]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "eu-central-1",
         }
@@ -1920,7 +1920,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             "sqs": {"name": "source-sqs-queue", "message_id": message_id}
         }
         assert res["hits"]["hits"][0]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "us-east-1",
         }
@@ -1952,7 +1952,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             }
         }
         assert res["hits"]["hits"][0]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "us-east-1",
         }
@@ -2020,7 +2020,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             }
         }
         assert res["hits"]["hits"][0]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "eu-central-1",
         }
@@ -2051,7 +2051,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             "sqs": {"name": "source-sqs-queue", "message_id": message_id}
         }
         assert res["hits"]["hits"][0]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "us-east-1",
         }
@@ -2082,7 +2082,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             }
         }
         assert res["hits"]["hits"][0]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "us-east-1",
         }
@@ -2149,7 +2149,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             }
         }
         assert res["hits"]["hits"][0]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "eu-central-1",
         }
@@ -2195,7 +2195,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             "sqs": {"name": "source-sqs-queue", "message_id": message_id}
         }
         assert res["hits"]["hits"][0]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "us-east-1",
         }
@@ -2220,7 +2220,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             }
         }
         assert res["hits"]["hits"][0]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "us-east-1",
         }
@@ -2244,7 +2244,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             }
         }
         assert res["hits"]["hits"][0]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "eu-central-1",
         }
@@ -2265,7 +2265,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             "sqs": {"name": "source-sqs-queue", "message_id": message_id}
         }
         assert res["hits"]["hits"][0]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "us-east-1",
         }
@@ -2290,7 +2290,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             }
         }
         assert res["hits"]["hits"][0]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "us-east-1",
         }
@@ -2392,7 +2392,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
             }
         }
         assert res["hits"]["hits"][0]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "us-east-1",
         }
@@ -2417,7 +2417,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
             }
         }
         assert res["hits"]["hits"][1]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "us-east-1",
         }
@@ -2442,7 +2442,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
             }
         }
         assert res["hits"]["hits"][2]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "us-east-1",
         }
@@ -2531,7 +2531,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
             }
         }
         assert res["hits"]["hits"][0]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "us-east-1",
         }
@@ -2556,7 +2556,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
             }
         }
         assert res["hits"]["hits"][1]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "us-east-1",
         }
@@ -2592,7 +2592,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
             }
         }
         assert res["hits"]["hits"][2]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "us-east-1",
         }
@@ -2862,7 +2862,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
             }
         }
         assert res["hits"]["hits"][0]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "eu-central-1",
         }
@@ -2885,7 +2885,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
             },
         }
         assert res["hits"]["hits"][1]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "eu-central-1",
         }
@@ -2930,7 +2930,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
             }
         }
         assert res["hits"]["hits"][2]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "eu-central-1",
         }
@@ -2969,7 +2969,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
             }
         }
         assert res["hits"]["hits"][0]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "eu-central-1",
         }
@@ -2989,7 +2989,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
             }
         }
         assert res["hits"]["hits"][1]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "eu-central-1",
         }
@@ -3020,7 +3020,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
             }
         }
         assert res["hits"]["hits"][2]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "eu-central-1",
         }
@@ -3051,7 +3051,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
             }
         }
         assert res["hits"]["hits"][3]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "eu-central-1",
         }
@@ -3135,7 +3135,7 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
         }
         assert res["hits"]["hits"][0]["_source"]["aws"] == {"sqs": {"name": "source-queue", "message_id": message_id}}
         assert res["hits"]["hits"][0]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "us-east-1",
         }
@@ -3153,7 +3153,7 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
         }
         assert res["hits"]["hits"][1]["_source"]["aws"] == {"sqs": {"name": "source-queue", "message_id": message_id}}
         assert res["hits"]["hits"][1]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "us-east-1",
         }
@@ -3194,7 +3194,7 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
         }
         assert res["hits"]["hits"][2]["_source"]["aws"] == {"sqs": {"name": "source-queue", "message_id": message_id}}
         assert res["hits"]["hits"][2]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "us-east-1",
         }
@@ -3238,7 +3238,7 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
             "sqs": {"name": "source-queue", "message_id": event["Records"][0]["messageId"]}
         }
         assert res["hits"]["hits"][0]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "us-east-1",
         }
@@ -3273,7 +3273,7 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
             }
         }
         assert res["hits"]["hits"][1]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "us-east-1",
         }
@@ -3307,7 +3307,7 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
             }
         }
         assert res["hits"]["hits"][2]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "us-east-1",
         }
@@ -3399,7 +3399,7 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
             }
         }
         assert res["hits"]["hits"][0]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "us-east-1",
         }
@@ -3419,7 +3419,7 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
             "awscloudwatch": {"log_group": "source-group", "log_stream": "source-stream", "event_id": event_id}
         }
         assert res["hits"]["hits"][1]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "us-east-1",
         }
@@ -3459,7 +3459,7 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
             "awscloudwatch": {"log_group": "source-group", "log_stream": "source-stream", "event_id": event_id}
         }
         assert res["hits"]["hits"][2]["_source"]["cloud"] == {
-            "account": {"id": "123456789"},
+            "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "us-east-1",
         }
@@ -3505,7 +3505,7 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
                 "awscloudwatch": {"log_group": "source-group", "log_stream": "source-stream", "event_id": event_id}
             }
             assert res["hits"]["hits"][0]["_source"]["cloud"] == {
-                "account": {"id": "123456789"},
+                "account": {"id": "000000000000"},
                 "provider": "aws",
                 "region": "us-east-1",
             }
@@ -3537,7 +3537,7 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
                 "awscloudwatch": {"log_group": "source-group", "log_stream": "source-stream", "event_id": event_id}
             }
             assert res["hits"]["hits"][1]["_source"]["cloud"] == {
-                "account": {"id": "123456789"},
+                "account": {"id": "000000000000"},
                 "provider": "aws",
                 "region": "us-east-1",
             }
@@ -3568,7 +3568,7 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
                 "awscloudwatch": {"log_group": "source-group", "log_stream": "source-stream", "event_id": event_id}
             }
             assert res["hits"]["hits"][2]["_source"]["cloud"] == {
-                "account": {"id": "123456789"},
+                "account": {"id": "000000000000"},
                 "provider": "aws",
                 "region": "us-east-1",
             }
