@@ -1787,7 +1787,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             "file": {"path": "source-group/source-stream"},
         }
         assert res["hits"]["hits"][0]["_source"]["aws"] == {
-            "awscloudwatch": {
+            "cloudwatch": {
                 "log_group": "source-group",
                 "log_stream": "source-stream",
                 "event_id": event_id_cloudwatch_logs,
@@ -1812,7 +1812,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             "file": {"path": "source-group/source-stream"},
         }
         assert res["hits"]["hits"][0]["_source"]["aws"] == {
-            "awscloudwatch": {
+            "cloudwatch": {
                 "log_group": "source-group",
                 "log_stream": "source-stream",
                 "event_id": event_id_cloudwatch_logs,
@@ -1945,7 +1945,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["log"] == {"offset": 0, "file": {"path": "source-group/source-stream"}}
         assert res["hits"]["hits"][0]["_source"]["aws"] == {
-            "awscloudwatch": {
+            "cloudwatch": {
                 "log_group": "source-group",
                 "log_stream": "source-stream",
                 "event_id": event_id_cloudwatch_logs,
@@ -2075,7 +2075,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["log"] == {"offset": 0, "file": {"path": "source-group/source-stream"}}
         assert res["hits"]["hits"][0]["_source"]["aws"] == {
-            "awscloudwatch": {
+            "cloudwatch": {
                 "log_group": "source-group",
                 "log_stream": "source-stream",
                 "event_id": event_id_cloudwatch_logs,
@@ -2213,7 +2213,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             "file": {"path": "source-group/source-stream"},
         }
         assert res["hits"]["hits"][0]["_source"]["aws"] == {
-            "awscloudwatch": {
+            "cloudwatch": {
                 "log_group": "source-group",
                 "log_stream": "source-stream",
                 "event_id": event_id_cloudwatch_logs,
@@ -2283,7 +2283,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             "file": {"path": "source-group/source-stream"},
         }
         assert res["hits"]["hits"][0]["_source"]["aws"] == {
-            "awscloudwatch": {
+            "cloudwatch": {
                 "log_group": "source-group",
                 "log_stream": "source-stream",
                 "event_id": event_id_cloudwatch_logs,
@@ -3392,7 +3392,7 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
             "file": {"path": "source-group/source-stream"},
         }
         assert res["hits"]["hits"][0]["_source"]["aws"] == {
-            "awscloudwatch": {
+            "cloudwatch": {
                 "log_group": "source-group",
                 "log_stream": "source-stream",
                 "event_id": event_id,
@@ -3416,7 +3416,7 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
             "file": {"path": "source-group/source-stream"},
         }
         assert res["hits"]["hits"][1]["_source"]["aws"] == {
-            "awscloudwatch": {"log_group": "source-group", "log_stream": "source-stream", "event_id": event_id}
+            "cloudwatch": {"log_group": "source-group", "log_stream": "source-stream", "event_id": event_id}
         }
         assert res["hits"]["hits"][1]["_source"]["cloud"] == {
             "account": {"id": "000000000000"},
@@ -3456,7 +3456,7 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
 
         assert res["hits"]["hits"][2]["_source"]["log"] == {"offset": 0, "file": {"path": "source-group/source-stream"}}
         assert res["hits"]["hits"][2]["_source"]["aws"] == {
-            "awscloudwatch": {"log_group": "source-group", "log_stream": "source-stream", "event_id": event_id}
+            "cloudwatch": {"log_group": "source-group", "log_stream": "source-stream", "event_id": event_id}
         }
         assert res["hits"]["hits"][2]["_source"]["cloud"] == {
             "account": {"id": "000000000000"},
@@ -3502,7 +3502,7 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
                 "file": {"path": "source-group/source-stream"},
             }
             assert res["hits"]["hits"][0]["_source"]["aws"] == {
-                "awscloudwatch": {"log_group": "source-group", "log_stream": "source-stream", "event_id": event_id}
+                "cloudwatch": {"log_group": "source-group", "log_stream": "source-stream", "event_id": event_id}
             }
             assert res["hits"]["hits"][0]["_source"]["cloud"] == {
                 "account": {"id": "000000000000"},
@@ -3534,7 +3534,7 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
                 "file": {"path": "source-group/source-stream"},
             }
             assert res["hits"]["hits"][1]["_source"]["aws"] == {
-                "awscloudwatch": {"log_group": "source-group", "log_stream": "source-stream", "event_id": event_id}
+                "cloudwatch": {"log_group": "source-group", "log_stream": "source-stream", "event_id": event_id}
             }
             assert res["hits"]["hits"][1]["_source"]["cloud"] == {
                 "account": {"id": "000000000000"},
@@ -3565,7 +3565,7 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
                 "file": {"path": "source-group/source-stream"},
             }
             assert res["hits"]["hits"][2]["_source"]["aws"] == {
-                "awscloudwatch": {"log_group": "source-group", "log_stream": "source-stream", "event_id": event_id}
+                "cloudwatch": {"log_group": "source-group", "log_stream": "source-stream", "event_id": event_id}
             }
             assert res["hits"]["hits"][2]["_source"]["cloud"] == {
                 "account": {"id": "000000000000"},
