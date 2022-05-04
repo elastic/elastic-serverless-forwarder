@@ -15,7 +15,7 @@ from share import extract_events_from_field, shared_logger
 from storage import CommonStorage, StorageFactory
 
 from .event import _default_event
-from .utils import extractor_events_from_field, get_bucket_name_from_arn
+from .utils import extractor_events_from_field, get_account_id_from_lambda_arn, get_bucket_name_from_arn
 
 
 def _handle_s3_sqs_continuation(
@@ -55,13 +55,16 @@ def _handle_s3_sqs_continuation(
 
 
 def _handle_s3_sqs_event(
-    sqs_record: dict[str, Any], integration_scope: str
+    sqs_record: dict[str, Any], integration_scope: str, input_id: str
 ) -> Iterator[tuple[dict[str, Any], int, int, bool]]:
     """
     Handler for s3-sqs input.
     It takes an sqs record in the sqs trigger and process
     corresponding object in S3 buckets sending to the defined outputs.
     """
+
+    account_id = get_account_id_from_lambda_arn(input_id)
+
     body = json.loads(sqs_record["body"])
     for s3_record_n, s3_record in enumerate(body["Records"]):
         aws_region = s3_record["awsRegion"]
@@ -119,5 +122,6 @@ def _handle_s3_sqs_event(
                 }
 
                 es_event["fields"]["cloud"]["region"] = aws_region
+                es_event["fields"]["cloud"]["account"] = {"id": account_id}
 
                 yield es_event, ending_offset, s3_record_n, is_last_event_extracted

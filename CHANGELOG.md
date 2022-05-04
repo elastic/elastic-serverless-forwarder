@@ -1,3 +1,7 @@
+### v0.29.1 - 2022/05/04
+##### Bug fixes
+* Handle properly `cloudwatch-logs` content payload: [#113](https://github.com/elastic/elastic-serverless-forwarder/pull/113)
+
 ### v0.29.0 - 2022/04/25
 ##### Features
 * Add support for AWS CloudTrail logs: [#110](https://github.com/elastic/elastic-serverless-forwarder/pull/110)

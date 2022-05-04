@@ -10,17 +10,23 @@ from share import extract_events_from_field, shared_logger
 from storage import CommonStorage, StorageFactory
 
 from .event import _default_event
-from .utils import extractor_events_from_field, get_kinesis_stream_name_type_and_region_from_arn
+from .utils import (
+    extractor_events_from_field,
+    get_account_id_from_lambda_arn,
+    get_kinesis_stream_name_type_and_region_from_arn,
+)
 
 
 def _handle_kinesis_record(
-    kinesis_record: dict[str, Any], integration_scope: str
+    kinesis_record: dict[str, Any], integration_scope: str, input_id: str
 ) -> Iterator[tuple[dict[str, Any], int]]:
     """
     Handler for kinesis data stream inputs.
     It iterates through kinesis records in the kinesis trigger and process
     the content of kinesis.data payload
     """
+    account_id = get_account_id_from_lambda_arn(input_id)
+
     storage: CommonStorage = StorageFactory.create(storage_type="payload", payload=kinesis_record["kinesis"]["data"])
 
     stream_type, stream_name, aws_region = get_kinesis_stream_name_type_and_region_from_arn(
@@ -54,5 +60,6 @@ def _handle_kinesis_record(
             }
 
             es_event["fields"]["cloud"]["region"] = aws_region
+            es_event["fields"]["cloud"]["account"] = {"id": account_id}
 
             yield es_event, ending_offset

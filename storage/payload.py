@@ -57,7 +57,7 @@ class PayloadStorage(CommonStorage):
         content_type = "plain/text"
 
         try:
-            base64_decoded = base64.b64decode(self._payload)
+            base64_decoded = base64.b64decode(self._payload, validate=True)
         except binascii.Error:
             base64_decoded = self._payload.encode("utf-8")
 

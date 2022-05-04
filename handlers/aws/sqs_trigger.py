@@ -12,7 +12,12 @@ from share import extract_events_from_field, shared_logger
 from storage import CommonStorage, StorageFactory
 
 from .event import _default_event
-from .utils import extractor_events_from_field, get_queue_url_from_sqs_arn, get_sqs_queue_name_and_region_from_arn
+from .utils import (
+    extractor_events_from_field,
+    get_account_id_from_lambda_arn,
+    get_queue_url_from_sqs_arn,
+    get_sqs_queue_name_and_region_from_arn,
+)
 
 
 def _handle_sqs_continuation(
@@ -76,6 +81,8 @@ def _handle_sqs_event(
     content of body payload in the record.
     """
 
+    account_id = get_account_id_from_lambda_arn(input_id)
+
     queue_name, aws_region = get_sqs_queue_name_and_region_from_arn(input_id)
     storage: CommonStorage = StorageFactory.create(storage_type="payload", payload=sqs_record["body"])
 
@@ -117,7 +124,7 @@ def _handle_sqs_event(
                 es_event["fields"]["log"]["file"]["path"] = f"{log_group_name}/{log_stream_name}"
 
                 es_event["fields"]["aws"] = {
-                    "awscloudwatch": {
+                    "cloudwatch": {
                         "log_group": log_group_name,
                         "log_stream": log_stream_name,
                         "event_id": event_id,
@@ -139,5 +146,6 @@ def _handle_sqs_event(
                 }
 
             es_event["fields"]["cloud"]["region"] = aws_region
+            es_event["fields"]["cloud"]["account"] = {"id": account_id}
 
             yield es_event, ending_offset, is_last_event_extracted

@@ -380,6 +380,12 @@ def get_queue_url_from_sqs_arn(sqs_arn: str) -> str:
     return f"https://sqs.{region}.amazonaws.com/{account_id}/{queue_name}"
 
 
+def get_account_id_from_lambda_arn(lambda_arn: str) -> str:
+    arn_components = lambda_arn.split(":")
+
+    return arn_components[4]
+
+
 def get_log_group_arn_and_region_from_log_group_name(log_group_name: str) -> tuple[str, str]:
     """
     Return cloudwatch log group arn given a log group name
@@ -444,9 +450,9 @@ def cloudwatch_logs_object_id(event_payload: dict[str, Any]) -> str:
     """
 
     offset: int = event_payload["fields"]["log"]["offset"]
-    group_name: str = event_payload["fields"]["aws"]["awscloudwatch"]["log_group"]
-    stream_name: str = event_payload["fields"]["aws"]["awscloudwatch"]["log_stream"]
-    event_id: str = event_payload["fields"]["aws"]["awscloudwatch"]["event_id"]
+    group_name: str = event_payload["fields"]["aws"]["cloudwatch"]["log_group"]
+    stream_name: str = event_payload["fields"]["aws"]["cloudwatch"]["log_stream"]
+    event_id: str = event_payload["fields"]["aws"]["cloudwatch"]["event_id"]
 
     src: str = f"{group_name}{stream_name}{event_id}"
     hex_prefix = hashlib.sha256(src.encode("UTF-8")).hexdigest()[:10]

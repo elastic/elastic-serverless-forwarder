@@ -60,7 +60,6 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
     except Exception as e:
         raise TriggerTypeException(e)
 
-    config_yaml = ""
     try:
         if config_source == CONFIG_FROM_PAYLOAD:
             config_yaml = config_yaml_from_payload(lambda_event)
@@ -129,7 +128,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             last_ending_offset,
             current_log_event_n,
             is_last_event_extracted,
-        ) in _handle_cloudwatch_logs_event(cloudwatch_logs_event, integration_scope, aws_region):
+        ) in _handle_cloudwatch_logs_event(cloudwatch_logs_event, integration_scope, aws_region, event_input.id):
             shared_logger.debug("es_event", extra={"es_event": es_event})
 
             sent_outcome = composite_shipper.send(es_event)
@@ -201,7 +200,9 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             integration_scope = event_input.discover_integration_scope(
                 lambda_event=lambda_event, at_record=kinesis_record_n
             )
-            for es_event, last_ending_offset in _handle_kinesis_record(kinesis_record, integration_scope):
+            for es_event, last_ending_offset in _handle_kinesis_record(
+                kinesis_record, integration_scope, event_input.id
+            ):
                 shared_logger.debug("es_event", extra={"es_event": es_event})
 
                 sent_outcome = composite_shipper.send(es_event)
@@ -391,7 +392,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
             elif event_input.type == "s3-sqs":
                 for es_event, last_ending_offset, current_s3_record, is_last_event_extracted in _handle_s3_sqs_event(
-                    sqs_record, integration_scope
+                    sqs_record, integration_scope, event_input.id
                 ):
                     timeout, sent_outcome = event_processing(
                         processing_composing_shipper=composite_shipper,
