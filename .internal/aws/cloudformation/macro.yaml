@@ -124,47 +124,51 @@ Resources:
                     )
 
             if "ElasticServerlessForwarderSSMSecrets" in parameters:
-                if len(parameters["ElasticServerlessForwarderSSMSecrets"]) > 0:
+                ssm_secrets_arn = [x for x in parameters["ElasticServerlessForwarderSSMSecrets"] if len(x) > 0]
+                if len(ssm_secrets_arn) > 0:
                     policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
                         {
                             "Effect": "Allow",
                             "Action": "secretsmanager:GetSecretValue",
-                            "Resource": parameters["ElasticServerlessForwarderSSMSecrets"]
+                            "Resource": ssm_secrets_arn
                         }
                     )
 
             if "ElasticServerlessForwarderKMSKeys" in parameters:
-                if len(parameters["ElasticServerlessForwarderKMSKeys"]) > 0:
+                kms_keys_arn = [x for x in parameters["ElasticServerlessForwarderKMSKeys"] if len(x) > 0]
+                if len(kms_keys_arn) > 0:
                     policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
                         {
                             "Effect": "Allow",
                             "Action": "kms:Decrypt",
-                            "Resource": parameters["ElasticServerlessForwarderKMSKeys"]
+                            "Resource": kms_keys_arn
                         }
                     )
 
             if "ElasticServerlessForwarderCloudWatchLogsEvents" in parameters:
-                if len(parameters["ElasticServerlessForwarderCloudWatchLogsEvents"]) > 0:
+                cloudwatch_logs_arn = [x for x in parameters["ElasticServerlessForwarderCloudWatchLogsEvents"] if len(x) > 0]
+                if len(cloudwatch_logs_arn) > 0:
                     policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
                         {
                             "Effect": "Allow",
                             "Action": "logs:DescribeLogGroups",
-                            "Resource": parameters["ElasticServerlessForwarderCloudWatchLogsEvents"]
+                            "Resource": cloudwatch_logs_arn
                         }
                     )
 
             if "ElasticServerlessForwarderS3Buckets" in parameters:
-                if len(parameters["ElasticServerlessForwarderS3Buckets"]) > 0:
+                s3_buckets_arn = [x for x in parameters["ElasticServerlessForwarderS3Buckets"] if len(x) > 0]
+                if len(s3_buckets_arn) > 0:
                     policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
                         {
                             "Effect": "Allow",
                             "Action": "s3:ListBucket",
-                            "Resource": parameters["ElasticServerlessForwarderS3Buckets"]
+                            "Resource": s3_buckets_arn
                         }
                     )
 
                 resources = []
-                for s3_bucket_with_notification in parameters["ElasticServerlessForwarderS3Buckets"]:
+                for s3_bucket_with_notification in s3_buckets_arn:
                     resources.append(f"{s3_bucket_with_notification}/*")
 
                 if len(resources) > 0:
