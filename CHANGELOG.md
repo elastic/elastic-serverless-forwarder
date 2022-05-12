@@ -36,7 +36,7 @@
 
 ### v0.25.1 - 2022/03/21
 ##### Bug fixes
-* Extract `fields` subfields at event root and make metadata for CloudWatch Logs in event in sync with Elatic Agent: [#98](https://github.com/elastic/elastic-serverless-forwarder/pull/98)
+* Extract `fields` subfields at event root and make metadata for CloudWatch Logs in event in sync with Elastic Agent: [#98](https://github.com/elastic/elastic-serverless-forwarder/pull/98)
 
 ### v0.25.0 - 2022/03/15
 ##### Features
