@@ -1,0 +1,218 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Elastic Serverless Forwarder
+
+  SAM Template for the macro, not intended to be deployed on its own
+
+Resources:
+  MacroElasticServerlessForwarderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      InlineCode: |
+        import boto3
+
+        cloudformation_client = boto3.client("cloudformation")
+
+        def create_events(event):
+            events_fragment = {}
+            parameters = event["templateParameterValues"]
+            if "ElasticServerlessForwarderKinesisEvents" in parameters:
+                for kinesis_event_n, kinesis_event in enumerate(parameters["ElasticServerlessForwarderKinesisEvents"]):
+                    if len(kinesis_event) == 0:
+                        continue
+
+                    kinesis_event_name = f"KinesisEvent{int(kinesis_event_n)}"
+                    events_fragment[kinesis_event_name] = {
+                        "Type": "Kinesis",
+                        "Properties": {
+                            "Stream": kinesis_event,
+                            "StartingPosition": "TRIM_HORIZON",
+                            "BatchSize": 100,
+                            "FunctionResponseTypes": ["ReportBatchItemFailures"],
+                            "Enabled": True,
+                        }
+                    }
+
+            if "ElasticServerlessForwarderSQSEvents" in parameters:
+                for sqs_event_n, sqs_event in enumerate(parameters["ElasticServerlessForwarderSQSEvents"]):
+                    if len(sqs_event) == 0:
+                        continue
+
+                    sqs_event_name = f"SQSEvent{int(sqs_event_n)}"
+                    events_fragment[sqs_event_name] = {
+                        "Type": "SQS",
+                        "Properties": {
+                            "Queue": sqs_event,
+                            "BatchSize": 10,
+                            "Enabled": True,
+                        }
+                    }
+
+            if "ElasticServerlessForwarderS3SQSEvents" in parameters:
+                for s3_sqs_event_n, s3_sqs_event in enumerate(parameters["ElasticServerlessForwarderS3SQSEvents"]):
+                    if len(s3_sqs_event) == 0:
+                        continue
+
+                    s3_sqs_event_name = f"S3SQSEvent{int(s3_sqs_event_n)}"
+                    events_fragment[s3_sqs_event_name] = {
+                        "Type": "SQS",
+                        "Properties": {
+                            "Queue": s3_sqs_event,
+                            "BatchSize": 10,
+                            "Enabled": True,
+                        }
+                    }
+
+            if "ElasticServerlessForwarderCloudWatchLogsEvents" in parameters:
+                for cloudwatch_logs_event_n, cloudwatch_logs_event in enumerate(parameters["ElasticServerlessForwarderCloudWatchLogsEvents"]):
+                    arn_components = cloudwatch_logs_event.split(":")
+                    cloudwatch_logs_group_name = arn_components[6]
+                    if len(cloudwatch_logs_group_name) == 0:
+                        continue
+
+                    cloudwatch_logs_event_name = f"CloudWatchLogsEvent{int(cloudwatch_logs_event_n)}"
+                    events_fragment[cloudwatch_logs_event_name] = {
+                        "Type": "CloudWatchLogs",
+                        "Properties": {
+                            "FilterPattern": "",
+                            "LogGroupName": cloudwatch_logs_group_name,
+                        }
+                    }
+
+            return events_fragment
+
+
+        def create_policy(event):
+            policy_fragment = {
+                "Type": "AWS::IAM::Policy",
+                "Properties": {
+                   "PolicyName": {
+                        "Fn::Join": ["-", ["elastic-serverless-forwarder-policy", {
+                            "Fn::Select": [4, {
+                                "Fn::Split": ["-", {
+                                    "Fn::Select": [2, {
+                                        "Fn::Split": ["/", {
+                                            "Ref": "AWS::StackId"
+                                        }]
+                                    }]
+                                }]
+                            }]
+                        }]]
+                    },
+                    "PolicyDocument": {
+                        "Version": "2012-10-17",
+                        "Statement": []
+                    },
+                    "Roles": [{
+                        "Ref": "ApplicationElasticServerlessForwarderRole"
+                    }]
+                }
+            }
+
+            parameters = event["templateParameterValues"]
+            if "ElasticServerlessForwarderS3ConfigFile" in parameters:
+                bucket_name_and_object_key = parameters["ElasticServerlessForwarderS3ConfigFile"].split("/", 1)
+                resource = f"arn:aws:s3:::{bucket_name_and_object_key[0]}{'/'.join(bucket_name_and_object_key[1:])}"
+                if len(resource) > 0:
+                    policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
+                        {
+                            "Effect": "Allow",
+                            "Action": "s3:GetObject",
+                            "Resource": resource
+                        }
+                    )
+
+            if "ElasticServerlessForwarderSSMSecrets" in parameters:
+                if len(parameters["ElasticServerlessForwarderSSMSecrets"]) > 0:
+                    policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
+                        {
+                            "Effect": "Allow",
+                            "Action": "secretsmanager:GetSecretValue",
+                            "Resource": parameters["ElasticServerlessForwarderSSMSecrets"]
+                        }
+                    )
+
+            if "ElasticServerlessForwarderKMSKeys" in parameters:
+                if len(parameters["ElasticServerlessForwarderKMSKeys"]) > 0:
+                    policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
+                        {
+                            "Effect": "Allow",
+                            "Action": "kms:Decrypt",
+                            "Resource": parameters["ElasticServerlessForwarderKMSKeys"]
+                        }
+                    )
+
+            if "ElasticServerlessForwarderCloudWatchLogsEvents" in parameters:
+                if len(parameters["ElasticServerlessForwarderCloudWatchLogsEvents"]) > 0:
+                    policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
+                        {
+                            "Effect": "Allow",
+                            "Action": "logs:DescribeLogGroups",
+                            "Resource": parameters["ElasticServerlessForwarderCloudWatchLogsEvents"]
+                        }
+                    )
+
+            if "ElasticServerlessForwarderS3Buckets" in parameters:
+                if len(parameters["ElasticServerlessForwarderS3Buckets"]) > 0:
+                    policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
+                        {
+                            "Effect": "Allow",
+                            "Action": "s3:ListBucket",
+                            "Resource": parameters["ElasticServerlessForwarderS3Buckets"]
+                        }
+                    )
+
+                resources = []
+                for s3_bucket_with_notification in parameters["ElasticServerlessForwarderS3Buckets"]:
+                    resources.append(f"{s3_bucket_with_notification}/*")
+
+                if len(resources) > 0:
+                    policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
+                        {
+                            "Effect": "Allow",
+                            "Action": "s3:GetObject",
+                            "Resource": resources
+                        }
+                    )
+
+            policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
+                {
+                    "Effect": "Allow",
+                    "Action": "sqs:SendMessage",
+                    "Resource": [
+                        { "Fn::GetAtt": ["ElasticServerlessForwarderReplayQueue", "Arn"] },
+                        { "Fn::GetAtt": ["ElasticServerlessForwarderContinuingQueue", "Arn"] },
+                    ]
+                }
+            )
+
+            return policy_fragment
+
+
+        def handler(event, context):
+            created_events = create_events(event)
+            for created_event in created_events:
+                event["fragment"]["ApplicationElasticServerlessForwarder"]["Properties"]["Events"][created_event] = created_events[created_event]
+
+            created_policy = create_policy(event)
+            event["fragment"]["ElasticServerlessForwarderPolicy"] = created_policy
+
+            return {"status": "SUCCESS", "requestId": event["requestId"], "fragment": event["fragment"]}
+      Handler: index.handler
+      Runtime: python3.9
+  MacroElasticServerlessForwarder:
+    Type: AWS::CloudFormation::Macro
+    Properties:
+      Description: Expand parameters to Events and Policy for %sarAppName%
+      FunctionName: !GetAtt MacroElasticServerlessForwarderFunction.Arn
+      Name: %sarAppName%-macro
+Metadata:
+  AWS::ServerlessRepo::Application:
+    Name: %sarAppName%-macro
+    Description: SAM Template for the macro, not intended to be deployed on its own
+    Author: %sarAuthorName%
+    SemanticVersion: %semanticVersion%
+    LicenseUrl: %codeUri%/LICENSE.txt
+    HomePageUrl: https://github.com/elastic/elastic-serverless-forwarder
+    SourceCodeUrl: https://github.com/elastic/elastic-serverless-forwarder
