@@ -10,19 +10,23 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       InlineCode: |
-        import boto3
+        import random
+        import string
 
-        cloudformation_client = boto3.client("cloudformation")
+
+        def random_suffix():
+            return "".join(random.choices(string.ascii_letters + string.digits, k=10))
 
         def create_events(event):
             events_fragment = {}
             parameters = event["templateParameterValues"]
             if "ElasticServerlessForwarderKinesisEvents" in parameters:
-                for kinesis_event_n, kinesis_event in enumerate(parameters["ElasticServerlessForwarderKinesisEvents"]):
+                for kinesis_event in parameters["ElasticServerlessForwarderKinesisEvents"]:
+                    kinesis_event = kinesis_event.strip()
                     if len(kinesis_event) == 0:
                         continue
 
-                    kinesis_event_name = f"KinesisEvent{int(kinesis_event_n)}"
+                    kinesis_event_name = f"KinesisEvent{random_suffix()}"
                     events_fragment[kinesis_event_name] = {
                         "Type": "Kinesis",
                         "Properties": {
@@ -35,11 +39,12 @@ Resources:
                     }
 
             if "ElasticServerlessForwarderSQSEvents" in parameters:
-                for sqs_event_n, sqs_event in enumerate(parameters["ElasticServerlessForwarderSQSEvents"]):
+                for sqs_event in parameters["ElasticServerlessForwarderSQSEvents"]:
+                    sqs_event = sqs_event.strip()
                     if len(sqs_event) == 0:
                         continue
 
-                    sqs_event_name = f"SQSEvent{int(sqs_event_n)}"
+                    sqs_event_name = f"SQSEvent{random_suffix()}"
                     events_fragment[sqs_event_name] = {
                         "Type": "SQS",
                         "Properties": {
@@ -50,11 +55,12 @@ Resources:
                     }
 
             if "ElasticServerlessForwarderS3SQSEvents" in parameters:
-                for s3_sqs_event_n, s3_sqs_event in enumerate(parameters["ElasticServerlessForwarderS3SQSEvents"]):
+                for s3_sqs_event in parameters["ElasticServerlessForwarderS3SQSEvents"]:
+                    s3_sqs_event = s3_sqs_event.strip()
                     if len(s3_sqs_event) == 0:
                         continue
 
-                    s3_sqs_event_name = f"S3SQSEvent{int(s3_sqs_event_n)}"
+                    s3_sqs_event_name = f"S3SQSEvent{random_suffix()}"
                     events_fragment[s3_sqs_event_name] = {
                         "Type": "SQS",
                         "Properties": {
@@ -65,13 +71,15 @@ Resources:
                     }
 
             if "ElasticServerlessForwarderCloudWatchLogsEvents" in parameters:
-                for cloudwatch_logs_event_n, cloudwatch_logs_event in enumerate(parameters["ElasticServerlessForwarderCloudWatchLogsEvents"]):
-                    arn_components = cloudwatch_logs_event.split(":")
-                    cloudwatch_logs_group_name = arn_components[6]
-                    if len(cloudwatch_logs_group_name) == 0:
+                for cloudwatch_logs_event in parameters["ElasticServerlessForwarderCloudWatchLogsEvents"]:
+                    cloudwatch_logs_event = cloudwatch_logs_event.strip()
+                    if len(cloudwatch_logs_event) == 0:
                         continue
 
-                    cloudwatch_logs_event_name = f"CloudWatchLogsEvent{int(cloudwatch_logs_event_n)}"
+                    arn_components = cloudwatch_logs_event.split(":")
+                    cloudwatch_logs_group_name = arn_components[6]
+
+                    cloudwatch_logs_event_name = f"CloudWatchLogsEvent{random_suffix()}"
                     events_fragment[cloudwatch_logs_event_name] = {
                         "Type": "CloudWatchLogs",
                         "Properties": {
@@ -87,7 +95,7 @@ Resources:
             policy_fragment = {
                 "Type": "AWS::IAM::Policy",
                 "Properties": {
-                   "PolicyName": {
+                    "PolicyName": {
                         "Fn::Join": ["-", ["elastic-serverless-forwarder-policy", {
                             "Fn::Select": [4, {
                                 "Fn::Split": ["-", {
@@ -112,8 +120,8 @@ Resources:
 
             parameters = event["templateParameterValues"]
             if "ElasticServerlessForwarderS3ConfigFile" in parameters:
-                bucket_name_and_object_key = parameters["ElasticServerlessForwarderS3ConfigFile"].split("/", 1)
-                resource = f"arn:aws:s3:::{bucket_name_and_object_key[0]}{'/'.join(bucket_name_and_object_key[1:])}"
+                bucket_name_and_object_key = parameters["ElasticServerlessForwarderS3ConfigFile"].replace("s3://", "")
+                resource = f"arn:aws:s3:::{bucket_name_and_object_key}"
                 if len(resource) > 0:
                     policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
                         {
@@ -124,7 +132,8 @@ Resources:
                     )
 
             if "ElasticServerlessForwarderSSMSecrets" in parameters:
-                ssm_secrets_arn = [x for x in parameters["ElasticServerlessForwarderSSMSecrets"] if len(x) > 0]
+                ssm_secrets_arn = [x for x in parameters["ElasticServerlessForwarderSSMSecrets"] if len(x.strip()) > 0]
+
                 if len(ssm_secrets_arn) > 0:
                     policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
                         {
@@ -135,7 +144,7 @@ Resources:
                     )
 
             if "ElasticServerlessForwarderKMSKeys" in parameters:
-                kms_keys_arn = [x for x in parameters["ElasticServerlessForwarderKMSKeys"] if len(x) > 0]
+                kms_keys_arn = [x for x in parameters["ElasticServerlessForwarderKMSKeys"] if len(x.strip()) > 0]
                 if len(kms_keys_arn) > 0:
                     policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
                         {
@@ -146,18 +155,18 @@ Resources:
                     )
 
             if "ElasticServerlessForwarderCloudWatchLogsEvents" in parameters:
-                cloudwatch_logs_arn = [x for x in parameters["ElasticServerlessForwarderCloudWatchLogsEvents"] if len(x) > 0]
-                if len(cloudwatch_logs_arn) > 0:
+                cloudwatch_logs_group_arn = [f"{':'.join(x.split(':')[0:-1])}:*:*" for x in parameters["ElasticServerlessForwarderCloudWatchLogsEvents"] if len(x.strip()) > 0]
+                if len(cloudwatch_logs_group_arn) > 0:
                     policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
                         {
                             "Effect": "Allow",
                             "Action": "logs:DescribeLogGroups",
-                            "Resource": cloudwatch_logs_arn
+                            "Resource": cloudwatch_logs_group_arn[0]
                         }
                     )
 
             if "ElasticServerlessForwarderS3Buckets" in parameters:
-                s3_buckets_arn = [x for x in parameters["ElasticServerlessForwarderS3Buckets"] if len(x) > 0]
+                s3_buckets_arn = [x for x in parameters["ElasticServerlessForwarderS3Buckets"] if len(x.strip()) > 0]
                 if len(s3_buckets_arn) > 0:
                     policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
                         {
@@ -185,8 +194,8 @@ Resources:
                     "Effect": "Allow",
                     "Action": "sqs:SendMessage",
                     "Resource": [
-                        { "Fn::GetAtt": ["ElasticServerlessForwarderReplayQueue", "Arn"] },
-                        { "Fn::GetAtt": ["ElasticServerlessForwarderContinuingQueue", "Arn"] },
+                        {"Fn::GetAtt": ["ElasticServerlessForwarderReplayQueue", "Arn"]},
+                        {"Fn::GetAtt": ["ElasticServerlessForwarderContinuingQueue", "Arn"]},
                     ]
                 }
             )
