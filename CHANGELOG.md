@@ -1,3 +1,9 @@
+### v0.30.0 - 2022/05/16
+##### Features
+* Add support for AWS IaC deployment with CloudFormation and terraform: [#](https://github.com/elastic/elastic-serverless-forwarder/pull/)
+##### Breaking changes
+* Replace `es_index_or_datastream_name` config param with `datastream` one: [#](https://github.com/elastic/elastic-serverless-forwarder/pull/)
+
 ### v0.29.1 - 2022/05/04
 ##### Bug fixes
 * Handle properly `cloudwatch-logs` content payload: [#113](https://github.com/elastic/elastic-serverless-forwarder/pull/113)
