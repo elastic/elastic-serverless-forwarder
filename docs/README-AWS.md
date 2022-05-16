@@ -119,7 +119,7 @@ provider "aws" {
 }
 
 data "aws_serverlessapplicationrepository_application" "esf_sar" {
-  application_id = "arn:aws:serverlessrepo:eu-central-1:627286350134:applications/elastic-serverless-forwarder-andrea"
+  application_id = "arn:aws:serverlessrepo:eu-central-1:267093732750:applications/elastic-serverless-forwarder"
 }
 
 resource "aws_serverlessapplicationrepository_cloudformation_stack" "esf_cf_stak" {
