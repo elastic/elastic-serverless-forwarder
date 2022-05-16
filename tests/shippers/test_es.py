@@ -81,7 +81,7 @@ class TestElasticsearchShipper(TestCase):
             elasticsearch_url="elasticsearch_url",
             username="username",
             password="",
-            es_index_or_datastream_name="logs-data.set-namespace",
+            datastream="logs-data.set-namespace",
             tags=["tag1", "tag2", "tag3"],
             batch_max_actions=0,
         )
@@ -127,7 +127,7 @@ class TestElasticsearchShipper(TestCase):
             elasticsearch_url="elasticsearch_url",
             username="username",
             password="",
-            es_index_or_datastream_name="data.set",
+            datastream="data.set",
             tags=["tag1", "tag2", "tag3"],
             batch_max_actions=0,
         )
@@ -149,7 +149,7 @@ class TestElasticsearchShipper(TestCase):
             elasticsearch_url="elasticsearch_url",
             username="username",
             password="",
-            es_index_or_datastream_name="logs-data.set-namespace",
+            datastream="logs-data.set-namespace",
             tags=["tag1", "tag2", "tag3"],
             batch_max_actions=2,
         )
@@ -191,7 +191,7 @@ class TestElasticsearchShipper(TestCase):
     @mock.patch("shippers.es.es_bulk", mock_bulk)
     @mock.patch("shippers.es.Elasticsearch", new=MockClient)
     def test_send_with_dataset_discovery(self) -> None:
-        with self.subTest("empty es_index_or_datastream_name"):
+        with self.subTest("empty datastream"):
             shipper = ElasticsearchShipper(
                 elasticsearch_url="elasticsearch_url",
                 username="username",
@@ -237,12 +237,12 @@ class TestElasticsearchShipper(TestCase):
 
             assert shipper._bulk_actions == []
 
-        with self.subTest("es_index_or_datastream_name as `logs-unit-test"):
+        with self.subTest("datastream as `logs-unit-test"):
             shipper = ElasticsearchShipper(
                 elasticsearch_url="elasticsearch_url",
                 username="username",
                 password="password",
-                es_index_or_datastream_name="logs-unit-test",
+                datastream="logs-unit-test",
                 tags=["tag1", "tag2", "tag3"],
                 batch_max_actions=0,
             )
@@ -284,12 +284,12 @@ class TestElasticsearchShipper(TestCase):
 
             assert shipper._bulk_actions == []
 
-        with self.subTest("es_index_or_datastream_name not matching logs datastream naming conventation"):
+        with self.subTest("datastream not matching logs datastream naming conventation"):
             shipper = ElasticsearchShipper(
                 elasticsearch_url="elasticsearch_url",
                 username="username",
                 password="password",
-                es_index_or_datastream_name="es_index_or_datastream_name",
+                datastream="datastream",
                 tags=["tag1", "tag2", "tag3"],
                 batch_max_actions=0,
             )
@@ -298,12 +298,12 @@ class TestElasticsearchShipper(TestCase):
 
             assert shipper._dataset == ""
             assert shipper._namespace == ""
-            assert shipper._es_index == "es_index_or_datastream_name"
+            assert shipper._es_index == "datastream"
 
             assert _documents[0] == [
                 {
                     "@timestamp": _now,
-                    "_index": "es_index_or_datastream_name",
+                    "_index": "datastream",
                     "_op_type": "create",
                     "aws": {
                         "s3": {
@@ -336,7 +336,7 @@ class TestDiscoverDataset(TestCase):
             elasticsearch_url="elasticsearch_url",
             username="username",
             password="password",
-            es_index_or_datastream_name="logs-es-index-no-datastream",
+            datastream="logs-es-index-no-datastream",
             tags=["tag1", "tag2", "tag3"],
         )
 
@@ -350,7 +350,7 @@ class TestDiscoverDataset(TestCase):
             elasticsearch_url="elasticsearch_url",
             username="username",
             password="password",
-            es_index_or_datastream_name="logs-dataset-namespace",
+            datastream="logs-dataset-namespace",
             tags=["tag1", "tag2", "tag3"],
         )
 

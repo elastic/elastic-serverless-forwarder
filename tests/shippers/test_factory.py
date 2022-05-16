@@ -17,7 +17,7 @@ class TestShipperFactory(TestCase):
                 elasticsearch_url="elasticsearch_url",
                 username="username",
                 password="password",
-                es_index_or_datastream_name="es_index_or_datastream_name",
+                datastream="datastream",
             )
 
             assert isinstance(shipper, ElasticsearchShipper)
@@ -27,7 +27,7 @@ class TestShipperFactory(TestCase):
                 output_type="elasticsearch",
                 elasticsearch_url="elasticsearch_url",
                 api_key="api_key",
-                es_index_or_datastream_name="es_index_or_datastream_name",
+                datastream="datastream",
             )
 
             assert isinstance(shipper, ElasticsearchShipper)
@@ -38,7 +38,7 @@ class TestShipperFactory(TestCase):
                 cloud_id="cloud_id:bG9jYWxob3N0OjkyMDAkMA==",
                 username="username",
                 password="password",
-                es_index_or_datastream_name="es_index_or_datastream_name",
+                datastream="datastream",
             )
 
             assert isinstance(shipper, ElasticsearchShipper)
@@ -48,7 +48,7 @@ class TestShipperFactory(TestCase):
                 output_type="elasticsearch",
                 cloud_id="cloud_id:bG9jYWxob3N0OjkyMDAkMA==",
                 api_key="api_key",
-                es_index_or_datastream_name="es_index_or_datastream_name",
+                datastream="datastream",
             )
 
             assert isinstance(shipper, ElasticsearchShipper)
@@ -83,7 +83,7 @@ class TestShipperFactory(TestCase):
             elasticsearch_url="elasticsearch_url",
             username="username",
             password="password",
-            es_index_or_datastream_name="es_index_or_datastream_name",
+            datastream="datastream",
         )
 
         with self.subTest("create output type elasticsearch"):

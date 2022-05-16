@@ -39,7 +39,7 @@ class ShipperFactory:
                 password=output.password,
                 cloud_id=output.cloud_id,
                 api_key=output.api_key,
-                es_index_or_datastream_name=output.es_index_or_datastream_name,
+                datastream=output.datastream,
                 tags=output.tags,
                 batch_max_actions=output.batch_max_actions,
                 batch_max_bytes=output.batch_max_bytes,

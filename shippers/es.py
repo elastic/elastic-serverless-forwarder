@@ -29,7 +29,7 @@ class ElasticsearchShipper(CommonShipper):
         password: str = "",
         cloud_id: str = "",
         api_key: str = "",
-        es_index_or_datastream_name: str = "",
+        datastream: str = "",
         tags: list[str] = [],
         batch_max_actions: int = 500,
         batch_max_bytes: int = 10 * 1024 * 1024,
@@ -71,7 +71,7 @@ class ElasticsearchShipper(CommonShipper):
         self._replay_handler: Optional[ReplayHandlerCallable] = None
         self._event_id_generator: Optional[EventIdGeneratorCallable] = None
 
-        self._es_index_or_datastream_name = es_index_or_datastream_name
+        self._datastream = datastream
         self._tags = tags
 
         self._es_index = ""
@@ -156,7 +156,7 @@ class ElasticsearchShipper(CommonShipper):
         self._replay_handler = replay_handler
 
     def send(self, event: dict[str, Any]) -> str:
-        self._replay_args["es_index_or_datastream_name"] = self._es_index_or_datastream_name
+        self._replay_args["datastream"] = self._datastream
 
         if not hasattr(self, "_es_index") or self._es_index == "":
             self._discover_dataset(event_payload=event)
@@ -194,23 +194,20 @@ class ElasticsearchShipper(CommonShipper):
         return
 
     def _discover_dataset(self, event_payload: Dict[str, Any]) -> None:
-        if self._es_index_or_datastream_name != "":
-            if self._es_index_or_datastream_name.startswith("logs-"):
-                datastream_components = self._es_index_or_datastream_name.split("-")
+        if self._datastream != "":
+            if self._datastream.startswith("logs-"):
+                datastream_components = self._datastream.split("-")
                 if len(datastream_components) == 3:
                     self._dataset = datastream_components[1]
                     self._namespace = datastream_components[2]
                 else:
                     shared_logger.debug(
-                        "es_index_or_datastream_name not matching logs datastream pattern, no dataset "
-                        "and namespace set"
+                        "datastream not matching logs datastream pattern, no dataset " "and namespace set"
                     )
             else:
-                shared_logger.debug(
-                    "es_index_or_datastream_name not matching logs datastream pattern, no dataset and namespace set"
-                )
+                shared_logger.debug("datastream not matching logs datastream pattern, no dataset and namespace set")
 
-            self._es_index = self._es_index_or_datastream_name
+            self._es_index = self._datastream
             return
         else:
             self._namespace = "default"
@@ -227,4 +224,4 @@ class ElasticsearchShipper(CommonShipper):
         shared_logger.debug("dataset", extra={"dataset": self._dataset})
 
         self._es_index = f"logs-{self._dataset}-{self._namespace}"
-        self._es_index_or_datastream_name = self._es_index
+        self._datastream = self._es_index

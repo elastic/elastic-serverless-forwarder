@@ -2,7 +2,7 @@
 - job:
     name: Library/elastic-serverless-forwarder-mbp
     display-name: Elastic Serverless Forwarder
-    description: Elastic Forwarder for Serverless
+    description: Elastic Serverless Forwarder
     view: BEATS-CI
     project-type: multibranch
     concurrent: true
