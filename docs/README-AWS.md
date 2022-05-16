@@ -23,21 +23,21 @@ Lambda function also supports writing directly to an index, alias or a custom da
 
 **Direct SQS message payload input:**
 
-The Lambda function supports ingesting logs contained in the payload of a SQS body record and sends them to Elastic. The SQS queue serves as a trigger for the Lambda function. When a new record gets written to an SQS queue the Lambda function gets triggered. Users will set up separate SQS queues for each type of logs, The config param for Elasticsearch output `es_index_or_datastream_name` is mandatory. If the value is set to an Elasticsearch datastream, the type of logs must be defined with proper value configuration param. A single configuration file can have many input sections, pointing to different SQS queues that match specific log types.
+The Lambda function supports ingesting logs contained in the payload of a SQS body record and sends them to Elastic. The SQS queue serves as a trigger for the Lambda function. When a new record gets written to an SQS queue the Lambda function gets triggered. Users will set up separate SQS queues for each type of logs, The config param for Elasticsearch output `datastream` is mandatory. If the value is set to an Elasticsearch datastream, the type of logs must be defined with proper value configuration param. A single configuration file can have many input sections, pointing to different SQS queues that match specific log types.
 
 **S3 SQS Event Notifications input:**
 
 The Lambda function supports ingesting logs contained in the S3 bucket through an SQS notification (s3:ObjectCreated) and sends them to Elastic. The SQS queue serves as a trigger for the Lambda function. When a new log file gets written to an S3 bucket and meets the criteria (as configured including prefix/suffix), a notification to SQS is generated that triggers the Lambda function. Users will set up separate SQS queues for each type of logs (i.e. aws.vpcflow, aws.cloudtrail, aws.waf and so on). A single configuration file can have many input sections, pointing to different SQS queues that match specific log types.
-The `es_index_or_datastream_name` parameter in the config file is optional. Lambda supports automatic routing of various AWS service logs to the corresponding data streams for further processing and storage in the Elasticsearch cluster. It supports automatic routing of `aws.cloudtrail`, `aws.cloudwatch_logs`, `aws.elb_logs`, `aws.firewall_logs`, `aws.vpcflow`, and `aws.waf` logs. For other log types the users can optionally set the `es_index_or_datastream_name` value in the configuration file according to the naming convention of Elasticsearch datastream and existing integrations.  If the `es_index_or_datastream_name` is not specified and it cannot be matched with any of the above AWS services then the dataset will be set to "generic" and the namespace to "default" pointing to the data stream name "logs-generic-default".
+The `datastream` parameter in the config file is optional. Lambda supports automatic routing of various AWS service logs to the corresponding data streams for further processing and storage in the Elasticsearch cluster. It supports automatic routing of `aws.cloudtrail`, `aws.cloudwatch_logs`, `aws.elb_logs`, `aws.firewall_logs`, `aws.vpcflow`, and `aws.waf` logs. For other log types the users can optionally set the `datastream` value in the configuration file according to the naming convention of Elasticsearch datastream and existing integrations.  If the `es_index_or_datastream_name` is not specified and it cannot be matched with any of the above AWS services then the dataset will be set to "generic" and the namespace to "default" pointing to the data stream name "logs-generic-default".
 
 For more information, read the AWS [documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/ways-to-add-notification-config-to-bucket.html) about creating an SQS event notifications for S3 buckets.
 
 **Kinesis Data Stream input:**
 
-The Lambda function supports ingesting logs contained in the payload of a Kinesis data stream record and sends them to Elastic. The Kinesis data stream serves as a trigger for the Lambda function. When a new record gets written to a Kinesis data stream the Lambda function gets triggered. Users will set up separate Kinesis data streams for each type of logs, The config param for Elasticsearch output `es_index_or_datastream_name` is mandatory. If the value is set to an Elasticsearch datastream, the type of logs must be defined with proper value configuration param. A single configuration file can have many input sections, pointing to different Kinesis data streams that match specific log types.
+The Lambda function supports ingesting logs contained in the payload of a Kinesis data stream record and sends them to Elastic. The Kinesis data stream serves as a trigger for the Lambda function. When a new record gets written to a Kinesis data stream the Lambda function gets triggered. Users will set up separate Kinesis data streams for each type of logs, The config param for Elasticsearch output `datastream` is mandatory. If the value is set to an Elasticsearch datastream, the type of logs must be defined with proper value configuration param. A single configuration file can have many input sections, pointing to different Kinesis data streams that match specific log types.
 
 **CloudWatch Logs subscription filter input:**
-The Lambda function supports ingesting logs contained in the message payload of CloudWatch Logs events. The CloudWatch Logs serves as a trigger for the Lambda function. Users will set up separate Cloudwatch log groups for each type of logs, The config param for Elasticsearch output `es_index_or_datastream_name` is mandatory. If the value is set to an Elasticsearch datastream, the type of logs must be defined with proper value configuration param. A single configuration file can have many input sections, pointing to different CloudWatch Logs log groups that match specific log types.
+The Lambda function supports ingesting logs contained in the message payload of CloudWatch Logs events. The CloudWatch Logs serves as a trigger for the Lambda function. Users will set up separate Cloudwatch log groups for each type of logs, The config param for Elasticsearch output `datastream` is mandatory. If the value is set to an Elasticsearch datastream, the type of logs must be defined with proper value configuration param. A single configuration file can have many input sections, pointing to different CloudWatch Logs log groups that match specific log types.
 
 
 ### Deployment:
@@ -57,36 +57,27 @@ At a high level the deployment consists of the following steps:
   * Select "Public applications" tab
   * In the search box type "elastic-serverless-forwarder" and submit
   * Look for "elastic-serverless-forwarder" in the results and click on it
-  * On the "Application settings" fill the input `ElasticServerlessForwarderS3ConfigFile` with the value of the S3 url in the format "s3://bucket-name/config-file-name" pointing to the configuration file for your Elastic Forwarder for Serverless (see below), this will populate the `S3_CONFIG_FILE` environment variable of the deployed Lambda.
+  * On the "Application settings" fill the following parameters
+    * `ElasticServerlessForwarderS3ConfigFile` with the value of the S3 url in the format "s3://bucket-name/config-file-name" pointing to the configuration file for your deployment of Elastic Serverless Forwarder (see below), this will populate the `S3_CONFIG_FILE` environment variable of the deployed Lambda.
+    * `ElasticServerlessForwarderSSMSecrets` with a comma delimited list of AWS SSM Secrets ARNs referenced in the config yaml file (if any).
+    * `ElasticServerlessForwarderKMSKeys` with a comma delimited list of AWS KMS Keys ARNs to be used for decrypting AWS SSM Secrets referenced in the config yaml file (if any).
+    * `ElasticServerlessForwarderSQSEvents` with a comma delimited list of Direct SQS queues ARNs to set as event triggers for the Lambda (if any).
+    * `ElasticServerlessForwarderS3SQSEvents` with a comma delimited list of S3 SQS Event Notifications ARNs to set as event triggers for the Lambda (if any).
+    * `ElasticServerlessForwarderKinesisEvents` with a comma delimited list of Kinesis Data Stream ARNs to set as event triggers for the Lambda (if any).
+    * `ElasticServerlessForwarderCloudWatchLogsEvents` with a comma delimited list of Cloudwatch Logs Log Groups ARNs to set subscription filters on the Lambda for (if any).
+    * `ElasticServerlessForwarderS3Buckets` with a comma delimited list of S3 buckets ARNs that are the sources of the S3 SQS Event Notifications (if any).
   * Click on the "Deploy" button in the bottom right corner
 * Once the Applications page for "serverlessrepo-elastic-serverless-forwarder" is loaded
   * Click on "Deployments" tab
     * Monitor the "Deployment history" refreshing its status until the Status shows as "Create complete
 * Go to "Lambda > Functions" page in the AWS console and look for the Function Name with prefix "serverlessrepo-elastic-se-ElasticServerlessForward-" and click on it
   * Go to "Configuration" tab and select "Environment Variables"
-  * You can additionally add the following environment variables to enable Elastic APM instrumentation to your deployment of Elastic Forwarder for Serverless
+  * You can additionally add the following environment variables to enable Elastic APM instrumentation for your deployment of Elastic Serverless Forwarder
     * | Key                       | Value  |
       |---------------------------|--------|
       |`ELASTIC_APM_ACTIVE`       | `true` |
       |`ELASTIC_APM_SECRET_TOKEN` | token  |
       |`ELASTIC_APM_SERVER_URL`	  | url    |
-  * Still in the "Configuration" tab select "Permissions"
-    * Click on the link of the IAM role for the Lambda under *Execution role* -> *Role name*
-    * In the new window add a new policy to the role, as described at [Lambda IAM permissions and policies](#lambda-iam-permissions-and-policies)
-  * Back to the "Configuration" tab in the Lambda window select "Triggers"
-    * You can see an already defined SQS trigger for a queue with the prefix `elastic-serverless-forwarder-continuing-queue-`. This is an internal queue and should not be modified, disabled or removed.
-    * Click on "Add trigger"
-      - When using S3 SQS event notification or direct SQS message payload input:
-        * From "Trigger configuration" dropdown select "SQS"
-        * In the "SQS queue" field chose the queue or insert the ARN of the queue you want to use as trigger for your Elastic Serverless Forwarder
-        * The SQS queue you want to use as trigger must have a visibility timeout of 910 seconds, 10 seconds more than the Elastic Forwarder for Serverless Lambda timeout.
-      - When using Kinesis data stream input:
-        * From "Trigger configuration" dropdown select "Kinesis"
-        * In the "Kinesis stream" field chose the stream name you want to use as trigger for your Elastic Serverless Forwarder
-      - When using CloudWatch Logs events input:
-        * From "Trigger configuration" dropdown select "CloudWatch Logs"
-        * In the "Log group" field chose the log group you want to use as trigger for your Elastic Serverless Forwarder
-    * Click on "Add"
 
 ### Cloudformation
 
@@ -105,437 +96,101 @@ Resources:
       Location:
         ApplicationId: 'arn:aws:serverlessrepo:eu-central-1:267093732750:applications/elastic-serverless-forwarder'
         SemanticVersion: '%SEMANTICVERSION%'  ## UPDATE USING THE SEMANTIC VERSION
+      Parameters:
+        ElasticServerlessForwarderS3ConfigFile: ""  ## FILL WITH THE VALUE OF THE S3 URL IN THE FORMAT "s3://bucket-name/config-file-name" POINTING TO THE CONFIGURATION FILE FOR YOUR DEPLOYMENT OF THE ELASTIC SERVERLESS FORWARDER
+        ElasticServerlessForwarderSSMSecrets: ""  ## FILL WITH A COMMA DELIMITED LIST OF AWS SSM SECRETS ARNS REFERENCED IN THE CONFIG YAML FILE (IF ANY).
+        ElasticServerlessForwarderKMSKeys: ""  ## FILL WITH A COMMA DELIMITED LIST OF AWS KMS KEYS ARNS TO BE USED FOR DECRYPTING AWS SSM SECRETS REFERENCED IN THE CONFIG YAML FILE (IF ANY).
+        ElasticServerlessForwarderSQSEvents: ""  ## FILL WITH A COMMA DELIMITED LIST OF DIRECT SQS QUEUES ARNS TO SET AS EVENT TRIGGERS FOR THE LAMBDA (IF ANY).
+        ElasticServerlessForwarderS3SQSEvents: ""  ## FILL WITH A COMMA DELIMITED LIST OF S3 SQS EVENT NOTIFICATIONS ARNS TO SET AS EVENT TRIGGERS FOR THE LAMBDA (IF ANY).
+        ElasticServerlessForwarderKinesisEvents: ""  ## FILL WITH A COMMA DELIMITED LIST OF KINESIS DATA STREAM ARNS TO SET AS EVENT TRIGGERS FOR THE LAMBDA (IF ANY).
+        ElasticServerlessForwarderCloudWatchLogsEvents: ""  ## FILL WITH A COMMA DELIMITED LIST OF CLOUDWATCH LOGS LOG GROUPS ARNS TO SET SUBSCRIPTION FILTERS ON THE LAMBDA FOR (IF ANY).
+        ElasticServerlessForwarderS3Buckets: ""  ## FILL WITH A COMMA DELIMITED LIST OF S3 BUCKETS ARNS THAT ARE THE SOURCES OF THE S3 SQS EVENT NOTIFICATIONS (IF ANY).
 ```
-
-
 * Deploy the Lambda from SAR running the following command:
   * ```commandline
     aws cloudformation deploy --template-file sar-application.yaml --stack-name esf-cloudformation-deployment --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND
     ```
 
-* Import json template from deployed stack running the following commands:
-  * ```commandline
-    PARENT_STACK_ARN=$(aws cloudformation describe-stacks --stack-name esf-cloudformation-deployment --query "Stacks[0].StackId" --output text)
-    LAMBDA_STACK_ARN=$(aws cloudformation list-stacks --stack-status-filter CREATE_COMPLETE --query "StackSummaries[?ParentId==\`${PARENT_STACK_ARN}\`].StackId" --output text)
-    aws cloudformation get-template --stack-name "${LAMBDA_STACK_ARN}" --query TemplateBody > sar-lambda.json
-    ```
+### Terraform
+* Save the following yaml content as `sar-application.tf`
+```
+provider "aws" {
+  region = ""  ## FILL WITH THE AWS REGION WHERE YOU WANT TO DEPLOY THE ELASTIC SERVERLESS FORWARDER
+}
 
-* Edit sar-lambda.json to add required permissions for the Lambda to run:
-  * Add `Policies` to `Resources.ElasticServerlessForwarderFunctionRole.Properties`
-  ```json
-   "Policies": [
-    {
-      "PolicyName": "ElasticServerlessForwarderFunctionRolePolicySQSContinuingQueue", ## ADD AS IT IS FOR THE CONTINUING QUEUE
-      "PolicyDocument": {
-        "Version": "2012-10-17",
-        "Statement": [
-          {
-          "Action": [
-            "sqs:SendMessage"
-          ],
-          "Resource": {
-            "Fn::GetAtt": [
-              "ElasticServerlessForwarderContinuingQueue",
-              "Arn"
-            ]
-          },
-          "Effect": "Allow"
-          }
-        ]
-      }
-    },
-    {
-      "PolicyName": "ElasticServerlessForwarderFunctionRolePolicySQSReplayQueue", ## ADD AS IT IS FOR THE REPLAY QUEUE
-      "PolicyDocument": {
-        "Version": "2012-10-17",
-        "Statement": [
-          {
-          "Action": [
-            "sqs:SendMessage"
-          ],
-          "Resource": {
-            "Fn::GetAtt": [
-              "ElasticServerlessForwarderReplayQueue",
-              "Arn"
-            ]
-          },
-          "Effect": "Allow"
-          }
-        ]
-      }
-    },
-    {
-      "PolicyName": "ElasticServerlessForwarderFunctionRolePolicyS3Configfile", ## ADAPT TO THE CONFIG FILE IN THE S3 BUCKET
-      "PolicyDocument": {
-        "Version": "2012-10-17",
-        "Statement": [
-          {
-          "Action": [
-            "s3:GetObject"
-          ],
-          "Resource": "arn:aws:s3:::%CONFIG_FILE_BUCKET_NAME%/%CONFIG_FILE_OBJECT_KEY%",
-          "Effect": "Allow"
-          }
-        ]
-      }
-    },
-    {
-      "PolicyName": "ElasticServerlessForwarderFunctionRolePolicySQS", ## ADD FOR YOUR SQS QUEUES
-      "PolicyDocument": {
-        "Version": "2012-10-17",
-        "Statement": [
-          {
-          "Action": [
-            "sqs:GetQueueUrl"
-          ],
-          "Resource": [
-            "arn:aws:sqs:%AWS_REGION%:%AWS_ACCOUNT_ID%:%QUEUE_NAME%",
-            ...
-          ],
-          "Effect": "Allow"
-          }
-        ]
-      }
-    },
-      {
-      "PolicyName": "ElasticServerlessForwarderFunctionRolePolicyKinesis", ## ADD FOR YOUR KINESIS STREAMS
-      "PolicyDocument": {
-        "Version": "2012-10-17",
-        "Statement": [
-          {
-          "Action": [
-            "kinesis:GetRecords",
-            "kinesis:GetShardIterator",
-            "kinesis:DescribeStream",
-            "kinesis:ListShards",
-            "kinesis:ListStreams"
-          ],
-          "Resource": [
-          "arn:aws:kinesis:%AWS_REGION%:%AWS_ACCOUNT_ID%:stream/%STREAM_NAME%",
-            ...
-          ],
-          "Effect": "Allow"
-          }
-        ]
-      }
-    },
-    {
-      "PolicyName": "ElasticServerlessForwarderFunctionRolePolicyS3", ## ADD FOR YOUR S3 BUCKETS
-      "PolicyDocument": {
-        "Version": "2012-10-17",
-        "Statement": [
-          {
-          "Action": [
-            "s3:ListBucket"
-          ],
-          "Resource": [
-            "arn:aws:s3:::%BUCKET_NAME%",
-            ...
-          ],
-          "Effect": "Allow"
-          },
-          {
-          "Action": [
-            "s3:GetObject"
-          ],
-          "Resource": [
-            "arn:aws:s3:::%BUCKET_NAME%/*",
-            ...
-          ],
-          "Effect": "Allow"
-          }
-        ]
-      }
-    },
-    {
-      "PolicyName": "ElasticServerlessForwarderFunctionRolePolicySM", ## ADD FOR YOUR SECRET MANAGER SECRETS
-      "PolicyDocument": {
-        "Version": "2012-10-17",
-        "Statement": [
-          {
-          "Action": [
-            "secretsmanager:GetSecretValue"
-          ],
-          "Resource": [
-            "arn:aws:secretsmanager:%AWS_REGION%:%AWS_ACCOUNT_ID%:secret:%SECRET_NAME%",
-            ...
-          ],
-          "Effect": "Allow"
-          }
-        ]
-      }
-    },
-    {
-      "PolicyName": "ElasticServerlessForwarderFunctionRolePolicyKMS", ## ADD FOR YOUR KMS DECRYPT KEYS
-      "PolicyDocument": {
-        "Version": "2012-10-17",
-        "Statement": [
-          {
-          "Action": [
-            "kms:Decrypt"
-          ],
-          "Resource": [
-            "arn:aws:kms:%AWS_REGION%:%AWS_ACCOUNT_ID%:key/%KEY_ID%",
-            ...
-          ],
-          "Effect": "Allow"
-          }
-        ]
-      }
-    }
-  ]
-  ```
+data "aws_serverlessapplicationrepository_application" "esf_sar" {
+  application_id = "arn:aws:serverlessrepo:eu-central-1:627286350134:applications/elastic-serverless-forwarder-andrea"
+}
 
-  * Add an `AWS::Lambda::Permission` entry to `Resources` for every CloudWatch Logs log group you will use as trigger:
-  ```json
-  "ElasticServerlessForwarderCloudWatchPolicy1": {
-    "Type": "AWS::Lambda::Permission",
-    "Properties": {
-      "FunctionName": {
-        "Ref": "ElasticServerlessForwarderFunction"
-      },
-      "Action": "lambda:InvokeFunction",
-      "Principal": "logs.%AWS_REGION%.amazonaws.com",
-      "SourceAccount": "%AWS_ACCOUNT_ID%",
-      "SourceArn": "arn:aws:logs:%AWS_REGION%:%AWS_ACCOUNT_ID%:log-group:%LOG_GROUP_NAME_1%:*"
-      }
-  },
-  "ElasticServerlessForwarderCloudWatchPolicy2": {
-    "Type": "AWS::Lambda::Permission",
-    "Properties": {
-      "FunctionName": {
-        "Ref": "ElasticServerlessForwarderFunction"
-      },
-      "Action": "lambda:InvokeFunction",
-      "Principal": "logs.%AWS_REGION%.amazonaws.com",
-      "SourceAccount": "%AWS_ACCOUNT_ID%",
-      "SourceArn": "arn:aws:logs:%AWS_REGION%:%AWS_ACCOUNT_ID%:log-group:%LOG_GROUP_NAME_2%:*"
-      }
+resource "aws_serverlessapplicationrepository_cloudformation_stack" "esf_cf_stak" {
+  name             = "terraform-elastic-serverless-forwarder"
+  application_id   = data.aws_serverlessapplicationrepository_application.esf_sar.application_id
+  semantic_version = data.aws_serverlessapplicationrepository_application.esf_sar.semantic_version
+  capabilities     = data.aws_serverlessapplicationrepository_application.esf_sar.required_capabilities
+
+  parameters = {
+    ElasticServerlessForwarderS3ConfigFile         = ""   ## FILL WITH THE VALUE OF THE S3 URL IN THE FORMAT "s3://bucket-name/config-file-name" POINTING TO THE CONFIGURATION FILE FOR YOUR DEPLOYMENT OF THE ELASTIC SERVERLESS FORWARDER
+    ElasticServerlessForwarderSSMSecrets           = ""  ## FILL WITH A COMMA DELIMITED LIST OF AWS SSM SECRETS ARNS REFERENCED IN THE CONFIG YAML FILE (IF ANY).
+    ElasticServerlessForwarderKMSKeys              = ""  ## FILL WITH A COMMA DELIMITED LIST OF AWS KMS KEYS ARNS TO BE USED FOR DECRYPTING AWS SSM SECRETS REFERENCED IN THE CONFIG YAML FILE (IF ANY).
+    ElasticServerlessForwarderSQSEvents            = ""  ## FILL WITH A COMMA DELIMITED LIST OF DIRECT SQS QUEUES ARNS TO SET AS EVENT TRIGGERS FOR THE LAMBDA (IF ANY).
+    ElasticServerlessForwarderS3SQSEvents          = ""  ## FILL WITH A COMMA DELIMITED LIST OF S3 SQS EVENT NOTIFICATIONS ARNS TO SET AS EVENT TRIGGERS FOR THE LAMBDA (IF ANY).
+    ElasticServerlessForwarderKinesisEvents        = ""  ## FILL WITH A COMMA DELIMITED LIST OF KINESIS DATA STREAM ARNS TO SET AS EVENT TRIGGERS FOR THE LAMBDA (IF ANY).
+    ElasticServerlessForwarderCloudWatchLogsEvents = ""  ## FILL WITH A COMMA DELIMITED LIST OF CLOUDWATCH LOGS LOG GROUPS ARNS TO SET SUBSCRIPTION FILTERS ON THE LAMBDA FOR (IF ANY).
+    ElasticServerlessForwarderS3Buckets            = ""  ## FILL WITH A COMMA DELIMITED LIST OF S3 BUCKETS ARNS THAT ARE THE SOURCES OF THE S3 SQS EVENT NOTIFICATIONS (IF ANY).
   }
-  ```
-
-* Edit sar-lambda.json to further customise your deployment of Elastic Forwarder for Serverless
-  * Examples:
-    * Adding environment variables: add entries in `Resources.ElasticServerlessForwarderFunction.Environment.Variables`
-      ```json
-      "Environment": {
-        "Variables": {
-          "SQS_CONTINUE_URL": { # Do not remove this
-            "Ref": "ElasticServerlessForwarderContinuingQueue"
-          },
-          "SQS_REPLAY_URL": { # Do not remove this
-            "Ref": "ElasticServerlessForwarderReplayQueue"
-          },
-          "ELASTIC_APM_ACTIVE": "true",
-          "ELASTIC_APM_SECRET_TOKEN": "%ELASTIC_APM_SECRET_TOKEN%",
-          "ELASTIC_APM_SERVER_URL": "%ELASTIC_APM_SERVER_URL%",
-          "S3_CONFIG_FILE": "s3://bucket-name/config-file-name"
-        }
-      },
-      ```
-    * Adding an Event Source Mapping when using S3 SQS Event Notifications or direct SQS message payload input:
-      ```json
-      "S3SQSEventSource": {
-        "Type": "AWS::Lambda::EventSourceMapping",
-        "Properties": {
-          "Enabled": true,
-          "FunctionName": {
-            "Ref": "ElasticServerlessForwarderFunction"
-          },
-          "EventSourceArn": "%SQS_ARN%" ## ADD YOUR SQS QUEUE
-        }
-      }
-      ```
-    * Adding an Event Source Mapping when using Kinesis data stream input
-      ```json
-      "KinesisStreamEventSource": {
-        "Type": "AWS::Lambda::EventSourceMapping",
-        "Properties": {
-          "FunctionName": {
-            "Ref": "ElasticServerlessForwarderFunction"
-          },
-          "Enabled": true,
-          "EventSourceArn": "arn:aws:kinesis:%AWS_REGION%:%AWS_ACCOUNT_ID%:stream/%STREAM_NAME%", ## ADD YOUR KINESIS ARN
-          "StartingPosition": "TRIM_HORIZON"
-        }
-      }
-      ```
-    * Adding a subscription filter when using CloudWatch Logs subscription filter input
-      ```json
-      "CloudwatchLogsSubscriptionFilter": {
-        "Type": "AWS::Logs::SubscriptionFilter",
-        "Properties": {
-          "DestinationArn": {
-            "Fn::GetAtt": [
-              "ElasticServerlessForwarderFunction",
-              "Arn"
-            ]
-          },
-          "FilterPattern": "", ## CUSTOMISE IF YOU NEED TO FILTER EVENTS
-          "LogGroupName": "%LOG_GROUP_NAME%", ## ADD YOUR CLOUDWATCH LOGS LOG GROUP NAME
-          "StartingPosition": "TRIM_HORIZON"
-        }
-      }
-      ```
-
-    * Adding an Event Source Mapping when using the SQS replay queue
-      ```json
-      "ESFReplayQueueEventSource": {
-        "Type": "AWS::Lambda::EventSourceMapping",
-        "Properties": {
-          "Enabled": true,
-          "FunctionName": {
-            "Ref": "ElasticServerlessForwarderFunction"
-          },
-          "EventSourceArn": "%ESF_REPLAY_QUEUE_ARN%"
-        }
-      }
-      ```
-
-* Update the stack running the following command:
+}
+```
+* Deploy the Lambda from SAR running the following command:
   * ```commandline
-    aws cloudformation update-stack --stack-name "${LAMBDA_STACK_ARN}" --template-body file://./sar-lambda.json --capabilities CAPABILITY_IAM
+    terrafrom init
     ```
+  * ```commandline
+    terrafrom apply
+    ```
+
+#### Notes
+The SQS queues you want to use as trigger must have a visibility timeout of 910 seconds, 10 seconds more than the Elastic Serverless Forwarder Lambda timeout.
 
 #### Lambda IAM permissions and policies
-A Lambda function has a policy, called an execution role, that grants it permission to access AWS services and resources. Lambda assumes the role when the function is invoked. The role is automatically created when the Function is deployed. The Execution role associated with your function can be seen in the Configuration->Permissions section and by default starts with the name “serverlessrepo-elastic-se-ElasticServerlessForward-”. You can add additional policies to grant minimum permission to the Lambda to be able to use configured continuing SQS queue, S3 buckets, Secrets manager (if using) and replay SQS queue.
+A Lambda function has a policy, called an execution role, that grants it permission to access AWS services and resources. Lambda assumes the role when the function is invoked. The role is automatically created when the Function is deployed. The Execution role associated with your function can be seen in the Configuration->Permissions section and by default starts with the name “serverlessrepo-elastic-se-ElasticServerlessForward-”. An custom policy is added to grant minimum permissions to the Lambda to be able to use configured continuing SQS queue, S3 buckets, Kinesis data stream, CloudWatch Logs Log Groups, Secrets manager (if using) and replay SQS queue.
 
-Verify the Lambda is given AssumeRole permission to the following `ManagedPolicyArns`. By default this is automatically created:
+The Lambda is given the following `ManagedPolicyArns`. By default, these are automatically added if relevant to the Events set up:
 `ManagedPolicyArns`:
 * `arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole`
+* `arn:aws:iam::aws:policy/service-role/AWSLambdaKinesisExecutionRole`
 * `arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole`
 
-On top of this basic permission the following policies must be provided:
-* For the SQS queues resources that are reported in the `SQS_CONTINUE_URL` and `SQS_REPLAY_URL` environment variable the following action must be allowed:
+On top of this basic permission the following ones are added:
+* For the SQS queues resources that are reported in the `SQS_CONTINUE_URL` and `SQS_REPLAY_URL` environment variable the following action is allowed:
   * `sqs:SendMessage`
 
-* For SQS queue resources that you want to use as triggers of the Lambda the proper permissions are already included by `arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole`.
- Only the following extra action must be allowed:
-    * `sqs:GetQueueUrl`
-
-* For Kinesis data stream resources that you want to use as triggers of the Lambda the following action must be allowed on the Kinesis data streams:
-  * `kinesis:GetRecords`
-  * `kinesis:GetShardIterator`
-  * `kinesis:DescribeStream`
-  * `kinesis:ListShards`
-  * `kinesis:ListStreams`
-
-* For the S3 bucket resource that's reported in the `S3_CONFIG_FILE` environment variable the following action must be allowed on the S3 buckets' config file object key:
+* For the S3 bucket resource that's reported in the `S3_CONFIG_FILE` environment variable the following action is allowed on the S3 buckets' config file object key:
   * `s3:GetObject`
 
-* For every S3 bucket resource that SQS queues are receiving notification from used by triggers of the Lambda the following action must be allowed on the S3 buckets:
+* For every S3 bucket resource that SQS queues are receiving notification from used by triggers of the Lambda the following action is allowed on the S3 buckets:
   * `s3:ListBucket`
 
-* For every S3 bucket resource that SQS queues are receiving notification from used by triggers of the Lambda the following action must be allowed on the S3 buckets' keys:
+* For every S3 bucket resource that SQS queues are receiving notification from used by triggers of the Lambda the following action is allowed on the S3 buckets' keys:
   * `s3:GetObject`
 
-* For every Secret Manager secret that you want to refer in the yaml configuration file (see below) the following action must be allowed:
+* For every Secret Manager secret that you want to refer in the yaml configuration file (see below) the following action is allowed:
   * `secretsmanager:GetSecretValue`
 
-* For every decrypt key that's not the default one that you used to encrypt your Secret Manager secrets with, the following action must be allowed:
+* For every decrypt key that's not the default one that you used to encrypt your Secret Manager secrets with, the following action is allowed:
   * `kms:Decrypt`
 
-#### Sample policy:
-  ```json
-  {
-    "Version": "2012-10-17",
-    "Statement": [
-      {
-        "Sid": "AllowReadESFConfigFile",
-        "Effect": "Allow",
-        "Action": "s3:GetObject",
-        ## ADAPT TO THE CONFIG FILE IN THE S3 BUCKET
-        "Resource": "arn:aws:s3:::%CONFIG_FILE_BUCKET_NAME%/%CONFIG_FILE_OBJECT_KEY%"
-      },
-      {
-        "Sid": "AllowWriteMessagesInSQS",
-        "Effect": "Allow",
-        "Action": "sqs:SendMessage",
-        "Resource": [
-          ## ADAPT TO THE VALUE OF ENV VARIABLES `SQS_CONTINUE_URL` AND `SQS_REPLAY_URL`
-          "arn:aws:sqs:%AWS_REGION%:%AWS_ACCOUNT_ID%:%SQS_CONTINUE_URL_NAME%",
-          "arn:aws:sqs:%AWS_REGION%:%AWS_ACCOUNT_ID%:%SQS_REPLAY_URL_NAME%"
-        ]
-      },
-      {
-        "Sid": "AllowAccessS3DataSourcesBuckets",
-        "Effect": "Allow",
-        "Action": "s3:ListBucket",
-        "Resource": [
-          ## ADD FOR YOUR S3 BUCKET,
-          "arn:aws:s3:::%BUCKET_NAME%",
-          ...
-        ]
-      },
-      {
-        "Sid": "AllowAccessS3DataSourcesObjectKeys",
-        "Effect": "Allow",
-        "Action": "s3:GetObject",
-        "Resource": [
-          ## ADD FOR YOUR S3 BUCKET'S OBJECT KEYS,
-          "arn:aws:s3:::%BUCKET_NAME%/*",
-          ...
-        ]
-      },
-      {
-        "Sid": "AllowAccessS3-SQSQueue",
-        "Effect": "Allow",
-        "Action": "sqs:GetQueueUrl",
-        "Resource": [
-          ## ADD FOR YOUR SQS QUEUES
-          "arn:aws:sqs:%AWS_REGION%:%AWS_ACCOUNT_ID%:%QUEUE_NAME%",
-          ...
-        ]
-      },
-      {
-        "Sid": "AllowAccessKinesisDataSources",
-        "Effect": "Allow",
-        "Action": [
-            "kinesis:GetRecords",
-            "kinesis:GetShardIterator",
-            "kinesis:DescribeStream",
-            "kinesis:ListShards",
-            "kinesis:ListStreams"
-        ],
-        "Resource": [
-          ## ADD FOR YOUR KINESIS DATA STREAMS
-          "arn:aws:kinesis:%AWS_REGION%:%AWS_ACCOUNT_ID%:stream/%STREAM_NAME%",
-          ...
-        ]
-      },
-      {
-        "Sid": "AllowAccessSecrets",
-        "Effect": "Allow",
-        "Action": "secretsmanager:GetSecretValue",
-        "Resource": [
-          ## ADD FOR YOUR SECRET MANAGER SECRETS
-          "arn:aws:secretsmanager:%AWS_REGION%:%AWS_ACCOUNT_ID%:secret:%SECRET_NAME%",
-          ...
-        ]
-      },
-      {
-        "Sid": "AllowAccessKMSKey",
-        "Effect": "Allow",
-        "Action": "kms:Decrypt",
-        "Resource": [
-          ## ADD FOR YOUR KMS DECRYPT KEYS
-          "arn:aws:kms:%AWS_REGION%:%AWS_ACCOUNT_ID%:key/%KEY_ID%",
-          ...
-        ]
-      }
-    ]
-  }
-  ```
+* If any CloudWatch Logs log groups is set as input of the Lamda, the following action is allowed for the resource `arn:aws:logs:%AWS_REGION%:%AWS_ACCOUNT_ID%:log-group:*:*`:
+  * `logs:DescribeLogGroups`
 
 #### Lambda Resource-based policy for CloudWatch Logs subscription filter input
-* For CloudWatch Logs subscription filter log group resources that you want to use as triggers of the Lambda the following must be allowed as Resource-based policy in separated Policy statements:
+* For CloudWatch Logs subscription filter log group resources that you want to use as triggers of the Lambda the following is allowed as Resource-based policy in separated Policy statements:
   * Principal: `logs.%AWS_REGION%.amazonaws.com`
   * Action: `lambda:InvokeFunction`
   * Source ARN: `arn:aws:logs:%AWS_REGION%:%AWS_ACCOUNT_ID%:log-group:%LOG_GROUP_NAME%:*`
 
 
 ## S3_CONFIG_FILE
-The Elastic Forwarder for Serverless Lambda rely on a config yaml file to be uploaded to an S3 bucket and referenced by the `S3_CONFIG_FILE` environment variable.
+The Elastic Serverless Forwarder Lambda rely on a config yaml file to be uploaded to an S3 bucket and referenced by the `S3_CONFIG_FILE` environment variable.
 
 This is the format of the config yaml file
 ```yaml
@@ -552,7 +207,7 @@ inputs:
           api_key: "YXBpX2tleV9pZDphcGlfa2V5X3NlY3JldAo="
           username: "username"
           password: "password"
-          es_index_or_datastream_name: "logs-generic-default"
+          datastream: "logs-generic-default"
           batch_max_actions: 500
           batch_max_bytes: 10485760
   - type: "sqs"
@@ -567,7 +222,7 @@ inputs:
           api_key: "YXBpX2tleV9pZDphcGlfa2V5X3NlY3JldAo="
           username: "username"
           password: "password"
-          es_index_or_datastream_name: "logs-generic-default"
+          datastream: "logs-generic-default"
           batch_max_actions: 500
           batch_max_bytes: 10485760
   - type: "kinesis-data-stream"
@@ -582,7 +237,7 @@ inputs:
           api_key: "YXBpX2tleV9pZDphcGlfa2V5X3NlY3JldAo="
           username: "username"
           password: "password"
-          es_index_or_datastream_name: "logs-generic-default"
+          datastream: "logs-generic-default"
           batch_max_actions: 500
           batch_max_bytes: 10485760
   - type: "cloudwatch-logs"
@@ -597,14 +252,14 @@ inputs:
           api_key: "YXBpX2tleV9pZDphcGlfa2V5X3NlY3JldAo="
           username: "username"
           password: "password"
-          es_index_or_datastream_name: "logs-generic-default"
+          datastream: "logs-generic-default"
           batch_max_actions: 500
           batch_max_bytes: 10485760
 ```
 
 #### Fields
 `inputs.[]`:
-A list of inputs (ie: triggers) for the Elastic Forwarder for Serverless Lambda
+A list of inputs (ie: triggers) for the Elastic Serverless Forwarder Lambda
 
 `inputs.[].type`:
 The type of the trigger input (currently `cloudwatch-logs`, `kinesis-data-stream`, `sqs` and`s3-sqs` supported)
@@ -613,7 +268,7 @@ The type of the trigger input (currently `cloudwatch-logs`, `kinesis-data-stream
 The arn of the trigger input according to the type. Multiple input entries can have different unique ids with the same type.
 
 `inputs.[].outputs`:
-A list of outputs (ie: forwarding targets) for the Elastic Forwarder for Serverless Lambda. Only one output per type can be defined
+A list of outputs (ie: forwarding targets) for the Elastic Serverless Forwarder Lambda. Only one output per type can be defined
 
 `inputs.[].outputs.[].type`:
 The type of the forwarding target output (currently only `elasticsearch` supported)
@@ -626,9 +281,9 @@ Custom init arguments for the given forwarding target output
   * `args.username`: Username of the elasticsearch instance to connect to. Mandatory in case `args.api_key` is not provided. Will be ignored if `args.api_key` is defined as well.
   * `args.password` Password of the elasticsearch instance to connect to. Mandatory in case `args.api_key` is not provided. Will be ignored if `args.api_key` is defined as well.
   * `args.api_key`:  Api key of elasticsearch endpoint in the format **base64encode(api_key_id:api_key_secret)**. Mandatory in case `args.username`  and `args.password ` are not provided. Will take precedence over `args.username`/`args.password` if both are defined.
-  * `args.es_index_or_datastream_name`: Name of the index or data stream where to forward the logs to. Lambda supports automatic routing of various AWS service logs to the corresponding data streams for further processing and storage in the Elasticsearch cluster. It supports automatic routing of `aws.cloudtrail`, `aws.cloudwatch_logs`, `aws.elb_logs`, `aws.firewall_logs`, `aws.vpcflow`, and `aws.waf` logs. For other log types, if using data stream, the users can optionally set its value in the configuration file according to the naming convention for data streams and available integrations. If the `es_index_or_datastream_name` is not specified and it cannot be matched with any of the above AWS services then the value will be set to "logs-generic-default".
+  * `args.datastream`: Name of data stream or the index where to forward the logs to. Lambda supports automatic routing of various AWS service logs to the corresponding data streams for further processing and storage in the Elasticsearch cluster. It supports automatic routing of `aws.cloudtrail`, `aws.cloudwatch_logs`, `aws.elb_logs`, `aws.firewall_logs`, `aws.vpcflow`, and `aws.waf` logs. For other log types, if using data stream, the users can optionally set its value in the configuration file according to the naming convention for data streams and available integrations. If the `datastream` is not specified and it cannot be matched with any of the above AWS services then the value will be set to "logs-generic-default". Before **v0.30.0** this param was named `es_index_or_datastream_name`, that's now deprecated. It can still be used until the release of **v1.0.0**, when it will be finally removed.
   * `args.batch_max_actions`: Maximum number of actions to send in a single bulk request. Default value: 500
-  * `args.batch_max_bytes`: Maximum size in bytes to send in a sigle bulk request. Default value: 10485760 (10MB)
+  * `args.batch_max_bytes`: Maximum size in bytes to send in a single bulk request. Default value: 10485760 (10MB)
 
 ## Secrets Manager Support
 ```yaml
@@ -641,7 +296,7 @@ inputs:
           elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_url"
           username: "arn:aws:secretsmanager:eu-west-1:123456789:secret:es_secrets:username"
           password: "arn:aws:secretsmanager:eu-west-1:123456789:secret:es_secrets:password"
-          es_index_or_datastream_name: "logs-generic-default"
+          datastream: "logs-generic-default"
 ```
 There are 2 types of secrets that can be used:
 - SecretString (plain text or key/value pairs)
@@ -679,7 +334,7 @@ inputs:
           elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_url"
           username: "arn:aws:secretsmanager:eu-west-1:123456789:secret:es_secrets:username"
           password: "arn:aws:secretsmanager:eu-west-1:123456789:secret:es_secrets:password"
-          es_index_or_datastream_name: "logs-generic-default"
+          datastream: "logs-generic-default"
 ```
 Using the above configuration, the tags will be set in the following way`["forwarded", "generic", "tag1", "tag2", "tag3"]`
 
@@ -705,7 +360,7 @@ inputs:
           elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_url"
           username: "arn:aws:secretsmanager:eu-west-1:123456789:secret:es_secrets:username"
           password: "arn:aws:secretsmanager:eu-west-1:123456789:secret:es_secrets:password"
-          es_index_or_datastream_name: "logs-generic-default"
+          datastream: "logs-generic-default"
 ```
 
 #### Notes
@@ -725,21 +380,21 @@ When the regular expression is compiled no flags are used, please refer to [inli
 ## Routing support for AWS Services Logs
 When using Elastic integrations, as a first step users should install appropriate [integration](https://docs.elastic.co/en/integrations) assets using the Kibana UI. This sets up appropriate pre-built dashboards, ingest node configurations, and other assets that help you get the most out of the data you ingest. The integrations use [data streams](https://www.elastic.co/guide/en/elasticsearch/reference/current/data-streams.html) with specific [naming conventions](https://www.elastic.co/blog/an-introduction-to-the-elastic-data-stream-naming-scheme) providing users with more granular controls and flexibility on managing the ingested data.
 
-For `S3 SQS Event Notifications input` the Lambda function supports automatic routing of several AWS service logs to the corresponding [integration](https://docs.elastic.co/en/integrations) [data streams](https://docs.elastic.co/en/integrations) for further processing and storage in the Elasticsearch cluster. It supports automatic routing of AWS CloudTrail (`aws.cloudtrail`), Amazon CloudWatch Logs (`aws.cloudwatch_logs`), Elastic Load Balancing(`aws.elb_logs`), AWS Network Firewall (`aws.firewall_logs`), Amazon VPC Flow (`aws.vpcflow`) & AWS Web Application Firewall (`aws.waf`) logs to corresponding default integrations data streams. Setting the `es_index_or_datastream_name` field in the configuration file is optional for this use case.
+For `S3 SQS Event Notifications input` the Lambda function supports automatic routing of several AWS service logs to the corresponding [integration](https://docs.elastic.co/en/integrations) [data streams](https://docs.elastic.co/en/integrations) for further processing and storage in the Elasticsearch cluster. It supports automatic routing of AWS CloudTrail (`aws.cloudtrail`), Amazon CloudWatch Logs (`aws.cloudwatch_logs`), Elastic Load Balancing(`aws.elb_logs`), AWS Network Firewall (`aws.firewall_logs`), Amazon VPC Flow (`aws.vpcflow`) & AWS Web Application Firewall (`aws.waf`) logs to corresponding default integrations data streams. Setting the `datastream` field in the configuration file is optional for this use case.
 
-For most of the other use cases, the user will need to set the `es_index_or_datastream_name` field in the configuration file to route the data to a specific data stream or an index. This value should be set in the following use cases:
+For most of the other use cases, the user will need to set the `datastream` field in the configuration file to route the data to a specific data stream or an index. This value should be set in the following use cases:
 - Users want to write the data to a specific index, alias or a custom data stream and not to the default integration data streams. This can help some users to use the existing Elasticsearch setup like index templates, ingest pipelines or dashboards that you may have already set up and may have developed a business process around it and don’t want to change it.
 - When using `Kinesis Data Stream`, `CloudWatch Logs subscription filter` or `Direct SQS message payload` input. Only `S3 SQS Event Notifications input` method supports automatic routing to default integrations data streams for several AWS services logs.
 - When using `S3 SQS Event Notifications input` but the log types is something other than AWS CloudTrail (`aws.cloudtrail`), Amazon CloudWatch Logs (`aws.cloudwatch_logs`), Elastic Load Balancing (`aws.elb_logs`), AWS Network Firewall (`aws.firewall_logs`), Amazon VPC Flow (`aws.vpcflow`) & AWS Web Application Firewall (`aws.waf`).
 
-If the `es_index_or_datastream_name` is not specified and it cannot be matched with any of the above AWS services then the dataset will be set to "generic" and the namespace to "default" pointing to the data stream name "logs-generic-default".
+If the `datastream` is not specified and it cannot be matched with any of the above AWS services then the dataset will be set to "generic" and the namespace to "default" pointing to the data stream name "logs-generic-default".
 
 ## Setting up S3 event notification to SQS
 In order to set up an S3 event notification to SQS please look at the official documentation: https://docs.aws.amazon.com/AmazonS3/latest/userguide/NotificationHowTo.html
 
 The event type to set up in the notification should be `s3:ObjectCreated:*`
 
-The Elastic Forwarder for Serverless Lambda needs to be provided extra IAM policies in order to access S3 and SQS resources in your account: please refer to [Lambda IAM permissions and policies](#lambda-iam-permissions-and-policies).
+The Elastic Serverless Forwarder Lambda needs to be provided extra IAM policies in order to access S3 and SQS resources in your account: please refer to [Lambda IAM permissions and policies](#lambda-iam-permissions-and-policies).
 
 ## Error handling
 There are two kind of errors that can happen during the execution of the Lambda:
