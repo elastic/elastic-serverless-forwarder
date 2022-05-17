@@ -115,7 +115,7 @@ Resources:
     ```
 
 #### Notes
-Due to a limitation in AWS CloudFormation, if you want to update the Events settings for the deployed Lambda, you will have to execute a deployment deleting the existing ones before actually apply the new updated ones.
+Due to a [bug](https://github.com/aws/serverless-application-model/issues/1320) in AWS CloudFormation, if you want to update the Events settings for the deployed Lambda, you will have to execute a deployment deleting the existing ones before actually apply the new updated ones.
 
 ### Terraform
 * Save the following yaml content as `sar-application.tf`
@@ -154,8 +154,8 @@ resource "aws_serverlessapplicationrepository_cloudformation_stack" "esf_cf_stak
     terrafrom apply
     ```
 #### Notes
-* Due to a limitation in AWS CloudFormation, if you want to update the Events settings for the deployed Lambda, you will have to execute a deployment deleting the existing ones before actually apply the new updated ones.
-* Due to a limitation in Terraform related to `aws_serverlessapplicationrepository_application` resource, in order to delete existing Events you have to set the related `aws_serverlessapplicationrepository_cloudformation_stack.parameters` to a blank space value (`" "`) instead that to an empty string (`""`), otherwise the parameter won't be deleted.
+* Due to a [bug](https://github.com/aws/serverless-application-model/issues/1320) in AWS CloudFormation, if you want to update the Events settings for the deployed Lambda, you will have to execute a deployment deleting the existing ones before actually apply the new updated ones.
+* Due to a [bug](https://github.com/hashicorp/terraform-provider-aws/issues/24771) in Terraform related to `aws_serverlessapplicationrepository_application` resource, in order to delete existing Events you have to set the related `aws_serverlessapplicationrepository_cloudformation_stack.parameters` to a blank space value (`" "`) instead that to an empty string (`""`), otherwise the parameter won't be deleted.
 
 
 #### Lambda IAM permissions and policies
