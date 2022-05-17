@@ -32,6 +32,9 @@ The `datastream` parameter in the config file is optional. Lambda supports autom
 
 For more information, read the AWS [documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/ways-to-add-notification-config-to-bucket.html) about creating an SQS event notifications for S3 buckets.
 
+#### Notes on SQS queues
+The SQS queues you want to use as trigger must have a visibility timeout of 910 seconds, 10 seconds more than the Elastic Serverless Forwarder Lambda timeout.
+
 **Kinesis Data Stream input:**
 
 The Lambda function supports ingesting logs contained in the payload of a Kinesis data stream record and sends them to Elastic. The Kinesis data stream serves as a trigger for the Lambda function. When a new record gets written to a Kinesis data stream the Lambda function gets triggered. Users will set up separate Kinesis data streams for each type of logs, The config param for Elasticsearch output `datastream` is mandatory. If the value is set to an Elasticsearch datastream, the type of logs must be defined with proper value configuration param. A single configuration file can have many input sections, pointing to different Kinesis data streams that match specific log types.
@@ -111,6 +114,9 @@ Resources:
     aws cloudformation deploy --template-file sar-application.yaml --stack-name esf-cloudformation-deployment --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND
     ```
 
+#### Notes
+Due to a limitation in AWS CloudFormation, if you want to update the Events settings for the deployed Lambda, you will have to execute a deployment deleting the existing ones before actually apply the new updated ones.
+
 ### Terraform
 * Save the following yaml content as `sar-application.tf`
 ```
@@ -147,9 +153,10 @@ resource "aws_serverlessapplicationrepository_cloudformation_stack" "esf_cf_stak
   * ```commandline
     terrafrom apply
     ```
-
 #### Notes
-The SQS queues you want to use as trigger must have a visibility timeout of 910 seconds, 10 seconds more than the Elastic Serverless Forwarder Lambda timeout.
+* Due to a limitation in AWS CloudFormation, if you want to update the Events settings for the deployed Lambda, you will have to execute a deployment deleting the existing ones before actually apply the new updated ones.
+* Due to a limitation in Terraform related to `aws_serverlessapplicationrepository_application` resource, in order to delete existing Events you have to set the related `aws_serverlessapplicationrepository_cloudformation_stack.parameters` to a blank space value (`" "`) instead that to an empty string (`""`), otherwise the parameter won't be deleted.
+
 
 #### Lambda IAM permissions and policies
 A Lambda function has a policy, called an execution role, that grants it permission to access AWS services and resources. Lambda assumes the role when the function is invoked. The role is automatically created when the Function is deployed. The Execution role associated with your function can be seen in the Configuration->Permissions section and by default starts with the name “serverlessrepo-elastic-se-ElasticServerlessForward-”. An custom policy is added to grant minimum permissions to the Lambda to be able to use configured continuing SQS queue, S3 buckets, Kinesis data stream, CloudWatch Logs Log Groups, Secrets manager (if using) and replay SQS queue.
