@@ -45,7 +45,7 @@ class ElasticsearchOutput(Output):
         username: str = "",
         password: str = "",
         api_key: str = "",
-        datastream: str = "",
+        es_datastream_name: str = "",
         tags: list[str] = [],
         batch_max_actions: int = 500,
         batch_max_bytes: int = 10 * 1024 * 1024,
@@ -57,7 +57,7 @@ class ElasticsearchOutput(Output):
         self.username = username
         self.password = password
         self.api_key = api_key
-        self.datastream = datastream
+        self.es_datastream_name = es_datastream_name
         self.tags = tags
         self.batch_max_actions = batch_max_actions
         self.batch_max_bytes = batch_max_bytes
@@ -80,8 +80,8 @@ class ElasticsearchOutput(Output):
         if self.username and not self.password:
             raise ValueError("Elasticsearch Output password must be set when using username")
 
-        if not self.datastream:
-            shared_logger.info("no datastream set in config")
+        if not self.es_datastream_name:
+            shared_logger.info("no es_datastream_name set in config")
 
         shared_logger.debug("tags: ", extra={"tags": self.tags})
 
@@ -141,15 +141,15 @@ class ElasticsearchOutput(Output):
         self._api_key = value
 
     @property
-    def datastream(self) -> str:
-        return self._datastream
+    def es_datastream_name(self) -> str:
+        return self._es_datastream_name
 
-    @datastream.setter
-    def datastream(self, value: str) -> None:
+    @es_datastream_name.setter
+    def es_datastream_name(self, value: str) -> None:
         if not isinstance(value, str):
-            raise ValueError("Elasticsearch Output datastream must be of type str")
+            raise ValueError("Elasticsearch Output es_datastream_name must be of type str")
 
-        self._datastream = value
+        self._es_datastream_name = value
 
     @property
     def batch_max_actions(self) -> int:
@@ -291,8 +291,8 @@ class Input:
         output: Optional[Output] = None
         if output_type == "elasticsearch":
             if "es_index_or_datastream_name" in kwargs:
-                if "datastream" not in kwargs:
-                    kwargs["datastream"] = kwargs["es_index_or_datastream_name"]
+                if "es_datastream_name" not in kwargs:
+                    kwargs["es_datastream_name"] = kwargs["es_index_or_datastream_name"]
 
                 del kwargs["es_index_or_datastream_name"]
             output = ElasticsearchOutput(**kwargs)

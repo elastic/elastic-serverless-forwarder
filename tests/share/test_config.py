@@ -40,7 +40,7 @@ class TestElasticsearchOutput(TestCase):
                 elasticsearch_url="elasticsearch_url",
                 username="username",
                 password="password",
-                datastream="datastream",
+                es_datastream_name="es_datastream_name",
                 batch_max_actions=1,
                 batch_max_bytes=1,
             )
@@ -51,7 +51,7 @@ class TestElasticsearchOutput(TestCase):
             assert elasticsearch.password == "password"
             assert not elasticsearch.cloud_id
             assert not elasticsearch.api_key
-            assert elasticsearch.datastream == "datastream"
+            assert elasticsearch.es_datastream_name == "es_datastream_name"
             assert elasticsearch.tags == []
             assert elasticsearch.batch_max_actions == 1
             assert elasticsearch.batch_max_bytes == 1
@@ -61,7 +61,7 @@ class TestElasticsearchOutput(TestCase):
                 cloud_id="cloud_id",
                 username="username",
                 password="password",
-                datastream="datastream",
+                es_datastream_name="es_datastream_name",
                 batch_max_actions=1,
                 batch_max_bytes=1,
             )
@@ -72,7 +72,7 @@ class TestElasticsearchOutput(TestCase):
             assert elasticsearch.password == "password"
             assert not elasticsearch.elasticsearch_url
             assert not elasticsearch.api_key
-            assert elasticsearch.datastream == "datastream"
+            assert elasticsearch.es_datastream_name == "es_datastream_name"
             assert elasticsearch.tags == []
             assert elasticsearch.batch_max_actions == 1
             assert elasticsearch.batch_max_bytes == 1
@@ -81,7 +81,7 @@ class TestElasticsearchOutput(TestCase):
             elasticsearch = ElasticsearchOutput(
                 elasticsearch_url="elasticsearch_url",
                 api_key="api_key",
-                datastream="datastream",
+                es_datastream_name="es_datastream_name",
                 batch_max_actions=1,
                 batch_max_bytes=1,
             )
@@ -92,7 +92,7 @@ class TestElasticsearchOutput(TestCase):
             assert not elasticsearch.cloud_id
             assert not elasticsearch.username
             assert not elasticsearch.password
-            assert elasticsearch.datastream == "datastream"
+            assert elasticsearch.es_datastream_name == "es_datastream_name"
             assert elasticsearch.tags == []
             assert elasticsearch.batch_max_actions == 1
             assert elasticsearch.batch_max_bytes == 1
@@ -101,7 +101,7 @@ class TestElasticsearchOutput(TestCase):
             elasticsearch = ElasticsearchOutput(
                 cloud_id="cloud_id",
                 api_key="api_key",
-                datastream="datastream",
+                es_datastream_name="es_datastream_name",
                 batch_max_actions=1,
                 batch_max_bytes=1,
             )
@@ -112,7 +112,7 @@ class TestElasticsearchOutput(TestCase):
             assert not elasticsearch.elasticsearch_url
             assert not elasticsearch.username
             assert not elasticsearch.password
-            assert elasticsearch.datastream == "datastream"
+            assert elasticsearch.es_datastream_name == "es_datastream_name"
             assert elasticsearch.tags == []
             assert elasticsearch.batch_max_actions == 1
             assert elasticsearch.batch_max_bytes == 1
@@ -126,7 +126,7 @@ class TestElasticsearchOutput(TestCase):
                 elasticsearch_url="elasticsearch_url",
                 cloud_id="cloud_id",
                 api_key="api_key",
-                datastream="datastream",
+                es_datastream_name="es_datastream_name",
                 batch_max_actions=1,
                 batch_max_bytes=1,
             )
@@ -137,7 +137,7 @@ class TestElasticsearchOutput(TestCase):
             assert not elasticsearch.cloud_id
             assert not elasticsearch.username
             assert not elasticsearch.password
-            assert elasticsearch.datastream == "datastream"
+            assert elasticsearch.es_datastream_name == "es_datastream_name"
             assert elasticsearch.tags == []
             assert elasticsearch.batch_max_actions == 1
             assert elasticsearch.batch_max_bytes == 1
@@ -148,7 +148,7 @@ class TestElasticsearchOutput(TestCase):
             ):
                 ElasticsearchOutput(
                     elasticsearch_url="elasticsearch_url",
-                    datastream="datastream",
+                    es_datastream_name="es_datastream_name",
                 )
 
         with self.subTest("both username and api_key"):
@@ -157,7 +157,7 @@ class TestElasticsearchOutput(TestCase):
                 api_key="api_key",
                 username="username",
                 password="password",
-                datastream="datastream",
+                es_datastream_name="es_datastream_name",
                 batch_max_actions=1,
                 batch_max_bytes=1,
             )
@@ -168,7 +168,7 @@ class TestElasticsearchOutput(TestCase):
             assert not elasticsearch.elasticsearch_url
             assert not elasticsearch.username
             assert not elasticsearch.password
-            assert elasticsearch.datastream == "datastream"
+            assert elasticsearch.es_datastream_name == "es_datastream_name"
             assert elasticsearch.tags == []
             assert elasticsearch.batch_max_actions == 1
             assert elasticsearch.batch_max_bytes == 1
@@ -179,7 +179,7 @@ class TestElasticsearchOutput(TestCase):
                 api_key="api_key",
                 username="username",
                 password="password",
-                datastream="datastream",
+                es_datastream_name="es_datastream_name",
                 tags=["tag1", "tag2", "tag3"],
                 batch_max_actions=1,
                 batch_max_bytes=1,
@@ -191,7 +191,7 @@ class TestElasticsearchOutput(TestCase):
             assert not elasticsearch.elasticsearch_url
             assert not elasticsearch.username
             assert not elasticsearch.password
-            assert elasticsearch.datastream == "datastream"
+            assert elasticsearch.es_datastream_name == "es_datastream_name"
             assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
             assert elasticsearch.batch_max_actions == 1
             assert elasticsearch.batch_max_bytes == 1
@@ -202,10 +202,10 @@ class TestElasticsearchOutput(TestCase):
                     elasticsearch_url="elasticsearch_url",
                     username="username",
                     password="",
-                    datastream="datastream",
+                    es_datastream_name="es_datastream_name",
                 )
 
-        with self.subTest("empty datastream"):
+        with self.subTest("empty es_datastream_name"):
             elasticsearch = ElasticsearchOutput(
                 cloud_id="cloud_id",
                 api_key="api_key",
@@ -221,7 +221,7 @@ class TestElasticsearchOutput(TestCase):
             assert not elasticsearch.elasticsearch_url
             assert not elasticsearch.username
             assert not elasticsearch.password
-            assert elasticsearch.datastream == ""
+            assert elasticsearch.es_datastream_name == ""
             assert elasticsearch.tags == []
             assert elasticsearch.batch_max_actions == 1
             assert elasticsearch.batch_max_bytes == 1
@@ -232,7 +232,7 @@ class TestElasticsearchOutput(TestCase):
                 api_key="api_key",
                 username="username",
                 password="password",
-                datastream="datastream",
+                es_datastream_name="es_datastream_name",
                 batch_max_actions=1,
                 batch_max_bytes=1,
             )
@@ -243,7 +243,7 @@ class TestElasticsearchOutput(TestCase):
             assert not elasticsearch.elasticsearch_url
             assert not elasticsearch.username
             assert not elasticsearch.password
-            assert elasticsearch.datastream == "datastream"
+            assert elasticsearch.es_datastream_name == "es_datastream_name"
             assert elasticsearch.tags == []
             assert elasticsearch.batch_max_actions == 1
             assert elasticsearch.batch_max_bytes == 1
@@ -254,7 +254,7 @@ class TestElasticsearchOutput(TestCase):
                 api_key="api_key",
                 username="username",
                 password="password",
-                datastream="datastream",
+                es_datastream_name="es_datastream_name",
                 batch_max_bytes=1,
             )
 
@@ -264,7 +264,7 @@ class TestElasticsearchOutput(TestCase):
             assert not elasticsearch.elasticsearch_url
             assert not elasticsearch.username
             assert not elasticsearch.password
-            assert elasticsearch.datastream == "datastream"
+            assert elasticsearch.es_datastream_name == "es_datastream_name"
             assert elasticsearch.tags == []
             assert elasticsearch.batch_max_actions == 500
             assert elasticsearch.batch_max_bytes == 1
@@ -275,7 +275,7 @@ class TestElasticsearchOutput(TestCase):
                 api_key="api_key",
                 username="username",
                 password="password",
-                datastream="datastream",
+                es_datastream_name="es_datastream_name",
                 batch_max_actions=1,
             )
 
@@ -285,7 +285,7 @@ class TestElasticsearchOutput(TestCase):
             assert not elasticsearch.elasticsearch_url
             assert not elasticsearch.username
             assert not elasticsearch.password
-            assert elasticsearch.datastream == "datastream"
+            assert elasticsearch.es_datastream_name == "es_datastream_name"
             assert elasticsearch.tags == []
             assert elasticsearch.batch_max_actions == 1
             assert elasticsearch.batch_max_bytes == 10485760
@@ -298,7 +298,7 @@ class TestElasticsearchOutput(TestCase):
                     elasticsearch_url=0,  # type:ignore
                     username="username",
                     password="password",
-                    datastream="datastream",
+                    es_datastream_name="es_datastream_name",
                 )
 
         with self.subTest("username not str"):
@@ -307,7 +307,7 @@ class TestElasticsearchOutput(TestCase):
                     elasticsearch_url="",
                     username=0,  # type:ignore
                     password="password",
-                    datastream="datastream",
+                    es_datastream_name="es_datastream_name",
                 )
 
         with self.subTest("password not str"):
@@ -316,7 +316,7 @@ class TestElasticsearchOutput(TestCase):
                     elasticsearch_url="elasticsearch_url",
                     username="username",
                     password=0,  # type:ignore
-                    datastream="datastream",
+                    es_datastream_name="es_datastream_name",
                 )
 
         with self.subTest("cloud_id not str"):
@@ -325,7 +325,7 @@ class TestElasticsearchOutput(TestCase):
                     cloud_id=0,  # type:ignore
                     username="username",
                     password="password",
-                    datastream="datastream",
+                    es_datastream_name="es_datastream_name",
                 )
 
         with self.subTest("api_key not str"):
@@ -333,16 +333,16 @@ class TestElasticsearchOutput(TestCase):
                 ElasticsearchOutput(
                     cloud_id="cloud_id",
                     api_key=0,  # type:ignore
-                    datastream="datastream",
+                    es_datastream_name="es_datastream_name",
                 )
 
-        with self.subTest("datastream not str"):
-            with self.assertRaisesRegex(ValueError, "Elasticsearch Output datastream must be of type str"):
+        with self.subTest("es_datastream_name not str"):
+            with self.assertRaisesRegex(ValueError, "Elasticsearch Output es_datastream_name must be of type str"):
                 ElasticsearchOutput(
                     elasticsearch_url="elasticsearch_url",
                     username="username",
                     password="password",
-                    datastream=0,  # type:ignore
+                    es_datastream_name=0,  # type:ignore
                 )
 
         with self.subTest("batch_max_actions not int"):
@@ -351,7 +351,7 @@ class TestElasticsearchOutput(TestCase):
                     elasticsearch_url="elasticsearch_url",
                     username="username",
                     password="password",
-                    datastream="datastream",
+                    es_datastream_name="es_datastream_name",
                     batch_max_actions="test",  # type:ignore
                 )
 
@@ -361,7 +361,7 @@ class TestElasticsearchOutput(TestCase):
                     elasticsearch_url="elasticsearch_url",
                     username="username",
                     password="password",
-                    datastream="datastream",
+                    es_datastream_name="es_datastream_name",
                     batch_max_bytes="test",  # type:ignore
                 )
 
@@ -465,7 +465,7 @@ class TestInput(TestCase):
                 username="username",
                 password="password",
                 es_index_or_datastream_name="es_index_or_datastream_name",
-                datastream="datasream",
+                es_datastream_name="es_datastream_name",
                 batch_max_actions=1,
                 batch_max_bytes=1,
             )
@@ -479,7 +479,7 @@ class TestInput(TestCase):
                 elasticsearch_url="elasticsearch_url",
                 username="username",
                 password="password",
-                datastream="datastream",
+                es_datastream_name="es_datastream_name",
                 batch_max_actions=1,
                 batch_max_bytes=1,
             )
@@ -494,7 +494,7 @@ class TestInput(TestCase):
                 elasticsearch_url="elasticsearch_url",
                 username="username",
                 password="password",
-                datastream="datastream",
+                es_datastream_name="es_datastream_name",
                 batch_max_actions=1,
                 batch_max_bytes=1,
             )
@@ -518,7 +518,7 @@ class TestInput(TestCase):
                 elasticsearch_url="elasticsearch_url",
                 username="username",
                 password="password",
-                datastream="datastream",
+                es_datastream_name="es_datastream_name",
                 batch_max_actions=1,
                 batch_max_bytes=1,
             )
@@ -529,7 +529,7 @@ class TestInput(TestCase):
                     elasticsearch_url="elasticsearch_url",
                     username="username",
                     password="password",
-                    datastream="datastream",
+                    es_datastream_name="es_datastream_name",
                     batch_max_actions=1,
                     batch_max_bytes=1,
                 )
@@ -546,7 +546,7 @@ class TestInput(TestCase):
                 elasticsearch_url="elasticsearch_url",
                 username="username",
                 password="password",
-                datastream="datastream",
+                es_datastream_name="es_datastream_name",
                 batch_max_actions=1,
                 batch_max_bytes=1,
             )
@@ -561,7 +561,7 @@ class TestInput(TestCase):
                 elasticsearch_url="elasticsearch_url",
                 username="username",
                 password="password",
-                datastream="datastream",
+                es_datastream_name="es_datastream_name",
                 batch_max_actions=1,
                 batch_max_bytes=1,
             )
@@ -809,7 +809,7 @@ class TestParseConfig(TestCase):
                     args:
                       cloud_id: "cloud_id"
                       api_key: "api_key"
-                      datastream: "datastream"
+                      es_datastream_name: "es_datastream_name"
                       batch_max_actions: "test"
             """
                 )
@@ -826,7 +826,7 @@ class TestParseConfig(TestCase):
                     args:
                       cloud_id: "cloud_id"
                       api_key: "api_key"
-                      datastream: "datastream"
+                      es_datastream_name: "es_datastream_name"
                       batch_max_bytes: "test"
             """
                 )
@@ -844,7 +844,7 @@ class TestParseConfig(TestCase):
                     args:
                       cloud_id: "cloud_id"
                       api_key: "api_key"
-                      datastream: "datastream"
+                      es_datastream_name: "es_datastream_name"
             """
                 )
 
@@ -860,7 +860,7 @@ class TestParseConfig(TestCase):
                     args:
                       cloud_id: "cloud_id"
                       api_key: "api_key"
-                      datastream: "datastream"
+                      es_datastream_name: "es_datastream_name"
             """
                 )
 
@@ -882,7 +882,7 @@ class TestParseConfig(TestCase):
                     args:
                       cloud_id: "cloud_id"
                       api_key: "api_key"
-                      datastream: "datastream"
+                      es_datastream_name: "es_datastream_name"
             """
                 )
 
@@ -920,13 +920,13 @@ class TestParseConfig(TestCase):
             assert elasticsearch.elasticsearch_url == "elasticsearch_url"
             assert elasticsearch.username == "username"
             assert elasticsearch.password == "password"
-            assert elasticsearch.datastream == "es_index_or_datastream_name"
+            assert elasticsearch.es_datastream_name == "es_index_or_datastream_name"
             assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
             assert elasticsearch.batch_max_actions == 500
             assert elasticsearch.batch_max_bytes == 10485760
 
         with self.subTest(
-            "valid input valid elasticsearch output with both legacy es_index_or_datastream_name and datastream"
+            "valid input valid elasticsearch output with both legacy es_index_or_datastream_name and es_datastream_name"
         ):
             config = parse_config(
                 config_yaml="""
@@ -943,7 +943,7 @@ class TestParseConfig(TestCase):
                       elasticsearch_url: "elasticsearch_url"
                       username: "username"
                       password: "password"
-                      datastream: "datastream"
+                      es_datastream_name: "es_datastream_name"
                       es_index_or_datastream_name: "es_index_or_datastream_name"
             """
             )
@@ -962,7 +962,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch.elasticsearch_url == "elasticsearch_url"
             assert elasticsearch.username == "username"
             assert elasticsearch.password == "password"
-            assert elasticsearch.datastream == "datastream"
+            assert elasticsearch.es_datastream_name == "es_datastream_name"
             assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
             assert elasticsearch.batch_max_actions == 500
             assert elasticsearch.batch_max_bytes == 10485760
@@ -983,7 +983,7 @@ class TestParseConfig(TestCase):
                       elasticsearch_url: "elasticsearch_url"
                       username: "username"
                       password: "password"
-                      datastream: "datastream"
+                      es_datastream_name: "es_datastream_name"
             """
             )
 
@@ -1001,7 +1001,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch.elasticsearch_url == "elasticsearch_url"
             assert elasticsearch.username == "username"
             assert elasticsearch.password == "password"
-            assert elasticsearch.datastream == "datastream"
+            assert elasticsearch.es_datastream_name == "es_datastream_name"
             assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
             assert elasticsearch.batch_max_actions == 500
             assert elasticsearch.batch_max_bytes == 10485760
@@ -1021,7 +1021,7 @@ class TestParseConfig(TestCase):
                     args:
                       elasticsearch_url: "elasticsearch_url"
                       api_key: "api_key"
-                      datastream: "datastream"
+                      es_datastream_name: "es_datastream_name"
             """
             )
 
@@ -1038,7 +1038,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch.type == "elasticsearch"
             assert elasticsearch.elasticsearch_url == "elasticsearch_url"
             assert elasticsearch.api_key == "api_key"
-            assert elasticsearch.datastream == "datastream"
+            assert elasticsearch.es_datastream_name == "es_datastream_name"
             assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
             assert elasticsearch.batch_max_actions == 500
             assert elasticsearch.batch_max_bytes == 10485760
@@ -1059,7 +1059,7 @@ class TestParseConfig(TestCase):
                       cloud_id: "cloud_id"
                       username: "username"
                       password: "password"
-                      datastream: "datastream"
+                      es_datastream_name: "es_datastream_name"
             """
             )
 
@@ -1077,7 +1077,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch.cloud_id == "cloud_id"
             assert elasticsearch.username == "username"
             assert elasticsearch.password == "password"
-            assert elasticsearch.datastream == "datastream"
+            assert elasticsearch.es_datastream_name == "es_datastream_name"
             assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
             assert elasticsearch.batch_max_actions == 500
             assert elasticsearch.batch_max_bytes == 10485760
@@ -1097,7 +1097,7 @@ class TestParseConfig(TestCase):
                     args:
                       cloud_id: "cloud_id"
                       api_key: "api_key"
-                      datastream: "datastream"
+                      es_datastream_name: "es_datastream_name"
             """
             )
 
@@ -1114,7 +1114,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch.type == "elasticsearch"
             assert elasticsearch.cloud_id == "cloud_id"
             assert elasticsearch.api_key == "api_key"
-            assert elasticsearch.datastream == "datastream"
+            assert elasticsearch.es_datastream_name == "es_datastream_name"
             assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
             assert elasticsearch.batch_max_actions == 500
             assert elasticsearch.batch_max_bytes == 10485760
@@ -1130,7 +1130,7 @@ class TestParseConfig(TestCase):
                     args:
                       cloud_id: "cloud_id"
                       api_key: "api_key"
-                      datastream: "datastream"
+                      es_datastream_name: "es_datastream_name"
                       tags:
                         - "tag1"
                         - "tag2"
@@ -1151,7 +1151,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch.type == "elasticsearch"
             assert elasticsearch.cloud_id == "cloud_id"
             assert elasticsearch.api_key == "api_key"
-            assert elasticsearch.datastream == "datastream"
+            assert elasticsearch.es_datastream_name == "es_datastream_name"
             assert elasticsearch.tags == []
             assert elasticsearch.batch_max_actions == 500
             assert elasticsearch.batch_max_bytes == 10485760
@@ -1170,7 +1170,7 @@ class TestParseConfig(TestCase):
                     args:
                       cloud_id: "cloud_id"
                       api_key: "api_key"
-                      datastream: "datastream"
+                      es_datastream_name: "es_datastream_name"
                       tags:
                         - "tag1"
                         - "tag2"
@@ -1191,7 +1191,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch.type == "elasticsearch"
             assert elasticsearch.cloud_id == "cloud_id"
             assert elasticsearch.api_key == "api_key"
-            assert elasticsearch.datastream == "datastream"
+            assert elasticsearch.es_datastream_name == "es_datastream_name"
             assert elasticsearch.tags == ["input_tag1", "input_tag2"]
             assert elasticsearch.batch_max_actions == 500
             assert elasticsearch.batch_max_bytes == 10485760
@@ -1211,7 +1211,7 @@ class TestParseConfig(TestCase):
                     args:
                       cloud_id: "cloud_id"
                       api_key: "api_key"
-                      datastream: "datastream"
+                      es_datastream_name: "es_datastream_name"
             """
             )
 
@@ -1228,7 +1228,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch.type == "elasticsearch"
             assert elasticsearch.cloud_id == "cloud_id"
             assert elasticsearch.api_key == "api_key"
-            assert elasticsearch.datastream == "datastream"
+            assert elasticsearch.es_datastream_name == "es_datastream_name"
             assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
             assert elasticsearch.batch_max_actions == 500
             assert elasticsearch.batch_max_bytes == 10485760
@@ -1250,7 +1250,7 @@ class TestParseConfig(TestCase):
                     args:
                       cloud_id: "cloud_id"
                       api_key: "api_key"
-                      datastream: "datastream"
+                      es_datastream_name: "es_datastream_name"
             """
             )
 
@@ -1276,7 +1276,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch.type == "elasticsearch"
             assert elasticsearch.cloud_id == "cloud_id"
             assert elasticsearch.api_key == "api_key"
-            assert elasticsearch.datastream == "datastream"
+            assert elasticsearch.es_datastream_name == "es_datastream_name"
             assert elasticsearch.tags == []
             assert elasticsearch.batch_max_actions == 500
             assert elasticsearch.batch_max_bytes == 10485760
@@ -1298,7 +1298,7 @@ class TestParseConfig(TestCase):
                         args:
                           cloud_id: "cloud_id"
                           api_key: "api_key"
-                          datastream: "datastream"
+                          es_datastream_name: "es_datastream_name"
                 """
                 )
 
@@ -1319,7 +1319,7 @@ class TestParseConfig(TestCase):
                         args:
                           cloud_id: "cloud_id"
                           api_key: "api_key"
-                          datastream: "datastream"
+                          es_datastream_name: "es_datastream_name"
                 """
                 )
 
@@ -1334,7 +1334,7 @@ class TestParseConfig(TestCase):
                     args:
                       cloud_id: "cloud_id"
                       api_key: "api_key"
-                      datastream: "datastream"
+                      es_datastream_name: "es_datastream_name"
                       batch_max_actions: 1
             """
             )
@@ -1352,7 +1352,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch.type == "elasticsearch"
             assert elasticsearch.cloud_id == "cloud_id"
             assert elasticsearch.api_key == "api_key"
-            assert elasticsearch.datastream == "datastream"
+            assert elasticsearch.es_datastream_name == "es_datastream_name"
             assert elasticsearch.tags == []
             assert elasticsearch.batch_max_actions == 1
             assert elasticsearch.batch_max_bytes == 10485760
@@ -1368,7 +1368,7 @@ class TestParseConfig(TestCase):
                     args:
                       cloud_id: "cloud_id"
                       api_key: "api_key"
-                      datastream: "datastream"
+                      es_datastream_name: "es_datastream_name"
                       batch_max_bytes: 1
             """
             )
@@ -1386,7 +1386,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch.type == "elasticsearch"
             assert elasticsearch.cloud_id == "cloud_id"
             assert elasticsearch.api_key == "api_key"
-            assert elasticsearch.datastream == "datastream"
+            assert elasticsearch.es_datastream_name == "es_datastream_name"
             assert elasticsearch.tags == []
             assert elasticsearch.batch_max_actions == 500
             assert elasticsearch.batch_max_bytes == 1

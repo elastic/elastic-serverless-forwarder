@@ -54,7 +54,7 @@ def _handle_replay_event(
 
     if output_type == "elasticsearch":
         assert isinstance(output, ElasticsearchOutput)
-        output.datastream = output_args["datastream"]
+        output.es_datastream_name = output_args["es_datastream_name"]
         shared_logger.info("setting ElasticSearch shipper")
         elasticsearch: ElasticsearchShipper = ShipperFactory.create_from_output(output_type=output_type, output=output)
         elasticsearch.set_replay_handler(replay_handler=replay_handler.replay_handler)
