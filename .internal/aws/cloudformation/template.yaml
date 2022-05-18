@@ -43,13 +43,13 @@ Resources:
     Type: AWS::Serverless::Application
     Properties:
       Location:
-        ApplicationId: arn:aws:serverlessrepo:%awsRegion%:%accountID%:applications/%sarAppName%-macro
+        ApplicationId: arn:aws:serverlessrepo:%awsRegion%:%accountID%:applications/helper-macro-%sarAppName%
         SemanticVersion: %semanticVersion%
   ElasticServerlessForwarderApplication:
     Type: AWS::Serverless::Application
     Properties:
       Location:
-        ApplicationId: arn:aws:serverlessrepo:%awsRegion%:%accountID%:applications/%sarAppName%-application
+        ApplicationId: arn:aws:serverlessrepo:%awsRegion%:%accountID%:applications/helper-application-%sarAppName%
         SemanticVersion: %semanticVersion%
       Parameters:
         ElasticServerlessForwarderS3ConfigFile: !Ref ElasticServerlessForwarderS3ConfigFile

@@ -79,7 +79,7 @@ Metadata:
     Name: helper-application-%sarAppName%
     Description: |
         NOTE: DO NOT DEPLOY
-        Deploy https://serverlessrepo.aws.amazon.com/applications/eu-central-1/267093732750/elastic-serverless-forwarder instead. This is a helper SAM template for the application and not intended to be deployed on its own.
+        Deploy elastic-serverless-forwarder instead. This is a helper SAM template for the application and not intended to be deployed on its own.
     Author: %sarAuthorName%
     SemanticVersion: %semanticVersion%
     LicenseUrl: %codeUri%/LICENSE.txt
