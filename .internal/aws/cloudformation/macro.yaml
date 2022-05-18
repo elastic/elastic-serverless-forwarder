@@ -222,8 +222,10 @@ Resources:
       Name: %sarAppName%-macro
 Metadata:
   AWS::ServerlessRepo::Application:
-    Name: %sarAppName%-macro
-    Description: SAM Template for the macro, not intended to be deployed on its own
+    Name: helper-macro-%sarAppName%
+    Description: |
+        NOTE: DO NOT DEPLOY
+        Deploy https://serverlessrepo.aws.amazon.com/applications/eu-central-1/267093732750/elastic-serverless-forwarder instead. This is a helper SAM template for the macro and not intended to be deployed on its own.
     Author: %sarAuthorName%
     SemanticVersion: %semanticVersion%
     LicenseUrl: %codeUri%/LICENSE.txt
