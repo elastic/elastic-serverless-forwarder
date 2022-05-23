@@ -1,5 +1,5 @@
 elastic-apm>=6.6.0,<7.0
-ecs_logging>=1,<2
+ecs_logging>=1,<3
 boto3>=1.21,<2
 elasticsearch>=7.16,<7.17
 PyYAML>=6.0,<6.1
