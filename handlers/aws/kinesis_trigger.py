@@ -12,7 +12,7 @@ from storage import CommonStorage, StorageFactory
 from .event import _default_event
 from .utils import (
     extractor_events_from_field,
-    get_account_id_from_lambda_arn,
+    get_account_id_from_arn,
     get_kinesis_stream_name_type_and_region_from_arn,
 )
 
@@ -25,7 +25,7 @@ def _handle_kinesis_record(
     It iterates through kinesis records in the kinesis trigger and process
     the content of kinesis.data payload
     """
-    account_id = get_account_id_from_lambda_arn(input_id)
+    account_id = get_account_id_from_arn(input_id)
 
     storage: CommonStorage = StorageFactory.create(storage_type="payload", payload=kinesis_record["kinesis"]["data"])
 

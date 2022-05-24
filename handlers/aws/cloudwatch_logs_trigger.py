@@ -13,7 +13,7 @@ from share import extract_events_from_field, shared_logger
 from storage import CommonStorage, StorageFactory
 
 from .event import _default_event
-from .utils import extractor_events_from_field, get_account_id_from_lambda_arn
+from .utils import extractor_events_from_field, get_account_id_from_arn
 
 
 def _from_awslogs_data_to_event(awslogs_data: str) -> Any:
@@ -82,7 +82,7 @@ def _handle_cloudwatch_logs_event(
     timeout of the lambda it will call the sqs continuing handler
     """
 
-    account_id = get_account_id_from_lambda_arn(input_id)
+    account_id = get_account_id_from_arn(input_id)
 
     log_group_name = event["logGroup"]
     log_stream_name = event["logStream"]

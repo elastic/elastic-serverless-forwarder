@@ -1,0 +1,87 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Elastic Serverless Forwarder
+
+  SAM Template for the application, not intended to be deployed on its own
+
+Parameters:
+  ElasticServerlessForwarderS3ConfigFile:
+    Type: String
+  ElasticServerlessForwarderSSMSecrets:
+    Type: CommaDelimitedList
+  ElasticServerlessForwarderKMSKeys:
+    Type: CommaDelimitedList
+  ElasticServerlessForwarderSQSEvents:
+    Type: CommaDelimitedList
+  ElasticServerlessForwarderS3SQSEvents:
+    Type: CommaDelimitedList
+  ElasticServerlessForwarderKinesisEvents:
+    Type: CommaDelimitedList
+  ElasticServerlessForwarderCloudWatchLogsEvents:
+    Type: CommaDelimitedList
+  ElasticServerlessForwarderS3Buckets:
+    Type: CommaDelimitedList
+Resources:
+  ElasticServerlessForwarderContinuingDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      DelaySeconds: 0
+      QueueName: !Join [ "-", ["elastic-serverless-forwarder-continuing-dlq", !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
+      VisibilityTimeout: 910
+  ElasticServerlessForwarderContinuingQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      DelaySeconds: 0
+      QueueName: !Join [ "-", ["elastic-serverless-forwarder-continuing-queue", !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
+      RedrivePolicy: { "deadLetterTargetArn" : !GetAtt ElasticServerlessForwarderContinuingDLQ.Arn, "maxReceiveCount" : 1 }
+      VisibilityTimeout: 910
+  ElasticServerlessForwarderReplayDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      DelaySeconds: 0
+      QueueName: !Join [ "-", ["elastic-serverless-forwarder-replay-dlq", !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
+      VisibilityTimeout: 910
+  ElasticServerlessForwarderReplayQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      DelaySeconds: 0
+      QueueName: !Join [ "-", ["elastic-serverless-forwarder-replay-queue", !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
+      RedrivePolicy: { "deadLetterTargetArn" : !GetAtt ElasticServerlessForwarderReplayDLQ.Arn, "maxReceiveCount" : 3 }
+      VisibilityTimeout: 910
+  ApplicationElasticServerlessForwarder:
+    Type: AWS::Serverless::Function
+    Properties:
+      Timeout: 900
+      MemorySize: 512
+      CodeUri: %codeUri%
+      Runtime: python3.9
+      Architectures:
+        - x86_64
+      Handler: main_aws.handler
+      Environment:
+          Variables:
+              S3_CONFIG_FILE: !Ref ElasticServerlessForwarderS3ConfigFile
+              SQS_CONTINUE_URL: !Ref ElasticServerlessForwarderContinuingQueue
+              SQS_REPLAY_URL: !Ref ElasticServerlessForwarderReplayQueue
+      Events:
+        SQSContinuingEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt ElasticServerlessForwarderContinuingQueue.Arn
+            BatchSize: 10
+            Enabled: true
+  Fn::Transform:
+    Type: AWS::CloudFormation::Macro
+    Name: %sarAppName%-macro
+Metadata:
+  AWS::ServerlessRepo::Application:
+    Name: helper-application-%sarAppName%
+    Description: |
+        NOTE: DO NOT DEPLOY
+        Deploy elastic-serverless-forwarder instead. This is a helper SAM template for the application and not intended to be deployed on its own.
+    Author: %sarAuthorName%
+    SemanticVersion: %semanticVersion%
+    LicenseUrl: %codeUri%/LICENSE.txt
+    HomePageUrl: https://github.com/elastic/elastic-serverless-forwarder
+    SourceCodeUrl: https://github.com/elastic/elastic-serverless-forwarder

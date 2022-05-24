@@ -1,71 +1,110 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: >
-  elastic-serverless-forwarder
+  Elastic Serverless Forwarder
 
-  SAM Template for elastic-serverless-forwarder
+  Send observability data from your AWS environment to Elastic.
 
 Parameters:
   ElasticServerlessForwarderS3ConfigFile:
     Type: String
     Default: "s3://"
+    Description: S3 URL of the config yaml file (to be set as `S3_CONFIG_FILE` env variable)
+  ElasticServerlessForwarderSSMSecrets:
+    Type: CommaDelimitedList
+    Default: ""
+    Description: Comma delimited list of AWS SSM Secrets ARNs referenced in the config yaml file
+  ElasticServerlessForwarderKMSKeys:
+    Type: CommaDelimitedList
+    Default: ""
+    Description: Comma delimited list of AWS KMS Keys ARNs to be used for decrypting AWS SSM Secrets referenced in the config yaml file
+  ElasticServerlessForwarderSQSEvents:
+    Type: CommaDelimitedList
+    Default: ""
+    Description: Comma delimited list of Direct SQS queues ARNs to set as event triggers for the Lambda
+  ElasticServerlessForwarderS3SQSEvents:
+    Type: CommaDelimitedList
+    Default: ""
+    Description: Comma delimited list of S3 SQS Event Notifications ARNs to set as event triggers for the Lambda
+  ElasticServerlessForwarderKinesisEvents:
+    Type: CommaDelimitedList
+    Default: ""
+    Description: Comma delimited list of Kinesis Data Stream ARNs to set as event triggers for the Lambda
+  ElasticServerlessForwarderCloudWatchLogsEvents:
+    Type: CommaDelimitedList
+    Default: ""
+    Description: Comma delimited list of Cloudwatch Logs Log Groups ARNs to set subscription filters on the Lambda for
+  ElasticServerlessForwarderS3Buckets:
+    Type: CommaDelimitedList
+    Default: ""
+    Description: Comma delimited list of S3 buckets ARNs that are the sources of the S3 SQS Event Notifications
 Resources:
-  ElasticServerlessForwarderContinuingDLQ:
-    Type: AWS::SQS::Queue
+  ElasticServerlessForwarderEventMacro:
+    Type: AWS::Serverless::Application
     Properties:
-      DelaySeconds: 0
-      QueueName: !Join [ "-", ["elastic-serverless-forwarder-continuing-dlq", !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
-      VisibilityTimeout: 910
-  ElasticServerlessForwarderContinuingQueue:
-    Type: AWS::SQS::Queue
+      Location:
+        ApplicationId: arn:aws:serverlessrepo:%awsRegion%:%accountID%:applications/helper-macro-%sarAppName%
+        SemanticVersion: %semanticVersion%
+  ElasticServerlessForwarderApplication:
+    Type: AWS::Serverless::Application
     Properties:
-      DelaySeconds: 0
-      QueueName: !Join [ "-", ["elastic-serverless-forwarder-continuing-queue", !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
-      RedrivePolicy: { "deadLetterTargetArn" : !GetAtt ElasticServerlessForwarderContinuingDLQ.Arn, "maxReceiveCount" : 1 }
-      VisibilityTimeout: 910
-  ElasticServerlessForwarderReplayDLQ:
-    Type: AWS::SQS::Queue
-    Properties:
-      DelaySeconds: 0
-      QueueName: !Join [ "-", ["elastic-serverless-forwarder-replay-dlq", !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
-      VisibilityTimeout: 910
-  ElasticServerlessForwarderReplayQueue:
-    Type: AWS::SQS::Queue
-    Properties:
-      DelaySeconds: 0
-      QueueName: !Join [ "-", ["elastic-serverless-forwarder-replay-queue", !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
-      RedrivePolicy: { "deadLetterTargetArn" : !GetAtt ElasticServerlessForwarderReplayDLQ.Arn, "maxReceiveCount" : 3 }
-      VisibilityTimeout: 910
-  ElasticServerlessForwarderFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Timeout: 900
-      MemorySize: 512
-      CodeUri: %codeUri%
-      Runtime: python3.9
-      Architectures:
-        - x86_64
-      Handler: main_aws.handler
-      Environment:
-          Variables:
-              S3_CONFIG_FILE: !Ref ElasticServerlessForwarderS3ConfigFile
-              SQS_CONTINUE_URL: !Ref ElasticServerlessForwarderContinuingQueue
-              SQS_REPLAY_URL: !Ref ElasticServerlessForwarderReplayQueue
-      Events:
-        SQSEvent:
-          Type: SQS
-          Properties:
-            Queue: !GetAtt ElasticServerlessForwarderContinuingQueue.Arn
-            BatchSize: 10
-            Enabled: true
+      Location:
+        ApplicationId: arn:aws:serverlessrepo:%awsRegion%:%accountID%:applications/helper-application-%sarAppName%
+        SemanticVersion: %semanticVersion%
+      Parameters:
+        ElasticServerlessForwarderS3ConfigFile: !Ref ElasticServerlessForwarderS3ConfigFile
+        ElasticServerlessForwarderSSMSecrets: !Join [",", !Ref ElasticServerlessForwarderSSMSecrets]
+        ElasticServerlessForwarderKMSKeys: !Join [",", !Ref ElasticServerlessForwarderKMSKeys]
+        ElasticServerlessForwarderSQSEvents: !Join [",", !Ref ElasticServerlessForwarderSQSEvents]
+        ElasticServerlessForwarderS3SQSEvents: !Join [",", !Ref ElasticServerlessForwarderS3SQSEvents]
+        ElasticServerlessForwarderKinesisEvents: !Join [",", !Ref ElasticServerlessForwarderKinesisEvents]
+        ElasticServerlessForwarderCloudWatchLogsEvents: !Join [",", !Ref ElasticServerlessForwarderCloudWatchLogsEvents]
+        ElasticServerlessForwarderS3Buckets: !Join [",", !Ref ElasticServerlessForwarderS3Buckets]
+    DependsOn: ElasticServerlessForwarderEventMacro
 Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Elastic Serverless Forwarder Configuration options
+        Parameters:
+          - ElasticServerlessForwarderS3ConfigFile
+          - ElasticServerlessForwarderSSMSecrets
+          - ElasticServerlessForwarderKMSKeys
+      - Label:
+          default: Elastic Serverless Forwarder Events options
+        Parameters:
+          - ElasticServerlessForwarderSQSEvents
+          - ElasticServerlessForwarderS3SQSEvents
+          - ElasticServerlessForwarderKinesisEvents
+          - ElasticServerlessForwarderCloudWatchLogsEvents
+      - Label:
+          default: Elastic Serverless Forwarder S3 Buckets Permissions options
+        Parameters:
+          - ElasticServerlessForwarderS3Buckets
+    ParameterLabels:
+      ElasticServerlessForwarderS3ConfigFile:
+        default: Config File
+      ElasticServerlessForwarderSSMSecrets:
+        default: AWS SSM Secrets
+      ElasticServerlessForwarderKMSKeys:
+        default: AWS KMS Keys
+      ElasticServerlessForwarderCloudWatchLogsEvents:
+        default: Cloudwatch Logs subscription filters
+      ElasticServerlessForwarderKinesisEvents:
+        default: Kinesis Data Stream event triggers
+      ElasticServerlessForwarderS3SQSEvents:
+        default: S3 SQS Event Notifications event triggers
+      ElasticServerlessForwarderSQSEvents:
+        default: Direct SQS queues event triggers
+      ElasticServerlessForwarderS3Buckets:
+        default: S3 buckets of S3 SQS Event Notifications
   AWS::ServerlessRepo::Application:
     Name: %sarAppName%
     Description: Send observability data from your AWS environment to Elastic.
     Author: %sarAuthorName%
     Labels: ['s3', 'logs', 'analytics', 'observability', 'monitoring', 'Elastic']
     SemanticVersion: %semanticVersion%
-    LicenseUrl: .aws-sam/build/ElasticServerlessForwarderFunction/LICENSE.txt
-    ReadmeUrl: .aws-sam/build/ElasticServerlessForwarderFunction/README.md
+    LicenseUrl: %codeUri%/LICENSE.txt
+    ReadmeUrl: %codeUri%/README.md
     HomePageUrl: https://github.com/elastic/elastic-serverless-forwarder
     SourceCodeUrl: https://github.com/elastic/elastic-serverless-forwarder

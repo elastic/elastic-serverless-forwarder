@@ -380,7 +380,7 @@ def get_queue_url_from_sqs_arn(sqs_arn: str) -> str:
     return f"https://sqs.{region}.amazonaws.com/{account_id}/{queue_name}"
 
 
-def get_account_id_from_lambda_arn(lambda_arn: str) -> str:
+def get_account_id_from_arn(lambda_arn: str) -> str:
     arn_components = lambda_arn.split(":")
 
     return arn_components[4]

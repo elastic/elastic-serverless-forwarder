@@ -15,7 +15,7 @@ from share import extract_events_from_field, shared_logger
 from storage import CommonStorage, StorageFactory
 
 from .event import _default_event
-from .utils import extractor_events_from_field, get_account_id_from_lambda_arn, get_bucket_name_from_arn
+from .utils import extractor_events_from_field, get_account_id_from_arn, get_bucket_name_from_arn
 
 
 def _handle_s3_sqs_continuation(
@@ -63,7 +63,7 @@ def _handle_s3_sqs_event(
     corresponding object in S3 buckets sending to the defined outputs.
     """
 
-    account_id = get_account_id_from_lambda_arn(input_id)
+    account_id = get_account_id_from_arn(input_id)
 
     body = json.loads(sqs_record["body"])
     for s3_record_n, s3_record in enumerate(body["Records"]):

@@ -33,7 +33,7 @@ SAR_AUTHOR_NAME="${6:-Elastic}"
 TMPDIR=$(mktemp -d /tmp/dist.XXXXXXXXXX)
 CODE_URI="${TMPDIR}/sources"
 
-trap "rm -rf ${TMPDIR}" EXIT
+#trap "rm -rf ${TMPDIR}" EXIT
 
 aws s3api get-bucket-location --bucket "${BUCKET}" || aws s3api create-bucket --acl private --bucket "${BUCKET}" --region "${REGION}" --create-bucket-configuration LocationConstraint="${REGION}"
 
@@ -59,7 +59,6 @@ cat <<EOF > "${TMPDIR}/policy.json"
 EOF
 
 aws s3api put-bucket-policy --bucket "${BUCKET}" --policy "file://${TMPDIR}/policy.json"
-
 mkdir -v -p "${CODE_URI}"
 cp -v requirements.txt "${CODE_URI}/"
 cp -v main_aws.py "${CODE_URI}/"
@@ -68,8 +67,19 @@ find {handlers,share,shippers,storage} -not -name "*__pycache__*" -name "*.py" -
 cp -v LICENSE.txt "${CODE_URI}/LICENSE.txt"
 cp -v docs/README-AWS.md "${CODE_URI}/README.md"
 
-sed -e "s|%codeUri%|${CODE_URI}|g" -e "s/%sarAppName%/${SAR_APP_NAME}/g" -e "s/%sarAuthorName%/${SAR_AUTHOR_NAME}/g" -e "s/%semanticVersion%/${SEMANTIC_VERSION}/g" -e "s/%codeURIBucket%/${BUCKET}/g" -e "s/%accountID%/${ACCOUNT_ID}/g" -e "s/%awsRegion%/${REGION}/g" .internal/aws/cloudformation/template.yaml > "${TMPDIR}/template.yaml"
+sed -e "s|%codeUri%|${CODE_URI}|g" -e "s/%sarAppName%/${SAR_APP_NAME}/g" -e "s/%sarAuthorName%/${SAR_AUTHOR_NAME}/g" -e "s/%semanticVersion%/${SEMANTIC_VERSION}/g" -e "s/%awsRegion%/${REGION}/g" .internal/aws/cloudformation/macro.yaml > "${TMPDIR}/macro.yaml"
+sed -e "s|%codeUri%|${CODE_URI}|g" -e "s/%sarAppName%/${SAR_APP_NAME}/g" -e "s/%sarAuthorName%/${SAR_AUTHOR_NAME}/g" -e "s/%semanticVersion%/${SEMANTIC_VERSION}/g" -e "s/%awsRegion%/${REGION}/g" -e "s/%accountID%/${ACCOUNT_ID}/g" .internal/aws/cloudformation/template.yaml > "${TMPDIR}/template.yaml"
+sed -e "s|%codeUri%|${CODE_URI}|g" -e "s/%sarAppName%/${SAR_APP_NAME}/g" -e "s/%sarAuthorName%/${SAR_AUTHOR_NAME}/g" -e "s/%semanticVersion%/${SEMANTIC_VERSION}/g" -e "s/%awsRegion%/${REGION}/g" -e "s/%codeURIBucket%/${BUCKET}/g" .internal/aws/cloudformation/application.yaml > "${TMPDIR}/application.yaml"
 
-sam build --debug --use-container --build-dir "${TMPDIR}/.aws-sam/build" --template-file "${TMPDIR}/template.yaml" --region "${REGION}"
-sam package --template-file "${TMPDIR}/.aws-sam/build/template.yaml" --output-template-file "${TMPDIR}/.aws-sam/build/packaged.yaml" --s3-bucket "${BUCKET}" --region "${REGION}"
-sam publish --template "${TMPDIR}/.aws-sam/build/packaged.yaml" --region "${REGION}"
+sam build --debug --use-container --build-dir "${TMPDIR}/.aws-sam/build/macro" --template-file "${TMPDIR}/macro.yaml" --region "${REGION}"
+sam package --template-file "${TMPDIR}/.aws-sam/build/macro/template.yaml" --output-template-file "${TMPDIR}/.aws-sam/build/macro/packaged.yaml" --s3-bucket "${BUCKET}" --region "${REGION}"
+sam publish --template "${TMPDIR}/.aws-sam/build/macro/packaged.yaml" --region "${REGION}"
+
+sam build --debug --use-container --build-dir "${TMPDIR}/.aws-sam/build/application" --template-file "${TMPDIR}/application.yaml" --region "${REGION}"
+sam package --template-file "${TMPDIR}/.aws-sam/build/application/template.yaml" --output-template-file "${TMPDIR}/.aws-sam/build/application/packaged.yaml" --s3-bucket "${BUCKET}" --region "${REGION}"
+sam publish --template "${TMPDIR}/.aws-sam/build/application/packaged.yaml" --region "${REGION}"
+aws s3 cp "${TMPDIR}/.aws-sam/build/application/packaged.yaml" "s3://${BUCKET}/application.yaml"
+
+sam build --debug --use-container --build-dir "${TMPDIR}/.aws-sam/build/template" --template-file "${TMPDIR}/template.yaml" --region "${REGION}"
+sam package --template-file "${TMPDIR}/.aws-sam/build/template/template.yaml" --output-template-file "${TMPDIR}/.aws-sam/build/template/packaged.yaml" --s3-bucket "${BUCKET}" --region "${REGION}"
+sam publish --template "${TMPDIR}/.aws-sam/build/template/packaged.yaml" --region "${REGION}"
