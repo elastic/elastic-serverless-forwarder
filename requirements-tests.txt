@@ -7,6 +7,6 @@ localstack[runtime]>=0.12.19,<0.15
 docker==5.0.0
 simplejson>=3.17,<3.18
 orjson>=3.6,<3.7
-pysimdjson>=4.0,<4.1
+pysimdjson>=4.0,<5.1
 python-rapidjson>=1.6,<1.7
 cysimdjson>=21.11,<21.12
