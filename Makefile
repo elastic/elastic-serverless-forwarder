@@ -52,6 +52,7 @@ docker-integration-test:  ## Run integration tests on docker
 docker-integration-test: SCRIPTS_BASE_DIR=docker/
 docker-integration-test: integration-test
 
+docker-coverage:  ## Run tests with coverage on docker
 docker-coverage: SCRIPTS_BASE_DIR=docker/
 docker-coverage: coverage
 

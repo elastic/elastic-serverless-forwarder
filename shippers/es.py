@@ -138,6 +138,10 @@ class ElasticsearchShipper(CommonShipper):
         for error in errors[1]:
             action_failed = [action for action in self._bulk_actions if action["_id"] == error["create"]["_id"]]
             assert len(action_failed) == 1
+            shared_logger.warn(
+                "elasticsearch shipper", extra={"error": error["create"]["error"], "_id": error["create"]["_id"]}
+            )
+            shared_logger.debug("elasticsearch shipper", extra={"action": action_failed[0]})
             if self._replay_handler is not None:
                 self._replay_handler("elasticsearch", self._replay_args, action_failed[0])
 
