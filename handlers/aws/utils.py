@@ -490,7 +490,7 @@ def kinesis_record_id(event_payload: dict[str, Any]) -> str:
     return f"{hex_prefix}-{offset:012d}"
 
 
-def extractor_events_from_field(
+def expander_event_list_from_field(
     json_object: dict[str, Any],
     starting_offset: int,
     ending_offset: int,
