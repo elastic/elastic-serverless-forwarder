@@ -385,7 +385,7 @@ They are case-sensitive and are scanned through the original ingested message, l
 When the regular expression is compiled no flags are used, please refer to [inline flag documentation](https://docs.python.org/3.9/library/re.html#re.compile) for alternative to multiline, case-insensitive and other matching behaviour.
 
 
-## Expand events from a list of json objects
+## Expand events from a list in a json object
 In case of JSON content it is possible to extract a list of events to be ingested from a field in the JSON.
 ```yaml
 inputs:

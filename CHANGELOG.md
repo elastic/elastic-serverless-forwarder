@@ -1,6 +1,6 @@
 ### v0.31.0 - 2022/06/16
 ##### Features
-* Add support for expanding an event list from a json field: [#124](https://github.com/elastic/elastic-serverless-forwarder/pull/124)
+* Add support for expanding an events list from a json field: [#124](https://github.com/elastic/elastic-serverless-forwarder/pull/124)
 
 ### v0.30.0 - 2022/05/16
 ##### Features
