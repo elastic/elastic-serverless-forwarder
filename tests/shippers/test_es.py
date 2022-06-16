@@ -68,7 +68,7 @@ def mock_bulk(client: Any, actions: list[dict[str, Any]], **kwargs: Any) -> tupl
 
 def mock_bulk_failure(client: Any, actions: list[dict[str, Any]], **kwargs: Any) -> tuple[int, list[dict[str, Any]]]:
     global _failures
-    _failures = list(map(lambda action: {"create": {"_id": action["_id"]}}, actions))
+    _failures = list(map(lambda action: {"create": {"_id": action["_id"], "error": "an error"}}, actions))
     return len(actions), _failures
 
 
@@ -139,7 +139,7 @@ class TestElasticsearchShipper(TestCase):
         shipper.set_event_id_generator(event_id_generator=event_id_generator)
         shipper.send(es_event)
 
-        assert _failures == [{"create": {"_id": "_id"}}]
+        assert _failures == [{"create": {"_id": "_id", "error": "an error"}}]
         assert shipper._bulk_actions == []
 
     @mock.patch("shippers.es.es_bulk", mock_bulk)
