@@ -35,6 +35,8 @@ class ExpandEventListFromFieldHelper:
                 self.field_to_expand_event_list_from,
             ):
                 if event_was_expanded:
+                    # empty values once json dumped will have a len() greater than 0, this will prevent
+                    # them to be skipped later as empty value, so we yield as zero length bytes string
                     if not expanded_event:
                         expanded_log_event = b""
                     else:
