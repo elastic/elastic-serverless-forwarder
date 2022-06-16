@@ -11,7 +11,7 @@ from urllib.parse import unquote_plus
 import elasticapm
 from botocore.client import BaseClient as BotoBaseClient
 
-from share import expand_event_list_from_field, shared_logger
+from share import ExpandEventListFromFieldHelper, shared_logger
 from storage import CommonStorage, StorageFactory
 
 from .event import _default_event
@@ -55,7 +55,7 @@ def _handle_s3_sqs_continuation(
 
 
 def _handle_s3_sqs_event(
-    sqs_record: dict[str, Any], integration_scope: str, input_id: str
+    sqs_record: dict[str, Any], input_id: str, expand_event_list_from_field: ExpandEventListFromFieldHelper
 ) -> Iterator[tuple[dict[str, Any], int, int, bool]]:
     """
     Handler for s3-sqs input.
@@ -101,12 +101,15 @@ def _handle_s3_sqs_event(
                 span.__exit__(None, None, None)
                 span = None
 
-            for expanded_log_event, expanded_starting_offset, is_last_event_expanded in expand_event_list_from_field(
+            for (
+                expanded_log_event,
+                expanded_starting_offset,
+                is_last_event_expanded,
+            ) in expand_event_list_from_field.expand(
                 log_event,
                 json_object,
                 starting_offset,
                 ending_offset,
-                integration_scope,
                 expander_event_list_from_field,
             ):
                 es_event = deepcopy(_default_event)

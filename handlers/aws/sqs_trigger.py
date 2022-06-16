@@ -8,7 +8,7 @@ from typing import Any, Iterator, Optional
 
 from botocore.client import BaseClient as BotoBaseClient
 
-from share import expand_event_list_from_field, shared_logger
+from share import ExpandEventListFromFieldHelper, shared_logger
 from storage import CommonStorage, StorageFactory
 
 from .event import _default_event
@@ -73,7 +73,10 @@ def _handle_sqs_continuation(
 
 
 def _handle_sqs_event(
-    sqs_record: dict[str, Any], is_continuation_of_cloudwatch_logs: bool, input_id: str, integration_scope: str
+    sqs_record: dict[str, Any],
+    is_continuation_of_cloudwatch_logs: bool,
+    input_id: str,
+    expand_event_list_from_field: ExpandEventListFromFieldHelper,
 ) -> Iterator[tuple[dict[str, Any], int, bool]]:
     """
     Handler for sqs inputs.
@@ -102,8 +105,8 @@ def _handle_sqs_event(
     for log_event, json_object, ending_offset, starting_offset, newline_length in events:
         assert isinstance(log_event, bytes)
 
-        for expanded_log_event, expanded_starting_offset, is_last_event_expanded in expand_event_list_from_field(
-            log_event, json_object, starting_offset, ending_offset, integration_scope, expander_event_list_from_field
+        for expanded_log_event, expanded_starting_offset, is_last_event_expanded in expand_event_list_from_field.expand(
+            log_event, json_object, starting_offset, ending_offset, expander_event_list_from_field
         ):
             es_event = deepcopy(_default_event)
             es_event["@timestamp"] = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")

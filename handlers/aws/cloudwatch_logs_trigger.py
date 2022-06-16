@@ -9,7 +9,7 @@ from typing import Any, Iterator
 
 from botocore.client import BaseClient as BotoBaseClient
 
-from share import expand_event_list_from_field, shared_logger
+from share import ExpandEventListFromFieldHelper, shared_logger
 from storage import CommonStorage, StorageFactory
 
 from .event import _default_event
@@ -72,7 +72,7 @@ def _handle_cloudwatch_logs_continuation(
 
 
 def _handle_cloudwatch_logs_event(
-    event: dict[str, Any], integration_scope: str, aws_region: str, input_id: str
+    event: dict[str, Any], aws_region: str, input_id: str, expand_event_list_from_field: ExpandEventListFromFieldHelper
 ) -> Iterator[tuple[dict[str, Any], int, int, bool]]:
     """
     Handler for cloudwatch logs inputs.
@@ -101,12 +101,15 @@ def _handle_cloudwatch_logs_event(
         for log_event, json_object, ending_offset, starting_offset, newline_length in events:
             assert isinstance(log_event, bytes)
 
-            for expanded_log_event, expanded_starting_offset, is_last_event_expanded in expand_event_list_from_field(
+            for (
+                expanded_log_event,
+                expanded_starting_offset,
+                is_last_event_expanded,
+            ) in expand_event_list_from_field.expand(
                 log_event,
                 json_object,
                 starting_offset,
                 ending_offset,
-                integration_scope,
                 expander_event_list_from_field,
             ):
                 es_event = deepcopy(_default_event)
