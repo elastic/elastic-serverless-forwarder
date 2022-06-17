@@ -448,35 +448,6 @@ class TestInput(TestCase):
             input_sqs = Input(input_type="s3-sqs", input_id="id")
             assert input_sqs.get_output_by_type(output_type="test") is None
 
-        with self.subTest("elasticsearch output with legacy es_index_or_datastream_name"):
-            input_sqs = Input(input_type="s3-sqs", input_id="id")
-            input_sqs.add_output(
-                output_type="elasticsearch",
-                elasticsearch_url="elasticsearch_url",
-                username="username",
-                password="password",
-                es_index_or_datastream_name="es_index_or_datastream_name",
-                batch_max_actions=1,
-                batch_max_bytes=1,
-            )
-
-            assert isinstance(input_sqs.get_output_by_type(output_type="elasticsearch"), ElasticsearchOutput)
-
-        with self.subTest("elasticsearch output with both legacy es_index_or_datastream_name and datastream"):
-            input_sqs = Input(input_type="s3-sqs", input_id="id")
-            input_sqs.add_output(
-                output_type="elasticsearch",
-                elasticsearch_url="elasticsearch_url",
-                username="username",
-                password="password",
-                es_index_or_datastream_name="es_index_or_datastream_name",
-                es_datastream_name="es_datastream_name",
-                batch_max_actions=1,
-                batch_max_bytes=1,
-            )
-
-            assert isinstance(input_sqs.get_output_by_type(output_type="elasticsearch"), ElasticsearchOutput)
-
         with self.subTest("elasticsearch output"):
             input_sqs = Input(input_type="s3-sqs", input_id="id")
             input_sqs.add_output(

@@ -1,12 +1,18 @@
-### v0.31.0 - 2022/06/16
+### v1.1.0 - 2022/06/17
 ##### Features
 * Add support for expanding an events list from a json field: [#124](https://github.com/elastic/elastic-serverless-forwarder/pull/124)
+
+### v1.0.0 - 2022/06/17
+##### Features
+* Promote to GA: [#126](https://github.com/elastic/elastic-serverless-forwarder/pull/126)
+##### Breaking changes
+* Removed deprecated `es_index_or_datastream_name` config param: [#126](https://github.com/elastic/elastic-serverless-forwarder/pull/126)
 
 ### v0.30.0 - 2022/05/16
 ##### Features
 * Add support for AWS IaC deployment with CloudFormation and terraform: [#115](https://github.com/elastic/elastic-serverless-forwarder/pull/115)
-##### Breaking changes
-* Replace `es_index_or_datastream_name` config param with `es_datastream_name` one: [#115](https://github.com/elastic/elastic-serverless-forwarder/pull/115)
+##### Deprecation
+* Deprecate `es_index_or_datastream_name` config param in favour of `es_datastream_name` one: [#115](https://github.com/elastic/elastic-serverless-forwarder/pull/115)
 
 ### v0.29.1 - 2022/05/04
 ##### Bug fixes
@@ -21,7 +27,7 @@
 * Handle properly flushing in `kinesis-data-stream` input type, handle properly empty messages in include exclude filters, handle properly empty lines in `JsonCollector` decorator, identify properly CloudWatch Logs payload: [#107](https://github.com/elastic/elastic-serverless-forwarder/pull/107)
 
 ### v0.28.3 - 2022/04/15
-##### Enhancement
+##### Features
 * Make the integration scope discovery available at Input component: [#106](https://github.com/elastic/elastic-serverless-forwarder/pull/106)
 
 ### v0.28.2 - 2022/04/14
