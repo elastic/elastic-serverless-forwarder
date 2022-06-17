@@ -443,35 +443,6 @@ class TestInput(TestCase):
             input_sqs = Input(input_type="s3-sqs", input_id="id")
             assert input_sqs.get_output_by_type(output_type="test") is None
 
-        with self.subTest("elasticsearch output with legacy es_index_or_datastream_name"):
-            input_sqs = Input(input_type="s3-sqs", input_id="id")
-            input_sqs.add_output(
-                output_type="elasticsearch",
-                elasticsearch_url="elasticsearch_url",
-                username="username",
-                password="password",
-                es_index_or_datastream_name="es_index_or_datastream_name",
-                batch_max_actions=1,
-                batch_max_bytes=1,
-            )
-
-            assert isinstance(input_sqs.get_output_by_type(output_type="elasticsearch"), ElasticsearchOutput)
-
-        with self.subTest("elasticsearch output with both legacy es_index_or_datastream_name and datastream"):
-            input_sqs = Input(input_type="s3-sqs", input_id="id")
-            input_sqs.add_output(
-                output_type="elasticsearch",
-                elasticsearch_url="elasticsearch_url",
-                username="username",
-                password="password",
-                es_index_or_datastream_name="es_index_or_datastream_name",
-                es_datastream_name="es_datastream_name",
-                batch_max_actions=1,
-                batch_max_bytes=1,
-            )
-
-            assert isinstance(input_sqs.get_output_by_type(output_type="elasticsearch"), ElasticsearchOutput)
-
         with self.subTest("elasticsearch output"):
             input_sqs = Input(input_type="s3-sqs", input_id="id")
             input_sqs.add_output(
@@ -885,87 +856,6 @@ class TestParseConfig(TestCase):
                       es_datastream_name: "es_datastream_name"
             """
                 )
-
-        with self.subTest("valid input valid elasticsearch output with legacy es_index_or_datastream_name"):
-            config = parse_config(
-                config_yaml="""
-            inputs:
-              - type: s3-sqs
-                id: id
-                tags:
-                  - "tag1"
-                  - "tag2"
-                  - "tag3"
-                outputs:
-                  - type: elasticsearch
-                    args:
-                      elasticsearch_url: "elasticsearch_url"
-                      username: "username"
-                      password: "password"
-                      es_index_or_datastream_name: "es_index_or_datastream_name"
-            """
-            )
-
-            input_sqs = config.get_input_by_id(input_id="id")
-            assert input_sqs is not None
-            assert input_sqs.type == "s3-sqs"
-            assert input_sqs.id == "id"
-            assert input_sqs.tags == ["tag1", "tag2", "tag3"]
-
-            elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
-
-            assert elasticsearch is not None
-            assert isinstance(elasticsearch, ElasticsearchOutput)
-            assert elasticsearch.type == "elasticsearch"
-            assert elasticsearch.elasticsearch_url == "elasticsearch_url"
-            assert elasticsearch.username == "username"
-            assert elasticsearch.password == "password"
-            assert elasticsearch.es_datastream_name == "es_index_or_datastream_name"
-            assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
-            assert elasticsearch.batch_max_actions == 500
-            assert elasticsearch.batch_max_bytes == 10485760
-
-        with self.subTest(
-            "valid input valid elasticsearch output with both legacy es_index_or_datastream_name and es_datastream_name"
-        ):
-            config = parse_config(
-                config_yaml="""
-            inputs:
-              - type: s3-sqs
-                id: id
-                tags:
-                  - "tag1"
-                  - "tag2"
-                  - "tag3"
-                outputs:
-                  - type: elasticsearch
-                    args:
-                      elasticsearch_url: "elasticsearch_url"
-                      username: "username"
-                      password: "password"
-                      es_datastream_name: "es_datastream_name"
-                      es_index_or_datastream_name: "es_index_or_datastream_name"
-            """
-            )
-
-            input_sqs = config.get_input_by_id(input_id="id")
-            assert input_sqs is not None
-            assert input_sqs.type == "s3-sqs"
-            assert input_sqs.id == "id"
-            assert input_sqs.tags == ["tag1", "tag2", "tag3"]
-
-            elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
-
-            assert elasticsearch is not None
-            assert isinstance(elasticsearch, ElasticsearchOutput)
-            assert elasticsearch.type == "elasticsearch"
-            assert elasticsearch.elasticsearch_url == "elasticsearch_url"
-            assert elasticsearch.username == "username"
-            assert elasticsearch.password == "password"
-            assert elasticsearch.es_datastream_name == "es_datastream_name"
-            assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
-            assert elasticsearch.batch_max_actions == 500
-            assert elasticsearch.batch_max_bytes == 10485760
 
         with self.subTest("valid input valid elasticsearch output with elasticsearch_url and http auth"):
             config = parse_config(

@@ -290,11 +290,6 @@ class Input:
 
         output: Optional[Output] = None
         if output_type == "elasticsearch":
-            if "es_index_or_datastream_name" in kwargs:
-                if "es_datastream_name" not in kwargs:
-                    kwargs["es_datastream_name"] = kwargs["es_index_or_datastream_name"]
-
-                del kwargs["es_index_or_datastream_name"]
             output = ElasticsearchOutput(**kwargs)
         else:
             output = Output(output_type=output_type)
