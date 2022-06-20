@@ -401,7 +401,7 @@ inputs:
 #### Notes
 `inputs.[].expand_event_list_from_field` can be defined as string with the value of a key in the JSON that contains a list of elements that must be sent as events instead of the encompassing JSON.
 
-Beware that when relying on the [Routing support for AWS Service Logs](#routing-support-for-aws-services-logs), you must not to set the `expand_event_list_from_field` configuration param, since it will be taken care automatically by the Elastic Serverless Forwarder.
+Beware that when relying on the [Routing support for AWS Service Logs](#routing-support-for-aws-services-logs), any value set for `expand_event_list_from_field` configuration param will be ignored, since it will be taken care automatically by the Elastic Serverless Forwarder.
 
 #### Example:
 Having the following content from the input:
