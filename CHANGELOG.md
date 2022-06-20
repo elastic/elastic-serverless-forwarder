@@ -1,3 +1,7 @@
+### v1.1.1 - 2022/06/20
+##### Bug fixes
+* Handle properly gzip content regardless of the content type in S3 storage: [#127](https://github.com/elastic/elastic-serverless-forwarder/pull/127)
+
 ### v1.0.0 - 2022/06/17
 ##### Features
 * Promote to GA: [#126](https://github.com/elastic/elastic-serverless-forwarder/pull/126)
