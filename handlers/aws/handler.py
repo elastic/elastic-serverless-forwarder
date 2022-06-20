@@ -8,7 +8,7 @@ from typing import Any, Callable, Optional
 
 from aws_lambda_typing import context as context_
 
-from share import ExpandEventListFromFieldHelper, parse_config, shared_logger
+from share import ExpandEventListFromField, parse_config, shared_logger
 from share.secretsmanager import aws_sm_expander
 from shippers import EVENT_IS_FILTERED, EVENT_IS_SENT, CompositeShipper
 
@@ -30,6 +30,7 @@ from .utils import (
     config_yaml_from_s3,
     delete_sqs_record,
     discover_integration_scope,
+    expand_event_list_from_field_resolver,
     get_log_group_arn_and_region_from_log_group_name,
     get_shipper_from_input,
     get_sqs_client,
@@ -125,8 +126,8 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
         field_to_expand_event_list_from = event_input.expand_event_list_from_field
         integration_scope = event_input.discover_integration_scope(lambda_event=lambda_event, at_record=0)
-        expand_event_list_from_field = ExpandEventListFromFieldHelper(
-            integration_scope, field_to_expand_event_list_from
+        expand_event_list_from_field = ExpandEventListFromField(
+            field_to_expand_event_list_from, integration_scope, expand_event_list_from_field_resolver
         )
 
         for (
@@ -210,8 +211,8 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             integration_scope = event_input.discover_integration_scope(
                 lambda_event=lambda_event, at_record=kinesis_record_n
             )
-            expand_event_list_from_field = ExpandEventListFromFieldHelper(
-                integration_scope, field_to_expand_event_list_from
+            expand_event_list_from_field = ExpandEventListFromField(
+                field_to_expand_event_list_from, integration_scope, expand_event_list_from_field_resolver
             )
 
             for es_event, last_ending_offset in _handle_kinesis_record(
@@ -372,8 +373,8 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             integration_scope = event_input.discover_integration_scope(
                 lambda_event=lambda_event, at_record=current_sqs_record
             )
-            expand_event_list_from_field = ExpandEventListFromFieldHelper(
-                integration_scope, field_to_expand_event_list_from
+            expand_event_list_from_field = ExpandEventListFromField(
+                field_to_expand_event_list_from, integration_scope, expand_event_list_from_field_resolver
             )
 
             if event_input.type == "sqs" or event_input.type == "cloudwatch-logs":

@@ -3,7 +3,7 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 from .config import Config, ElasticsearchOutput, Input, Output, parse_config
-from .expand_event_list_from_field import ExpandEventListFromFieldExpanderCallable, ExpandEventListFromFieldHelper
+from .expand_event_list_from_field import ExpandEventListFromField
 from .include_exlude import IncludeExcludeFilter, IncludeExcludeRule
 from .logger import logger as shared_logger
 from .secretsmanager import aws_sm_expander

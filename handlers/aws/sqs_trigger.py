@@ -8,16 +8,11 @@ from typing import Any, Iterator, Optional
 
 from botocore.client import BaseClient as BotoBaseClient
 
-from share import ExpandEventListFromFieldHelper, shared_logger
+from share import ExpandEventListFromField, shared_logger
 from storage import CommonStorage, StorageFactory
 
 from .event import _default_event
-from .utils import (
-    expander_event_list_from_field,
-    get_account_id_from_arn,
-    get_queue_url_from_sqs_arn,
-    get_sqs_queue_name_and_region_from_arn,
-)
+from .utils import get_account_id_from_arn, get_queue_url_from_sqs_arn, get_sqs_queue_name_and_region_from_arn
 
 
 def _handle_sqs_continuation(
@@ -76,7 +71,7 @@ def _handle_sqs_event(
     sqs_record: dict[str, Any],
     is_continuation_of_cloudwatch_logs: bool,
     input_id: str,
-    expand_event_list_from_field: ExpandEventListFromFieldHelper,
+    expand_event_list_from_field: ExpandEventListFromField,
 ) -> Iterator[tuple[dict[str, Any], int, bool]]:
     """
     Handler for sqs inputs.
@@ -106,7 +101,7 @@ def _handle_sqs_event(
         assert isinstance(log_event, bytes)
 
         for expanded_log_event, expanded_starting_offset, is_last_event_expanded in expand_event_list_from_field.expand(
-            log_event, json_object, starting_offset, ending_offset, expander_event_list_from_field
+            log_event, json_object, starting_offset, ending_offset
         ):
             es_event = deepcopy(_default_event)
             es_event["@timestamp"] = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")

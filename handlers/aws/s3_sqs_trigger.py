@@ -11,11 +11,11 @@ from urllib.parse import unquote_plus
 import elasticapm
 from botocore.client import BaseClient as BotoBaseClient
 
-from share import ExpandEventListFromFieldHelper, shared_logger
+from share import ExpandEventListFromField, shared_logger
 from storage import CommonStorage, StorageFactory
 
 from .event import _default_event
-from .utils import expander_event_list_from_field, get_account_id_from_arn, get_bucket_name_from_arn
+from .utils import get_account_id_from_arn, get_bucket_name_from_arn
 
 
 def _handle_s3_sqs_continuation(
@@ -55,7 +55,7 @@ def _handle_s3_sqs_continuation(
 
 
 def _handle_s3_sqs_event(
-    sqs_record: dict[str, Any], input_id: str, expand_event_list_from_field: ExpandEventListFromFieldHelper
+    sqs_record: dict[str, Any], input_id: str, expand_event_list_from_field: ExpandEventListFromField
 ) -> Iterator[tuple[dict[str, Any], int, int, bool]]:
     """
     Handler for s3-sqs input.
@@ -105,13 +105,7 @@ def _handle_s3_sqs_event(
                 expanded_log_event,
                 expanded_starting_offset,
                 is_last_event_expanded,
-            ) in expand_event_list_from_field.expand(
-                log_event,
-                json_object,
-                starting_offset,
-                ending_offset,
-                expander_event_list_from_field,
-            ):
+            ) in expand_event_list_from_field.expand(log_event, json_object, starting_offset, ending_offset):
                 es_event = deepcopy(_default_event)
                 es_event["@timestamp"] = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
                 es_event["fields"]["message"] = expanded_log_event.decode("UTF-8")

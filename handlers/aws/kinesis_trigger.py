@@ -6,19 +6,15 @@ import datetime
 from copy import deepcopy
 from typing import Any, Iterator
 
-from share import ExpandEventListFromFieldHelper, shared_logger
+from share import ExpandEventListFromField, shared_logger
 from storage import CommonStorage, StorageFactory
 
 from .event import _default_event
-from .utils import (
-    expander_event_list_from_field,
-    get_account_id_from_arn,
-    get_kinesis_stream_name_type_and_region_from_arn,
-)
+from .utils import get_account_id_from_arn, get_kinesis_stream_name_type_and_region_from_arn
 
 
 def _handle_kinesis_record(
-    kinesis_record: dict[str, Any], input_id: str, expand_event_list_from_field: ExpandEventListFromFieldHelper
+    kinesis_record: dict[str, Any], input_id: str, expand_event_list_from_field: ExpandEventListFromField
 ) -> Iterator[tuple[dict[str, Any], int]]:
     """
     Handler for kinesis data stream inputs.
@@ -41,7 +37,7 @@ def _handle_kinesis_record(
         assert isinstance(log_event, bytes)
 
         for expanded_log_event, expanded_starting_offset, _ in expand_event_list_from_field.expand(
-            log_event, json_object, starting_offset, ending_offset, expander_event_list_from_field
+            log_event, json_object, starting_offset, ending_offset
         ):
             es_event = deepcopy(_default_event)
             es_event["@timestamp"] = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")

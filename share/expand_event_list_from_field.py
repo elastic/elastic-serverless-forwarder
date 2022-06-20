@@ -6,31 +6,47 @@ from typing import Any, Callable, Iterator, Optional
 
 import ujson
 
-ExpandEventListFromFieldExpanderCallable = Callable[
-    [dict[str, Any], int, int, str, str], Iterator[tuple[Any, int, bool, bool]]
-]
+ExpandEventListFromFieldResolverCallable = Callable[[str, str], str]
 
 
-class ExpandEventListFromFieldHelper:
-    def __init__(self, integration_scope: str, field_to_expand_event_list_from: str):
-        self.integration_scope: str = integration_scope
-        if self.integration_scope == "aws.cloudtrail":
-            self.field_to_expand_event_list_from = "Records"
+class ExpandEventListFromField:
+    def __init__(
+        self,
+        field_to_expand_event_list_from: str,
+        integration_scope: str,
+        field_resolver: ExpandEventListFromFieldResolverCallable,
+    ):
+        self.field_to_expand_event_list_from: str = field_resolver(integration_scope, field_to_expand_event_list_from)
+
+    @staticmethod
+    def _expander_event_list_from_field(
+        json_object: dict[str, Any], starting_offset: int, ending_offset: int, field_to_expand_event_list_from: str
+    ) -> Iterator[tuple[Any, int, bool, bool]]:
+        if len(field_to_expand_event_list_from) == 0 or field_to_expand_event_list_from not in json_object:
+            yield {}, starting_offset, True, False
         else:
-            self.field_to_expand_event_list_from: str = field_to_expand_event_list_from
+            events_list: list[Any] = json_object[field_to_expand_event_list_from]
+            # let's set to 1 if empty list to avoid division by zero in the line below,
+            # for loop will be not executed anyway
+            events_list_length = max(1, len(events_list))
+            avg_event_length = (ending_offset - starting_offset) / events_list_length
+            for event_n, event in enumerate(events_list):
+                yield event, int(
+                    starting_offset + (event_n * avg_event_length)
+                ), event_n == events_list_length - 1, True
 
     def expand(
-        self,
-        log_event: bytes,
-        json_object: Optional[dict[str, Any]],
-        starting_offset: int,
-        ending_offset: int,
-        expander: ExpandEventListFromFieldExpanderCallable,
+        self, log_event: bytes, json_object: Optional[dict[str, Any]], starting_offset: int, ending_offset: int
     ) -> Iterator[tuple[bytes, int, bool]]:
         if json_object is None:
             yield log_event, starting_offset, True
         else:
-            for expanded_event, expanded_starting_offset, is_last_event_expanded, event_was_expanded in expander(
+            for (
+                expanded_event,
+                expanded_starting_offset,
+                is_last_event_expanded,
+                event_was_expanded,
+            ) in self._expander_event_list_from_field(
                 json_object, starting_offset, ending_offset, self.field_to_expand_event_list_from
             ):
                 if event_was_expanded:
