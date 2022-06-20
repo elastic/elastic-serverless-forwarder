@@ -1,6 +1,3 @@
-## Note:
-This functionality is GA, subject to the support SLA of official GA features.
-
 ## Introduction:
 The Elastic Serverless Forwarder is an AWS Lambda function that ships logs from your AWS environment to Elastic. The function can forward data to Elastic self-managed or Elastic cloud environments. It supports the following inputs:
 
@@ -23,12 +20,12 @@ Lambda function also supports writing directly to an index, alias or a custom da
 
 **Direct SQS message payload input:**
 
-The Lambda function supports ingesting logs contained in the payload of a SQS body record and sends them to Elastic. The SQS queue serves as a trigger for the Lambda function. When a new record gets written to an SQS queue the Lambda function gets triggered. Users will set up separate SQS queues for each type of logs, The config param for Elasticsearch output `es_datastream_name` is mandatory. If the value is set to an Elasticsearch datastream, the type of logs must be defined with proper value configuration param. A single configuration file can have many input sections, pointing to different SQS queues that match specific log types.
+The Lambda function supports ingesting logs contained in the payload of a SQS body record and sends them to Elastic. The SQS queue serves as a trigger for the Lambda function. When a new record gets written to an SQS queue the Lambda function gets triggered. Users will set up separate SQS queues for each type of logs. The config param for Elasticsearch output `es_datastream_name` is mandatory. If the value is set to an Elasticsearch datastream, the type of logs must be defined with proper value configuration param. A single configuration file can have many input sections, pointing to different SQS queues that match specific log types.
 
 **S3 SQS Event Notifications input:**
 
 The Lambda function supports ingesting logs contained in the S3 bucket through an SQS notification (s3:ObjectCreated) and sends them to Elastic. The SQS queue serves as a trigger for the Lambda function. When a new log file gets written to an S3 bucket and meets the criteria (as configured including prefix/suffix), a notification to SQS is generated that triggers the Lambda function. Users will set up separate SQS queues for each type of logs (i.e. aws.vpcflow, aws.cloudtrail, aws.waf and so on). A single configuration file can have many input sections, pointing to different SQS queues that match specific log types.
-The `es_datastream_name` parameter in the config file is optional. Lambda supports automatic routing of various AWS service logs to the corresponding data streams for further processing and storage in the Elasticsearch cluster. It supports automatic routing of `aws.cloudtrail`, `aws.cloudwatch_logs`, `aws.elb_logs`, `aws.firewall_logs`, `aws.vpcflow`, and `aws.waf` logs. For other log types the users can optionally set the `es_datastream_name` value in the configuration file according to the naming convention of Elasticsearch datastream and existing integrations.  If the `datastream` is not specified and it cannot be matched with any of the above AWS services then the dataset will be set to "generic" and the namespace to "default" pointing to the data stream name "logs-generic-default".
+The `es_datastream_name` parameter in the config file is optional. Lambda supports automatic routing of various AWS service logs to the corresponding data streams for further processing and storage in the Elasticsearch cluster. It supports automatic routing of `aws.cloudtrail`, `aws.cloudwatch_logs`, `aws.elb_logs`, `aws.firewall_logs`, `aws.vpcflow`, and `aws.waf` logs. For other log types the users can optionally set the `es_datastream_name` value in the configuration file according to the naming convention of Elasticsearch datastream and existing integrations.  If the `es_datastream_name` is not specified, and it cannot be matched with any of the above AWS services then the dataset will be set to "generic" and the namespace to "default" pointing to the data stream name "logs-generic-default".
 
 For more information, read the AWS [documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/ways-to-add-notification-config-to-bucket.html) about creating an SQS event notifications for S3 buckets.
 
