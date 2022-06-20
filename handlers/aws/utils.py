@@ -494,19 +494,11 @@ def expander_event_list_from_field(
     json_object: dict[str, Any],
     starting_offset: int,
     ending_offset: int,
-    integration_scope: str,
     field_to_expand_event_list_from: str,
 ) -> Iterator[tuple[Any, int, bool, bool]]:
-    if len(field_to_expand_event_list_from) == 0:
-        if integration_scope != "aws.cloudtrail" or "Records" not in json_object:
-            yield {}, starting_offset, True, False
-        else:
-            field_to_expand_event_list_from = "Records"
-    elif field_to_expand_event_list_from not in json_object:
-        field_to_expand_event_list_from = ""
+    if len(field_to_expand_event_list_from) == 0 or field_to_expand_event_list_from not in json_object:
         yield {}, starting_offset, True, False
-
-    if len(field_to_expand_event_list_from) > 0:
+    else:
         events_list: list[Any] = json_object[field_to_expand_event_list_from]
         # let's set to 1 if empty list to avoid division by zero in the line below, for loop will be not executed anyway
         events_list_length = max(1, len(events_list))

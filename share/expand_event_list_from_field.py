@@ -14,7 +14,10 @@ ExpandEventListFromFieldExpanderCallable = Callable[
 class ExpandEventListFromFieldHelper:
     def __init__(self, integration_scope: str, field_to_expand_event_list_from: str):
         self.integration_scope: str = integration_scope
-        self.field_to_expand_event_list_from: str = field_to_expand_event_list_from
+        if self.integration_scope == "aws.cloudtrail":
+            self.field_to_expand_event_list_from = "Records"
+        else:
+            self.field_to_expand_event_list_from: str = field_to_expand_event_list_from
 
     def expand(
         self,
@@ -28,11 +31,7 @@ class ExpandEventListFromFieldHelper:
             yield log_event, starting_offset, True
         else:
             for expanded_event, expanded_starting_offset, is_last_event_expanded, event_was_expanded in expander(
-                json_object,
-                starting_offset,
-                ending_offset,
-                self.integration_scope,
-                self.field_to_expand_event_list_from,
+                json_object, starting_offset, ending_offset, self.field_to_expand_event_list_from
             ):
                 if event_was_expanded:
                     # empty values once json dumped will have a len() greater than 0, this will prevent
