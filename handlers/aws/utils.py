@@ -5,7 +5,7 @@
 import hashlib
 import json
 import os
-from typing import Any, Callable, Iterator, Optional
+from typing import Any, Callable, Optional
 
 import boto3
 from aws_lambda_typing import context as context_
@@ -490,18 +490,12 @@ def kinesis_record_id(event_payload: dict[str, Any]) -> str:
     return f"{hex_prefix}-{offset:012d}"
 
 
-def extractor_events_from_field(
-    json_object: dict[str, Any],
-    starting_offset: int,
-    ending_offset: int,
-    integration_scope: str,
-) -> Iterator[tuple[dict[str, Any], int, bool, bool]]:
-    if integration_scope != "aws.cloudtrail" or "Records" not in json_object:
-        yield json_object, starting_offset, True, False
-    else:
-        events_list: list[dict[str, Any]] = json_object["Records"]
-        # let's set to 1 if empty list, for loop will be not executed anyway
-        events_list_length = max(1, len(events_list))
-        avg_event_length = (ending_offset - starting_offset) / events_list_length
-        for event_n, event in enumerate(events_list):
-            yield event, int(starting_offset + (event_n * avg_event_length)), event_n == events_list_length - 1, True
+# This is implementation specific to AWS and should not reside on share
+def expand_event_list_from_field_resolver(integration_scope: str, field_to_expand_event_list_from: str) -> str:
+    """
+    Overrides custom provided `expand_event_list_from_field` setting in case of integration scope autodiscovery
+    """
+    if integration_scope == "aws.cloudtrail":
+        field_to_expand_event_list_from = "Records"
+
+    return field_to_expand_event_list_from

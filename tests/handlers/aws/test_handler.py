@@ -1119,6 +1119,28 @@ class TestLambdaHandlerFailure(TestCase):
 
                 handler(event, ctx)  # type:ignore
 
+        with self.subTest("expand_event_list_from_field not str"):
+            with self.assertRaisesRegex(ConfigFileException, "Input expand_event_list_from_field must be of type str"):
+                ctx = ContextMock()
+                config_yml = """
+                    inputs:
+                      - type: "s3-sqs"
+                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret"
+                        expand_event_list_from_field: 0
+                        outputs:
+                          - type: "elasticsearch"
+                            args:
+                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
+                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
+                              es_datastream_name: "logs-redis.log-default"
+                """
+
+                event = deepcopy(event_with_config)
+                event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
+
+                handler(event, ctx)  # type:ignore
+
 
 def _mock_awsclient(service_name: str, region_name: str = "") -> BotoBaseClient:
     if not region_name:
@@ -1320,6 +1342,7 @@ class IntegrationTestCase(TestCase):
         self._queues: list[dict[str, str]] = []
         self._kinesis_streams: list[str] = []
         self._cloudwatch_logs_groups: list[dict[str, str]] = []
+        self._expand_event_list_from_field = ""
 
     def setUp(self) -> None:
         revert_handlers_aws_handler()
@@ -1431,6 +1454,11 @@ class IntegrationTestCase(TestCase):
                       password: "{self._secret_arn}:password"
                     """
 
+            if self._expand_event_list_from_field:
+                self._config_yaml += f"""
+                expand_event_list_from_field: {self._expand_event_list_from_field}
+                """
+
             kinesis_waiter = self._kinesis_client.get_waiter("stream_exists")
             while True:
                 try:
@@ -1467,6 +1495,11 @@ class IntegrationTestCase(TestCase):
                       password: "{self._secret_arn}:password"
                 """
 
+            if self._expand_event_list_from_field:
+                self._config_yaml += f"""
+                expand_event_list_from_field: {self._expand_event_list_from_field}
+                """
+
         self._queues_info = {}
         for queue in self._queues:
             self._queues_info[queue["name"]] = testutil.create_sqs_queue(queue["name"])
@@ -1494,6 +1527,11 @@ class IntegrationTestCase(TestCase):
                       username: "{self._secret_arn}:username"
                       password: "{self._secret_arn}:password"
                     """
+
+            if self._expand_event_list_from_field:
+                self._config_yaml += f"""
+                expand_event_list_from_field: {self._expand_event_list_from_field}
+                """
 
         self._continuing_queue_info = testutil.create_sqs_queue("continuing-queue")
         self._replay_queue_info = testutil.create_sqs_queue("replay-queue")
@@ -2303,11 +2341,31 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
     def setUp(self) -> None:
         self._services = ["kinesis", "s3", "sqs", "secretsmanager"]
         self._kinesis_streams = ["source-kinesis"]
+        self._expand_event_list_from_field = "logEvents"
 
         super(TestLambdaHandlerSuccessKinesisDataStream, self).setUp()
 
+        self._first_log_entry = {
+            "id": "event_id",
+            "timestamp": 1655272038305,
+            "message": '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}',
+        }
+        self._second_log_entry = {
+            "id": "event_id",
+            "timestamp": 1655272138305,
+            "message": '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": {"line": 30, '
+            '"name": "handler.py"}, "function": "lambda_handler"}, "original": "trigger"}',
+        }
+        self._third_log_entry = {
+            "id": "event_id",
+            "timestamp": 1655272338305,
+            "message": '{"@timestamp": "2022-02-02T12:40:45.690Z", "log.level": "warning", "message": "no namespace '
+            'set in config: using `default`", "ecs": {"version": "1.6.0"}}',
+        }
+
         mock.patch("storage.S3Storage._s3_client", _mock_awsclient(service_name="s3")).start()
         mock.patch("handlers.aws.handler.get_sqs_client", lambda: _mock_awsclient(service_name="sqs")).start()
+        mock.patch("handlers.aws.utils.get_sqs_client", lambda: _mock_awsclient(service_name="sqs")).start()
         mock.patch(
             "share.secretsmanager._get_aws_sm_client",
             lambda region_name: _mock_awsclient(service_name="secretsmanager", region_name=region_name),
@@ -2323,16 +2381,38 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
                 {
                     "PartitionKey": "PartitionKey",
                     "Data": base64.b64encode(
-                        b'{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}\n'
-                        b'{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": {"line": 30, '
-                        b'"name": "handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}\n'
+                        json.dumps(
+                            {
+                                "messageType": "DATA_MESSAGE",
+                                "owner": "000000000000",
+                                "logGroup": "group_name",
+                                "logStream": "stream_name",
+                                "subscriptionFilters": ["a-subscription-filter"],
+                                "logEvents": [self._first_log_entry, self._second_log_entry],
+                            }
+                        ).encode("utf-8")
                     ),
                 },
                 {
                     "PartitionKey": "PartitionKey",
                     "Data": base64.b64encode(
-                        b'{"excluded": "by filter"}\n\n{"@timestamp":"2022-02-02T12:40:45.690Z","log.level":"warning",'
-                        b'"message":"no namespace set in config: using `default`","ecs":{"version":"1.6.0"} }'
+                        json.dumps(
+                            {
+                                "messageType": "DATA_MESSAGE",
+                                "owner": "000000000000",
+                                "logGroup": "group_name",
+                                "logStream": "stream_name",
+                                "subscriptionFilters": ["a-subscription-filter"],
+                                "logEvents": [
+                                    {
+                                        "id": "event_id",
+                                        "timestamp": 1655272238305,
+                                        "message": '{"excluded": "by filter"}',
+                                    },
+                                    self._third_log_entry,
+                                ],
+                            }
+                        ).encode("utf-8")
                     ),
                 },
             ],
@@ -2375,10 +2455,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
         res = self._es_client.search(index="logs-generic-default", sort="_seq_no")
         assert res["hits"]["total"] == {"value": 3, "relation": "eq"}
 
-        assert (
-            res["hits"]["hits"][0]["_source"]["message"]
-            == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}'
-        )
+        assert res["hits"]["hits"][0]["_source"]["message"] == ujson.dumps(self._first_log_entry)
 
         assert res["hits"]["hits"][0]["_source"]["log"] == {
             "offset": 0,
@@ -2399,14 +2476,10 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
-        assert (
-            res["hits"]["hits"][1]["_source"]["message"]
-            == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": {"line": 30, "name": '
-            '"handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}'
-        )
+        assert res["hits"]["hits"][1]["_source"]["message"] == ujson.dumps(self._second_log_entry)
 
         assert res["hits"]["hits"][1]["_source"]["log"] == {
-            "offset": 86,
+            "offset": 296,
             "file": {"path": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamARN"]},
         }
         assert res["hits"]["hits"][1]["_source"]["aws"] == {
@@ -2424,14 +2497,10 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
 
         assert res["hits"]["hits"][1]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
-        assert (
-            res["hits"]["hits"][2]["_source"]["message"]
-            == '{"@timestamp":"2022-02-02T12:40:45.690Z","log.level":"warning","message":'
-            '"no namespace set in config: using `default`","ecs":{"version":"1.6.0"} }'
-        )
+        assert res["hits"]["hits"][2]["_source"]["message"] == ujson.dumps(self._third_log_entry)
 
         assert res["hits"]["hits"][2]["_source"]["log"] == {
-            "offset": 27,
+            "offset": 250,
             "file": {"path": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamARN"]},
         }
         assert res["hits"]["hits"][2]["_source"]["aws"] == {
@@ -2460,16 +2529,33 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
                 {
                     "PartitionKey": "PartitionKey",
                     "Data": base64.b64encode(
-                        b'{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}\n'
-                        b'{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": {"line": 30, '
-                        b'"name": "handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}\n'
+                        json.dumps(
+                            {
+                                "messageType": "DATA_MESSAGE",
+                                "owner": "000000000000",
+                                "logGroup": "group_name",
+                                "logStream": "stream_name",
+                                "subscriptionFilters": ["a-subscription-filter"],
+                                "logEvents": [self._first_log_entry, self._second_log_entry],
+                            }
+                        ).encode("utf-8")
                     ),
                 },
                 {
                     "PartitionKey": "PartitionKey",
                     "Data": base64.b64encode(
-                        b'{"@timestamp":"2022-02-02T12:40:45.690Z","log.level":"warning",'
-                        b'"message":"no namespace set in config: using `default`","ecs":{"version":"1.6.0"} }'
+                        json.dumps(
+                            {
+                                "messageType": "DATA_MESSAGE",
+                                "owner": "000000000000",
+                                "logGroup": "group_name",
+                                "logStream": "stream_name",
+                                "subscriptionFilters": ["a-subscription-filter"],
+                                "logEvents": [
+                                    self._third_log_entry,
+                                ],
+                            }
+                        ).encode("utf-8")
                     ),
                 },
             ],
@@ -2514,10 +2600,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
         res = self._es_client.search(index="logs-generic-default", sort="_seq_no")
         assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
 
-        assert (
-            res["hits"]["hits"][0]["_source"]["message"]
-            == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}'
-        )
+        assert res["hits"]["hits"][0]["_source"]["message"] == ujson.dumps(self._first_log_entry)
 
         assert res["hits"]["hits"][0]["_source"]["log"] == {
             "offset": 0,
@@ -2538,14 +2621,10 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
-        assert (
-            res["hits"]["hits"][1]["_source"]["message"]
-            == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": {"line": 30, "name": '
-            '"handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}'
-        )
+        assert res["hits"]["hits"][1]["_source"]["message"] == ujson.dumps(self._second_log_entry)
 
         assert res["hits"]["hits"][1]["_source"]["log"] == {
-            "offset": 86,
+            "offset": 296,
             "file": {"path": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamARN"]},
         }
         assert res["hits"]["hits"][1]["_source"]["aws"] == {
@@ -2574,11 +2653,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
         res = self._es_client.search(index="logs-generic-default", sort="_seq_no")
         assert res["hits"]["total"] == {"value": 3, "relation": "eq"}
 
-        assert (
-            res["hits"]["hits"][2]["_source"]["message"]
-            == '{"@timestamp":"2022-02-02T12:40:45.690Z","log.level":"warning","message":'
-            '"no namespace set in config: using `default`","ecs":{"version":"1.6.0"} }'
-        )
+        assert res["hits"]["hits"][2]["_source"]["message"] == ujson.dumps(self._third_log_entry)
 
         assert res["hits"]["hits"][2]["_source"]["log"] == {
             "offset": 0,
@@ -2603,6 +2678,212 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
             records = self._kinesis_client.get_records(ShardIterator=records["NextShardIterator"], Limit=2)
             assert not records["Records"]
             break
+
+    @mock.patch("handlers.aws.handler._completion_grace_period", 1)
+    def test_lambda_handler_kinesis_replay(self) -> None:
+        self._kinesis_client.put_records(
+            Records=[
+                {
+                    "PartitionKey": "PartitionKey",
+                    "Data": base64.b64encode(
+                        json.dumps(
+                            {
+                                "messageType": "DATA_MESSAGE",
+                                "owner": "000000000000",
+                                "logGroup": "group_name",
+                                "logStream": "stream_name",
+                                "subscriptionFilters": ["a-subscription-filter"],
+                                "logEvents": [self._first_log_entry, self._second_log_entry],
+                            }
+                        ).encode("utf-8")
+                    ),
+                },
+                {
+                    "PartitionKey": "PartitionKey",
+                    "Data": base64.b64encode(
+                        json.dumps(
+                            {
+                                "messageType": "DATA_MESSAGE",
+                                "owner": "000000000000",
+                                "logGroup": "group_name",
+                                "logStream": "stream_name",
+                                "subscriptionFilters": ["a-subscription-filter"],
+                                "logEvents": [
+                                    {
+                                        "id": "event_id",
+                                        "timestamp": 1655272238305,
+                                        "message": '{"excluded": "by filter"}',
+                                    },
+                                    self._third_log_entry,
+                                    {},
+                                ],
+                            }
+                        ).encode("utf-8")
+                    ),
+                },
+            ],
+            StreamName=self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
+        )
+
+        shards_paginator = self._kinesis_client.get_paginator("list_shards")
+        shards_available = [
+            shard
+            for shard in shards_paginator.paginate(
+                StreamName=self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
+                ShardFilter={"Type": "FROM_TRIM_HORIZON", "Timestamp": datetime.datetime(2015, 1, 1)},
+                PaginationConfig={"MaxItems": 1, "PageSize": 1},
+            )
+        ]
+
+        assert len(shards_available) == 1 and len(shards_available[0]["Shards"]) == 1
+
+        shard_iterator = self._kinesis_client.get_shard_iterator(
+            StreamName=self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
+            ShardId=shards_available[0]["Shards"][0]["ShardId"],
+            ShardIteratorType="TRIM_HORIZON",
+            Timestamp=datetime.datetime(2015, 1, 1),
+        )
+
+        records = self._kinesis_client.get_records(ShardIterator=shard_iterator["ShardIterator"], Limit=2)
+
+        ctx = ContextMock(remaining_time_in_millis=2)
+        event = _event_from_kinesis_records(
+            records=records, stream_attribute=self._kinesis_streams_info["source-kinesis"]
+        )
+
+        stream_name: str = self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"]
+
+        sequence_number_first_record = event["Records"][0]["kinesis"]["sequenceNumber"]
+        src_first_record: str = f"stream{stream_name}{sequence_number_first_record}"
+        hex_prefix_first_record = hashlib.sha256(src_first_record.encode("UTF-8")).hexdigest()[:10]
+
+        sequence_number_second_record = event["Records"][1]["kinesis"]["sequenceNumber"]
+        src_second_record: str = f"stream{stream_name}{sequence_number_second_record}"
+        hex_prefix_second_record = hashlib.sha256(src_second_record.encode("UTF-8")).hexdigest()[:10]
+
+        # Create an expected id so that es.send will fail
+        self._es_client.index(
+            index="logs-generic-default",
+            op_type="create",
+            id=f"{hex_prefix_first_record}-000000000296",
+            document={"@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
+        )
+        self._es_client.indices.refresh(index="logs-generic-default")
+
+        res = self._es_client.search(
+            index="logs-generic-default", query={"ids": {"values": [f"{hex_prefix_first_record}-000000000000"]}}
+        )
+
+        assert res["hits"]["total"] == {"value": 0, "relation": "eq"}
+
+        first_call = handler(event, ctx)  # type:ignore
+
+        assert first_call == {"batchItemFailures": []}
+
+        self._es_client.indices.refresh(index="logs-generic-default")
+        res = self._es_client.search(
+            index="logs-generic-default",
+            query={
+                "ids": {
+                    "values": [f"{hex_prefix_first_record}-000000000000", f"{hex_prefix_second_record}-000000000168"]
+                }
+            },
+        )
+
+        assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
+
+        assert res["hits"]["hits"][0]["_source"]["message"] == ujson.dumps(self._first_log_entry)
+
+        assert res["hits"]["hits"][0]["_source"]["log"] == {
+            "offset": 0,
+            "file": {"path": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamARN"]},
+        }
+        assert res["hits"]["hits"][0]["_source"]["aws"] == {
+            "kinesis": {
+                "type": "stream",
+                "name": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
+                "sequence_number": event["Records"][0]["kinesis"]["sequenceNumber"],
+            }
+        }
+        assert res["hits"]["hits"][0]["_source"]["cloud"] == {
+            "account": {"id": "000000000000"},
+            "provider": "aws",
+            "region": "us-east-1",
+        }
+
+        assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
+
+        assert res["hits"]["hits"][1]["_source"]["message"] == ujson.dumps(self._third_log_entry)
+
+        assert res["hits"]["hits"][1]["_source"]["log"] == {
+            "offset": 168,
+            "file": {"path": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamARN"]},
+        }
+        assert res["hits"]["hits"][1]["_source"]["aws"] == {
+            "kinesis": {
+                "type": "stream",
+                "name": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
+                "sequence_number": event["Records"][1]["kinesis"]["sequenceNumber"],
+            }
+        }
+        assert res["hits"]["hits"][1]["_source"]["cloud"] == {
+            "account": {"id": "000000000000"},
+            "provider": "aws",
+            "region": "us-east-1",
+        }
+
+        assert res["hits"]["hits"][1]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
+
+        while "NextShardIterator" in records:
+            records = self._kinesis_client.get_records(ShardIterator=records["NextShardIterator"], Limit=2)
+            assert not records["Records"]
+            break
+
+        replay_event = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
+
+        with self.assertRaises(ReplayHandlerException):
+            handler(replay_event, ctx)  # type:ignore
+
+        # Remove the expected id so that it can be replayed
+        self._es_client.delete_by_query(
+            index="logs-generic-default",
+            body={"query": {"ids": {"values": [f"{hex_prefix_first_record}-000000000296"]}}},
+        )
+        self._es_client.indices.refresh(index="logs-generic-default")
+
+        # implicit wait for the message to be back on the queue
+        time.sleep(35)
+        replay_event = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
+        third_call = handler(replay_event, ctx)  # type:ignore
+
+        assert third_call == "replayed"
+
+        self._es_client.indices.refresh(index="logs-generic-default")
+        assert self._es_client.count(index="logs-generic-default")["count"] == 3
+
+        res = self._es_client.search(index="logs-generic-default", sort="_seq_no")
+        assert res["hits"]["total"] == {"value": 3, "relation": "eq"}
+
+        assert res["hits"]["hits"][2]["_source"]["message"] == ujson.dumps(self._second_log_entry)
+
+        assert res["hits"]["hits"][2]["_source"]["log"] == {
+            "offset": 296,
+            "file": {"path": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamARN"]},
+        }
+        assert res["hits"]["hits"][2]["_source"]["aws"] == {
+            "kinesis": {
+                "type": "stream",
+                "name": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
+                "sequence_number": event["Records"][0]["kinesis"]["sequenceNumber"],
+            }
+        }
+        assert res["hits"]["hits"][2]["_source"]["cloud"] == {
+            "account": {"id": "000000000000"},
+            "provider": "aws",
+            "region": "us-east-1",
+        }
+
+        assert res["hits"]["hits"][2]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
 
 @pytest.mark.integration
@@ -3069,6 +3350,7 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
     def setUp(self) -> None:
         self._services = ["s3", "sqs", "secretsmanager"]
         self._queues = [{"name": "source-queue", "type": "sqs"}]
+        self._expand_event_list_from_field = "notExistingField"
 
         super(TestLambdaHandlerSuccessSQS, self).setUp()
 

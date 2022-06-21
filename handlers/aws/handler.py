@@ -8,7 +8,7 @@ from typing import Any, Callable, Optional
 
 from aws_lambda_typing import context as context_
 
-from share import parse_config, shared_logger
+from share import ExpandEventListFromField, parse_config, shared_logger
 from share.secretsmanager import aws_sm_expander
 from shippers import EVENT_IS_FILTERED, EVENT_IS_SENT, CompositeShipper
 
@@ -30,6 +30,7 @@ from .utils import (
     config_yaml_from_s3,
     delete_sqs_record,
     discover_integration_scope,
+    expand_event_list_from_field_resolver,
     get_log_group_arn_and_region_from_log_group_name,
     get_shipper_from_input,
     get_sqs_client,
@@ -113,6 +114,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         input_id = log_group_arn
 
         event_input = config.get_input_by_id(input_id)
+
         if event_input is None:
             shared_logger.warning("no input defined", extra={"input_type": trigger_type, "input_id": input_id})
 
@@ -122,13 +124,20 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             event_input=event_input, lambda_event=lambda_event, at_record=0, config_yaml=config_yaml
         )
 
+        field_to_expand_event_list_from = event_input.expand_event_list_from_field
         integration_scope = event_input.discover_integration_scope(lambda_event=lambda_event, at_record=0)
+        expand_event_list_from_field = ExpandEventListFromField(
+            field_to_expand_event_list_from, integration_scope, expand_event_list_from_field_resolver
+        )
+
         for (
             es_event,
             last_ending_offset,
             current_log_event_n,
-            is_last_event_extracted,
-        ) in _handle_cloudwatch_logs_event(cloudwatch_logs_event, integration_scope, aws_region, event_input.id):
+            is_last_event_expanded,
+        ) in _handle_cloudwatch_logs_event(
+            cloudwatch_logs_event, aws_region, event_input.id, expand_event_list_from_field
+        ):
             shared_logger.debug("es_event", extra={"es_event": es_event})
 
             sent_outcome = composite_shipper.send(es_event)
@@ -140,7 +149,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 empty_events += 1
 
             if (
-                is_last_event_extracted
+                is_last_event_expanded
                 and lambda_context is not None
                 and lambda_context.get_remaining_time_in_millis() < _completion_grace_period
             ):
@@ -191,6 +200,8 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             event_input=event_input, lambda_event=lambda_event, at_record=0, config_yaml=config_yaml
         )
 
+        field_to_expand_event_list_from = event_input.expand_event_list_from_field
+
         for kinesis_record in lambda_event["Records"]:
             all_sequence_numbers[kinesis_record["kinesis"]["sequenceNumber"]] = kinesis_record["kinesis"][
                 "sequenceNumber"
@@ -200,8 +211,12 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             integration_scope = event_input.discover_integration_scope(
                 lambda_event=lambda_event, at_record=kinesis_record_n
             )
+            expand_event_list_from_field = ExpandEventListFromField(
+                field_to_expand_event_list_from, integration_scope, expand_event_list_from_field_resolver
+            )
+
             for es_event, last_ending_offset in _handle_kinesis_record(
-                kinesis_record, integration_scope, event_input.id
+                kinesis_record, event_input.id, expand_event_list_from_field
             ):
                 shared_logger.debug("es_event", extra={"es_event": es_event})
 
@@ -247,14 +262,14 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         def event_processing(
             processing_composing_shipper: CompositeShipper,
             processing_es_event: dict[str, Any],
-            processing_is_last_event_extracted: bool,
+            processing_is_last_event_expanded: bool,
         ) -> tuple[bool, str]:
             shared_logger.debug("es_event", extra={"es_event": processing_es_event})
 
             processing_sent_outcome = processing_composing_shipper.send(processing_es_event)
 
             if (
-                processing_is_last_event_extracted
+                processing_is_last_event_expanded
                 and lambda_context is not None
                 and lambda_context.get_remaining_time_in_millis() < _completion_grace_period
             ):
@@ -354,18 +369,22 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
                 composite_shipper_cache[event_input.id] = composite_shipper
 
+            field_to_expand_event_list_from = event_input.expand_event_list_from_field
             integration_scope = event_input.discover_integration_scope(
                 lambda_event=lambda_event, at_record=current_sqs_record
             )
+            expand_event_list_from_field = ExpandEventListFromField(
+                field_to_expand_event_list_from, integration_scope, expand_event_list_from_field_resolver
+            )
 
             if event_input.type == "sqs" or event_input.type == "cloudwatch-logs":
-                for es_event, last_ending_offset, is_last_event_extracted in _handle_sqs_event(
-                    sqs_record, is_continuation_of_cloudwatch_logs, input_id, integration_scope
+                for es_event, last_ending_offset, is_last_event_expanded in _handle_sqs_event(
+                    sqs_record, is_continuation_of_cloudwatch_logs, input_id, expand_event_list_from_field
                 ):
                     timeout, sent_outcome = event_processing(
                         processing_composing_shipper=composite_shipper,
                         processing_es_event=es_event,
-                        processing_is_last_event_extracted=is_last_event_extracted,
+                        processing_is_last_event_expanded=is_last_event_expanded,
                     )
 
                     if sent_outcome == EVENT_IS_SENT:
@@ -391,13 +410,13 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                         return "continuing"
 
             elif event_input.type == "s3-sqs":
-                for es_event, last_ending_offset, current_s3_record, is_last_event_extracted in _handle_s3_sqs_event(
-                    sqs_record, integration_scope, event_input.id
+                for es_event, last_ending_offset, current_s3_record, is_last_event_expanded in _handle_s3_sqs_event(
+                    sqs_record, event_input.id, expand_event_list_from_field
                 ):
                     timeout, sent_outcome = event_processing(
                         processing_composing_shipper=composite_shipper,
                         processing_es_event=es_event,
-                        processing_is_last_event_extracted=is_last_event_extracted,
+                        processing_is_last_event_expanded=is_last_event_expanded,
                     )
 
                     if sent_outcome == EVENT_IS_SENT:

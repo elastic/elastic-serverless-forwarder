@@ -11,11 +11,11 @@ from urllib.parse import unquote_plus
 import elasticapm
 from botocore.client import BaseClient as BotoBaseClient
 
-from share import extract_events_from_field, shared_logger
+from share import ExpandEventListFromField, shared_logger
 from storage import CommonStorage, StorageFactory
 
 from .event import _default_event
-from .utils import extractor_events_from_field, get_account_id_from_arn, get_bucket_name_from_arn
+from .utils import get_account_id_from_arn, get_bucket_name_from_arn
 
 
 def _handle_s3_sqs_continuation(
@@ -55,7 +55,7 @@ def _handle_s3_sqs_continuation(
 
 
 def _handle_s3_sqs_event(
-    sqs_record: dict[str, Any], integration_scope: str, input_id: str
+    sqs_record: dict[str, Any], input_id: str, expand_event_list_from_field: ExpandEventListFromField
 ) -> Iterator[tuple[dict[str, Any], int, int, bool]]:
     """
     Handler for s3-sqs input.
@@ -101,14 +101,16 @@ def _handle_s3_sqs_event(
                 span.__exit__(None, None, None)
                 span = None
 
-            for extracted_log_event, extracted_starting_offset, is_last_event_extracted in extract_events_from_field(
-                log_event, json_object, starting_offset, ending_offset, integration_scope, extractor_events_from_field
-            ):
+            for (
+                expanded_log_event,
+                expanded_starting_offset,
+                is_last_event_expanded,
+            ) in expand_event_list_from_field.expand(log_event, json_object, starting_offset, ending_offset):
                 es_event = deepcopy(_default_event)
                 es_event["@timestamp"] = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-                es_event["fields"]["message"] = extracted_log_event.decode("UTF-8")
+                es_event["fields"]["message"] = expanded_log_event.decode("UTF-8")
 
-                es_event["fields"]["log"]["offset"] = extracted_starting_offset
+                es_event["fields"]["log"]["offset"] = expanded_starting_offset
 
                 es_event["fields"]["log"]["file"]["path"] = "https://{0}.s3.{1}.amazonaws.com/{2}".format(
                     bucket_name, aws_region, object_key
@@ -124,4 +126,4 @@ def _handle_s3_sqs_event(
                 es_event["fields"]["cloud"]["region"] = aws_region
                 es_event["fields"]["cloud"]["account"] = {"id": account_id}
 
-                yield es_event, ending_offset, s3_record_n, is_last_event_extracted
+                yield es_event, ending_offset, s3_record_n, is_last_event_expanded

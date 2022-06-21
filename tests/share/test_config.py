@@ -425,6 +425,11 @@ class TestInput(TestCase):
             with self.assertRaisesRegex(ValueError, "Each tag must be of type str, given: \\['tag1', 2, 'tag3'\\]"):
                 input_sqs.tags = ["tag1", 2, "tag3"]  # type:ignore
 
+        with self.subTest("expand_event_list_from_field not str"):
+            input_sqs = Input(input_type="s3-sqs", input_id="id")
+            with self.assertRaisesRegex(ValueError, "Input expand_event_list_from_field must be of type str"):
+                input_sqs.expand_event_list_from_field = 0  # type:ignore
+
     def test_input_include_exclude_filter(self) -> None:
         with self.subTest("valid include_exclude_filter"):
             input_sqs = Input(input_type="s3-sqs", input_id="id")
@@ -848,6 +853,23 @@ class TestParseConfig(TestCase):
                   - 2021
                   - {"key1": "value1"}
                   - "tag3"
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      es_datastream_name: "es_datastream_name"
+            """
+                )
+
+        with self.subTest("expand_event_list_from_field not str"):
+            with self.assertRaisesRegex(ValueError, "Input expand_event_list_from_field must be of type str"):
+                parse_config(
+                    config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                expand_event_list_from_field: 0
                 outputs:
                   - type: elasticsearch
                     args:
