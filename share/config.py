@@ -188,6 +188,7 @@ class Input:
         self.type = input_type
         self.id = input_id
         self._tags: list[str] = []
+        self._expand_event_list_from_field: str = ""
         self._outputs: dict[str, Output] = {}
         self._integration_scope_discoverer = integration_scope_discoverer
         self._include_exclude_filter: Optional[IncludeExcludeFilter] = None
@@ -241,6 +242,17 @@ class Input:
         self._tags = [value for value in values if isinstance(value, str)]
         if len(self._tags) != len(values):
             raise ValueError(f"Each tag must be of type str, given: {values}")
+
+    @property
+    def expand_event_list_from_field(self) -> str:
+        return self._expand_event_list_from_field
+
+    @expand_event_list_from_field.setter
+    def expand_event_list_from_field(self, value: str) -> None:
+        if not isinstance(value, str):
+            raise ValueError("Input expand_event_list_from_field must be of type str")
+
+        self._expand_event_list_from_field = value
 
     @property
     def include_exclude_filter(self) -> Optional[IncludeExcludeFilter]:
@@ -331,7 +343,7 @@ class Config:
 def parse_config(
     config_yaml: str,
     expanders: list[Callable[[str], str]] = [],
-    integration_scoper_discoverer: Optional[IntegrationScopeDiscovererCallable] = None,
+    integration_scope_discoverer: Optional[IntegrationScopeDiscovererCallable] = None,
 ) -> Config:
     """
     Config component factory
@@ -359,11 +371,14 @@ def parse_config(
         current_input: Input = Input(
             input_type=input_config["type"],
             input_id=input_config["id"],
-            integration_scope_discoverer=integration_scoper_discoverer,
+            integration_scope_discoverer=integration_scope_discoverer,
         )
 
         if "tags" in input_config:
             current_input.tags = input_config["tags"]
+
+        if "expand_event_list_from_field" in input_config:
+            current_input.expand_event_list_from_field = input_config["expand_event_list_from_field"]
 
         include_rules: list[IncludeExcludeRule] = []
         if "include" in input_config:

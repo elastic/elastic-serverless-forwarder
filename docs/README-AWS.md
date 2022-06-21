@@ -381,6 +381,49 @@ Regular expressions supported follow [Python 3.9 regular expression systanx](htt
 They are case-sensitive and are scanned through the original ingested message, looking for any location where they match: anchoring at the beginning of the string must be done with explicit `^` (caret.) special character.
 When the regular expression is compiled no flags are used, please refer to [inline flag documentation](https://docs.python.org/3.9/library/re.html#re.compile) for alternative to multiline, case-insensitive and other matching behaviour.
 
+
+## Expand events from a list in a json object
+In case of JSON content it is possible to extract a list of events to be ingested from a field in the JSON.
+```yaml
+inputs:
+  - type: "s3-sqs"
+    id: "arn:aws:sqs:%REGION%:%ACCOUNT%:%QUEUENAME%"
+    expand_event_list_from_field: "Records"
+    outputs:
+      - type: "elasticsearch"
+        args:
+          elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_url"
+          username: "arn:aws:secretsmanager:eu-west-1:123456789:secret:es_secrets:username"
+          password: "arn:aws:secretsmanager:eu-west-1:123456789:secret:es_secrets:password"
+          es_datastream_name: "logs-generic-default"
+```
+
+#### Notes
+`inputs.[].expand_event_list_from_field` can be defined as string with the value of a key in the JSON that contains a list of elements that must be sent as events instead of the encompassing JSON.
+
+Beware that when relying on the [Routing support for AWS Service Logs](#routing-support-for-aws-services-logs), any value set for `expand_event_list_from_field` configuration param will be ignored, since it will be taken care automatically by the Elastic Serverless Forwarder.
+
+#### Example:
+Having the following content from the input:
+```json lines
+{"Records":[{"key": "value #1"},{"key": "value #2"}]}
+{"Records":[{"key": "value #3"},{"key": "value #4"}]}
+```
+- without setting `expand_event_list_from_field` two events will be forwarded:
+    ```json lines
+    {"@timestamp": "2022-06-16T04:06:03.064Z", "message": "{\"Records\":[{\"key\": \"value #1\"},{\"key\": \"value #2\"}]}"}
+    {"@timestamp": "2022-06-16T04:06:13.888Z", "message": "{\"Records\":[{\"key\": \"value #3\"},{\"key\": \"value #4\"}]}"}
+    ```
+
+- if `expand_event_list_from_field` value is set to `Records`, four events will be forwaderd:
+    ```json lines
+    {"@timestamp": "2022-06-16T04:06:21.105Z", "message": "{\"key\": \"value #1\"}"}
+    {"@timestamp": "2022-06-16T04:06:27.204Z", "message": "{\"key\": \"value #2\"}"}
+    {"@timestamp": "2022-06-16T04:06:31.154Z", "message": "{\"key\": \"value #3\"}"}
+    {"@timestamp": "2022-06-16T04:06:36.189Z", "message": "{\"key\": \"value #4\"}"}
+    ```
+
+
 ## Routing support for AWS Services Logs
 When using Elastic integrations, as a first step users should install appropriate [integration](https://docs.elastic.co/en/integrations) assets using the Kibana UI. This sets up appropriate pre-built dashboards, ingest node configurations, and other assets that help you get the most out of the data you ingest. The integrations use [data streams](https://www.elastic.co/guide/en/elasticsearch/reference/current/data-streams.html) with specific [naming conventions](https://www.elastic.co/blog/an-introduction-to-the-elastic-data-stream-naming-scheme) providing users with more granular controls and flexibility on managing the ingested data.
 

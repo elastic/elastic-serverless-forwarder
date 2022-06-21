@@ -2,6 +2,10 @@
 ##### Bug fixes
 * Handle properly gzip content regardless of the content type in S3 storage: [#128](https://github.com/elastic/elastic-serverless-forwarder/pull/128)
 
+### v1.1.0 - 2022/06/17
+##### Features
+* Add support for expanding an events list from a json field: [#124](https://github.com/elastic/elastic-serverless-forwarder/pull/124)
+
 ### v1.0.0 - 2022/06/17
 ##### Features
 * Promote to GA: [#126](https://github.com/elastic/elastic-serverless-forwarder/pull/126)
