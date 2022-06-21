@@ -53,6 +53,6 @@ class CommonStorage(metaclass=ABCMeta):
 
 CommonStorageType = TypeVar("CommonStorageType", bound=CommonStorage)
 GetByLinesCallable = Callable[
-    [CommonStorageType, int, BytesIO, str, int],
+    [CommonStorageType, int, BytesIO, bool, int],
     Iterator[tuple[Union[StorageReader, bytes], Optional[dict[str, Any]], int, int, int]],
 ]

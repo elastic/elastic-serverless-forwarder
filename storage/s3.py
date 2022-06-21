@@ -34,7 +34,7 @@ class S3Storage(CommonStorage):
     @by_lines
     @inflate
     def _generate(
-        self, range_start: int, body: BytesIO, content_type: str, content_length: int
+        self, range_start: int, body: BytesIO, is_gzipped: bool, content_length: int
     ) -> Iterator[tuple[Union[StorageReader, bytes], Optional[dict[str, Any]], int, int, int]]:
         """
         Concrete implementation of the iterator for get_by_lines
@@ -45,7 +45,7 @@ class S3Storage(CommonStorage):
         def chunk_lambda() -> Any:
             return body.read(CHUNK_SIZE)
 
-        if content_type == "application/x-gzip":
+        if is_gzipped:
             reader: StorageReader = StorageReader(raw=body)
             yield reader, None, 0, 0, 0
         else:
@@ -80,17 +80,18 @@ class S3Storage(CommonStorage):
 
         file_content.flush()
         file_content.seek(0, SEEK_SET)
+        is_gzipped: bool = False
         if file_content.readline().startswith(b"\037\213"):  # gzip compression method
-            content_type = "application/x-gzip"
+            is_gzipped = True
             range_start = 0
 
-        if content_type == "application/x-gzip" or original_range_start < content_length:
+        if is_gzipped or original_range_start < content_length:
             file_content.seek(range_start, SEEK_SET)
 
             for log_event, json_object, line_ending_offset, line_starting_offset, newline_length in self._generate(
                 original_range_start,
                 file_content,
-                content_type,
+                is_gzipped,
                 content_length,
             ):
                 yield log_event, json_object, line_ending_offset, line_starting_offset, newline_length
