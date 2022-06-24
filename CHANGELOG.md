@@ -1,3 +1,7 @@
+### v1.1.2 - 2022/06/24
+##### Bug fixes
+* Handle proper ARN format for CloudWatch Logs Log Group in the macro, as received from `ElasticServerlessForwarderCloudWatchLogsEvents` CloudFormation Parameter : [#130](https://github.com/elastic/elastic-serverless-forwarder/pull/130)
+
 ### v1.1.1 - 2022/06/20
 ##### Bug fixes
 * Handle properly gzip content regardless of the content type in S3 storage: [#128](https://github.com/elastic/elastic-serverless-forwarder/pull/128)
