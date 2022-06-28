@@ -32,7 +32,7 @@ The Elastic Serverless Forwarder is an AWS Lambda function that ships logs from 
 
 The Lambda deployment sets up an SQS queue automatically. This is used to trigger a new function invocation that Lambda uses to continue from exactly where the last function run was terminated. By default a Lambda function runs for a maximum of 15 minutes. When processing event data there’s a possibility that the function may be exited by AWS in the middle of processing. The code handles this scenario gracefully by keeping track of the last offset processed.
 
-Any exception or fail scenarios are handled by Lambda gracefully using a replay queue. Data in the replay queue is stored as individual events. Lambda keeps track of any failed events and writes them to a replay queue that the user can consume later on by adding an additional SQS trigger via Lambda.
+Any exception or fail scenarios related to ingestion are handled by Lambda gracefully using a replay queue. Data in the replay queue is stored as individual events. Lambda keeps track of any failed events and writes them to a replay queue that the user can consume later on by adding an additional SQS trigger via Lambda.
 
 You can use the [config.yaml file](#sample-s3-config-file) to configure the service for each input type, including information such as SQS queue ARN and Elasticsearch connection details. You can create multiple input sections within the configuration file to map different inputs to specific log types.
 
@@ -50,7 +50,7 @@ You can set up a separate SQS queue for each type of log. The config parameter f
 
 <!-- needs revision / input e.g. proper value configuration param-->
 
-### S3 SQS Event Notifications
+### S3 SQS Event Notifications input
 
 The Lambda function can ingest logs contained in the S3 bucket through an SQS notification (`s3:ObjectCreated`) and send them to Elastic. The SQS queue serves as a trigger for the Lambda function. When a new log file is written to an S3 bucket and meets the criteria (as configured including prefix/suffix), a notification to SQS is generated that triggers the Lambda function.
 
@@ -73,7 +73,7 @@ You can set up separate Kinesis data streams for each type of log. The `es_datas
 
 The Lambda function can ingest logs contained in the message payload of CloudWatch Logs events and send them to Elastic. The CloudWatch Logs service serves as a trigger for the Lambda function. When a new record gets written to a Kinesis data stream, the Lambda function triggers.
 
-You can set up separate CloudWatch Log groups for each type of log. The `es_datastream_name` parameter in the config file is mandatory. If this value is set to an Elasticsearch data stream, the type of log must be correctly defined with configuration parameters. A single configuration file can have many input sections, pointing to different CloudWatch Logs groupos that match specific log types.
+You can set up separate CloudWatch Log groups for each type of log. The `es_datastream_name` parameter in the config file is mandatory. If this value is set to an Elasticsearch data stream, the type of log must be correctly defined with configuration parameters. A single configuration file can have many input sections, pointing to different CloudWatch Logs groups that match specific log types.
 
 ## Deploying Elastic Serverless Forwarder
 
@@ -81,8 +81,12 @@ You can set up separate CloudWatch Log groups for each type of log. The `es_data
 
 At a high level the deployment consists of the following 2 steps:
 
-1. Add appropriate integrations in Kibana.
-2. Select elastic-serverless-forwarder from AWS SAR (Serverless Application Repository) — provide configuration details and deploy!
+1. Add appropriate integrations in Kibana - open *Management** > **Integrations**, select the **AWS category**, and select and add each integration
+2. Find and select elastic-serverless-forwarder from AWS SAR (Serverless Application Repository) — provide configuration details and deploy!
+
+Adding integrations from Kibana provides appropriate pre-built dashboards, ingest node configurations, and other assets that help you get the most out of the data you ingest. Select **Assets** from the AWS integration and click the **Install AWS Assets** button. For more information, see https://docs.elastic.co/en/integrations[Integrations documentation].
+
+
 
 There are several deployment methods available:
 
@@ -104,8 +108,8 @@ There are several deployment methods available:
 1. Click *Deploy* once your settings have been added
 1. On the Applications page for *serverlessrepo-elastic-serverless-forwarder*, click *Deployments*
 1. Refresh the *Deployment history* until status updates to `Create complete`
-1. Go to *Lambda > Functions* within AWS console, find and select the function with *serverlessrepo-elastic-se-ElasticServerlessForward-*
 1. (Optional) To enable Elastic APM instrumentation for your new deployment:
+  * Go to *Lambda > Functions* within AWS console, find and select the function with *serverlessrepo-elastic-se-ElasticServerlessForward-*
   * Go to *Configuration* tab and select *Environment Variables*
   * Add the following environment variables:
 
@@ -190,12 +194,12 @@ data "aws_serverlessapplicationrepository_application" "esf_sar" {
 }
 ```
 1. Deploy the Lambda from SAR by running the following commands:
-  * ```commandline
+
+  ```commandline
     terrafrom init
-    ```
-  * ```commandline
     terrafrom apply
-    ```
+  ```
+
 **Notes:**
 * Due to a [bug](https://github.com/aws/serverless-application-model/issues/1320) in AWS CloudFormation, if you want to update the Events settings for the deployment, you will have to manually delete existing settings before applying the new settings.
 * Due to a [bug](https://github.com/hashicorp/terraform-provider-aws/issues/24771) in Terraform related to `aws_serverlessapplicationrepository_application`, if you want to delete existing Event parameters you have to set the related `aws_serverlessapplicationrepository_cloudformation_stack.parameters` to a blank space value (`" "`) instead of an empty string (`""`).
@@ -483,7 +487,7 @@ inputs:
 
 `inputs.[].expand_event_list_from_field` can be defined as a string with the value of a key in the JSON that contains a list of elements that must be sent as events instead of the encompassing JSON.
 
-You should note that when relying on the [Routing support for AWS Service Logs](#routing-support-for-aws-services-logs), any value set for the `expand_event_list_from_field` configuration parameter will be ignored, because this will be automatically handled by the Elastic Serverless Forwarder.
+You should note that when relying on the [Routing AWS Service Logs](#routing-aws-service-logs), any value set for the `expand_event_list_from_field` configuration parameter will be ignored, because this will be automatically handled by the Elastic Serverless Forwarder.
 
 ### Example
 
@@ -530,8 +534,8 @@ For these use cases, setting the `es_datastream_name` field in the configuration
 For most of the other use cases, you will need to set the `es_datastream_name` field in the configuration file to route the data to a specific data stream or index. This value should be set in the following use cases:
 
 - You want to write the data to a specific index, alias, or custom data stream, and not to the default integration data streams. This can help some users to use existing Elasticsearch assets like index templates, ingest pipelines, or dashboards, that are already set up and connected to business processes.
-- When using `Kinesis Data Stream`, `CloudWatch Logs subscription filter` or `Direct SQS message payload` inputs. Only the `S3 SQS Event Notifications input` method supports automatic routing to default integration data streams for several AWS service logs.
-- When using `S3 SQS Event Notifications input` but where the log type is something *other than* AWS CloudTrail (`aws.cloudtrail`), Amazon CloudWatch Logs (`aws.cloudwatch_logs`), Elastic Load Balancing (`aws.elb_logs`), AWS Network Firewall (`aws.firewall_logs`), Amazon VPC Flow (`aws.vpcflow`), and AWS Web Application Firewall (`aws.waf`).
+- When using `Kinesis Data Stream`, `CloudWatch Logs subscription filter` or `Direct SQS message payload` inputs. Only the `S3 SQS Event Notifications` input method supports automatic routing to default integration data streams for several AWS service logs.
+- When using `S3 SQS Event Notifications` but where the log type is something *other than* AWS CloudTrail (`aws.cloudtrail`), Amazon CloudWatch Logs (`aws.cloudwatch_logs`), Elastic Load Balancing (`aws.elb_logs`), AWS Network Firewall (`aws.firewall_logs`), Amazon VPC Flow (`aws.vpcflow`), and AWS Web Application Firewall (`aws.waf`).
 
 If the `es_datastream_name` is not specified, and the log cannot be matched with any of the above AWS services, then the dataset will be set to `generic` and the namespace set to `default`, pointing to the data stream name `logs-generic-default`.
 
@@ -539,8 +543,6 @@ If the `es_datastream_name` is not specified, and the log cannot be matched with
 To set up an S3 event notification for SQS, see the [Amazon S3 docs](https://docs.aws.amazon.com/AmazonS3/latest/userguide/NotificationHowTo.html).
 
 You need to set the notifications up for the `s3:ObjectCreated:*` event type.
-
-The Elastic Serverless Forwarder Lambda function needs to be provided extra IAM policies in order to access S3 and SQS resources in your account. For more info, see [Lambda IAM permissions and policies](#lambda-iam-permissions-and-policies).
 
 ## Troubleshooting and error handling
 
@@ -568,7 +570,7 @@ There is a grace period of 2 minutes before the timeout of the Lambda function w
 
 For CloudWatch Logs event input, S3 SQS Event Notifications input and direct SQS message payload input, the unprocessed batch will be sent to the SQS continuing queue.
 
-For Kinesis Data Stream input, the Lambda function will return the sequence numbers of the unprocessed batch in the `batchItemFailures` response, which allows the affected records to be included in later batches that will trigger the Lambda. It is therefore important to set the number of retry attempts high enough, and/or lower the batch size, to ensure the whole batch can be processed either during a single execution of the function or, with extra retry attempts, during multiple executions of the function.
+For the Kinesis data stream input, the Lambda function will return the sequence numbers of the unprocessed batch in the `batchItemFailures` response, which allows the affected records to be included in later batches that will trigger the Lambda. It is therefore important to set the number of retry attempts high enough, and/or lower the batch size, to ensure the whole batch can be processed either during a single execution of the function or, with extra retry attempts, during multiple executions of the function.
 
 ## Resources and links
 
