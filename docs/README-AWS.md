@@ -245,7 +245,7 @@ inputs:
           batch_max_actions: 500
           batch_max_bytes: 10485760
   - type: "cloudwatch-logs"
-    id: "arn:aws:logs:%AWS_REGION%:%AWS_ACCOUNT_ID%:log-group:%LOG_GROUP_NAME%"
+    id: "arn:aws:logs:%AWS_REGION%:%AWS_ACCOUNT_ID%:log-group:%LOG_GROUP_NAME%:*"
     outputs:
       - type: "elasticsearch"
         args:
