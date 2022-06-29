@@ -121,33 +121,33 @@ There are several deployment methods available via AWS SAR:
 ### Deploy using Cloudformation
 
 1. Use the following code to get the semantic version of the latest application:
-```
-aws serverlessrepo list-application-versions --application-id arn:aws:serverlessrepo:eu-central-1:267093732750:applications/elastic-serverless-forwarder
-```
+    ```
+    aws serverlessrepo list-application-versions --application-id arn:aws:serverlessrepo:eu-central-1:267093732750:applications/elastic-serverless-forwarder
+    ```
 1. Save the following yaml content as `sar-application.yaml`:
-```yaml
-Transform: AWS::Serverless-2016-10-31
-Resources:
-  SarCloudformationDeployment:
-    Type: AWS::Serverless::Application
-    Properties:
-      Location:
-        ApplicationId: 'arn:aws:serverlessrepo:eu-central-1:267093732750:applications/elastic-serverless-forwarder'
-        SemanticVersion: '%SEMANTICVERSION%'  ## CHANGE REFERENCING THE SEMANTIC VERSION (IT MUST BE GREATER THAN 0.30.0)
-      Parameters:
-        ElasticServerlessForwarderS3ConfigFile: ""          ## FILL WITH THE VALUE OF THE S3 URL IN THE FORMAT "s3://bucket-name/config-file-name" POINTING TO THE CONFIGURATION FILE FOR YOUR DEPLOYMENT OF THE ELASTIC SERVERLESS FORWARDER
-        ElasticServerlessForwarderSSMSecrets: ""            ## FILL WITH A COMMA DELIMITED LIST OF AWS SSM SECRETS ARNS REFERENCED IN THE CONFIG YAML FILE (IF ANY).
-        ElasticServerlessForwarderKMSKeys: ""               ## FILL WITH A COMMA DELIMITED LIST OF AWS KMS KEYS ARNS TO BE USED FOR DECRYPTING AWS SSM SECRETS REFERENCED IN THE CONFIG YAML FILE (IF ANY).
-        ElasticServerlessForwarderSQSEvents: ""             ## FILL WITH A COMMA DELIMITED LIST OF DIRECT SQS QUEUES ARNS TO SET AS EVENT TRIGGERS FOR THE LAMBDA (IF ANY).
-        ElasticServerlessForwarderS3SQSEvents: ""           ## FILL WITH A COMMA DELIMITED LIST OF S3 SQS EVENT NOTIFICATIONS ARNS TO SET AS EVENT TRIGGERS FOR THE LAMBDA (IF ANY).
-        ElasticServerlessForwarderKinesisEvents: ""         ## FILL WITH A COMMA DELIMITED LIST OF KINESIS DATA STREAM ARNS TO SET AS EVENT TRIGGERS FOR THE LAMBDA (IF ANY).
-        ElasticServerlessForwarderCloudWatchLogsEvents: ""  ## FILL WITH A COMMA DELIMITED LIST OF CLOUDWATCH LOGS LOG GROUPS ARNS TO SET SUBSCRIPTION FILTERS ON THE LAMBDA FOR (IF ANY).
-        ElasticServerlessForwarderS3Buckets: ""             ## FILL WITH A COMMA DELIMITED LIST OF S3 BUCKETS ARNS THAT ARE THE SOURCES OF THE S3 SQS EVENT NOTIFICATIONS (IF ANY).
-```
+    ```yaml
+    Transform: AWS::Serverless-2016-10-31
+    Resources:
+      SarCloudformationDeployment:
+        Type: AWS::Serverless::Application
+        Properties:
+          Location:
+            ApplicationId: 'arn:aws:serverlessrepo:eu-central-1:267093732750:applications/elastic-serverless-forwarder'
+            SemanticVersion: '%SEMANTICVERSION%'  ## CHANGE REFERENCING THE SEMANTIC VERSION (IT MUST BE GREATER THAN 0.30.0)
+          Parameters:
+            ElasticServerlessForwarderS3ConfigFile: ""          ## FILL WITH THE VALUE OF THE S3 URL IN THE FORMAT "s3://bucket-name/config-file-name" POINTING TO THE CONFIGURATION FILE FOR YOUR DEPLOYMENT OF THE ELASTIC SERVERLESS FORWARDER
+            ElasticServerlessForwarderSSMSecrets: ""            ## FILL WITH A COMMA DELIMITED LIST OF AWS SSM SECRETS ARNS REFERENCED IN THE CONFIG YAML FILE (IF ANY).
+            ElasticServerlessForwarderKMSKeys: ""               ## FILL WITH A COMMA DELIMITED LIST OF AWS KMS KEYS ARNS TO BE USED FOR DECRYPTING AWS SSM SECRETS REFERENCED IN THE CONFIG YAML FILE (IF ANY).
+            ElasticServerlessForwarderSQSEvents: ""             ## FILL WITH A COMMA DELIMITED LIST OF DIRECT SQS QUEUES ARNS TO SET AS EVENT TRIGGERS FOR THE LAMBDA (IF ANY).
+            ElasticServerlessForwarderS3SQSEvents: ""           ## FILL WITH A COMMA DELIMITED LIST OF S3 SQS EVENT NOTIFICATIONS ARNS TO SET AS EVENT TRIGGERS FOR THE LAMBDA (IF ANY).
+            ElasticServerlessForwarderKinesisEvents: ""         ## FILL WITH A COMMA DELIMITED LIST OF KINESIS DATA STREAM ARNS TO SET AS EVENT TRIGGERS FOR THE LAMBDA (IF ANY).
+            ElasticServerlessForwarderCloudWatchLogsEvents: ""  ## FILL WITH A COMMA DELIMITED LIST OF CLOUDWATCH LOGS LOG GROUPS ARNS TO SET SUBSCRIPTION FILTERS ON THE LAMBDA FOR (IF ANY).
+            ElasticServerlessForwarderS3Buckets: ""             ## FILL WITH A COMMA DELIMITED LIST OF S3 BUCKETS ARNS THAT ARE THE SOURCES OF THE S3 SQS EVENT NOTIFICATIONS (IF ANY).
+    ```
 1. Deploy the Lambda function from SAR by running the following command:
-```commandline
+    ```commandline
     aws cloudformation deploy --template-file sar-application.yaml --stack-name esf-cloudformation-deployment --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND
-```
+    ```
 
 **Note:**
 Due to a [bug](https://github.com/aws/serverless-application-model/issues/1320) in AWS CloudFormation, if you want to update the Events settings for the deployment, you will have to manually delete existing settings before applying the new settings.
@@ -155,45 +155,45 @@ Due to a [bug](https://github.com/aws/serverless-application-model/issues/1320) 
 ### Deploy using Terraform
 
 1. Save the following yaml content as `sar-application.tf`
-```
-provider "aws" {
-  region = ""  ## FILL WITH THE AWS REGION WHERE YOU WANT TO DEPLOY THE ELASTIC SERVERLESS FORWARDER
-}
+    ```
+    provider "aws" {
+      region = ""  ## FILL WITH THE AWS REGION WHERE YOU WANT TO DEPLOY THE ELASTIC SERVERLESS FORWARDER
+    }
 
-data "aws_serverlessapplicationrepository_application" "esf_sar" {
-  application_id = "arn:aws:serverlessrepo:eu-central-1:267093732750:applications/elastic-serverless-forwarder"
-}
+    data "aws_serverlessapplicationrepository_application" "esf_sar" {
+      application_id = "arn:aws:serverlessrepo:eu-central-1:267093732750:applications/elastic-serverless-forwarder"
+    }
 
-resource "aws_serverlessapplicationrepository_cloudformation_stack" "esf_cf_stak" {
-  name             = "terraform-elastic-serverless-forwarder"
-  application_id   = data.aws_serverlessapplicationrepository_application.esf_sar.application_id
-  semantic_version = data.aws_serverlessapplicationrepository_application.esf_sar.semantic_version
-  capabilities     = data.aws_serverlessapplicationrepository_application.esf_sar.required_capabilities
+    resource "aws_serverlessapplicationrepository_cloudformation_stack" "esf_cf_stak" {
+      name             = "terraform-elastic-serverless-forwarder"
+      application_id   = data.aws_serverlessapplicationrepository_application.esf_sar.application_id
+      semantic_version = data.aws_serverlessapplicationrepository_application.esf_sar.semantic_version
+      capabilities     = data.aws_serverlessapplicationrepository_application.esf_sar.required_capabilities
 
-parameters = {
-    ElasticServerlessForwarderS3ConfigFile         = ""  ## FILL WITH THE VALUE OF THE S3 URL IN THE FORMAT "s3://bucket-name/config-file-name" POINTING TO THE CONFIGURATION FILE FOR YOUR DEPLOYMENT OF THE ELASTIC SERVERLESS FORWARDER
+    parameters = {
+        ElasticServerlessForwarderS3ConfigFile         = ""  ## FILL WITH THE VALUE OF THE S3 URL IN THE FORMAT "s3://bucket-name/config-file-name" POINTING TO THE CONFIGURATION FILE FOR YOUR DEPLOYMENT OF THE ELASTIC SERVERLESS FORWARDER
 
-    ElasticServerlessForwarderSSMSecrets           = ""  ## FILL WITH A COMMA DELIMITED LIST OF AWS SSM SECRETS ARNS REFERENCED IN THE CONFIG YAML FILE (IF ANY).
+        ElasticServerlessForwarderSSMSecrets           = ""  ## FILL WITH A COMMA DELIMITED LIST OF AWS SSM SECRETS ARNS REFERENCED IN THE CONFIG YAML FILE (IF ANY).
 
-    ElasticServerlessForwarderKMSKeys              = ""  ## FILL WITH A COMMA DELIMITED LIST OF AWS KMS KEYS ARNS TO BE USED FOR DECRYPTING AWS SSM SECRETS REFERENCED IN THE CONFIG YAML FILE (IF ANY).
+        ElasticServerlessForwarderKMSKeys              = ""  ## FILL WITH A COMMA DELIMITED LIST OF AWS KMS KEYS ARNS TO BE USED FOR DECRYPTING AWS SSM SECRETS REFERENCED IN THE CONFIG YAML FILE (IF ANY).
 
-    ElasticServerlessForwarderSQSEvents            = ""  ## FILL WITH A COMMA DELIMITED LIST OF DIRECT SQS QUEUES ARNS TO SET AS EVENT TRIGGERS FOR THE LAMBDA (IF ANY).
+        ElasticServerlessForwarderSQSEvents            = ""  ## FILL WITH A COMMA DELIMITED LIST OF DIRECT SQS QUEUES ARNS TO SET AS EVENT TRIGGERS FOR THE LAMBDA (IF ANY).
 
-    ElasticServerlessForwarderS3SQSEvents          = ""  ## FILL WITH A COMMA DELIMITED LIST OF S3 SQS EVENT NOTIFICATIONS ARNS TO SET AS EVENT TRIGGERS FOR THE LAMBDA (IF ANY).
+        ElasticServerlessForwarderS3SQSEvents          = ""  ## FILL WITH A COMMA DELIMITED LIST OF S3 SQS EVENT NOTIFICATIONS ARNS TO SET AS EVENT TRIGGERS FOR THE LAMBDA (IF ANY).
 
-    ElasticServerlessForwarderKinesisEvents        = ""  ## FILL WITH A COMMA DELIMITED LIST OF KINESIS DATA STREAM ARNS TO SET AS EVENT TRIGGERS FOR THE LAMBDA (IF ANY).
+        ElasticServerlessForwarderKinesisEvents        = ""  ## FILL WITH A COMMA DELIMITED LIST OF KINESIS DATA STREAM ARNS TO SET AS EVENT TRIGGERS FOR THE LAMBDA (IF ANY).
 
-    ElasticServerlessForwarderCloudWatchLogsEvents = ""  ## FILL WITH A COMMA DELIMITED LIST OF CLOUDWATCH LOGS LOG GROUPS ARNS TO SET SUBSCRIPTION FILTERS ON THE LAMBDA FOR (IF ANY).
+        ElasticServerlessForwarderCloudWatchLogsEvents = ""  ## FILL WITH A COMMA DELIMITED LIST OF CLOUDWATCH LOGS LOG GROUPS ARNS TO SET SUBSCRIPTION FILTERS ON THE LAMBDA FOR (IF ANY).
 
-    ElasticServerlessForwarderS3Buckets            = ""  ## FILL WITH A COMMA DELIMITED LIST OF S3 BUCKETS ARNS THAT ARE THE SOURCES OF THE S3 SQS EVENT NOTIFICATIONS (IF ANY).
-  }
-}
-```
+        ElasticServerlessForwarderS3Buckets            = ""  ## FILL WITH A COMMA DELIMITED LIST OF S3 BUCKETS ARNS THAT ARE THE SOURCES OF THE S3 SQS EVENT NOTIFICATIONS (IF ANY).
+      }
+    }
+    ```
 1. Deploy the Lambda from SAR by running the following commands:
-```commandline
+    ```commandline
     terrafrom init
     terrafrom apply
-```
+    ```
 
 **Notes:**
 * Due to a [bug](https://github.com/aws/serverless-application-model/issues/1320) in AWS CloudFormation, if you want to update the Events settings for the deployment, you will have to manually delete existing settings before applying the new settings.
@@ -496,17 +496,17 @@ With the following input:
 Without setting `expand_event_list_from_field`, two events will be forwarded:
 
 ```json lines
-    {"@timestamp": "2022-06-16T04:06:03.064Z", "message": "{\"Records\":[{\"key\": \"value #1\"},{\"key\": \"value #2\"}]}"}
-    {"@timestamp": "2022-06-16T04:06:13.888Z", "message": "{\"Records\":[{\"key\": \"value #3\"},{\"key\": \"value #4\"}]}"}
+{"@timestamp": "2022-06-16T04:06:03.064Z", "message": "{\"Records\":[{\"key\": \"value #1\"},{\"key\": \"value #2\"}]}"}
+{"@timestamp": "2022-06-16T04:06:13.888Z", "message": "{\"Records\":[{\"key\": \"value #3\"},{\"key\": \"value #4\"}]}"}
 ```
 
 If `expand_event_list_from_field` is set to `Records`, four events will be forwarded:
 
 ```json lines
-    {"@timestamp": "2022-06-16T04:06:21.105Z", "message": "{\"key\": \"value #1\"}"}
-    {"@timestamp": "2022-06-16T04:06:27.204Z", "message": "{\"key\": \"value #2\"}"}
-    {"@timestamp": "2022-06-16T04:06:31.154Z", "message": "{\"key\": \"value #3\"}"}
-    {"@timestamp": "2022-06-16T04:06:36.189Z", "message": "{\"key\": \"value #4\"}"}
+{"@timestamp": "2022-06-16T04:06:21.105Z", "message": "{\"key\": \"value #1\"}"}
+{"@timestamp": "2022-06-16T04:06:27.204Z", "message": "{\"key\": \"value #2\"}"}
+{"@timestamp": "2022-06-16T04:06:31.154Z", "message": "{\"key\": \"value #3\"}"}
+{"@timestamp": "2022-06-16T04:06:36.189Z", "message": "{\"key\": \"value #4\"}"}
 ```
 
 ## Routing AWS Service Logs
