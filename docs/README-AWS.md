@@ -22,8 +22,8 @@ This readme file provides initial documentation for the Elastic Serverless Forwa
 The Elastic Serverless Forwarder is an AWS Lambda function that ships logs from your AWS environment to Elastic. The function can forward data to self-managed or cloud Elastic environments. It supports the following inputs:
 
 - S3 SQS (Simple Queue Service) event notifications
-- Kinesis data stream
-- CloudWatch Logs subscription filter
+- Kinesis Data Streams
+- CloudWatch Logs subscription filters
 - Direct SQS message payload
 
 ![Lambda flow](https://github.com/elastic/elastic-serverless-forwarder/raw/lambda-v0.25.0/docs/lambda-flow.png)
@@ -38,7 +38,7 @@ You can use the [config.yaml file](#sample-s3-config-file) to configure the serv
 
 The Lambda function also supports writing directly to an index, alias, or custom data stream. This enables existing Elasticsearch users to re-use index templates, ingest pipelines, or dashboards that are already created and connected to business processes.
 
-The best way to get started is to install the appropriate [integrations](https://docs.elastic.co/en/integrations) via Kibana. These integrations set up pre-built dashboards, ingest node configurations, and other assets that help you get the most out of the data you ingest. The integrations use [data streams](https://www.elastic.co/guide/en/elasticsearch/reference/current/data-streams.html) with specific [naming conventions](https://www.elastic.co/blog/an-introduction-to-the-elastic-data-stream-naming-scheme) that provide users with more granular controls and flexibility on managing data ingestion.
+The best way to get started is to install the appropriate [integrations](https://docs.elastic.co/en/integrations) via Kibana. These integrations include pre-built dashboards, ingest node configurations, and other assets that help you get the most out of the data you ingest. The integrations use [data streams](https://www.elastic.co/guide/en/elasticsearch/reference/current/data-streams.html) with specific [naming conventions](https://www.elastic.co/blog/an-introduction-to-the-elastic-data-stream-naming-scheme) that provide users with more granular controls and flexibility on managing data ingestion.
 
 ## Inputs
 
@@ -48,11 +48,9 @@ The Lambda function can ingest logs contained within the payload of a SQS body r
 
 You can set up a separate SQS queue for each type of log. The config parameter for Elasticsearch output `es_datastream_name` is mandatory. If this value is set to an Elasticsearch data stream, the type of log must be correctly defined with configuration parameters. A single configuration file can have many input sections, pointing to different SQS queues that match specific log types.
 
-<!-- needs revision / input e.g. proper value configuration param-->
+### S3 SQS Event Notifications
 
-### S3 SQS Event Notifications input
-
-The Lambda function can ingest logs contained in the S3 bucket through an SQS notification (`s3:ObjectCreated`) and send them to Elastic. The SQS queue serves as a trigger for the Lambda function. When a new log file is written to an S3 bucket and meets the criteria (as configured including prefix/suffix), a notification to SQS is generated that triggers the Lambda function.
+The Lambda function can ingest logs contained in the Simple Storage Service (S3) bucket through an SQS notification (`s3:ObjectCreated`) and send them to Elastic. The SQS queue serves as a trigger for the Lambda function. When a new log file is written to an S3 bucket and meets the criteria (as configured including prefix/suffix), a notification to SQS is generated that triggers the Lambda function.
 
 You can set up separate SQS queues for each type of log (`aws.vpcflow`, `aws.cloudtrail`, `aws.waf`, for example). A single configuration file can have many input sections, pointing to different SQS queues that match specific log types. The `es_datastream_name` parameter in the config file is optional. Lambda supports automatic routing of various AWS service logs to the corresponding data streams for further processing and storage in the Elasticsearch cluster. It supports automatic routing of `aws.cloudtrail`, `aws.cloudwatch_logs`, `aws.elb_logs`, `aws.firewall_logs`, `aws.vpcflow`, and `aws.waf` logs.
 
@@ -63,32 +61,33 @@ For more information on creating SQS event notifications for S3 buckets, read th
 **Note:**
 You must set a visibility timeout of `910` seconds for any SQS queues you want to use as a trigger. This is 10 seconds greater than the Elastic Serverless Forwarder Lambda timeout.
 
-### Kinesis data stream
+### Kinesis Data Streams
 
-The Lambda function can ingest logs contained in the payload of a Kinesis data stream record and send them to Elastic. The Kinesis data stream serves as a trigger for the Lambda function. When a new record gets written to a Kinesis data stream, the Lambda function triggers.
+The Lambda function can ingest logs contained in the payload of a Kinesis Data Stream record and send them to Elastic. The Kinesis Data Stream serves as a trigger for the Lambda function. When a new record gets written to a Kinesis Data Stream, the Lambda function triggers.
 
-You can set up separate Kinesis data streams for each type of log. The `es_datastream_name` parameter in the config file is mandatory. If this value is set to an Elasticsearch data stream, the type of log must be correctly defined with configuration parameters. A single configuration file can have many input sections, pointing to different data streams that match specific log types.
+You can set up separate Kinesis Data Streams for each type of log. The `es_datastream_name` parameter in the config file is mandatory. If this value is set to an Elasticsearch data stream, the type of log must be correctly defined with configuration parameters. A single configuration file can have many input sections, pointing to different data streams that match specific log types.
 
-### CloudWatch Logs subscription filter
+### CloudWatch Logs subscription filters
 
 The Lambda function can ingest logs contained in the message payload of CloudWatch Logs events and send them to Elastic. The CloudWatch Logs service serves as a trigger for the Lambda function. When a new record gets written to a Kinesis data stream, the Lambda function triggers.
 
-You can set up separate CloudWatch Log groups for each type of log. The `es_datastream_name` parameter in the config file is mandatory. If this value is set to an Elasticsearch data stream, the type of log must be correctly defined with configuration parameters. A single configuration file can have many input sections, pointing to different CloudWatch Logs groups that match specific log types.
+You can set up separate CloudWatch Logs groups for each type of log. The `es_datastream_name` parameter in the config file is mandatory. If this value is set to an Elasticsearch data stream, the type of log must be correctly defined with configuration parameters. A single configuration file can have many input sections, pointing to different CloudWatch Logs groups that match specific log types.
 
 ## Deploying Elastic Serverless Forwarder
 
-### Deployment overview
+Deploying Elastic Serverless Forwarder consists of the following two high level steps:
 
-At a high level the deployment consists of the following 2 steps:
+1. Add AWS integration in Kibana
+2. Deploy the elastic-serverless-forwarder from AWS SAR (Serverless Application Repository)
 
-1. Add appropriate integrations in Kibana - open *Management** > **Integrations**, select the **AWS category**, and select and add each integration
-2. Find and select elastic-serverless-forwarder from AWS SAR (Serverless Application Repository) — provide configuration details and deploy!
+### Add AWS integration in Kibana
 
-Adding integrations from Kibana provides appropriate pre-built dashboards, ingest node configurations, and other assets that help you get the most out of the data you ingest. Select **Assets** from the AWS integration and click the **Install AWS Assets** button. For more information, see https://docs.elastic.co/en/integrations[Integrations documentation].
+1. Go to **Integrations** in Kibana and search for AWS (or select the **AWS** category to filter the list)
+1. Click the AWS integration, select **Settings** and click **Install AWS assets** to install all the AWS integration assets
 
+Adding integrations from Kibana provides appropriate pre-built dashboards, ingest node configurations, and other assets that help you get the most out of the data you ingest. For more information, see [Integrations documentation](https://docs.elastic.co/en/integrations).
 
-
-There are several deployment methods available:
+There are several deployment methods available via AWS SAR:
 
 ### Deploy using AWS Console
 1. Login to AWS console and navigate to the Lambda service
@@ -97,28 +96,27 @@ There are several deployment methods available:
 1. Select *Public applications*
 1. Search for *elastic-serverless-forwarder* and select it from results
 1. Complete the *Application settings* as follows:
-  * `ElasticServerlessForwarderS3ConfigFile` with the value of the S3 url in the format "s3://bucket-name/config-file-name" pointing to the configuration file for your deployment of Elastic Serverless Forwarder (see below), this will populate the `S3_CONFIG_FILE` environment variable of the deployed Lambda.
-  * `ElasticServerlessForwarderSSMSecrets` with a comma delimited list of AWS SSM Secrets ARNs referenced in the config yaml file (if any).
-  * `ElasticServerlessForwarderKMSKeys` with a comma delimited list of AWS KMS Keys ARNs to be used for decrypting AWS SSM Secrets referenced in the config yaml file (if any).
-  * `ElasticServerlessForwarderSQSEvents` with a comma delimited list of Direct SQS queues ARNs to set as event triggers for the Lambda (if any).
-  * `ElasticServerlessForwarderS3SQSEvents` with a comma delimited list of S3 SQS Event Notifications ARNs to set as event triggers for the Lambda (if any).
-  * `ElasticServerlessForwarderKinesisEvents` with a comma delimited list of Kinesis Data Stream ARNs to set as event triggers for the Lambda (if any).
-  * `ElasticServerlessForwarderCloudWatchLogsEvents` with a comma delimited list of Cloudwatch Logs Log Groups ARNs to set subscription filters on the Lambda for (if any).
-  * `ElasticServerlessForwarderS3Buckets` with a comma delimited list of S3 buckets ARNs that are the sources of the S3 SQS Event Notifications (if any).
+    * `ElasticServerlessForwarderS3ConfigFile` with the value of the S3 url in the format "s3://bucket-name/config-file-name" pointing to the configuration file for your deployment of Elastic Serverless Forwarder (see below), this will populate the `S3_CONFIG_FILE` environment variable of the deployed Lambda.
+    * `ElasticServerlessForwarderSSMSecrets` with a comma delimited list of AWS SSM Secrets ARNs referenced in the config yaml file (if any).
+    * `ElasticServerlessForwarderKMSKeys` with a comma delimited list of AWS KMS Keys ARNs to be used for decrypting AWS SSM Secrets referenced in the config yaml file (if any).
+    * `ElasticServerlessForwarderSQSEvents` with a comma delimited list of Direct SQS queues ARNs to set as event triggers for the Lambda (if any).
+    * `ElasticServerlessForwarderS3SQSEvents` with a comma delimited list of S3 SQS Event Notifications ARNs to set as event triggers for the Lambda (if any).
+    * `ElasticServerlessForwarderKinesisEvents` with a comma delimited list of Kinesis Data Stream ARNs to set as event triggers for the Lambda (if any).
+    * `ElasticServerlessForwarderCloudWatchLogsEvents` with a comma delimited list of Cloudwatch Logs Log Groups ARNs to set subscription filters on the Lambda for (if any).
+    * `ElasticServerlessForwarderS3Buckets` with a comma delimited list of S3 buckets ARNs that are the sources of the S3 SQS Event Notifications (if any).
 1. Click *Deploy* once your settings have been added
 1. On the Applications page for *serverlessrepo-elastic-serverless-forwarder*, click *Deployments*
 1. Refresh the *Deployment history* until status updates to `Create complete`
 1. (Optional) To enable Elastic APM instrumentation for your new deployment:
-  * Go to *Lambda > Functions* within AWS console, find and select the function with *serverlessrepo-elastic-se-ElasticServerlessForward-*
-  * Go to *Configuration* tab and select *Environment Variables*
-  * Add the following environment variables:
+    * Go to *Lambda > Functions* within AWS console, find and select the function with *serverlessrepo-elastic-se-ElasticServerlessForward-*
+    * Go to *Configuration* tab and select *Environment Variables*
+    * Add the following environment variables:
 
-```   | Key                       | Value  |
+      | Key                       | Value  |
       |---------------------------|--------|
       |`ELASTIC_APM_ACTIVE`       | `true` |
       |`ELASTIC_APM_SECRET_TOKEN` | token  |
       |`ELASTIC_APM_SERVER_URL`	  | url    |
-```
 
 ### Deploy using Cloudformation
 
@@ -147,10 +145,9 @@ Resources:
         ElasticServerlessForwarderS3Buckets: ""             ## FILL WITH A COMMA DELIMITED LIST OF S3 BUCKETS ARNS THAT ARE THE SOURCES OF THE S3 SQS EVENT NOTIFICATIONS (IF ANY).
 ```
 1. Deploy the Lambda function from SAR by running the following command:
-
-   ```commandline
+```commandline
     aws cloudformation deploy --template-file sar-application.yaml --stack-name esf-cloudformation-deployment --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND
-    ```
+```
 
 **Note:**
 Due to a [bug](https://github.com/aws/serverless-application-model/issues/1320) in AWS CloudFormation, if you want to update the Events settings for the deployment, you will have to manually delete existing settings before applying the new settings.
@@ -162,19 +159,18 @@ Due to a [bug](https://github.com/aws/serverless-application-model/issues/1320) 
 provider "aws" {
   region = ""  ## FILL WITH THE AWS REGION WHERE YOU WANT TO DEPLOY THE ELASTIC SERVERLESS FORWARDER
 }
-```
-  ```
+
 data "aws_serverlessapplicationrepository_application" "esf_sar" {
   application_id = "arn:aws:serverlessrepo:eu-central-1:267093732750:applications/elastic-serverless-forwarder"
 }
 
-  ``` resource "aws_serverlessapplicationrepository_cloudformation_stack" "esf_cf_stak" {
+resource "aws_serverlessapplicationrepository_cloudformation_stack" "esf_cf_stak" {
   name             = "terraform-elastic-serverless-forwarder"
   application_id   = data.aws_serverlessapplicationrepository_application.esf_sar.application_id
   semantic_version = data.aws_serverlessapplicationrepository_application.esf_sar.semantic_version
   capabilities     = data.aws_serverlessapplicationrepository_application.esf_sar.required_capabilities
 
-  parameters = {
+parameters = {
     ElasticServerlessForwarderS3ConfigFile         = ""  ## FILL WITH THE VALUE OF THE S3 URL IN THE FORMAT "s3://bucket-name/config-file-name" POINTING TO THE CONFIGURATION FILE FOR YOUR DEPLOYMENT OF THE ELASTIC SERVERLESS FORWARDER
 
     ElasticServerlessForwarderSSMSecrets           = ""  ## FILL WITH A COMMA DELIMITED LIST OF AWS SSM SECRETS ARNS REFERENCED IN THE CONFIG YAML FILE (IF ANY).
@@ -194,11 +190,10 @@ data "aws_serverlessapplicationrepository_application" "esf_sar" {
 }
 ```
 1. Deploy the Lambda from SAR by running the following commands:
-
-  ```commandline
+```commandline
     terrafrom init
     terrafrom apply
-  ```
+```
 
 **Notes:**
 * Due to a [bug](https://github.com/aws/serverless-application-model/issues/1320) in AWS CloudFormation, if you want to update the Events settings for the deployment, you will have to manually delete existing settings before applying the new settings.
@@ -500,19 +495,19 @@ With the following input:
 
 Without setting `expand_event_list_from_field`, two events will be forwarded:
 
-    ```json lines
+```json lines
     {"@timestamp": "2022-06-16T04:06:03.064Z", "message": "{\"Records\":[{\"key\": \"value #1\"},{\"key\": \"value #2\"}]}"}
     {"@timestamp": "2022-06-16T04:06:13.888Z", "message": "{\"Records\":[{\"key\": \"value #3\"},{\"key\": \"value #4\"}]}"}
-    ```
+```
 
 If `expand_event_list_from_field` is set to `Records`, four events will be forwarded:
 
-    ```json lines
+```json lines
     {"@timestamp": "2022-06-16T04:06:21.105Z", "message": "{\"key\": \"value #1\"}"}
     {"@timestamp": "2022-06-16T04:06:27.204Z", "message": "{\"key\": \"value #2\"}"}
     {"@timestamp": "2022-06-16T04:06:31.154Z", "message": "{\"key\": \"value #3\"}"}
     {"@timestamp": "2022-06-16T04:06:36.189Z", "message": "{\"key\": \"value #4\"}"}
-    ```
+```
 
 ## Routing AWS Service Logs
 
