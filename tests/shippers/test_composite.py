@@ -12,14 +12,13 @@ from shippers import (
     EVENT_IS_EMPTY,
     EVENT_IS_FILTERED,
     EVENT_IS_SENT,
-    CommonShipper,
     CompositeShipper,
     EventIdGeneratorCallable,
     ReplayHandlerCallable,
 )
 
 
-class DummyShipper(CommonShipper):
+class DummyShipper:
     def send(self, event: dict[str, Any]) -> str:
         self._sent.append(event)
         return "dummy"

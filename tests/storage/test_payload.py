@@ -15,10 +15,14 @@ from storage import PayloadStorage, StorageReader
 from .test_benchmark import (
     _IS_JSON,
     _IS_JSON_LIKE,
+    _IS_MULTILINE_COUNT,
+    _IS_MULTILINE_PATTERN,
+    _IS_MULTILINE_WHILE,
     _IS_PLAIN,
     _LENGTH_ABOVE_THRESHOLD,
     _LENGTH_BELOW_THRESHOLD,
     MockContentBase,
+    multiline_processor,
 )
 
 
@@ -40,20 +44,24 @@ class TestPayloadStorage(TestCase):
 
         with self.subTest("testing with plain"):
             original = base64.b64decode(MockContent.f_content_plain).decode("utf-8")
-            payload_storage = PayloadStorage(payload=original)
+            payload_storage = PayloadStorage(payload=original, multiline_processor=None)
             content = payload_storage.get_as_string()
             assert content == original
             assert len(content) == len(original)
 
         with self.subTest("testing with base64"):
-            payload_storage = PayloadStorage(payload=MockContent.f_content_plain.decode("utf-8"))
+            payload_storage = PayloadStorage(
+                payload=MockContent.f_content_plain.decode("utf-8"), multiline_processor=None
+            )
             content = payload_storage.get_as_string()
             original = base64.b64decode(MockContent.f_content_plain).decode("utf-8")
             assert content == original
             assert len(content) == len(original)
 
         with self.subTest("testing with gzip"):
-            payload_storage = PayloadStorage(payload=MockContent.f_content_gzip.decode("utf-8"))
+            payload_storage = PayloadStorage(
+                payload=MockContent.f_content_gzip.decode("utf-8"), multiline_processor=None
+            )
             content = payload_storage.get_as_string()
             original = gzip.decompress(base64.b64decode(MockContent.f_content_gzip)).decode("utf-8")
 
@@ -62,10 +70,18 @@ class TestPayloadStorage(TestCase):
 
     def test_get_by_lines(self) -> None:
         for length_multiplier in [_LENGTH_BELOW_THRESHOLD, _LENGTH_ABOVE_THRESHOLD]:
-            for content_type in [_IS_PLAIN, _IS_JSON, _IS_JSON_LIKE]:
+            for content_type in [
+                _IS_PLAIN,
+                _IS_JSON,
+                _IS_JSON_LIKE,
+                _IS_MULTILINE_COUNT,
+                _IS_MULTILINE_PATTERN,
+                _IS_MULTILINE_WHILE,
+            ]:
                 for newline in [b"", b"\n", b"\r\n"]:
                     with self.subTest(
-                        f"testing with newline length {len(newline)} for content type {content_type}",
+                        f"testing with newline length {len(newline)} for content type {content_type} "
+                        f"with length multiplier {length_multiplier}",
                         newline=newline,
                     ):
                         MockContent.init_content(
@@ -83,12 +99,16 @@ class TestPayloadStorage(TestCase):
                         if content_type is _IS_JSON and original.endswith(newline * 2):
                             original_length -= len(newline)
 
-                        payload_storage = PayloadStorage(payload=payload_content_gzip)
+                        payload_storage = PayloadStorage(
+                            payload=payload_content_gzip, multiline_processor=multiline_processor(content_type)
+                        )
                         gzip_full: list[tuple[Union[StorageReader, bytes], int, int, int]] = [
                             (x[0], x[2], x[3], x[4]) for x in payload_storage.get_by_lines(range_start=0)
                         ]
 
-                        payload_storage = PayloadStorage(payload=payload_content_plain)
+                        payload_storage = PayloadStorage(
+                            payload=payload_content_plain, multiline_processor=multiline_processor(content_type)
+                        )
                         plain_full: list[tuple[Union[StorageReader, bytes], int, int, int]] = [
                             (x[0], x[2], x[3], x[4]) for x in payload_storage.get_by_lines(range_start=0)
                         ]
@@ -112,12 +132,17 @@ class TestPayloadStorage(TestCase):
                         plain_full_01 = plain_full[: int(len(plain_full) / 2)]
 
                         range_start = plain_full_01[-1][1]
-                        payload_storage = PayloadStorage(payload=payload_content_gzip)
+
+                        payload_storage = PayloadStorage(
+                            payload=payload_content_gzip, multiline_processor=multiline_processor(content_type)
+                        )
                         gzip_full_02: list[tuple[Union[StorageReader, bytes], int, int, int]] = [
                             (x[0], x[2], x[3], x[4]) for x in payload_storage.get_by_lines(range_start=range_start)
                         ]
 
-                        payload_storage = PayloadStorage(payload=payload_content_plain)
+                        payload_storage = PayloadStorage(
+                            payload=payload_content_plain, multiline_processor=multiline_processor(content_type)
+                        )
                         plain_full_02: list[tuple[Union[StorageReader, bytes], int, int, int]] = [
                             (x[0], x[2], x[3], x[4]) for x in payload_storage.get_by_lines(range_start=range_start)
                         ]
@@ -148,12 +173,17 @@ class TestPayloadStorage(TestCase):
                         plain_full_02 = plain_full_02[: int(len(plain_full_02) / 2)]
 
                         range_start = plain_full_02[-1][1]
-                        payload_storage = PayloadStorage(payload=payload_content_gzip)
+
+                        payload_storage = PayloadStorage(
+                            payload=payload_content_gzip, multiline_processor=multiline_processor(content_type)
+                        )
                         gzip_full_03: list[tuple[Union[StorageReader, bytes], int, int, int]] = [
                             (x[0], x[2], x[3], x[4]) for x in payload_storage.get_by_lines(range_start=range_start)
                         ]
 
-                        payload_storage = PayloadStorage(payload=payload_content_plain)
+                        payload_storage = PayloadStorage(
+                            payload=payload_content_plain, multiline_processor=multiline_processor(content_type)
+                        )
                         plain_full_03: list[tuple[Union[StorageReader, bytes], int, int, int]] = [
                             (x[0], x[2], x[3], x[4]) for x in payload_storage.get_by_lines(range_start=range_start)
                         ]
@@ -184,12 +214,16 @@ class TestPayloadStorage(TestCase):
 
                         range_start = plain_full[-1][1] + random.randint(1, 100)
 
-                        payload_storage = PayloadStorage(payload=payload_content_gzip)
+                        payload_storage = PayloadStorage(
+                            payload=payload_content_gzip, multiline_processor=multiline_processor(content_type)
+                        )
                         gzip_full_empty: list[
                             tuple[Union[StorageReader, bytes], Optional[dict[str, Any]], int, int, int]
                         ] = list(payload_storage.get_by_lines(range_start=range_start))
 
-                        payload_storage = PayloadStorage(payload=payload_content_plain)
+                        payload_storage = PayloadStorage(
+                            payload=payload_content_plain, multiline_processor=multiline_processor(content_type)
+                        )
                         plain_full_empty: list[
                             tuple[Union[StorageReader, bytes], Optional[dict[str, Any]], int, int, int]
                         ] = list(payload_storage.get_by_lines(range_start=range_start))

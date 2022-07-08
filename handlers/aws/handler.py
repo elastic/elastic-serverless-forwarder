@@ -136,7 +136,11 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             current_log_event_n,
             is_last_event_expanded,
         ) in _handle_cloudwatch_logs_event(
-            cloudwatch_logs_event, aws_region, event_input.id, expand_event_list_from_field
+            cloudwatch_logs_event,
+            aws_region,
+            event_input.id,
+            expand_event_list_from_field,
+            event_input.get_multiline_processor(),
         ):
             shared_logger.debug("es_event", extra={"es_event": es_event})
 
@@ -216,7 +220,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             )
 
             for es_event, last_ending_offset in _handle_kinesis_record(
-                kinesis_record, event_input.id, expand_event_list_from_field
+                kinesis_record, event_input.id, expand_event_list_from_field, event_input.get_multiline_processor()
             ):
                 shared_logger.debug("es_event", extra={"es_event": es_event})
 
@@ -379,7 +383,11 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
             if event_input.type == "sqs" or event_input.type == "cloudwatch-logs":
                 for es_event, last_ending_offset, is_last_event_expanded in _handle_sqs_event(
-                    sqs_record, is_continuation_of_cloudwatch_logs, input_id, expand_event_list_from_field
+                    sqs_record,
+                    is_continuation_of_cloudwatch_logs,
+                    input_id,
+                    expand_event_list_from_field,
+                    event_input.get_multiline_processor(),
                 ):
                     timeout, sent_outcome = event_processing(
                         processing_composing_shipper=composite_shipper,
@@ -411,7 +419,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
             elif event_input.type == "s3-sqs":
                 for es_event, last_ending_offset, current_s3_record, is_last_event_expanded in _handle_s3_sqs_event(
-                    sqs_record, event_input.id, expand_event_list_from_field
+                    sqs_record, event_input.id, expand_event_list_from_field, event_input.get_multiline_processor()
                 ):
                     timeout, sent_outcome = event_processing(
                         processing_composing_shipper=composite_shipper,

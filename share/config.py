@@ -6,8 +6,10 @@ from typing import Any, Callable, Optional
 
 import yaml
 
+from .factory import MultilineFactory
 from .include_exlude import IncludeExcludeFilter, IncludeExcludeRule
 from .logger import logger as shared_logger
+from .multiline import ProtocolMultiline
 
 _available_input_types: list[str] = ["cloudwatch-logs", "s3-sqs", "sqs", "kinesis-data-stream"]
 _available_output_types: list[str] = ["elasticsearch"]
@@ -187,10 +189,14 @@ class Input:
     ):
         self.type = input_type
         self.id = input_id
+
         self._tags: list[str] = []
         self._expand_event_list_from_field: str = ""
         self._outputs: dict[str, Output] = {}
+
         self._integration_scope_discoverer = integration_scope_discoverer
+
+        self._multiline_processor: Optional[ProtocolMultiline] = None
         self._include_exclude_filter: Optional[IncludeExcludeFilter] = None
 
     def discover_integration_scope(self, lambda_event: dict[str, Any], at_record: int) -> str:
@@ -308,6 +314,17 @@ class Input:
 
         self._outputs[output.type] = output
 
+    def get_multiline_processor(self) -> Optional[ProtocolMultiline]:
+        return self._multiline_processor
+
+    def add_multiline_processor(self, multiline_type: str, **kwargs: Any) -> None:
+        """
+        Multiline setter.
+        Set a multiline processor given its type and init kwargs
+        """
+
+        self._multiline_processor = MultilineFactory.create(multiline_type=multiline_type, **kwargs)
+
 
 class Config:
     """
@@ -376,6 +393,19 @@ def parse_config(
 
         if "tags" in input_config:
             current_input.tags = input_config["tags"]
+
+        if "multiline" in input_config:
+            if not isinstance(input_config["multiline"], dict):
+                raise ValueError("No valid multiline for input")
+
+            multiline_config = input_config["multiline"]
+            if "type" not in multiline_config or not isinstance(multiline_config["type"], str):
+                raise ValueError("Must be provided str type for multiline")
+
+            multiline_config["multiline_type"] = multiline_config["type"]
+            del multiline_config["type"]
+
+            current_input.add_multiline_processor(**multiline_config)
 
         if "expand_event_list_from_field" in input_config:
             current_input.expand_event_list_from_field = input_config["expand_event_list_from_field"]

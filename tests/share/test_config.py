@@ -8,7 +8,18 @@ from unittest import TestCase
 
 import pytest
 
-from share import Config, ElasticsearchOutput, IncludeExcludeFilter, IncludeExcludeRule, Input, Output, parse_config
+from share import (
+    Config,
+    CountMultiline,
+    ElasticsearchOutput,
+    IncludeExcludeFilter,
+    IncludeExcludeRule,
+    Input,
+    Output,
+    PatternMultiline,
+    WhileMultiline,
+    parse_config,
+)
 
 
 class DummyOutput(Output):
@@ -879,6 +890,59 @@ class TestParseConfig(TestCase):
             """
                 )
 
+        with self.subTest("multiline not valid"):
+            with self.assertRaisesRegex(ValueError, "No valid multiline for input"):
+                parse_config(
+                    config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                multiline: 0
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      es_datastream_name: "es_datastream_name"
+            """
+                )
+
+        with self.subTest("multiline type missing"):
+            with self.assertRaisesRegex(ValueError, "Must be provided str type for multiline"):
+                parse_config(
+                    config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                multiline:
+                  match: after
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      es_datastream_name: "es_datastream_name"
+            """
+                )
+
+        with self.subTest("multiline type not str"):
+            with self.assertRaisesRegex(ValueError, "Must be provided str type for multiline"):
+                parse_config(
+                    config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                multiline:
+                  type: 0
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      es_datastream_name: "es_datastream_name"
+            """
+                )
+
         with self.subTest("valid input valid elasticsearch output with elasticsearch_url and http auth"):
             config = parse_config(
                 config_yaml="""
@@ -1234,6 +1298,183 @@ class TestParseConfig(TestCase):
                           es_datastream_name: "es_datastream_name"
                 """
                 )
+
+        with self.subTest("valid count multiline with default values"):
+            config = parse_config(
+                config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                multiline:
+                  type: count
+                  lines_count: 1
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      es_datastream_name: "es_datastream_name"
+            """
+            )
+
+            input_sqs = config.get_input_by_id(input_id="id")
+            assert input_sqs is not None
+            assert input_sqs.type == "s3-sqs"
+            assert input_sqs.id == "id"
+            assert input_sqs.get_multiline_processor() == CountMultiline(lines_count=1)
+
+        with self.subTest("valid count multiline with custom values"):
+            config = parse_config(
+                config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                multiline:
+                  type: count
+                  lines_count: 1
+                  max_bytes: 1
+                  max_lines: 2
+                  skip_newline: true
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      es_datastream_name: "es_datastream_name"
+            """
+            )
+
+            input_sqs = config.get_input_by_id(input_id="id")
+            assert input_sqs is not None
+            assert input_sqs.type == "s3-sqs"
+            assert input_sqs.id == "id"
+            assert input_sqs.get_multiline_processor() == CountMultiline(
+                lines_count=1,
+                max_bytes=1,
+                max_lines=2,
+                skip_newline=True,
+            )
+
+        with self.subTest("valid pattern multiline with default values"):
+            config = parse_config(
+                config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                multiline:
+                  type: pattern
+                  pattern: "\\\\$"
+                  match: after
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      es_datastream_name: "es_datastream_name"
+            """
+            )
+
+            input_sqs = config.get_input_by_id(input_id="id")
+            assert input_sqs is not None
+            assert input_sqs.type == "s3-sqs"
+            assert input_sqs.id == "id"
+            assert input_sqs.get_multiline_processor() == PatternMultiline(pattern="\\$", match="after")
+
+        with self.subTest("valid pattern multiline with custom values"):
+            config = parse_config(
+                config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                multiline:
+                  type: pattern
+                  pattern: "\\\\$"
+                  match: after
+                  negate: true
+                  flush_pattern: flush_pattern
+                  max_bytes: 1
+                  max_lines: 2
+                  skip_newline: true
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      es_datastream_name: "es_datastream_name"
+            """
+            )
+
+            input_sqs = config.get_input_by_id(input_id="id")
+            assert input_sqs is not None
+            assert input_sqs.type == "s3-sqs"
+            assert input_sqs.id == "id"
+            assert input_sqs.get_multiline_processor() == PatternMultiline(
+                pattern="\\$",
+                match="after",
+                negate=True,
+                flush_pattern="flush_pattern",
+                max_bytes=1,
+                max_lines=2,
+                skip_newline=True,
+            )
+
+        with self.subTest("valid while multiline with default values"):
+            config = parse_config(
+                config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                multiline:
+                  type: while
+                  pattern: "\\\\$"
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      es_datastream_name: "es_datastream_name"
+            """
+            )
+
+            input_sqs = config.get_input_by_id(input_id="id")
+            assert input_sqs is not None
+            assert input_sqs.type == "s3-sqs"
+            assert input_sqs.id == "id"
+            assert input_sqs.get_multiline_processor() == WhileMultiline(pattern="\\$")
+
+        with self.subTest("valid while multiline with custom values"):
+            config = parse_config(
+                config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                multiline:
+                  type: while
+                  pattern: "\\\\$"
+                  negate: true
+                  max_bytes: 1
+                  max_lines: 2
+                  skip_newline: true
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      es_datastream_name: "es_datastream_name"
+            """
+            )
+
+            input_sqs = config.get_input_by_id(input_id="id")
+            assert input_sqs is not None
+            assert input_sqs.type == "s3-sqs"
+            assert input_sqs.id == "id"
+            assert input_sqs.get_multiline_processor() == WhileMultiline(
+                pattern="\\$",
+                negate=True,
+                max_bytes=1,
+                max_lines=2,
+                skip_newline=True,
+            )
 
         with self.subTest("batch_max_actions not default"):
             config = parse_config(

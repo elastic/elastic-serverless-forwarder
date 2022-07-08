@@ -2,9 +2,11 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta
 from io import BytesIO
-from typing import Any, Callable, Iterator, Optional, TypeVar, Union
+from typing import Any, Callable, Iterator, Optional, Protocol, TypeVar, Union
+
+from share import ProtocolMultiline
 
 CHUNK_SIZE: int = 1024
 
@@ -22,37 +24,32 @@ class StorageReader:
         return getattr(self._raw, item)
 
 
-class CommonStorage(metaclass=ABCMeta):
+class ProtocolStorage(Protocol):
     """
-    Abstract class for Storage components
+    Protocol for Storage components
     """
 
-    @abstractmethod
-    def __init__(self, **kwargs: Any):
-        raise NotImplementedError
+    multiline_processor: Optional[ProtocolMultiline]
 
-    @abstractmethod
     def get_by_lines(
         self, range_start: int
     ) -> Iterator[tuple[Union[StorageReader, bytes], Optional[dict[str, Any]], int, int, int]]:
-        """
-        Interface for getting content from storage line by line.
-        Decorators defining the specific meaning of "line" will be applied in concrete implementations.
-        """
+        pass  # pragma: no cover
 
-        raise NotImplementedError
-
-    @abstractmethod
     def get_as_string(self) -> str:
-        """
-        Interface for getting content from storage as string.
-        """
-
-        raise NotImplementedError
+        pass  # pragma: no cover
 
 
-CommonStorageType = TypeVar("CommonStorageType", bound=CommonStorage)
+class CommonStorage(metaclass=ABCMeta):
+    """
+    Common class for Storage components
+    """
+
+    multiline_processor: Optional[ProtocolMultiline] = None
+
+
+ProtocolStorageType = TypeVar("ProtocolStorageType", bound=ProtocolStorage)
 GetByLinesCallable = Callable[
-    [CommonStorageType, int, BytesIO, bool, int],
+    [ProtocolStorageType, int, BytesIO, bool, int],
     Iterator[tuple[Union[StorageReader, bytes], Optional[dict[str, Any]], int, int, int]],
 ]
