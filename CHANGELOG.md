@@ -1,3 +1,7 @@
+### v1.2.0 - 2022/07/11
+##### Features
+* Add support for collecting multiline messages in a single event: [#135](https://github.com/elastic/elastic-serverless-forwarder/pull/135)
+
 ### v1.1.1 - 2022/06/20
 ##### Bug fixes
 * Handle properly gzip content regardless of the content type in S3 storage: [#128](https://github.com/elastic/elastic-serverless-forwarder/pull/128)
