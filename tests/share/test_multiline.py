@@ -1,10 +1,11 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
-
+import datetime
 from typing import Iterator, Optional
 from unittest import TestCase
 
+import mock
 import pytest
 
 from share import CollectBuffer, CountMultiline, PatternMultiline, WhileMultiline
@@ -420,6 +421,47 @@ def test_pattern_multiline(
     assert collected_events == expected_events
 
 
+pattern_multiline_collect_circuitbreaker = [
+    pytest.param(
+        b"\n",
+        b"line1\n  line1.1\n  line1.2\nline2\n  line2.1\n  line2.2\n",
+        [(b"line1", 6), (b"  line1.1", 10), (b"  line1.2", 10), (b"line2", 6), (b"  line2.1", 10), (b"  line2.2", 10)],
+        id="circuit breaker: \n",
+    ),
+    pytest.param(
+        b"\r\n",
+        b"line1\r\n  line1.1\r\n  line1.2\r\nline2\r\n  line2.1\r\n  line2.2\r\n",
+        [(b"line1", 7), (b"  line1.1", 11), (b"  line1.2", 11), (b"line2", 7), (b"  line2.1", 11), (b"  line2.2", 11)],
+        id="circuit breaker: \n",
+    ),
+]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("newline,feed,expected_events", pattern_multiline_collect_circuitbreaker)
+@mock.patch("share.multiline.timedelta_circuit_breaker", new=datetime.timedelta(seconds=0))
+def test_pattern_multiline_circuitbreaker(
+    newline: bytes,
+    feed: bytes,
+    expected_events: list[tuple[bytes, int]],
+) -> None:
+    pattern_multiline: PatternMultiline = PatternMultiline(pattern="^[ \t] +", match="after")
+
+    newline_length: int = len(newline)
+
+    def feed_iterator(content: bytes) -> Iterator[tuple[bytes, bytes, int]]:
+        for line in content.splitlines():
+            yield line, newline, newline_length
+
+    pattern_multiline.feed = feed_iterator(feed)
+
+    collected_events: list[tuple[bytes, int]] = []
+    for event, event_length, _ in pattern_multiline.collect():
+        collected_events.append((event, event_length))
+
+    assert collected_events == expected_events
+
+
 count_multiline_collect = [
     pytest.param(
         b"\n",
@@ -547,6 +589,43 @@ def test_count_multiline(
     assert collected_events == expected_events
 
 
+count_multiline_collect_circuitbreaker = [
+    pytest.param(
+        b"\n",
+        b"line1\n line1.1\nline2\n line2.1\n",
+        [(b"line1", 6), (b" line1.1", 9), (b"line2", 6), (b" line2.1", 9)],
+        id="circuit breaker: \n",
+    ),
+    pytest.param(
+        b"\r\n",
+        b"line1\r\n line1.1\r\nline2\r\n line2.1\r\n",
+        [(b"line1", 7), (b" line1.1", 10), (b"line2", 7), (b" line2.1", 10)],
+        id="circuit breaker: \r\n",
+    ),
+]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("newline,feed,expected_events", count_multiline_collect_circuitbreaker)
+@mock.patch("share.multiline.timedelta_circuit_breaker", new=datetime.timedelta(seconds=0))
+def test_count_multiline_circuitbreaker(newline: bytes, feed: bytes, expected_events: list[tuple[bytes, int]]) -> None:
+    count_multiline: CountMultiline = CountMultiline(lines_count=2)
+
+    newline_length: int = len(newline)
+
+    def feed_iterator(content: bytes) -> Iterator[tuple[bytes, bytes, int]]:
+        for line in content.splitlines():
+            yield line, newline, newline_length
+
+    count_multiline.feed = feed_iterator(feed)
+
+    collected_events: list[tuple[bytes, int]] = []
+    for event, event_length, _ in count_multiline.collect():
+        collected_events.append((event, event_length))
+
+    assert collected_events == expected_events
+
+
 while_multiline_collect = [
     pytest.param(
         b"\n",
@@ -655,6 +734,43 @@ def test_while_multiline(
         max_lines = 5
 
     while_multiline: WhileMultiline = WhileMultiline(pattern=pattern, negate=negate, max_lines=max_lines)
+
+    newline_length: int = len(newline)
+
+    def feed_iterator(content: bytes) -> Iterator[tuple[bytes, bytes, int]]:
+        for line in content.splitlines():
+            yield line, newline, newline_length
+
+    while_multiline.feed = feed_iterator(feed)
+
+    collected_events: list[tuple[bytes, int]] = []
+    for event, event_length, _ in while_multiline.collect():
+        collected_events.append((event, event_length))
+
+    assert collected_events == expected_events
+
+
+while_multiline_collect_circuitbreaker = [
+    pytest.param(
+        b"\n",
+        b"{line1\n{line1.1\nnot matched line\n{line2\n{line2.1\n",
+        [(b"{line1", 7), (b"{line1.1", 9), (b"not matched line", 17), (b"{line2", 7), (b"{line2.1", 9)],
+        id="circuit breaker: \n",
+    ),
+    pytest.param(
+        b"\r\n",
+        b"{line1\r\n{line1.1\r\nnot matched line\r\n{line2\r\n{line2.1\r\n",
+        [(b"{line1", 8), (b"{line1.1", 10), (b"not matched line", 18), (b"{line2", 8), (b"{line2.1", 10)],
+        id="circuit breaker: \r\n",
+    ),
+]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("newline,feed,expected_events", while_multiline_collect_circuitbreaker)
+@mock.patch("share.multiline.timedelta_circuit_breaker", new=datetime.timedelta(seconds=0))
+def test_while_multiline_circuitbreaker(newline: bytes, feed: bytes, expected_events: list[tuple[bytes, int]]) -> None:
+    while_multiline: WhileMultiline = WhileMultiline(pattern="^{")
 
     newline_length: int = len(newline)
 
