@@ -4,4 +4,4 @@ boto3>=1.21,<2
 elasticsearch>=7.16,<7.17
 PyYAML>=6.0,<6.1
 aws_lambda_typing>=2,<3
-ujson>=5.1,<5.4
+ujson>=5.1,<5.5
