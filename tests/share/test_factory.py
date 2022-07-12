@@ -30,17 +30,17 @@ class TestMultilineFactory(TestCase):
             with self.assertRaises(TypeError):
                 MultilineFactory.create(multiline_type="pattern")
 
-        with self.subTest("create while multiline success"):
-            multiline = MultilineFactory.create(multiline_type="while", pattern=".+")
+        with self.subTest("create while_pattern multiline success"):
+            multiline = MultilineFactory.create(multiline_type="while_pattern", pattern=".+")
 
             assert isinstance(multiline, WhileMultiline)
 
-        with self.subTest("create while multiline error"):
+        with self.subTest("create while_pattern multiline error"):
             with self.assertRaises(TypeError):
-                MultilineFactory.create(multiline_type="while")
+                MultilineFactory.create(multiline_type="while_pattern")
 
         with self.subTest("create invalid type"):
             with self.assertRaisesRegex(
-                ValueError, "^You must provide one of the following multiline types: count, pattern, while$"
+                ValueError, "^You must provide one of the following multiline types: count, pattern, while_pattern$"
             ):
                 MultilineFactory.create(multiline_type="invalid type")

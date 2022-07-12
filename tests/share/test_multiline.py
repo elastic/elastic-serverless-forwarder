@@ -790,11 +790,11 @@ def test_while_multiline_circuitbreaker(newline: bytes, feed: bytes, expected_ev
 @pytest.mark.unit
 class TestMultilineEquality(TestCase):
     def test_equality(self) -> None:
-        with self.subTest("count multiline is not equal to while multiline"):
+        with self.subTest("count multiline is not equal to while_pattern multiline"):
             assert not CountMultiline(lines_count=0) == WhileMultiline(pattern="pattern")
 
         with self.subTest("pattern multiline is not equal to count multiline"):
             assert not PatternMultiline(pattern="pattern", match="after") == CountMultiline(lines_count=0)
 
-        with self.subTest("while multiline is not equal to pattern multiline"):
+        with self.subTest("while_pattern multiline is not equal to pattern multiline"):
             assert not WhileMultiline(pattern="pattern") == PatternMultiline(pattern="pattern", match="after")

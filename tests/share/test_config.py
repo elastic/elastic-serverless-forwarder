@@ -1418,14 +1418,14 @@ class TestParseConfig(TestCase):
                 skip_newline=True,
             )
 
-        with self.subTest("valid while multiline with default values"):
+        with self.subTest("valid while_pattern multiline with default values"):
             config = parse_config(
                 config_yaml="""
             inputs:
               - type: s3-sqs
                 id: id
                 multiline:
-                  type: while
+                  type: while_pattern
                   pattern: "\\\\$"
                 outputs:
                   - type: elasticsearch
@@ -1442,14 +1442,14 @@ class TestParseConfig(TestCase):
             assert input_sqs.id == "id"
             assert input_sqs.get_multiline_processor() == WhileMultiline(pattern="\\$")
 
-        with self.subTest("valid while multiline with custom values"):
+        with self.subTest("valid while_pattern multiline with custom values"):
             config = parse_config(
                 config_yaml="""
             inputs:
               - type: s3-sqs
                 id: id
                 multiline:
-                  type: while
+                  type: while_pattern
                   pattern: "\\\\$"
                   negate: true
                   max_bytes: 1

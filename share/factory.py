@@ -13,7 +13,7 @@ _init_definition_by_multiline_type: dict[str, dict[str, Any]] = {
     "pattern": {
         "class": PatternMultiline,
     },
-    "while": {
+    "while_pattern": {
         "class": WhileMultiline,
     },
 }
