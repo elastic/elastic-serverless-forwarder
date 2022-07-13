@@ -34,7 +34,7 @@ class MultilineFactory:
         if multiline_type not in _init_definition_by_multiline_type:
             raise ValueError(
                 "You must provide one of the following multiline types: "
-                + f"{', '.join(_init_definition_by_multiline_type.keys())}"
+                + f"{', '.join(_init_definition_by_multiline_type.keys())}. {multiline_type} given"
             )
 
         multiline_definition = _init_definition_by_multiline_type[multiline_type]

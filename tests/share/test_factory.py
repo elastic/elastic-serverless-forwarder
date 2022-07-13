@@ -41,6 +41,8 @@ class TestMultilineFactory(TestCase):
 
         with self.subTest("create invalid type"):
             with self.assertRaisesRegex(
-                ValueError, "^You must provide one of the following multiline types: count, pattern, while_pattern$"
+                ValueError,
+                "^You must provide one of the following multiline types: "
+                "count, pattern, while_pattern. invalid type given$",
             ):
                 MultilineFactory.create(multiline_type="invalid type")
