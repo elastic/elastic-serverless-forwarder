@@ -13,6 +13,7 @@ This readme file provides initial documentation for the Elastic Serverless Forwa
 - [Using tags](#using-tags)
 - [Defining include/exclude filters](#defining-includeexclude-filters)
 - [Expanding events from list in json object](#expanding-events-from-list-in-json-object)
+- [Manage multiline messages](#manage-multiline-messages)
 - [Routing AWS Service Logs](#routing-aws-service-logs)
 - [Setting up S3 event notifications for SQS](#setting-up-s3-event-notifications-for-sqs)
 - [Troubleshooting and error handling](#troubleshooting-and-error-handling)
