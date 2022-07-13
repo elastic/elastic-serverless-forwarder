@@ -744,9 +744,11 @@ The `flush_pattern` option, specifies a regex at which the current multiline wil
 
 ### Test your regexp pattern for multiline
 
-To make it easier for you to test the regexp patterns in your multiline config, we’ve created a [Go Playground](https://play.golang.org/p/uAd5XHxscu). You can simply plug in the regexp pattern along with the `multiline.negate` setting that you plan to use, and paste a sample message between the content backticks (\` \`). Then click Run, and you’ll see which lines in the message match your specified configuration. For example:
+To make it easier for you to test the regexp patterns in your multiline config, we’ve created a [Multineline Regexp Test](https://replit.com/@AndreaSpacca/Multine-Regexp-Test). You can simplyclick on `Show files`, select `main.py` and plug in the regexp pattern at line `3`, along with the `multiline.negate` setting that you plan to use at line `4`, and paste a sample message between the three double quotes delimiters (`""" """`) at line `5`. Then click Run, and you’ll see which lines in the message match your specified configuration. For example:
 
-![](images/go-playground.png)
+![](multiline-regexp-test-repl-main.png)
+![](multiline-regexp-test-repl-run.png)
+
 
 
 ## Routing AWS Service Logs
