@@ -5,7 +5,7 @@
 import base64
 import random
 import string
-from typing import Optional
+from typing import Any, Optional
 
 import cysimdjson
 import mock
@@ -41,6 +41,31 @@ def json_parser_cysimdjson(payload: bytes) -> None:
 
 def json_parser_simdjson(payload: bytes) -> None:
     simdjson_parser.parse(payload)
+
+
+def get_by_lines_parameters() -> list[tuple[int, str, bytes]]:
+    parameters: list[Any] = []
+    for length_multiplier in [_LENGTH_BELOW_THRESHOLD, _LENGTH_ABOVE_THRESHOLD]:
+        for content_type in [
+            _IS_PLAIN,
+            _IS_JSON,
+            _IS_JSON_LIKE,
+            _IS_MULTILINE_COUNT,
+            _IS_MULTILINE_PATTERN,
+            _IS_MULTILINE_WHILE,
+        ]:
+            for newline in [b"", b"\n", b"\r\n"]:
+                parameters.append(
+                    pytest.param(
+                        length_multiplier,
+                        content_type,
+                        newline,
+                        id=f"newline length {len(newline)} for content type {content_type} "
+                        f"with length multiplier {length_multiplier}",
+                    )
+                )
+
+    return parameters
 
 
 def multiline_processor(content_type: str) -> Optional[ProtocolMultiline]:
