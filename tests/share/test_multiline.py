@@ -469,7 +469,7 @@ count_multiline_collect = [
         2,
         2,
         [(b"line1\n line1.1", 15), (b"line2\n line2.1", 15)],
-        id="lines_count 2, max_lines 2: \n",
+        id="count_lines 2, max_lines 2: \n",
     ),
     pytest.param(
         b"\r\n",
@@ -477,7 +477,7 @@ count_multiline_collect = [
         2,
         2,
         [(b"line1\r\n line1.1", 17), (b"line2\r\n line2.1", 17)],
-        id="lines_count 2, max_lines 2: \r\n",
+        id="count_lines 2, max_lines 2: \r\n",
     ),
     pytest.param(
         b"\n",
@@ -485,7 +485,7 @@ count_multiline_collect = [
         4,
         4,
         [(b"line1\n line1.1\nline2\n line2.1", 30), (b"line3\n line3.1\nline4\n line4.1", 30)],
-        id="lines_count 4, max_lines 4: \n",
+        id="count_lines 4, max_lines 4: \n",
     ),
     pytest.param(
         b"\r\n",
@@ -493,7 +493,7 @@ count_multiline_collect = [
         4,
         4,
         [(b"line1\r\n line1.1\r\nline2\r\n line2.1", 34), (b"line3\r\n line3.1\r\nline4\r\n line4.1", 34)],
-        id="lines_count 4, max_lines 4: \r\n",
+        id="count_lines 4, max_lines 4: \r\n",
     ),
     pytest.param(
         b"\n",
@@ -510,7 +510,7 @@ count_multiline_collect = [
             (b"line4", 6),
             (b"line4.1", 8),
         ],
-        id="lines_count 1, max_lines 1: \n",
+        id="count_lines 1, max_lines 1: \n",
     ),
     pytest.param(
         b"\r\n",
@@ -527,7 +527,7 @@ count_multiline_collect = [
             (b"line4", 7),
             (b"line4.1", 9),
         ],
-        id="lines_count 1, max_lines 1: \r\n",
+        id="count_lines 1, max_lines 1: \r\n",
     ),
     pytest.param(
         b"\n",
@@ -543,7 +543,7 @@ count_multiline_collect = [
             (b"line4\n line4.1", 24),
             (b"line5\n line5.1", 15),
         ],
-        id="lines_count 3, max_lines 2: \n",
+        id="count_lines 3, max_lines 2: \n",
     ),
     pytest.param(
         b"\r\n",
@@ -559,20 +559,20 @@ count_multiline_collect = [
             (b"line4\r\n line4.1", 27),
             (b"line5\r\n line5.1", 17),
         ],
-        id="lines_count 3, max_lines 2: \r\n",
+        id="count_lines 3, max_lines 2: \r\n",
     ),
 ]
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize("newline,feed,lines_count,max_lines,expected_events", count_multiline_collect)
+@pytest.mark.parametrize("newline,feed,count_lines,max_lines,expected_events", count_multiline_collect)
 def test_count_multiline(
-    newline: bytes, feed: bytes, lines_count: int, max_lines: Optional[int], expected_events: list[tuple[bytes, int]]
+    newline: bytes, feed: bytes, count_lines: int, max_lines: Optional[int], expected_events: list[tuple[bytes, int]]
 ) -> None:
     if max_lines is None:
         max_lines = 5
 
-    count_multiline: CountMultiline = CountMultiline(lines_count=lines_count, max_lines=max_lines)
+    count_multiline: CountMultiline = CountMultiline(count_lines=count_lines, max_lines=max_lines)
 
     newline_length: int = len(newline)
 
@@ -609,7 +609,7 @@ count_multiline_collect_circuitbreaker = [
 @pytest.mark.parametrize("newline,feed,expected_events", count_multiline_collect_circuitbreaker)
 @mock.patch("share.multiline.timedelta_circuit_breaker", new=datetime.timedelta(seconds=0))
 def test_count_multiline_circuitbreaker(newline: bytes, feed: bytes, expected_events: list[tuple[bytes, int]]) -> None:
-    count_multiline: CountMultiline = CountMultiline(lines_count=2)
+    count_multiline: CountMultiline = CountMultiline(count_lines=2)
 
     newline_length: int = len(newline)
 
@@ -791,10 +791,10 @@ def test_while_multiline_circuitbreaker(newline: bytes, feed: bytes, expected_ev
 class TestMultilineEquality(TestCase):
     def test_equality(self) -> None:
         with self.subTest("count multiline is not equal to while_pattern multiline"):
-            assert not CountMultiline(lines_count=0) == WhileMultiline(pattern="pattern")
+            assert not CountMultiline(count_lines=0) == WhileMultiline(pattern="pattern")
 
         with self.subTest("pattern multiline is not equal to count multiline"):
-            assert not PatternMultiline(pattern="pattern", match="after") == CountMultiline(lines_count=0)
+            assert not PatternMultiline(pattern="pattern", match="after") == CountMultiline(count_lines=0)
 
         with self.subTest("while_pattern multiline is not equal to pattern multiline"):
             assert not WhileMultiline(pattern="pattern") == PatternMultiline(pattern="pattern", match="after")

@@ -1361,7 +1361,7 @@ class TestParseConfig(TestCase):
                 id: id
                 multiline:
                   type: count
-                  lines_count: 1
+                  count_lines: 1
                 outputs:
                   - type: elasticsearch
                     args:
@@ -1375,7 +1375,7 @@ class TestParseConfig(TestCase):
             assert input_sqs is not None
             assert input_sqs.type == "s3-sqs"
             assert input_sqs.id == "id"
-            assert input_sqs.get_multiline_processor() == CountMultiline(lines_count=1)
+            assert input_sqs.get_multiline_processor() == CountMultiline(count_lines=1)
 
         with self.subTest("valid count multiline with custom values"):
             config = parse_config(
@@ -1385,7 +1385,7 @@ class TestParseConfig(TestCase):
                 id: id
                 multiline:
                   type: count
-                  lines_count: 1
+                  count_lines: 1
                   max_bytes: 1
                   max_lines: 2
                   skip_newline: true
@@ -1403,7 +1403,7 @@ class TestParseConfig(TestCase):
             assert input_sqs.type == "s3-sqs"
             assert input_sqs.id == "id"
             assert input_sqs.get_multiline_processor() == CountMultiline(
-                lines_count=1,
+                count_lines=1,
                 max_bytes=1,
                 max_lines=2,
                 skip_newline=True,

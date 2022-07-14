@@ -144,7 +144,7 @@ class CountMultiline(CommonMultiline):
 
     def __init__(
         self,
-        lines_count: int,
+        count_lines: int,
         max_bytes: int = default_max_bytes,
         max_lines: int = default_max_lines,
         skip_newline: bool = False,
@@ -153,7 +153,7 @@ class CountMultiline(CommonMultiline):
         self._max_lines: int = max_lines
         self._skip_newline: bool = skip_newline
 
-        self._lines_count: int = lines_count
+        self._count_lines: int = count_lines
 
         self._current_count: int = 0
         self._buffer: CollectBuffer = CollectBuffer(max_bytes, max_lines, skip_newline)
@@ -163,7 +163,7 @@ class CountMultiline(CommonMultiline):
             return False
 
         return (
-            self._lines_count == other._lines_count
+            self._count_lines == other._count_lines
             and self._max_bytes == other._max_bytes
             and self._max_lines == self._max_lines
             and self._skip_newline == self._skip_newline
@@ -175,7 +175,7 @@ class CountMultiline(CommonMultiline):
             self._buffer.grow(data, newline)
             self._current_count += 1
             if (
-                self._lines_count == self._current_count
+                self._count_lines == self._current_count
                 or (datetime.datetime.utcnow() - last_iteration_datetime) > timedelta_circuit_breaker
             ):
                 self._current_count = 0

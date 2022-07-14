@@ -546,13 +546,13 @@ The Elastic Serverless Forwarder takes all the lines that do not start with `[` 
     at org.elasticsearch.action.admin.indices.delete.TransportDeleteIndexAction.checkBlock(TransportDeleteIndexAction.java:75)
 ```
 
-*Notes*: beware that we should escape the opening square bracket (`[`) in the regular expression, since it has a special meaning as metacharacters used for specifying a character class, which is a set of characters that you wish to match. Then we have to escape the backslash (`\`) used for escaping the opening square bracket since is we are not using raw string. The final result `^\\[` will produce the regular expression to be compiled properly.
+*Notes*: beware that we should escape the opening square bracket (`[`) in the regular expression, since it has a special meaning as metacharacters used for specifying a character class, which is a set of characters that you wish to match. Then we have to escape the backslash (`\`) used for escaping the opening square bracket since we are not using raw string. The final result `^\\[` will produce the regular expression to be compiled properly.
 
 `inputs.[].multiline.type` defines which aggregation method to use. The default is `pattern`. The other options are `count` which lets you aggregate constant number of lines and `while_pattern` which aggregate lines by pattern without match option.
 
-`inputs.[].multiline.pattern` differs somewhat from the patterns supported by Logstash. See [Python's 3.9 regular expression syntax](https://docs.python.org/3.9/library/re.html#regular-expression-syntax) for a list of supported regexp patterns. Depending on how you configure other multiline options, lines that match the specified regular expression are considered either continuations of a previous line or the start of a new multiline event. You can set the `negate` option to negate the pattern.
+`inputs.[].multiline.pattern` differs somewhat from the patterns supported by Logstash. See [Python's 3.9 regular expression syntax](https://docs.python.org/3.9/library/re.html#regular-expression-syntax) for a list of supported regexp patterns. Depending on how you configure other multiline options, lines that match the specified regular expression are considered either continuations of a previous line or the start of a new multiline event. You can set the `negate` option to negate the pattern. Works only with `pattern` and `while_pattern` types.
 
-`inputs.[].multiline.negate`: defines whether the pattern is negated. The default is `false`.
+`inputs.[].multiline.negate`: defines whether the pattern is negated. The default is `false`. Works only with `pattern` and `while_pattern` types.
 
 `inputs.[].multiline.match`:
 <table>
@@ -598,15 +598,20 @@ The Elastic Serverless Forwarder takes all the lines that do not start with `[` 
 </tbody>
 </table>
 
-**Notes**: the `after` setting is equivalent to `previous` in [Logstash](https://www.elastic.co/guide/en/logstash/current/plugins-codecs-multiline.html), and `before` is equivalent to `next`.
+Works only with `pattern` type.
 
-`inputs.[].multiline.flush_pattern` specifies a regular expression, in which the current multiline will be flushed from memory, ending the multiline-message. Work only with `pattern` type.
+*Notes*: the `after` setting is equivalent to `previous` in [Logstash](https://www.elastic.co/guide/en/logstash/current/plugins-codecs-multiline.html), and `before` is equivalent to `next`.
 
-`inputs.[].multiline.max_lines` defines the maximum number of lines that can be combined into one event. If the multiline message contains more than `max_lines`, any additional lines are discarded. The default is 500.
+`inputs.[].multiline.flush_pattern` specifies a regular expression, in which the current multiline will be flushed from memory, ending the multiline-message. Works only with `pattern` type.
 
-`inputs.[].multiline.count_lines` defines the number of lines to aggregate into a single event.
+`inputs.[].multiline.max_lines` defines the maximum number of lines that can be combined into one event. If the multiline message contains more than `max_lines`, any additional lines are truncated from the event. The default is `500`.
 
-`inputs.[].multiline.skip_newline`: when set, multiline events are concatenated without a line separator.
+`inputs.[].multiline.max_bytes` defines the maximum number of bytes that can be combined into one event. If the multiline message contains more than `max_bytes`, any additional content is truncated from the event. The default is `10485760`.
+
+
+`inputs.[].multiline.count_lines` defines the number of lines to aggregate into a single event. Works only with `count` type.
+
+`inputs.[].multiline.skip_newline` defined whether multiline events must be concatenated stripping the line separator. If set to `true`, the line separator will be stripped. The default is `false`.
 
 ### Examples of multiline configuration
 
@@ -684,7 +689,7 @@ multiline:
 
 This configuration merges any line that ends with the `\` character with the line that follows.
 
-*Notes*: beware that we should escape the backslash we want to match a string literals (`\`) twice, since is we are not using raw string. The final result `\\\\$` will produce the regular expression to be compiled properly.
+*Notes*: beware that we should escape the backslash we want to match a string literals (`\`) twice, since we are not using raw string. The final result `\\\\$` will produce the regular expression to be compiled properly.
 
 
 **Timestamps**
@@ -706,7 +711,7 @@ multiline:
 
 This configuration uses the `negate: true` and `match: after` settings to specify that any line that does not match the specified pattern belongs to the previous line.
 
-*Notes*: beware that we should escape the first opening square bracket (`[`) in the regular expression, since it has a special meaning as metacharacters used for specifying a character class, which is a set of characters that you wish to match (as used further in the same regular expression). Then we have to escape the backslash (`\`) used for escaping the opening square bracket since is we are not using raw string. The final result `^\\[` will produce the regular expression to be compiled properly.
+*Notes*: beware that we should escape the first opening square bracket (`[`) in the regular expression, since it has a special meaning as metacharacters used for specifying a character class, which is a set of characters that you wish to match (as used further in the same regular expression). Then we have to escape the backslash (`\`) used for escaping the opening square bracket since we are not using raw string. The final result `^\\[` will produce the regular expression to be compiled properly.
 
 **Application events**
 

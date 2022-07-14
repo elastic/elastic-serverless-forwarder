@@ -13,7 +13,7 @@ from share import CountMultiline, MultilineFactory, PatternMultiline, WhileMulti
 class TestMultilineFactory(TestCase):
     def test_create(self) -> None:
         with self.subTest("create count multiline success"):
-            multiline = MultilineFactory.create(multiline_type="count", lines_count=1)
+            multiline = MultilineFactory.create(multiline_type="count", count_lines=1)
 
             assert isinstance(multiline, CountMultiline)
 

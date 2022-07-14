@@ -46,7 +46,7 @@ def json_parser_simdjson(payload: bytes) -> None:
 def multiline_processor(content_type: str) -> Optional[ProtocolMultiline]:
     processor: Optional[ProtocolMultiline] = None
     if content_type == _IS_MULTILINE_COUNT:
-        processor = CountMultiline(lines_count=3)
+        processor = CountMultiline(count_lines=3)
     elif content_type == _IS_MULTILINE_PATTERN:
         processor = PatternMultiline(pattern="MultilineStart", match="after", negate=True, flush_pattern="\\\\$")
     elif content_type == _IS_MULTILINE_WHILE:
