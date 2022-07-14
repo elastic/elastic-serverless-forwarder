@@ -3,7 +3,7 @@ pytest>=7.0,<7.2
 pytest-cov>=3.0,<3.1
 pytest-benchmark>=3.4,<3.5
 coverage>=6.3,<6.5
-localstack[runtime]>=0.12.19,<1.1
+localstack[runtime]>=1.0,<1.1
 docker==5.0.0
 simplejson>=3.17,<3.18
 orjson>=3.6,<3.8
