@@ -552,51 +552,16 @@ The Elastic Serverless Forwarder takes all the lines that do not start with `[` 
 
 `inputs.[].multiline.pattern` differs somewhat from the patterns supported by Logstash. See [Python's 3.9 regular expression syntax](https://docs.python.org/3.9/library/re.html#regular-expression-syntax) for a list of supported regexp patterns. Depending on how you configure other multiline options, lines that match the specified regular expression are considered either continuations of a previous line or the start of a new multiline event. You can set the `negate` option to negate the pattern. Works only with `pattern` and `while_pattern` types.
 
-`inputs.[].multiline.negate`: defines whether the pattern is negated. The default is `false`. Works only with `pattern` and `while_pattern` types.
+`inputs.[].multiline.negate` defines whether the pattern is negated. The default is `false`. Works only with `pattern` and `while_pattern` types.
 
-`inputs.[].multiline.match`:
-<table>
-<colgroup>
-<col style="width: 25%" />
-<col style="width: 25%" />
-<col style="width: 25%" />
-<col style="width: 25%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th style="text-align: left;">Setting for <code>negate</code></th>
-<th style="text-align: left;">Setting for <code>match</code></th>
-<th style="text-align: left;">Result</th>
-<th style="text-align: left;">Example <code>pattern: ^b</code></th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td style="text-align: left;"><p><code>false</code></p></td>
-<td style="text-align: left;"><p><code>after</code></p></td>
-<td style="text-align: left;"><p>Consecutive lines that match the pattern are appended to the previous line that doesn’t match.</p></td>
-<td style="text-align: left;"><p><img src="https://github.com/elastic/elastic-serverless-forwarder/raw/lambda-v1.2.0/docs/false-after-multi.png" alt="Lines a b b c b b become &quot;abb&quot; and &quot;cbb&quot;" /></p></td>
-</tr>
-<tr class="even">
-<td style="text-align: left;"><p><code>false</code></p></td>
-<td style="text-align: left;"><p><code>before</code></p></td>
-<td style="text-align: left;"><p>Consecutive lines that match the pattern are prepended to the next line that doesn’t match.</p></td>
-<td style="text-align: left;"><p><img src="https://github.com/elastic/elastic-serverless-forwarder/raw/lambda-v1.2.0/docs/false-before-multi.png" alt="Lines b b a b b c become &quot;bba&quot; and &quot;bbc&quot;" /></p></td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;"><p><code>true</code></p></td>
-<td style="text-align: left;"><p><code>after</code></p></td>
-<td style="text-align: left;"><p>Consecutive lines that don’t match the pattern are appended to the previous line that does match.</p></td>
-<td style="text-align: left;"><p><img src="https://github.com/elastic/elastic-serverless-forwarder/raw/lambda-v1.2.0/docs/true-after-multi.png" alt="Lines b a c b d e become &quot;bac&quot; and &quot;bde&quot;" /></p></td>
-</tr>
-<tr class="even">
-<td style="text-align: left;"><p><code>true</code></p></td>
-<td style="text-align: left;"><p><code>before</code></p></td>
-<td style="text-align: left;"><p>Consecutive lines that don’t match the pattern are prepended to the next line that does match.</p></td>
-<td style="text-align: left;"><p><img src="https://github.com/elastic/elastic-serverless-forwarder/raw/lambda-v1.2.0/docs/true-before-multi.png" alt="Lines a c b d e b become &quot;acb&quot; and &quot;deb&quot;" /></p></td>
-</tr>
-</tbody>
-</table>
+`inputs.[].multiline.match` changes the grouping of multiple lines according to the schema below:
+
+| Setting for `negate`       | Setting for `match` | Result                                                                                            | Example `pattern: ^b`                                                                                                                             |
+|----------------------------|---------------------|---------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
+ | `false`                    | `after`             | Consecutive lines that match the pattern are appended to the previous line that doesn’t match.    | ![Lines a b b c b b become "abb" and "cbb"](https://github.com/elastic/elastic-serverless-forwarder/raw/lambda-v1.2.0/docs/false-after-multi.png) |
+ | `false`                    | `before`             | Consecutive lines that match the pattern are prepended to the next line that doesn’t match.       | ![Lines b b a b b c become "bba" and "bbc"](https://github.com/elastic/elastic-serverless-forwarder/raw/lambda-v1.2.0/docs/false-before-multi.png) |
+ | `true`                     | `after`             | Consecutive lines that don’t match the pattern are appended to the previous line that does match. | ![Lines b a c b d e become "bac" and "bde"](https://github.com/elastic/elastic-serverless-forwarder/raw/lambda-v1.2.0/docs/true-after-multi.png)  |
+ | `false`                    | `before`             | Consecutive lines that don’t match the pattern are prepended to the next line that does match.    | ![Lines a c b d e b become "acb" and "deb"](https://github.com/elastic/elastic-serverless-forwarder/raw/lambda-v1.2.0/docs/true-before-multi.png) |
 
 Works only with `pattern` type.
 
