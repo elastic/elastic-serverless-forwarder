@@ -4,17 +4,20 @@
 
 import datetime
 from copy import deepcopy
-from typing import Any, Iterator
+from typing import Any, Iterator, Optional
 
-from share import ExpandEventListFromField, shared_logger
-from storage import CommonStorage, StorageFactory
+from share import ExpandEventListFromField, ProtocolMultiline, shared_logger
+from storage import ProtocolStorage, StorageFactory
 
 from .event import _default_event
 from .utils import get_account_id_from_arn, get_kinesis_stream_name_type_and_region_from_arn
 
 
 def _handle_kinesis_record(
-    kinesis_record: dict[str, Any], input_id: str, expand_event_list_from_field: ExpandEventListFromField
+    kinesis_record: dict[str, Any],
+    input_id: str,
+    expand_event_list_from_field: ExpandEventListFromField,
+    multiline_processor: Optional[ProtocolMultiline],
 ) -> Iterator[tuple[dict[str, Any], int]]:
     """
     Handler for kinesis data stream inputs.
@@ -23,7 +26,9 @@ def _handle_kinesis_record(
     """
     account_id = get_account_id_from_arn(input_id)
 
-    storage: CommonStorage = StorageFactory.create(storage_type="payload", payload=kinesis_record["kinesis"]["data"])
+    storage: ProtocolStorage = StorageFactory.create(
+        storage_type="payload", payload=kinesis_record["kinesis"]["data"], multiline_processor=multiline_processor
+    )
 
     stream_type, stream_name, aws_region = get_kinesis_stream_name_type_and_region_from_arn(
         kinesis_record["eventSourceARN"]

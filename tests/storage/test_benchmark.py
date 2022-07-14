@@ -5,6 +5,7 @@
 import base64
 import random
 import string
+from typing import Any, Optional
 
 import cysimdjson
 import mock
@@ -16,6 +17,7 @@ import simdjson
 import simplejson
 import ujson
 
+from share import CountMultiline, PatternMultiline, ProtocolMultiline, WhileMultiline
 from storage import PayloadStorage
 
 _LENGTH_BELOW_THRESHOLD: int = 40
@@ -25,6 +27,9 @@ _LENGTH_1M: int = 1024**2
 _IS_PLAIN: str = "_IS_PLAIN"
 _IS_JSON: str = "_IS_JSON"
 _IS_JSON_LIKE: str = "_IS_JSON_LIKE"
+_IS_MULTILINE_COUNT: str = "_IS_MULTILINE_COUNT"
+_IS_MULTILINE_PATTERN: str = "_IS_MULTILINE_PATTERN"
+_IS_MULTILINE_WHILE: str = "_IS_MULTILINE_WHILE"
 
 cysimdjson_parser = cysimdjson.JSONParser()
 simdjson_parser = simdjson.Parser()
@@ -36,6 +41,43 @@ def json_parser_cysimdjson(payload: bytes) -> None:
 
 def json_parser_simdjson(payload: bytes) -> None:
     simdjson_parser.parse(payload)
+
+
+def get_by_lines_parameters() -> list[tuple[int, str, bytes]]:
+    parameters: list[Any] = []
+    for length_multiplier in [_LENGTH_BELOW_THRESHOLD, _LENGTH_ABOVE_THRESHOLD]:
+        for content_type in [
+            _IS_PLAIN,
+            _IS_JSON,
+            _IS_JSON_LIKE,
+            _IS_MULTILINE_COUNT,
+            _IS_MULTILINE_PATTERN,
+            _IS_MULTILINE_WHILE,
+        ]:
+            for newline in [b"", b"\n", b"\r\n"]:
+                parameters.append(
+                    pytest.param(
+                        length_multiplier,
+                        content_type,
+                        newline,
+                        id=f"newline length {len(newline)} for content type {content_type} "
+                        f"with length multiplier {length_multiplier}",
+                    )
+                )
+
+    return parameters
+
+
+def multiline_processor(content_type: str) -> Optional[ProtocolMultiline]:
+    processor: Optional[ProtocolMultiline] = None
+    if content_type == _IS_MULTILINE_COUNT:
+        processor = CountMultiline(count_lines=3)
+    elif content_type == _IS_MULTILINE_PATTERN:
+        processor = PatternMultiline(pattern="MultilineStart", match="after", negate=True, flush_pattern="\\\\$")
+    elif content_type == _IS_MULTILINE_WHILE:
+        processor = WhileMultiline(pattern="MultilineStart", negate=True)
+
+    return processor
 
 
 class MockContentBase:
@@ -69,6 +111,14 @@ class MockContentBase:
                     + newline
                     + b"}"
                 )
+            elif content_type.startswith("_IS_MULTILINE"):
+                mock_content = (
+                    b"MultilineStart"
+                    + "".join(random.choices(string.ascii_letters + string.digits, k=random.randint(1, 20))).encode(
+                        "utf-8"
+                    )
+                    + b"\\"
+                )
             else:
                 mock_content = "".join(
                     random.choices(string.ascii_letters + string.digits, k=random.randint(1, 20))
@@ -99,6 +149,20 @@ class MockContentBase:
                         for _ in range(1, int(length_multiplier / 2))
                     ]
                 )
+            elif content_type.startswith("_IS_MULTILINE"):
+                # every line is from 0 to 20 chars, repeated for length_multiplier
+                mock_content = newline.join(
+                    [
+                        b"MultilineStart"
+                        + newline
+                        + "".join(random.choices(string.ascii_letters + string.digits, k=random.randint(0, 20))).encode(
+                            "utf-8"
+                        )
+                        + newline
+                        + b"\\\\"
+                        for _ in range(1, length_multiplier)
+                    ]
+                )
             else:
                 # every line is from 0 to 20 chars, repeated for length_multiplier
                 mock_content = newline + newline.join(
@@ -124,7 +188,7 @@ class Setup:
 
 
 def wrap(payload: str) -> int:
-    payload_storage = PayloadStorage(payload=payload)
+    payload_storage = PayloadStorage(payload=payload, multiline_processor=None)
     lines = payload_storage.get_by_lines(range_start=0)
     last_length: int = 0
     for line in lines:

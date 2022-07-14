@@ -11,8 +11,8 @@ from urllib.parse import unquote_plus
 import elasticapm
 from botocore.client import BaseClient as BotoBaseClient
 
-from share import ExpandEventListFromField, shared_logger
-from storage import CommonStorage, StorageFactory
+from share import ExpandEventListFromField, ProtocolMultiline, shared_logger
+from storage import ProtocolStorage, StorageFactory
 
 from .event import _default_event
 from .utils import get_account_id_from_arn, get_bucket_name_from_arn
@@ -55,7 +55,10 @@ def _handle_s3_sqs_continuation(
 
 
 def _handle_s3_sqs_event(
-    sqs_record: dict[str, Any], input_id: str, expand_event_list_from_field: ExpandEventListFromField
+    sqs_record: dict[str, Any],
+    input_id: str,
+    expand_event_list_from_field: ExpandEventListFromField,
+    multiline_processor: Optional[ProtocolMultiline],
 ) -> Iterator[tuple[dict[str, Any], int, int, bool]]:
     """
     Handler for s3-sqs input.
@@ -76,8 +79,8 @@ def _handle_s3_sqs_event(
         assert len(object_key) > 0
 
         bucket_name: str = get_bucket_name_from_arn(bucket_arn)
-        storage: CommonStorage = StorageFactory.create(
-            storage_type="s3", bucket_name=bucket_name, object_key=object_key
+        storage: ProtocolStorage = StorageFactory.create(
+            storage_type="s3", bucket_name=bucket_name, object_key=object_key, multiline_processor=multiline_processor
         )
 
         shared_logger.info(

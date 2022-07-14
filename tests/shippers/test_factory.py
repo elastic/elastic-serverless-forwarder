@@ -6,13 +6,13 @@ import re
 from unittest import TestCase
 
 from share import ElasticsearchOutput, Output
-from shippers import CommonShipper, ElasticsearchShipper, ShipperFactory
+from shippers import ElasticsearchShipper, ProtocolShipper, ShipperFactory
 
 
 class TestShipperFactory(TestCase):
     def test_create(self) -> None:
         with self.subTest("create elasticsearch shipper success elasticsearch_url and http auth"):
-            shipper: CommonShipper = ShipperFactory.create(
+            shipper: ProtocolShipper = ShipperFactory.create(
                 output_type="elasticsearch",
                 elasticsearch_url="elasticsearch_url",
                 username="username",
@@ -96,7 +96,7 @@ class TestShipperFactory(TestCase):
                 )
 
         with self.subTest("create from output elasticsearch shipper success"):
-            shipper: CommonShipper = ShipperFactory.create_from_output(
+            shipper: ProtocolShipper = ShipperFactory.create_from_output(
                 output_type=elasticsearch_output.type, output=elasticsearch_output
             )
 

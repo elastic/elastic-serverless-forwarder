@@ -64,6 +64,6 @@ class TestStorageFactory(TestCase):
 
         with self.subTest("create invalid type"):
             with self.assertRaisesRegex(
-                ValueError, re.escape("You must provide one of the following " + "storage types: s3")
+                ValueError, "^You must provide one of the following storage types: s3, payload$"
             ):
                 StorageFactory.create(storage_type="invalid type")

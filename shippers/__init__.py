@@ -9,7 +9,8 @@ from .shipper import (
     EVENT_IS_EMPTY,
     EVENT_IS_FILTERED,
     EVENT_IS_SENT,
-    CommonShipper,
     EventIdGeneratorCallable,
+    ProtocolShipper,
+    ProtocolShipperType,
     ReplayHandlerCallable,
 )

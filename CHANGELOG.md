@@ -1,3 +1,7 @@
+### v1.2.0 - 2022/07/11
+##### Features
+* Add support for collecting multiline messages in a single event: [#135](https://github.com/elastic/elastic-serverless-forwarder/pull/135)
+
 ### v1.1.2 - 2022/06/24
 ##### Bug fixes
 * Handle proper ARN format for CloudWatch Logs Log Group in the macro, as received from `ElasticServerlessForwarderCloudWatchLogsEvents` CloudFormation Parameter : [#130](https://github.com/elastic/elastic-serverless-forwarder/pull/130)
