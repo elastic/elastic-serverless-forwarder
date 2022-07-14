@@ -575,25 +575,25 @@ The Elastic Serverless Forwarder takes all the lines that do not start with `[` 
 <td style="text-align: left;"><p><code>false</code></p></td>
 <td style="text-align: left;"><p><code>after</code></p></td>
 <td style="text-align: left;"><p>Consecutive lines that match the pattern are appended to the previous line that doesn’t match.</p></td>
-<td style="text-align: left;"><p><img src="https://raw.githubusercontent.com/elastic/beats/v8.3.2/filebeat/docs/images/false-before-multi.png" alt="Lines a b b c b b become &quot;abb&quot; and &quot;cbb&quot;" /></p></td>
+<td style="text-align: left;"><p><img src="https://github.com/elastic/elastic-serverless-forwarder/raw/lambda-v1.2.0/docs/false-after-multi.png" alt="Lines a b b c b b become &quot;abb&quot; and &quot;cbb&quot;" /></p></td>
 </tr>
 <tr class="even">
 <td style="text-align: left;"><p><code>false</code></p></td>
 <td style="text-align: left;"><p><code>before</code></p></td>
 <td style="text-align: left;"><p>Consecutive lines that match the pattern are prepended to the next line that doesn’t match.</p></td>
-<td style="text-align: left;"><p><img src="https://raw.githubusercontent.com/elastic/beats/v8.3.2/filebeat/docs/images/true-after-multi.png" alt="Lines b b a b b c become &quot;bba&quot; and &quot;bbc&quot;" /></p></td>
+<td style="text-align: left;"><p><img src="https://github.com/elastic/elastic-serverless-forwarder/raw/lambda-v1.2.0/docs/false-before-multi.png" alt="Lines b b a b b c become &quot;bba&quot; and &quot;bbc&quot;" /></p></td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;"><p><code>true</code></p></td>
 <td style="text-align: left;"><p><code>after</code></p></td>
 <td style="text-align: left;"><p>Consecutive lines that don’t match the pattern are appended to the previous line that does match.</p></td>
-<td style="text-align: left;"><p><img src="https://raw.githubusercontent.com/elastic/beats/v8.3.2/filebeat/docs/images/true-after-multi.png" alt="Lines b a c b d e become &quot;bac&quot; and &quot;bde&quot;" /></p></td>
+<td style="text-align: left;"><p><img src="https://github.com/elastic/elastic-serverless-forwarder/raw/lambda-v1.2.0/docs/true-after-multi.png" alt="Lines b a c b d e become &quot;bac&quot; and &quot;bde&quot;" /></p></td>
 </tr>
 <tr class="even">
 <td style="text-align: left;"><p><code>true</code></p></td>
 <td style="text-align: left;"><p><code>before</code></p></td>
 <td style="text-align: left;"><p>Consecutive lines that don’t match the pattern are prepended to the next line that does match.</p></td>
-<td style="text-align: left;"><p><img src="https://raw.githubusercontent.com/elastic/beats/v8.3.2/filebeat/docs/images/true-before-multi.png" alt="Lines a c b d e b become &quot;acb&quot; and &quot;deb&quot;" /></p></td>
+<td style="text-align: left;"><p><img src="https://github.com/elastic/elastic-serverless-forwarder/raw/lambda-v1.2.0/docs/true-before-multi.png" alt="Lines a c b d e b become &quot;acb&quot; and &quot;deb&quot;" /></p></td>
 </tr>
 </tbody>
 </table>
@@ -747,8 +747,8 @@ The `flush_pattern` option, specifies a regex at which the current multiline wil
 
 To make it easier for you to test the regexp patterns in your multiline config, we’ve created a [Multineline Regexp Test](https://replit.com/@AndreaSpacca/Multine-Regexp-Test#main.py). You can simply plug in the regexp pattern at line `3`, along with the `multiline.negate` setting that you plan to use at line `4`, and paste a sample message between the three double quotes delimiters (`""" """`) at line `5`. Then click `Run`, and you’ll see which lines in the message match your specified configuration. For example:
 
-![](multiline-regexp-test-repl-main.png)
-![](multiline-regexp-test-repl-run.png)
+![](https://github.com/elastic/elastic-serverless-forwarder/raw/lambda-v1.2.0/docs/multiline-regexp-test-repl-main.png)
+![](https://github.com/elastic/elastic-serverless-forwarder/raw/lambda-v1.2.0/docs/multiline-regexp-test-repl-run.png)
 
 
 
