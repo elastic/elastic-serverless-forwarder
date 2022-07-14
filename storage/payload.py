@@ -7,9 +7,9 @@ import gzip
 from io import SEEK_SET, BytesIO
 from typing import Any, Iterator, Optional, Union
 
-from share import shared_logger
+from share import ProtocolMultiline, shared_logger
 
-from .decorator import JsonCollector, by_lines, inflate
+from .decorator import JsonCollector, by_lines, inflate, multi_line
 from .storage import CHUNK_SIZE, CommonStorage, StorageReader
 
 
@@ -20,9 +20,11 @@ class PayloadStorage(CommonStorage):
     The payload might be base64 and gzip encoded
     """
 
-    def __init__(self, payload: str):
+    def __init__(self, payload: str, multiline_processor: Optional[ProtocolMultiline]):
         self._payload: str = payload
+        self.multiline_processor = multiline_processor
 
+    @multi_line
     @JsonCollector
     @by_lines
     @inflate

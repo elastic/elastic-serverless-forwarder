@@ -5,12 +5,12 @@
 import datetime
 import json
 from copy import deepcopy
-from typing import Any, Iterator
+from typing import Any, Iterator, Optional
 
 from botocore.client import BaseClient as BotoBaseClient
 
-from share import ExpandEventListFromField, shared_logger
-from storage import CommonStorage, StorageFactory
+from share import ExpandEventListFromField, ProtocolMultiline, shared_logger
+from storage import ProtocolStorage, StorageFactory
 
 from .event import _default_event
 from .utils import get_account_id_from_arn
@@ -20,7 +20,7 @@ def _from_awslogs_data_to_event(awslogs_data: str) -> Any:
     """
     Returns cloudwatch logs event from base64 encoded and gzipped payload
     """
-    storage: CommonStorage = StorageFactory.create(storage_type="payload", payload=awslogs_data)
+    storage: ProtocolStorage = StorageFactory.create(storage_type="payload", payload=awslogs_data)
     cloudwatch_logs_payload_plain = storage.get_as_string()
     return json.loads(cloudwatch_logs_payload_plain)
 
@@ -72,7 +72,11 @@ def _handle_cloudwatch_logs_continuation(
 
 
 def _handle_cloudwatch_logs_event(
-    event: dict[str, Any], aws_region: str, input_id: str, expand_event_list_from_field: ExpandEventListFromField
+    event: dict[str, Any],
+    aws_region: str,
+    input_id: str,
+    expand_event_list_from_field: ExpandEventListFromField,
+    multiline_processor: Optional[ProtocolMultiline],
 ) -> Iterator[tuple[dict[str, Any], int, int, bool]]:
     """
     Handler for cloudwatch logs inputs.
@@ -90,8 +94,8 @@ def _handle_cloudwatch_logs_event(
     for cloudwatch_log_event_n, cloudwatch_log_event in enumerate(event["logEvents"]):
         event_id = cloudwatch_log_event["id"]
 
-        storage_message: CommonStorage = StorageFactory.create(
-            storage_type="payload", payload=cloudwatch_log_event["message"]
+        storage_message: ProtocolStorage = StorageFactory.create(
+            storage_type="payload", payload=cloudwatch_log_event["message"], multiline_processor=multiline_processor
         )
 
         events = storage_message.get_by_lines(

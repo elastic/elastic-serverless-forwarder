@@ -5,4 +5,4 @@
 from .factory import StorageFactory
 from .payload import PayloadStorage
 from .s3 import S3Storage
-from .storage import CHUNK_SIZE, CommonStorage, StorageReader
+from .storage import ProtocolStorage, StorageReader

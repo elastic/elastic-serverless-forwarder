@@ -10,13 +10,13 @@ from .shipper import (
     EVENT_IS_EMPTY,
     EVENT_IS_FILTERED,
     EVENT_IS_SENT,
-    CommonShipper,
     EventIdGeneratorCallable,
+    ProtocolShipper,
     ReplayHandlerCallable,
 )
 
 
-class CompositeShipper(CommonShipper):
+class CompositeShipper:
     """
     Composite Shipper.
     This class implements composite pattern for shippers
@@ -24,7 +24,7 @@ class CompositeShipper(CommonShipper):
 
     def __init__(self, **kwargs: Any):
         self._integration_scope: str = ""
-        self._shippers: list[CommonShipper] = []
+        self._shippers: list[ProtocolShipper] = []
         self._include_exclude_filter: Optional[IncludeExcludeFilter] = None
 
     def add_include_exclude_filter(self, include_exclude_filter: Optional[IncludeExcludeFilter]) -> None:
@@ -34,7 +34,7 @@ class CompositeShipper(CommonShipper):
         """
         self._include_exclude_filter = include_exclude_filter
 
-    def add_shipper(self, shipper: CommonShipper) -> None:
+    def add_shipper(self, shipper: ProtocolShipper) -> None:
         """
         Shipper setter.
         Add a shipper to the composite

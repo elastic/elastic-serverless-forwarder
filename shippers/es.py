@@ -10,13 +10,13 @@ from elasticsearch.helpers import bulk as es_bulk
 
 from share import shared_logger
 
-from .shipper import CommonShipper, EventIdGeneratorCallable, ReplayHandlerCallable
+from .shipper import EventIdGeneratorCallable, ReplayHandlerCallable
 
 _EVENT_BUFFERED = "_EVENT_BUFFERED"
 _EVENT_SENT = "_EVENT_SENT"
 
 
-class ElasticsearchShipper(CommonShipper):
+class ElasticsearchShipper:
     """
     Elasticsearch Shipper.
     This class implements concrete Elasticsearch Shipper

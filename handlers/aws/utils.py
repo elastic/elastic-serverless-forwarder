@@ -16,7 +16,7 @@ from elasticapm.contrib.serverless.aws import capture_serverless as apm_capture_
 
 from share import Input, Output, shared_logger
 from shippers import CompositeShipper, ElasticsearchShipper, ShipperFactory
-from storage import CommonStorage, StorageFactory
+from storage import ProtocolStorage, StorageFactory
 
 from .exceptions import (
     ConfigFileException,
@@ -212,7 +212,7 @@ def config_yaml_from_s3() -> str:
     bucket_name, object_key = from_s3_uri_to_bucket_name_and_object_key(config_file)
     shared_logger.info("config file", extra={"bucket_name": bucket_name, "object_key": object_key})
 
-    config_storage: CommonStorage = StorageFactory.create(
+    config_storage: ProtocolStorage = StorageFactory.create(
         storage_type="s3", bucket_name=bucket_name, object_key=object_key
     )
 

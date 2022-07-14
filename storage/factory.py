@@ -3,11 +3,13 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 import json
-from typing import Any, Callable
+from typing import Any, Callable, Optional
+
+from share import ProtocolMultiline
 
 from .payload import PayloadStorage
 from .s3 import S3Storage
-from .storage import CommonStorage
+from .storage import ProtocolStorage
 
 _init_definition_by_storage_type: dict[str, dict[str, Any]] = {
     "s3": {"class": S3Storage, "kwargs": ["bucket_name", "object_key"]},
@@ -22,7 +24,9 @@ class StorageFactory:
     """
 
     @staticmethod
-    def create(storage_type: str, **kwargs: Any) -> CommonStorage:
+    def create(
+        storage_type: str, multiline_processor: Optional[ProtocolMultiline] = None, **kwargs: Any
+    ) -> ProtocolStorage:
         """
         Instantiates a concrete Storage given its type and the storage init kwargs
         """
@@ -34,9 +38,7 @@ class StorageFactory:
             )
 
         storage_definition = _init_definition_by_storage_type[storage_type]
-
         storage_kwargs = storage_definition["kwargs"]
-        storage_builder: Callable[..., CommonStorage] = storage_definition["class"]
 
         init_kwargs: list[str] = [key for key in kwargs.keys() if key in storage_kwargs and kwargs[key]]
         if len(init_kwargs) != len(storage_kwargs):
@@ -45,4 +47,7 @@ class StorageFactory:
                 + f"{', '.join(storage_kwargs)}. (provided: {json.dumps(kwargs)})"
             )
 
+        kwargs["multiline_processor"] = multiline_processor
+
+        storage_builder: Callable[..., ProtocolStorage] = storage_definition["class"]
         return storage_builder(**kwargs)

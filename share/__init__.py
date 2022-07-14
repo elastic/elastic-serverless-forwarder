@@ -4,6 +4,8 @@
 
 from .config import Config, ElasticsearchOutput, Input, Output, parse_config
 from .expand_event_list_from_field import ExpandEventListFromField
+from .factory import MultilineFactory
 from .include_exlude import IncludeExcludeFilter, IncludeExcludeRule
 from .logger import logger as shared_logger
+from .multiline import CollectBuffer, CountMultiline, PatternMultiline, ProtocolMultiline, WhileMultiline
 from .secretsmanager import aws_sm_expander

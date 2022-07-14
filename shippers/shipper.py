@@ -2,8 +2,7 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
-from abc import ABCMeta, abstractmethod
-from typing import Any, Callable, TypeVar
+from typing import Any, Callable, Protocol, TypeVar
 
 ReplayHandlerCallable = Callable[[str, dict[str, Any], dict[str, Any]], None]
 EventIdGeneratorCallable = Callable[[dict[str, Any]], str]
@@ -13,46 +12,22 @@ EVENT_IS_FILTERED = "EVENT_IS_FILTERED"
 EVENT_IS_SENT = "EVENT_IS_SENT"
 
 
-class CommonShipper(metaclass=ABCMeta):
+class ProtocolShipper(Protocol):
     """
-    Abstract class for Shipper components
+    Protocol for Shipper components
     """
 
-    @abstractmethod
-    def __init__(self, **kwargs: Any):
-        raise NotImplementedError
-
-    @abstractmethod
     def send(self, event: dict[str, Any]) -> str:
-        """
-        Interface for sending the event by the shipper
-        """
+        pass  # pragma: no cover
 
-        raise NotImplementedError
-
-    @abstractmethod
     def set_event_id_generator(self, event_id_generator: EventIdGeneratorCallable) -> None:
-        """
-        Interface for setting the event id generator of the shipper
-        """
+        pass  # pragma: no cover
 
-        raise NotImplementedError
-
-    @abstractmethod
     def set_replay_handler(self, replay_handler: ReplayHandlerCallable) -> None:
-        """
-        Interface for setting the replay handler of the shipper
-        """
+        pass  # pragma: no cover
 
-        raise NotImplementedError
-
-    @abstractmethod
     def flush(self) -> None:
-        """
-        Interface for flushing the shipper
-        """
-
-        raise NotImplementedError
+        pass  # pragma: no cover
 
 
-CommonShipperType = TypeVar("CommonShipperType", bound=CommonShipper)
+ProtocolShipperType = TypeVar("ProtocolShipperType", bound=ProtocolShipper)

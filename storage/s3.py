@@ -10,9 +10,9 @@ import botocore.client
 import elasticapm  # noqa: F401
 from botocore.response import StreamingBody
 
-from share import shared_logger
+from share import ProtocolMultiline, shared_logger
 
-from .decorator import JsonCollector, by_lines, inflate
+from .decorator import JsonCollector, by_lines, inflate, multi_line
 from .storage import CHUNK_SIZE, CommonStorage, StorageReader
 
 
@@ -26,10 +26,12 @@ class S3Storage(CommonStorage):
         "s3", config=botocore.client.Config(retries={"total_max_attempts": 10, "mode": "standard"})
     )
 
-    def __init__(self, bucket_name: str, object_key: str):
+    def __init__(self, bucket_name: str, object_key: str, multiline_processor: Optional[ProtocolMultiline]):
         self._bucket_name: str = bucket_name
         self._object_key: str = object_key
+        self._multiline_processor = multiline_processor
 
+    @multi_line
     @JsonCollector
     @by_lines
     @inflate
@@ -89,10 +91,7 @@ class S3Storage(CommonStorage):
             file_content.seek(range_start, SEEK_SET)
 
             for log_event, json_object, line_ending_offset, line_starting_offset, newline_length in self._generate(
-                original_range_start,
-                file_content,
-                is_gzipped,
-                content_length,
+                original_range_start, file_content, is_gzipped, content_length
             ):
                 yield log_event, json_object, line_ending_offset, line_starting_offset, newline_length
         else:

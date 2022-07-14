@@ -1071,7 +1071,9 @@ class TestLambdaHandlerFailure(TestCase):
                 handler(event, ctx)  # type:ignore
 
         with self.subTest("tags not list"):
-            with self.assertRaisesRegex(ConfigFileException, "Tags must be of type list"):
+            with self.assertRaisesRegex(
+                ConfigFileException, "`tags` must be provided as list for input mock_plain_text_sqs_arn"
+            ):
                 ctx = ContextMock()
                 config_yml = """
                     inputs:
@@ -1094,7 +1096,9 @@ class TestLambdaHandlerFailure(TestCase):
 
         with self.subTest("each tag must be of type str"):
             with self.assertRaisesRegex(
-                ConfigFileException, r"Each tag must be of type str, given: \['tag1', 2, 'tag3'\]"
+                ConfigFileException,
+                r"Each tag in `tags` must be provided as string for input "
+                r"mock_plain_text_sqs_arn, given: \['tag1', 2, 'tag3'\]",
             ):
                 ctx = ContextMock()
                 config_yml = """
@@ -1120,7 +1124,10 @@ class TestLambdaHandlerFailure(TestCase):
                 handler(event, ctx)  # type:ignore
 
         with self.subTest("expand_event_list_from_field not str"):
-            with self.assertRaisesRegex(ConfigFileException, "Input expand_event_list_from_field must be of type str"):
+            with self.assertRaisesRegex(
+                ConfigFileException,
+                "`expand_event_list_from_field` must be provided as string for input mock_plain_text_sqs_arn",
+            ):
                 ctx = ContextMock()
                 config_yml = """
                     inputs:

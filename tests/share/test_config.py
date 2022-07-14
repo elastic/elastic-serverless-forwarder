@@ -8,7 +8,18 @@ from unittest import TestCase
 
 import pytest
 
-from share import Config, ElasticsearchOutput, IncludeExcludeFilter, IncludeExcludeRule, Input, Output, parse_config
+from share import (
+    Config,
+    CountMultiline,
+    ElasticsearchOutput,
+    IncludeExcludeFilter,
+    IncludeExcludeRule,
+    Input,
+    Output,
+    PatternMultiline,
+    WhileMultiline,
+    parse_config,
+)
 
 
 class DummyOutput(Output):
@@ -20,11 +31,11 @@ class DummyOutput(Output):
 class TestOutput(TestCase):
     def test_init(self) -> None:
         with self.subTest("not valid type"):
-            with self.assertRaisesRegex(ValueError, "^Type must be one of elasticsearch: another-type given$"):
+            with self.assertRaisesRegex(ValueError, "^`type` must be one of elasticsearch: another-type given$"):
                 DummyOutput(output_type="another-type")
 
         with self.subTest("type not str"):
-            with self.assertRaisesRegex(ValueError, "Output type must be of type str"):
+            with self.assertRaisesRegex(ValueError, "`type` must be provided as string"):
                 DummyOutput(output_type=1)  # type:ignore
 
     def test_get_type(self) -> None:
@@ -118,7 +129,7 @@ class TestElasticsearchOutput(TestCase):
             assert elasticsearch.batch_max_bytes == 1
 
         with self.subTest("neither elasticsearch_url or cloud_id"):
-            with self.assertRaisesRegex(ValueError, "Elasticsearch Output elasticsearch_url or cloud_id must be set"):
+            with self.assertRaisesRegex(ValueError, "`elasticsearch_url` or `cloud_id` must be set"):
                 ElasticsearchOutput(elasticsearch_url="", cloud_id="")
 
         with self.subTest("both elasticsearch_url and cloud_id"):
@@ -143,9 +154,7 @@ class TestElasticsearchOutput(TestCase):
             assert elasticsearch.batch_max_bytes == 1
 
         with self.subTest("no username or api_key"):
-            with self.assertRaisesRegex(
-                ValueError, "Elasticsearch Output username and password or api_key must be set"
-            ):
+            with self.assertRaisesRegex(ValueError, "One between `username` and `password`, or `api_key` must be set"):
                 ElasticsearchOutput(
                     elasticsearch_url="elasticsearch_url",
                     es_datastream_name="es_datastream_name",
@@ -197,7 +206,7 @@ class TestElasticsearchOutput(TestCase):
             assert elasticsearch.batch_max_bytes == 1
 
         with self.subTest("empty password"):
-            with self.assertRaisesRegex(ValueError, "Elasticsearch Output password must be set when using username"):
+            with self.assertRaisesRegex(ValueError, "`password` must be set when using `username`"):
                 ElasticsearchOutput(
                     elasticsearch_url="elasticsearch_url",
                     username="username",
@@ -291,9 +300,7 @@ class TestElasticsearchOutput(TestCase):
             assert elasticsearch.batch_max_bytes == 10485760
 
         with self.subTest("elasticsearch_url not str"):
-            with self.assertRaisesRegex(
-                ValueError, re.escape("Elasticsearch Output elasticsearch_url must be of type str")
-            ):
+            with self.assertRaisesRegex(ValueError, re.escape("`elasticsearch_url` must be provided as string")):
                 ElasticsearchOutput(
                     elasticsearch_url=0,  # type:ignore
                     username="username",
@@ -302,7 +309,7 @@ class TestElasticsearchOutput(TestCase):
                 )
 
         with self.subTest("username not str"):
-            with self.assertRaisesRegex(ValueError, "Elasticsearch Output username must be of type str"):
+            with self.assertRaisesRegex(ValueError, "`username` must be provided as string"):
                 ElasticsearchOutput(
                     elasticsearch_url="",
                     username=0,  # type:ignore
@@ -311,7 +318,7 @@ class TestElasticsearchOutput(TestCase):
                 )
 
         with self.subTest("password not str"):
-            with self.assertRaisesRegex(ValueError, "Elasticsearch Output password must be of type str"):
+            with self.assertRaisesRegex(ValueError, "`password` must be provided as string"):
                 ElasticsearchOutput(
                     elasticsearch_url="elasticsearch_url",
                     username="username",
@@ -320,7 +327,7 @@ class TestElasticsearchOutput(TestCase):
                 )
 
         with self.subTest("cloud_id not str"):
-            with self.assertRaisesRegex(ValueError, "Elasticsearch Output cloud_id must be of type str"):
+            with self.assertRaisesRegex(ValueError, "`cloud_id` must be provided as string"):
                 ElasticsearchOutput(
                     cloud_id=0,  # type:ignore
                     username="username",
@@ -329,7 +336,7 @@ class TestElasticsearchOutput(TestCase):
                 )
 
         with self.subTest("api_key not str"):
-            with self.assertRaisesRegex(ValueError, "Elasticsearch Output api_key must be of type str"):
+            with self.assertRaisesRegex(ValueError, "`api_key` must be provided as string"):
                 ElasticsearchOutput(
                     cloud_id="cloud_id",
                     api_key=0,  # type:ignore
@@ -337,7 +344,7 @@ class TestElasticsearchOutput(TestCase):
                 )
 
         with self.subTest("es_datastream_name not str"):
-            with self.assertRaisesRegex(ValueError, "Elasticsearch Output es_datastream_name must be of type str"):
+            with self.assertRaisesRegex(ValueError, "`es_datastream_name` must be provided as string"):
                 ElasticsearchOutput(
                     elasticsearch_url="elasticsearch_url",
                     username="username",
@@ -346,7 +353,7 @@ class TestElasticsearchOutput(TestCase):
                 )
 
         with self.subTest("batch_max_actions not int"):
-            with self.assertRaisesRegex(ValueError, "Elasticsearch Output batch_max_actions must be of type int"):
+            with self.assertRaisesRegex(ValueError, "`batch_max_actions` must be provided as integer"):
                 ElasticsearchOutput(
                     elasticsearch_url="elasticsearch_url",
                     username="username",
@@ -356,7 +363,7 @@ class TestElasticsearchOutput(TestCase):
                 )
 
         with self.subTest("batch_max_bytes not int"):
-            with self.assertRaisesRegex(ValueError, "Elasticsearch Output batch_max_bytes must be of type int"):
+            with self.assertRaisesRegex(ValueError, "`batch_max_bytes` must be provided as integer"):
                 ElasticsearchOutput(
                     elasticsearch_url="elasticsearch_url",
                     username="username",
@@ -396,16 +403,16 @@ class TestInput(TestCase):
         with self.subTest("not valid type"):
             with self.assertRaisesRegex(
                 ValueError,
-                "^Input type must be one of cloudwatch-logs,s3-sqs,sqs,kinesis-data-stream: another-type given$",
+                "^`type` must be one of cloudwatch-logs,s3-sqs,sqs,kinesis-data-stream: another-type given$",
             ):
                 Input(input_type="another-type", input_id="id")
 
         with self.subTest("type not str"):
-            with self.assertRaisesRegex(ValueError, "Input type must be of type str"):
+            with self.assertRaisesRegex(ValueError, "`type` must be provided as string"):
                 Input(input_type=0, input_id="id")  # type:ignore
 
         with self.subTest("id not str"):
-            with self.assertRaisesRegex(ValueError, "Input id must be of type str"):
+            with self.assertRaisesRegex(ValueError, "`id` must be provided as string"):
                 Input(input_type="s3-sqs", input_id=0)  # type:ignore
 
     def test_input_tags(self) -> None:
@@ -417,17 +424,22 @@ class TestInput(TestCase):
 
         with self.subTest("tags not list"):
             input_sqs = Input(input_type="s3-sqs", input_id="id")
-            with self.assertRaisesRegex(ValueError, "Tags must be of type list"):
+            with self.assertRaisesRegex(ValueError, "`tags` must be provided as list for input id"):
                 input_sqs.tags = "tag1"  # type:ignore
 
         with self.subTest("each tag not str"):
             input_sqs = Input(input_type="s3-sqs", input_id="id")
-            with self.assertRaisesRegex(ValueError, "Each tag must be of type str, given: \\['tag1', 2, 'tag3'\\]"):
+            with self.assertRaisesRegex(
+                ValueError, "ach tag in `tags` must be provided as string for input id, given: \\['tag1', 2, 'tag3'\\]"
+            ):
                 input_sqs.tags = ["tag1", 2, "tag3"]  # type:ignore
 
+    def test_input_expand_event_list_from_field(self) -> None:
         with self.subTest("expand_event_list_from_field not str"):
             input_sqs = Input(input_type="s3-sqs", input_id="id")
-            with self.assertRaisesRegex(ValueError, "Input expand_event_list_from_field must be of type str"):
+            with self.assertRaisesRegex(
+                ValueError, "`expand_event_list_from_field` must be provided as string for input id"
+            ):
                 input_sqs.expand_event_list_from_field = 0  # type:ignore
 
     def test_input_include_exclude_filter(self) -> None:
@@ -479,12 +491,12 @@ class TestInput(TestCase):
 
         with self.subTest("not elasticsearch output"):
             input_sqs = Input(input_type="s3-sqs", input_id="id")
-            with self.assertRaisesRegex(ValueError, "^Type must be one of elasticsearch: another-type given$"):
+            with self.assertRaisesRegex(ValueError, "^`type` must be one of elasticsearch: another-type given$"):
                 input_sqs.add_output(output_type="another-type")
 
         with self.subTest("type is not str"):
             input_sqs = Input(input_type="s3-sqs", input_id="id")
-            with self.assertRaisesRegex(ValueError, "Output type must be of type str"):
+            with self.assertRaisesRegex(ValueError, "`type` must be provided as string"):
                 input_sqs.add_output(output_type=0)  # type:ignore
 
         with self.subTest("type is duplicated"):
@@ -499,7 +511,7 @@ class TestInput(TestCase):
                 batch_max_bytes=1,
             )
 
-            with self.assertRaisesRegex(ValueError, "Duplicated Output elasticsearch"):
+            with self.assertRaisesRegex(ValueError, "Duplicated `type` elasticsearch"):
                 input_sqs.add_output(
                     output_type="elasticsearch",
                     elasticsearch_url="elasticsearch_url",
@@ -606,7 +618,7 @@ class TestConfig(TestCase):
         with self.subTest("duplicated sqs input"):
             config = Config()
             config.add_input(Input(input_type="s3-sqs", input_id="id"))
-            with self.assertRaisesRegex(ValueError, "duplicated input id"):
+            with self.assertRaisesRegex(ValueError, "Duplicated input with id id"):
                 config.add_input(Input(input_type="s3-sqs", input_id="id"))
 
 
@@ -618,14 +630,14 @@ class TestParseConfig(TestCase):
                 parse_config(config_yaml="")
 
             with self.subTest("no inputs"):
-                with self.assertRaisesRegex(ValueError, "No inputs provided"):
+                with self.assertRaisesRegex(ValueError, "`inputs` must be provided as list"):
                     parse_config(
                         config_yaml="""
         config:
         """
                     )
 
-                with self.assertRaisesRegex(ValueError, "No inputs provided"):
+                with self.assertRaisesRegex(ValueError, "`inputs` must be provided as list"):
                     parse_config(
                         config_yaml="""
         inputs: {}
@@ -633,7 +645,7 @@ class TestParseConfig(TestCase):
                     )
 
         with self.subTest("no input type"):
-            with self.assertRaisesRegex(ValueError, "Must be provided str type for input"):
+            with self.assertRaisesRegex(ValueError, "`type` must be provided as string for input id"):
                 parse_config(
                     config_yaml="""
         inputs:
@@ -641,16 +653,17 @@ class TestParseConfig(TestCase):
         """
                 )
 
-            with self.assertRaisesRegex(ValueError, "Must be provided str type for input"):
+            with self.assertRaisesRegex(ValueError, "`type` must be provided as string for input id"):
                 parse_config(
                     config_yaml="""
         inputs:
+          - id: id
           - type: {}
         """
                 )
 
         with self.subTest("no input id"):
-            with self.assertRaisesRegex(ValueError, "Must be provided str id for input"):
+            with self.assertRaisesRegex(ValueError, "`id` must be provided as string for input at position 1"):
                 parse_config(
                     config_yaml="""
             inputs:
@@ -658,7 +671,7 @@ class TestParseConfig(TestCase):
             """
                 )
 
-        with self.assertRaisesRegex(ValueError, "Must be provided str id for input"):
+        with self.assertRaisesRegex(ValueError, "`id` must be provided as string for input at position 1"):
             parse_config(
                 config_yaml="""
         inputs:
@@ -670,7 +683,8 @@ class TestParseConfig(TestCase):
         with self.subTest("no valid input type"):
             with self.assertRaisesRegex(
                 ValueError,
-                "^Input type must be one of cloudwatch-logs,s3-sqs,sqs,kinesis-data-stream: another-type given$",
+                "^An error occurred while applying type configuration for input id: "
+                "`type` must be one of cloudwatch-logs,s3-sqs,sqs,kinesis-data-stream: another-type given$",
             ):
                 parse_config(
                     config_yaml="""
@@ -681,7 +695,7 @@ class TestParseConfig(TestCase):
                 )
 
         with self.subTest("no input output"):
-            with self.assertRaisesRegex(ValueError, "No valid outputs for input"):
+            with self.assertRaisesRegex(ValueError, "`outputs` must be provided as list for input id"):
                 parse_config(
                     config_yaml="""
             inputs:
@@ -690,7 +704,7 @@ class TestParseConfig(TestCase):
             """
                 )
 
-            with self.assertRaisesRegex(ValueError, "No valid outputs for input"):
+            with self.assertRaisesRegex(ValueError, "`outputs` must be provided as list for input id"):
                 parse_config(
                     config_yaml="""
             inputs:
@@ -701,7 +715,9 @@ class TestParseConfig(TestCase):
                 )
 
         with self.subTest("no valid input output type"):
-            with self.assertRaisesRegex(ValueError, "Must be provided str type for output"):
+            with self.assertRaisesRegex(
+                ValueError, "`type` for output configuration at position 1 must be provided as string for input id"
+            ):
                 parse_config(
                     config_yaml="""
             inputs:
@@ -712,7 +728,9 @@ class TestParseConfig(TestCase):
             """
                 )
 
-            with self.assertRaisesRegex(ValueError, "Must be provided str type for output"):
+            with self.assertRaisesRegex(
+                ValueError, "`type` for output configuration at position 1 must be provided as string for input id"
+            ):
                 parse_config(
                     config_yaml="""
             inputs:
@@ -724,7 +742,9 @@ class TestParseConfig(TestCase):
                 )
 
         with self.subTest("no valid input args type"):
-            with self.assertRaisesRegex(ValueError, "Must be provided dict args for output"):
+            with self.assertRaisesRegex(
+                ValueError, "`args` for output configuration at position 1 must be provided as dictionary for input id"
+            ):
                 parse_config(
                     config_yaml="""
             inputs:
@@ -735,7 +755,9 @@ class TestParseConfig(TestCase):
             """
                 )
 
-            with self.assertRaisesRegex(ValueError, "Must be provided dict args for output"):
+            with self.assertRaisesRegex(
+                ValueError, "`args` for output configuration at position 1 must be provided as dictionary for input id"
+            ):
                 parse_config(
                     config_yaml="""
             inputs:
@@ -748,7 +770,11 @@ class TestParseConfig(TestCase):
                 )
 
         with self.subTest("not valid input output"):
-            with self.assertRaisesRegex(ValueError, "^Type must be one of elasticsearch: another-type given$"):
+            with self.assertRaisesRegex(
+                ValueError,
+                "^An error occurred while applying output configuration at position 1 for input id: "
+                "`type` must be one of elasticsearch: another-type given$",
+            ):
                 parse_config(
                     config_yaml="""
             inputs:
@@ -761,7 +787,7 @@ class TestParseConfig(TestCase):
             """
                 )
 
-            with self.assertRaisesRegex(ValueError, "Elasticsearch Output elasticsearch_url or cloud_id must be set"):
+            with self.assertRaisesRegex(ValueError, "One between `elasticsearch_url` or `cloud_id` must be set"):
                 parse_config(
                     config_yaml="""
             inputs:
@@ -774,7 +800,11 @@ class TestParseConfig(TestCase):
                 )
 
         with self.subTest("batch_max_actions not int"):
-            with self.assertRaisesRegex(ValueError, "batch_max_actions must be of type int"):
+            with self.assertRaisesRegex(
+                ValueError,
+                "An error occurred while applying output configuration at position 1 for input id: "
+                "`batch_max_actions` must be provided as integer",
+            ):
                 parse_config(
                     config_yaml="""
             inputs:
@@ -791,7 +821,11 @@ class TestParseConfig(TestCase):
                 )
 
         with self.subTest("batch_max_bytes not int"):
-            with self.assertRaisesRegex(ValueError, "batch_max_bytes must be of type int"):
+            with self.assertRaisesRegex(
+                ValueError,
+                "An error occurred while applying output configuration at position 1 for input id: "
+                "`batch_max_bytes` must be provided as integer",
+            ):
                 parse_config(
                     config_yaml="""
             inputs:
@@ -808,7 +842,7 @@ class TestParseConfig(TestCase):
                 )
 
         with self.subTest("tags not list"):
-            with self.assertRaisesRegex(ValueError, "Tags must be of type list"):
+            with self.assertRaisesRegex(ValueError, "`tags` must be provided as list for input id"):
                 parse_config(
                     config_yaml="""
             inputs:
@@ -824,7 +858,7 @@ class TestParseConfig(TestCase):
             """
                 )
 
-            with self.assertRaisesRegex(ValueError, "Tags must be of type list"):
+            with self.assertRaisesRegex(ValueError, "`tags` must be provided as list for input id"):
                 parse_config(
                     config_yaml="""
             inputs:
@@ -842,7 +876,9 @@ class TestParseConfig(TestCase):
 
         with self.subTest("each tag not str"):
             with self.assertRaisesRegex(
-                ValueError, "Each tag must be of type str, given: \\[2021, {'key1': 'value1'}, 'tag3'\\]"
+                ValueError,
+                "Each tag in `tags` must be provided as string for input id, given: "
+                "\\[2021, {'key1': 'value1'}, 'tag3'\\]",
             ):
                 parse_config(
                     config_yaml="""
@@ -863,13 +899,95 @@ class TestParseConfig(TestCase):
                 )
 
         with self.subTest("expand_event_list_from_field not str"):
-            with self.assertRaisesRegex(ValueError, "Input expand_event_list_from_field must be of type str"):
+            with self.assertRaisesRegex(
+                ValueError, "`expand_event_list_from_field` must be provided as string for input id"
+            ):
                 parse_config(
                     config_yaml="""
             inputs:
               - type: s3-sqs
                 id: id
                 expand_event_list_from_field: 0
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      es_datastream_name: "es_datastream_name"
+            """
+                )
+
+        with self.subTest("multiline not valid"):
+            with self.assertRaisesRegex(ValueError, "`multiline` must be provided as dictionary for input id"):
+                parse_config(
+                    config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                multiline: 0
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      es_datastream_name: "es_datastream_name"
+            """
+                )
+
+        with self.subTest("multiline type missing"):
+            with self.assertRaisesRegex(
+                ValueError, "`type` must be provided as string in multiline configuration for input id"
+            ):
+                parse_config(
+                    config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                multiline:
+                  match: after
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      es_datastream_name: "es_datastream_name"
+            """
+                )
+
+        with self.subTest("multiline type not str"):
+            with self.assertRaisesRegex(
+                ValueError, "`type` must be provided as string in multiline configuration for input id"
+            ):
+                parse_config(
+                    config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                multiline:
+                  type: 0
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      es_datastream_name: "es_datastream_name"
+            """
+                )
+
+        with self.subTest("multiline type not valid"):
+            with self.assertRaisesRegex(
+                ValueError,
+                "An error occurred while applying multiline configuration for input id: "
+                "You must provide one of the following multiline types: count, pattern, while_pattern. "
+                "another-type given",
+            ):
+                parse_config(
+                    config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                multiline:
+                  type: another-type
                 outputs:
                   - type: elasticsearch
                     args:
@@ -1194,7 +1312,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch.batch_max_bytes == 10485760
 
         with self.subTest("no list for include"):
-            with self.assertRaisesRegex(ValueError, "Must be provided list type for include"):
+            with self.assertRaisesRegex(ValueError, "`include` must be provided as list for input id"):
                 config = parse_config(
                     config_yaml="""
                 inputs:
@@ -1215,7 +1333,7 @@ class TestParseConfig(TestCase):
                 )
 
         with self.subTest("no list for exclude"):
-            with self.assertRaisesRegex(ValueError, "Must be provided list type for exclude"):
+            with self.assertRaisesRegex(ValueError, "`exclude` must be provided as list for input id"):
                 config = parse_config(
                     config_yaml="""
                 inputs:
@@ -1234,6 +1352,183 @@ class TestParseConfig(TestCase):
                           es_datastream_name: "es_datastream_name"
                 """
                 )
+
+        with self.subTest("valid count multiline with default values"):
+            config = parse_config(
+                config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                multiline:
+                  type: count
+                  count_lines: 1
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      es_datastream_name: "es_datastream_name"
+            """
+            )
+
+            input_sqs = config.get_input_by_id(input_id="id")
+            assert input_sqs is not None
+            assert input_sqs.type == "s3-sqs"
+            assert input_sqs.id == "id"
+            assert input_sqs.get_multiline_processor() == CountMultiline(count_lines=1)
+
+        with self.subTest("valid count multiline with custom values"):
+            config = parse_config(
+                config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                multiline:
+                  type: count
+                  count_lines: 1
+                  max_bytes: 1
+                  max_lines: 2
+                  skip_newline: true
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      es_datastream_name: "es_datastream_name"
+            """
+            )
+
+            input_sqs = config.get_input_by_id(input_id="id")
+            assert input_sqs is not None
+            assert input_sqs.type == "s3-sqs"
+            assert input_sqs.id == "id"
+            assert input_sqs.get_multiline_processor() == CountMultiline(
+                count_lines=1,
+                max_bytes=1,
+                max_lines=2,
+                skip_newline=True,
+            )
+
+        with self.subTest("valid pattern multiline with default values"):
+            config = parse_config(
+                config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                multiline:
+                  type: pattern
+                  pattern: "\\\\$"
+                  match: after
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      es_datastream_name: "es_datastream_name"
+            """
+            )
+
+            input_sqs = config.get_input_by_id(input_id="id")
+            assert input_sqs is not None
+            assert input_sqs.type == "s3-sqs"
+            assert input_sqs.id == "id"
+            assert input_sqs.get_multiline_processor() == PatternMultiline(pattern="\\$", match="after")
+
+        with self.subTest("valid pattern multiline with custom values"):
+            config = parse_config(
+                config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                multiline:
+                  type: pattern
+                  pattern: "\\\\$"
+                  match: after
+                  negate: true
+                  flush_pattern: flush_pattern
+                  max_bytes: 1
+                  max_lines: 2
+                  skip_newline: true
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      es_datastream_name: "es_datastream_name"
+            """
+            )
+
+            input_sqs = config.get_input_by_id(input_id="id")
+            assert input_sqs is not None
+            assert input_sqs.type == "s3-sqs"
+            assert input_sqs.id == "id"
+            assert input_sqs.get_multiline_processor() == PatternMultiline(
+                pattern="\\$",
+                match="after",
+                negate=True,
+                flush_pattern="flush_pattern",
+                max_bytes=1,
+                max_lines=2,
+                skip_newline=True,
+            )
+
+        with self.subTest("valid while_pattern multiline with default values"):
+            config = parse_config(
+                config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                multiline:
+                  type: while_pattern
+                  pattern: "\\\\$"
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      es_datastream_name: "es_datastream_name"
+            """
+            )
+
+            input_sqs = config.get_input_by_id(input_id="id")
+            assert input_sqs is not None
+            assert input_sqs.type == "s3-sqs"
+            assert input_sqs.id == "id"
+            assert input_sqs.get_multiline_processor() == WhileMultiline(pattern="\\$")
+
+        with self.subTest("valid while_pattern multiline with custom values"):
+            config = parse_config(
+                config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                multiline:
+                  type: while_pattern
+                  pattern: "\\\\$"
+                  negate: true
+                  max_bytes: 1
+                  max_lines: 2
+                  skip_newline: true
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      es_datastream_name: "es_datastream_name"
+            """
+            )
+
+            input_sqs = config.get_input_by_id(input_id="id")
+            assert input_sqs is not None
+            assert input_sqs.type == "s3-sqs"
+            assert input_sqs.id == "id"
+            assert input_sqs.get_multiline_processor() == WhileMultiline(
+                pattern="\\$",
+                negate=True,
+                max_bytes=1,
+                max_lines=2,
+                skip_newline=True,
+            )
 
         with self.subTest("batch_max_actions not default"):
             config = parse_config(

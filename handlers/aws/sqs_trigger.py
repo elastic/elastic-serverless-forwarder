@@ -8,8 +8,8 @@ from typing import Any, Iterator, Optional
 
 from botocore.client import BaseClient as BotoBaseClient
 
-from share import ExpandEventListFromField, shared_logger
-from storage import CommonStorage, StorageFactory
+from share import ExpandEventListFromField, ProtocolMultiline, shared_logger
+from storage import ProtocolStorage, StorageFactory
 
 from .event import _default_event
 from .utils import get_account_id_from_arn, get_queue_url_from_sqs_arn, get_sqs_queue_name_and_region_from_arn
@@ -72,6 +72,7 @@ def _handle_sqs_event(
     is_continuation_of_cloudwatch_logs: bool,
     input_id: str,
     expand_event_list_from_field: ExpandEventListFromField,
+    multiline_processor: Optional[ProtocolMultiline],
 ) -> Iterator[tuple[dict[str, Any], int, bool]]:
     """
     Handler for sqs inputs.
@@ -82,7 +83,9 @@ def _handle_sqs_event(
     account_id = get_account_id_from_arn(input_id)
 
     queue_name, aws_region = get_sqs_queue_name_and_region_from_arn(input_id)
-    storage: CommonStorage = StorageFactory.create(storage_type="payload", payload=sqs_record["body"])
+    storage: ProtocolStorage = StorageFactory.create(
+        storage_type="payload", payload=sqs_record["body"], multiline_processor=multiline_processor
+    )
 
     range_start = 0
 
