@@ -1,3 +1,7 @@
+### v1.2.1 - 2022/07/115
+##### Bug fixes
+* Fix multiline documentation to properly render: [#137](https://github.com/elastic/elastic-serverless-forwarder/pull/137)
+
 ### v1.2.0 - 2022/07/11
 ##### Features
 * Add support for collecting multiline messages in a single event: [#135](https://github.com/elastic/elastic-serverless-forwarder/pull/135)
