@@ -188,7 +188,7 @@ class Setup:
 
 
 def wrap(payload: str) -> int:
-    payload_storage = PayloadStorage(payload=payload, multiline_processor=None)
+    payload_storage = PayloadStorage(payload=payload)
     lines = payload_storage.get_by_lines(range_start=0)
     last_length: int = 0
     for line in lines:

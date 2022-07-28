@@ -60,7 +60,6 @@ def _handle_sqs_continuation(
         "continuing",
         extra={
             "sqs_continuing_queue": sqs_continuing_queue,
-            "body": sqs_record["body"],
             "last_ending_offset": last_ending_offset,
             "message_id": sqs_record["messageId"],
         },
@@ -73,7 +72,7 @@ def _handle_sqs_event(
     input_id: str,
     expand_event_list_from_field: ExpandEventListFromField,
     multiline_processor: Optional[ProtocolMultiline],
-) -> Iterator[tuple[dict[str, Any], int, bool]]:
+) -> Iterator[tuple[dict[str, Any], int, int]]:
     """
     Handler for sqs inputs.
     It iterates through sqs records in the sqs trigger and process
@@ -84,7 +83,10 @@ def _handle_sqs_event(
 
     queue_name, aws_region = get_sqs_queue_name_and_region_from_arn(input_id)
     storage: ProtocolStorage = StorageFactory.create(
-        storage_type="payload", payload=sqs_record["body"], multiline_processor=multiline_processor
+        storage_type="payload",
+        payload=sqs_record["body"],
+        expand_event_list_from_field=expand_event_list_from_field,
+        multiline_processor=multiline_processor,
     )
 
     range_start = 0
@@ -96,57 +98,52 @@ def _handle_sqs_event(
     if "originalLastEndingOffset" in payload:
         range_start = int(payload["originalLastEndingOffset"]["stringValue"])
 
-    events = storage.get_by_lines(
-        range_start=range_start,
-    )
+    events = storage.get_by_lines(range_start=range_start)
 
-    for log_event, json_object, ending_offset, starting_offset, newline_length in events:
+    for log_event, starting_offset, ending_offset, event_expanded_offset in events:
         assert isinstance(log_event, bytes)
 
-        for expanded_log_event, expanded_starting_offset, is_last_event_expanded in expand_event_list_from_field.expand(
-            log_event, json_object, starting_offset, ending_offset
-        ):
-            es_event = deepcopy(_default_event)
-            es_event["@timestamp"] = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            es_event["fields"]["message"] = expanded_log_event.decode("UTF-8")
+        es_event = deepcopy(_default_event)
+        es_event["@timestamp"] = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        es_event["fields"]["message"] = log_event.decode("UTF-8")
 
-            es_event["fields"]["log"]["offset"] = expanded_starting_offset
+        es_event["fields"]["log"]["offset"] = starting_offset
 
-            if is_continuation_of_cloudwatch_logs:
-                assert "originalEventId" in payload
-                event_id = payload["originalEventId"]["stringValue"]
+        if is_continuation_of_cloudwatch_logs:
+            assert "originalEventId" in payload
+            event_id = payload["originalEventId"]["stringValue"]
 
-                assert "originalLogGroup" in payload
-                log_group_name = payload["originalLogGroup"]["stringValue"]
+            assert "originalLogGroup" in payload
+            log_group_name = payload["originalLogGroup"]["stringValue"]
 
-                assert "originalLogStream" in payload
-                log_stream_name = payload["originalLogStream"]["stringValue"]
+            assert "originalLogStream" in payload
+            log_stream_name = payload["originalLogStream"]["stringValue"]
 
-                es_event["fields"]["log"]["file"]["path"] = f"{log_group_name}/{log_stream_name}"
+            es_event["fields"]["log"]["file"]["path"] = f"{log_group_name}/{log_stream_name}"
 
-                es_event["fields"]["aws"] = {
-                    "cloudwatch": {
-                        "log_group": log_group_name,
-                        "log_stream": log_stream_name,
-                        "event_id": event_id,
-                    }
+            es_event["fields"]["aws"] = {
+                "cloudwatch": {
+                    "log_group": log_group_name,
+                    "log_stream": log_stream_name,
+                    "event_id": event_id,
                 }
-            else:
-                es_event["fields"]["log"]["file"]["path"] = get_queue_url_from_sqs_arn(input_id)
+            }
+        else:
+            es_event["fields"]["log"]["file"]["path"] = get_queue_url_from_sqs_arn(input_id)
 
-                message_id = sqs_record["messageId"]
+            message_id = sqs_record["messageId"]
 
-                if "originalMessageId" in payload:
-                    message_id = payload["originalMessageId"]["stringValue"]
+            if "originalMessageId" in payload:
+                message_id = payload["originalMessageId"]["stringValue"]
 
-                es_event["fields"]["aws"] = {
-                    "sqs": {
-                        "name": queue_name,
-                        "message_id": message_id,
-                    }
+            es_event["fields"]["aws"] = {
+                "sqs": {
+                    "name": queue_name,
+                    "message_id": message_id,
                 }
+            }
 
-            es_event["fields"]["cloud"]["region"] = aws_region
-            es_event["fields"]["cloud"]["account"] = {"id": account_id}
+        es_event["fields"]["cloud"]["region"] = aws_region
+        es_event["fields"]["cloud"]["account"] = {"id": account_id}
 
-            yield es_event, ending_offset, is_last_event_expanded
+        yield es_event, ending_offset, event_expanded_offset

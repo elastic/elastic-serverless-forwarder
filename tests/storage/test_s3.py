@@ -5,13 +5,13 @@
 import gzip
 import io
 import random
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 import mock
 import pytest
 from botocore.response import StreamingBody
 
-from storage import S3Storage, StorageReader
+from storage import S3Storage
 
 from .test_benchmark import (
     _IS_JSON,
@@ -87,7 +87,7 @@ class MockContent(MockContentBase):
 def test_get_as_string() -> None:
     MockContent.init_content(content_type=_IS_PLAIN, newline=b"\n")
 
-    s3_storage = S3Storage(bucket_name="dummy_bucket", object_key="dummy.key", multiline_processor=None)
+    s3_storage = S3Storage(bucket_name="dummy_bucket", object_key="dummy.key")
     content: bytes = s3_storage.get_as_string().encode("UTF-8")
     assert content == MockContent.f_content_plain
     assert len(content) == len(MockContent.f_content_plain)
@@ -112,24 +112,19 @@ def test_get_by_lines(length_multiplier: int, content_type: str, newline: bytes)
     s3_storage = S3Storage(
         bucket_name=bucket_name, object_key="dummy.key.gz", multiline_processor=multiline_processor(content_type)
     )
-    gzip_full: list[tuple[Union[StorageReader, bytes], int, int, int]] = [
-        (x[0], x[2], x[3], x[4]) for x in s3_storage.get_by_lines(range_start=0)
-    ]
-
+    gzip_full: list[tuple[bytes, int, int, int]] = list(s3_storage.get_by_lines(range_start=0))
     s3_storage = S3Storage(
         bucket_name=bucket_name, object_key="dummy.key", multiline_processor=multiline_processor(content_type)
     )
-    plain_full: list[tuple[Union[StorageReader, bytes], int, int, int]] = [
-        (x[0], x[2], x[3], x[4]) for x in s3_storage.get_by_lines(range_start=0)
-    ]
+    plain_full: list[tuple[bytes, int, int, int]] = list(s3_storage.get_by_lines(range_start=0))
 
     diff = set(gzip_full) ^ set(plain_full)
     assert not diff
     assert plain_full == gzip_full
-    assert gzip_full[-1][1] == original_length
-    assert plain_full[-1][1] == original_length
+    assert gzip_full[-1][2] == original_length
+    assert plain_full[-1][2] == original_length
 
-    joined = joiner_token.join([x[0] for x in plain_full])  # type:ignore
+    joined = joiner_token.join([x[0] for x in plain_full])
     if MockContent.f_content_plain.endswith(newline):
         joined += newline
 
@@ -143,21 +138,17 @@ def test_get_by_lines(length_multiplier: int, content_type: str, newline: bytes)
 
     MockContent.rewind()
 
-    range_start = plain_full_01[-1][1]
+    range_start = plain_full_01[-1][2]
 
     s3_storage = S3Storage(
         bucket_name=bucket_name, object_key="dummy.key.gz", multiline_processor=multiline_processor(content_type)
     )
-    gzip_full_02: list[tuple[Union[StorageReader, bytes], int, int, int]] = [
-        (x[0], x[2], x[3], x[4]) for x in s3_storage.get_by_lines(range_start=range_start)
-    ]
+    gzip_full_02: list[tuple[bytes, int, int, int]] = list(s3_storage.get_by_lines(range_start=range_start))
 
     s3_storage = S3Storage(
         bucket_name=bucket_name, object_key="dummy.key", multiline_processor=multiline_processor(content_type)
     )
-    plain_full_02: list[tuple[Union[StorageReader, bytes], int, int, int]] = [
-        (x[0], x[2], x[3], x[4]) for x in s3_storage.get_by_lines(range_start=range_start)
-    ]
+    plain_full_02: list[tuple[bytes, int, int, int]] = list(s3_storage.get_by_lines(range_start=range_start))
 
     diff = set(gzip_full_01) ^ set(plain_full_01)
     assert not diff
@@ -168,13 +159,13 @@ def test_get_by_lines(length_multiplier: int, content_type: str, newline: bytes)
     assert plain_full_02 == gzip_full_02
 
     assert plain_full_01 + plain_full_02 == plain_full
-    assert gzip_full_02[-1][1] == original_length
-    assert plain_full_02[-1][1] == original_length
+    assert gzip_full_02[-1][2] == original_length
+    assert plain_full_02[-1][2] == original_length
 
     joined = (
-        joiner_token.join([x[0] for x in plain_full_01])  # type:ignore
+        joiner_token.join([x[0] for x in plain_full_01])
         + joiner_token
-        + joiner_token.join([x[0] for x in plain_full_02])  # type:ignore
+        + joiner_token.join([x[0] for x in plain_full_02])
     )
     if MockContent.f_content_plain.endswith(newline):
         joined += newline
@@ -186,21 +177,17 @@ def test_get_by_lines(length_multiplier: int, content_type: str, newline: bytes)
     gzip_full_02 = gzip_full_02[: int(len(gzip_full_02) / 2)]
     plain_full_02 = plain_full_02[: int(len(plain_full_02) / 2)]
 
-    range_start = plain_full_02[-1][1]
+    range_start = plain_full_02[-1][2]
 
     s3_storage = S3Storage(
         bucket_name=bucket_name, object_key="dummy.key.gz", multiline_processor=multiline_processor(content_type)
     )
-    gzip_full_03: list[tuple[Union[StorageReader, bytes], int, int, int]] = [
-        (x[0], x[2], x[3], x[4]) for x in s3_storage.get_by_lines(range_start=range_start)
-    ]
+    gzip_full_03: list[tuple[bytes, int, int, int]] = list(s3_storage.get_by_lines(range_start=range_start))
 
     s3_storage = S3Storage(
         bucket_name=bucket_name, object_key="dummy.key", multiline_processor=multiline_processor(content_type)
     )
-    plain_full_03: list[tuple[Union[StorageReader, bytes], int, int, int]] = [
-        (x[0], x[2], x[3], x[4]) for x in s3_storage.get_by_lines(range_start=range_start)
-    ]
+    plain_full_03: list[tuple[bytes, int, int, int]] = list(s3_storage.get_by_lines(range_start=range_start))
 
     diff = set(gzip_full_02) ^ set(plain_full_02)
     assert not diff
@@ -211,15 +198,15 @@ def test_get_by_lines(length_multiplier: int, content_type: str, newline: bytes)
     assert plain_full_03 == gzip_full_03
 
     assert plain_full_01 + plain_full_02 + plain_full_03 == plain_full
-    assert gzip_full_03[-1][1] == original_length
-    assert plain_full_03[-1][1] == original_length
+    assert gzip_full_03[-1][2] == original_length
+    assert plain_full_03[-1][2] == original_length
 
     joined = (
-        joiner_token.join([x[0] for x in plain_full_01])  # type:ignore
+        joiner_token.join([x[0] for x in plain_full_01])
         + joiner_token
-        + joiner_token.join([x[0] for x in plain_full_02])  # type:ignore
+        + joiner_token.join([x[0] for x in plain_full_02])
         + joiner_token
-        + joiner_token.join([x[0] for x in plain_full_03])  # type:ignore
+        + joiner_token.join([x[0] for x in plain_full_03])
     )
     if MockContent.f_content_plain.endswith(newline):
         joined += newline
@@ -228,21 +215,17 @@ def test_get_by_lines(length_multiplier: int, content_type: str, newline: bytes)
 
     MockContent.rewind()
 
-    range_start = plain_full[-1][1] + random.randint(1, 100)
+    range_start = plain_full[-1][2] + random.randint(1, 100)
 
     s3_storage = S3Storage(
         bucket_name=bucket_name, object_key="dummy.key.gz", multiline_processor=multiline_processor(content_type)
     )
-    gzip_full_empty: list[tuple[Union[StorageReader, bytes], Optional[dict[str, Any]], int, int, int]] = list(
-        s3_storage.get_by_lines(range_start=range_start)
-    )
+    gzip_full_empty: list[tuple[bytes, int, int, int]] = list(s3_storage.get_by_lines(range_start=range_start))
 
     s3_storage = S3Storage(
         bucket_name=bucket_name, object_key="dummy.key", multiline_processor=multiline_processor(content_type)
     )
-    plain_full_empty: list[tuple[Union[StorageReader, bytes], Optional[dict[str, Any]], int, int, int]] = list(
-        s3_storage.get_by_lines(range_start=range_start)
-    )
+    plain_full_empty: list[tuple[bytes, int, int, int]] = list(s3_storage.get_by_lines(range_start=range_start))
 
     assert not gzip_full_empty
     assert not plain_full_empty

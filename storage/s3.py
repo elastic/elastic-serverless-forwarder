@@ -10,7 +10,7 @@ import botocore.client
 import elasticapm  # noqa: F401
 from botocore.response import StreamingBody
 
-from share import ProtocolMultiline, shared_logger
+from share import ExpandEventListFromField, ProtocolMultiline, shared_logger
 
 from .decorator import JsonCollector, by_lines, inflate, multi_line
 from .storage import CHUNK_SIZE, CommonStorage, StorageReader
@@ -26,18 +26,25 @@ class S3Storage(CommonStorage):
         "s3", config=botocore.client.Config(retries={"total_max_attempts": 10, "mode": "standard"})
     )
 
-    def __init__(self, bucket_name: str, object_key: str, multiline_processor: Optional[ProtocolMultiline]):
+    def __init__(
+        self,
+        bucket_name: str,
+        object_key: str,
+        multiline_processor: Optional[ProtocolMultiline] = None,
+        expand_event_list_from_field: Optional[ExpandEventListFromField] = None,
+    ):
         self._bucket_name: str = bucket_name
         self._object_key: str = object_key
-        self._multiline_processor = multiline_processor
+        self.multiline_processor = multiline_processor
+        self.expand_event_list_from_field = expand_event_list_from_field
 
     @multi_line
     @JsonCollector
     @by_lines
     @inflate
     def _generate(
-        self, range_start: int, body: BytesIO, is_gzipped: bool, content_length: int
-    ) -> Iterator[tuple[Union[StorageReader, bytes], Optional[dict[str, Any]], int, int, int]]:
+        self, range_start: int, body: BytesIO, is_gzipped: bool
+    ) -> Iterator[tuple[Union[StorageReader, bytes], int, int, int, int]]:
         """
         Concrete implementation of the iterator for get_by_lines
         """
@@ -49,18 +56,16 @@ class S3Storage(CommonStorage):
 
         if is_gzipped:
             reader: StorageReader = StorageReader(raw=body)
-            yield reader, None, 0, 0, 0
+            yield reader, 0, 0, 0, True
         else:
             for chunk in iter(chunk_lambda, b""):
                 file_starting_offset = file_ending_offset
                 file_ending_offset += len(chunk)
 
                 shared_logger.debug("_generate flat", extra={"offset": file_ending_offset})
-                yield chunk, None, file_ending_offset, file_starting_offset, 0
+                yield chunk, file_ending_offset, file_starting_offset, 0, True
 
-    def get_by_lines(
-        self, range_start: int
-    ) -> Iterator[tuple[Union[StorageReader, bytes], Optional[dict[str, Any]], int, int, int]]:
+    def get_by_lines(self, range_start: int) -> Iterator[tuple[bytes, int, int, int]]:
         original_range_start: int = range_start
 
         s3_object_head = self._s3_client.head_object(Bucket=self._bucket_name, Key=self._object_key)
@@ -90,10 +95,11 @@ class S3Storage(CommonStorage):
         if is_gzipped or original_range_start < content_length:
             file_content.seek(range_start, SEEK_SET)
 
-            for log_event, json_object, line_ending_offset, line_starting_offset, newline_length in self._generate(
-                original_range_start, file_content, is_gzipped, content_length
+            for log_event, line_starting_offset, line_ending_offset, _, event_expanded_offset in self._generate(
+                original_range_start, file_content, is_gzipped
             ):
-                yield log_event, json_object, line_ending_offset, line_starting_offset, newline_length
+                assert isinstance(log_event, bytes)
+                yield log_event, line_starting_offset, line_ending_offset, event_expanded_offset
         else:
             shared_logger.info(f"requested file content from {range_start}, file size {content_length}: skip it")
 

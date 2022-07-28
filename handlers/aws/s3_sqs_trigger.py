@@ -51,7 +51,7 @@ def _handle_s3_sqs_continuation(
         },
     )
 
-    shared_logger.debug("continuing", extra={"sqs_continuing_queue": sqs_continuing_queue, "body": sqs_record["body"]})
+    shared_logger.debug("continuing", extra={"sqs_continuing_queue": sqs_continuing_queue})
 
 
 def _handle_s3_sqs_event(
@@ -59,7 +59,7 @@ def _handle_s3_sqs_event(
     input_id: str,
     expand_event_list_from_field: ExpandEventListFromField,
     multiline_processor: Optional[ProtocolMultiline],
-) -> Iterator[tuple[dict[str, Any], int, int, bool]]:
+) -> Iterator[tuple[dict[str, Any], int, int, int]]:
     """
     Handler for s3-sqs input.
     It takes an sqs record in the sqs trigger and process
@@ -80,7 +80,11 @@ def _handle_s3_sqs_event(
 
         bucket_name: str = get_bucket_name_from_arn(bucket_arn)
         storage: ProtocolStorage = StorageFactory.create(
-            storage_type="s3", bucket_name=bucket_name, object_key=object_key, multiline_processor=multiline_processor
+            storage_type="s3",
+            bucket_name=bucket_name,
+            object_key=object_key,
+            expand_event_list_from_field=expand_event_list_from_field,
+            multiline_processor=multiline_processor,
         )
 
         shared_logger.info(
@@ -94,39 +98,33 @@ def _handle_s3_sqs_event(
 
         span = elasticapm.capture_span(f"WAIT FOR OFFSET STARTING AT {last_ending_offset}")
         span.__enter__()
-        events = storage.get_by_lines(
-            range_start=last_ending_offset,
-        )
+        events = storage.get_by_lines(range_start=last_ending_offset)
 
-        for log_event, json_object, ending_offset, starting_offset, newline_length in events:
+        for log_event, starting_offset, ending_offset, event_expanded_offset in events:
             assert isinstance(log_event, bytes)
+
             if span:
                 span.__exit__(None, None, None)
                 span = None
 
-            for (
-                expanded_log_event,
-                expanded_starting_offset,
-                is_last_event_expanded,
-            ) in expand_event_list_from_field.expand(log_event, json_object, starting_offset, ending_offset):
-                es_event = deepcopy(_default_event)
-                es_event["@timestamp"] = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-                es_event["fields"]["message"] = expanded_log_event.decode("UTF-8")
+            es_event = deepcopy(_default_event)
+            es_event["@timestamp"] = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            es_event["fields"]["message"] = log_event.decode("UTF-8")
 
-                es_event["fields"]["log"]["offset"] = expanded_starting_offset
+            es_event["fields"]["log"]["offset"] = starting_offset
 
-                es_event["fields"]["log"]["file"]["path"] = "https://{0}.s3.{1}.amazonaws.com/{2}".format(
-                    bucket_name, aws_region, object_key
-                )
+            es_event["fields"]["log"]["file"]["path"] = "https://{0}.s3.{1}.amazonaws.com/{2}".format(
+                bucket_name, aws_region, object_key
+            )
 
-                es_event["fields"]["aws"] = {
-                    "s3": {
-                        "bucket": {"name": bucket_name, "arn": bucket_arn},
-                        "object": {"key": object_key},
-                    }
+            es_event["fields"]["aws"] = {
+                "s3": {
+                    "bucket": {"name": bucket_name, "arn": bucket_arn},
+                    "object": {"key": object_key},
                 }
+            }
 
-                es_event["fields"]["cloud"]["region"] = aws_region
-                es_event["fields"]["cloud"]["account"] = {"id": account_id}
+            es_event["fields"]["cloud"]["region"] = aws_region
+            es_event["fields"]["cloud"]["account"] = {"id": account_id}
 
-                yield es_event, ending_offset, s3_record_n, is_last_event_expanded
+            yield es_event, ending_offset, s3_record_n, event_expanded_offset

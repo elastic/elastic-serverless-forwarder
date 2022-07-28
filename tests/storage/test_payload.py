@@ -5,11 +5,10 @@
 import base64
 import gzip
 import random
-from typing import Any, Optional, Union
 
 import pytest
 
-from storage import PayloadStorage, StorageReader
+from storage import PayloadStorage
 
 from .test_benchmark import (
     _IS_JSON,
@@ -36,7 +35,7 @@ class MockContent(MockContentBase):
 def test_get_as_string_plain() -> None:
     MockContent.init_content(content_type=_IS_PLAIN, newline=b"\n")
     original = base64.b64decode(MockContent.f_content_plain).decode("utf-8")
-    payload_storage = PayloadStorage(payload=original, multiline_processor=None)
+    payload_storage = PayloadStorage(payload=original)
     content = payload_storage.get_as_string()
     assert content == original
     assert len(content) == len(original)
@@ -45,7 +44,7 @@ def test_get_as_string_plain() -> None:
 @pytest.mark.unit
 def test_get_as_string_base64() -> None:
     MockContent.init_content(content_type=_IS_PLAIN, newline=b"\n")
-    payload_storage = PayloadStorage(payload=MockContent.f_content_plain.decode("utf-8"), multiline_processor=None)
+    payload_storage = PayloadStorage(payload=MockContent.f_content_plain.decode("utf-8"))
     content = payload_storage.get_as_string()
     original = base64.b64decode(MockContent.f_content_plain).decode("utf-8")
     assert content == original
@@ -55,7 +54,7 @@ def test_get_as_string_base64() -> None:
 @pytest.mark.unit
 def test_get_as_string_gzip() -> None:
     MockContent.init_content(content_type=_IS_PLAIN, newline=b"\n")
-    payload_storage = PayloadStorage(payload=MockContent.f_content_gzip.decode("utf-8"), multiline_processor=None)
+    payload_storage = PayloadStorage(payload=MockContent.f_content_gzip.decode("utf-8"))
     content = payload_storage.get_as_string()
     original = gzip.decompress(base64.b64decode(MockContent.f_content_gzip)).decode("utf-8")
 
@@ -82,24 +81,20 @@ def test_get_by_lines(length_multiplier: int, content_type: str, newline: bytes)
     payload_storage = PayloadStorage(
         payload=payload_content_gzip, multiline_processor=multiline_processor(content_type)
     )
-    gzip_full: list[tuple[Union[StorageReader, bytes], int, int, int]] = [
-        (x[0], x[2], x[3], x[4]) for x in payload_storage.get_by_lines(range_start=0)
-    ]
+    gzip_full: list[tuple[bytes, int, int, int]] = list(payload_storage.get_by_lines(range_start=0))
 
     payload_storage = PayloadStorage(
         payload=payload_content_plain, multiline_processor=multiline_processor(content_type)
     )
-    plain_full: list[tuple[Union[StorageReader, bytes], int, int, int]] = [
-        (x[0], x[2], x[3], x[4]) for x in payload_storage.get_by_lines(range_start=0)
-    ]
+    plain_full: list[tuple[bytes, int, int, int]] = list(payload_storage.get_by_lines(range_start=0))
 
     diff = set(gzip_full) ^ set(plain_full)
     assert not diff
     assert plain_full == gzip_full
-    assert gzip_full[-1][1] == original_length
-    assert plain_full[-1][1] == original_length
+    assert gzip_full[-1][2] == original_length
+    assert plain_full[-1][2] == original_length
 
-    joined = joiner_token.join([x[0] for x in plain_full])  # type:ignore
+    joined = joiner_token.join([x[0] for x in plain_full])
     if original.endswith(newline):
         joined += newline
 
@@ -111,21 +106,17 @@ def test_get_by_lines(length_multiplier: int, content_type: str, newline: bytes)
     gzip_full_01 = gzip_full[: int(len(gzip_full) / 2)]
     plain_full_01 = plain_full[: int(len(plain_full) / 2)]
 
-    range_start = plain_full_01[-1][1]
+    range_start = plain_full_01[-1][2]
 
     payload_storage = PayloadStorage(
         payload=payload_content_gzip, multiline_processor=multiline_processor(content_type)
     )
-    gzip_full_02: list[tuple[Union[StorageReader, bytes], int, int, int]] = [
-        (x[0], x[2], x[3], x[4]) for x in payload_storage.get_by_lines(range_start=range_start)
-    ]
+    gzip_full_02: list[tuple[bytes, int, int, int]] = list(payload_storage.get_by_lines(range_start=range_start))
 
     payload_storage = PayloadStorage(
         payload=payload_content_plain, multiline_processor=multiline_processor(content_type)
     )
-    plain_full_02: list[tuple[Union[StorageReader, bytes], int, int, int]] = [
-        (x[0], x[2], x[3], x[4]) for x in payload_storage.get_by_lines(range_start=range_start)
-    ]
+    plain_full_02: list[tuple[bytes, int, int, int]] = list(payload_storage.get_by_lines(range_start=range_start))
 
     diff = set(gzip_full_01) ^ set(plain_full_01)
     assert not diff
@@ -136,13 +127,13 @@ def test_get_by_lines(length_multiplier: int, content_type: str, newline: bytes)
     assert plain_full_02 == gzip_full_02
 
     assert plain_full_01 + plain_full_02 == plain_full
-    assert gzip_full_02[-1][1] == original_length
-    assert plain_full_02[-1][1] == original_length
+    assert gzip_full_02[-1][2] == original_length
+    assert plain_full_02[-1][2] == original_length
 
     joined = (
-        joiner_token.join([x[0] for x in plain_full_01])  # type:ignore
+        joiner_token.join([x[0] for x in plain_full_01])
         + joiner_token
-        + joiner_token.join([x[0] for x in plain_full_02])  # type:ignore
+        + joiner_token.join([x[0] for x in plain_full_02])
     )
     if original.endswith(newline):
         joined += newline
@@ -152,21 +143,17 @@ def test_get_by_lines(length_multiplier: int, content_type: str, newline: bytes)
     gzip_full_02 = gzip_full_02[: int(len(gzip_full_02) / 2)]
     plain_full_02 = plain_full_02[: int(len(plain_full_02) / 2)]
 
-    range_start = plain_full_02[-1][1]
+    range_start = plain_full_02[-1][2]
 
     payload_storage = PayloadStorage(
         payload=payload_content_gzip, multiline_processor=multiline_processor(content_type)
     )
-    gzip_full_03: list[tuple[Union[StorageReader, bytes], int, int, int]] = [
-        (x[0], x[2], x[3], x[4]) for x in payload_storage.get_by_lines(range_start=range_start)
-    ]
+    gzip_full_03: list[tuple[bytes, int, int, int]] = list(payload_storage.get_by_lines(range_start=range_start))
 
     payload_storage = PayloadStorage(
         payload=payload_content_plain, multiline_processor=multiline_processor(content_type)
     )
-    plain_full_03: list[tuple[Union[StorageReader, bytes], int, int, int]] = [
-        (x[0], x[2], x[3], x[4]) for x in payload_storage.get_by_lines(range_start=range_start)
-    ]
+    plain_full_03: list[tuple[bytes, int, int, int]] = list(payload_storage.get_by_lines(range_start=range_start))
 
     diff = set(gzip_full_02) ^ set(plain_full_02)
     assert not diff
@@ -177,36 +164,32 @@ def test_get_by_lines(length_multiplier: int, content_type: str, newline: bytes)
     assert plain_full_03 == gzip_full_03
 
     assert plain_full_01 + plain_full_02 + plain_full_03 == plain_full
-    assert gzip_full_03[-1][1] == original_length
-    assert plain_full_03[-1][1] == original_length
+    assert gzip_full_03[-1][2] == original_length
+    assert plain_full_03[-1][2] == original_length
 
     joined = (
-        joiner_token.join([x[0] for x in plain_full_01])  # type:ignore
+        joiner_token.join([x[0] for x in plain_full_01])
         + joiner_token
-        + joiner_token.join([x[0] for x in plain_full_02])  # type:ignore
+        + joiner_token.join([x[0] for x in plain_full_02])
         + joiner_token
-        + joiner_token.join([x[0] for x in plain_full_03])  # type:ignore
+        + joiner_token.join([x[0] for x in plain_full_03])
     )
     if original.endswith(newline):
         joined += newline
 
     assert joined == original
 
-    range_start = plain_full[-1][1] + random.randint(1, 100)
+    range_start = plain_full[-1][2] + random.randint(1, 100)
 
     payload_storage = PayloadStorage(
         payload=payload_content_gzip, multiline_processor=multiline_processor(content_type)
     )
-    gzip_full_empty: list[tuple[Union[StorageReader, bytes], Optional[dict[str, Any]], int, int, int]] = list(
-        payload_storage.get_by_lines(range_start=range_start)
-    )
+    gzip_full_empty: list[tuple[bytes, int, int, int]] = list(payload_storage.get_by_lines(range_start=range_start))
 
     payload_storage = PayloadStorage(
         payload=payload_content_plain, multiline_processor=multiline_processor(content_type)
     )
-    plain_full_empty: list[tuple[Union[StorageReader, bytes], Optional[dict[str, Any]], int, int, int]] = list(
-        payload_storage.get_by_lines(range_start=range_start)
-    )
+    plain_full_empty: list[tuple[bytes, int, int, int]] = list(payload_storage.get_by_lines(range_start=range_start))
 
     assert not gzip_full_empty
     assert not plain_full_empty

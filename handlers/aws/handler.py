@@ -130,12 +130,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             field_to_expand_event_list_from, integration_scope, expand_event_list_from_field_resolver
         )
 
-        for (
-            es_event,
-            last_ending_offset,
-            current_log_event_n,
-            is_last_event_expanded,
-        ) in _handle_cloudwatch_logs_event(
+        for es_event, last_ending_offset, current_log_event_n, event_expanded_offset in _handle_cloudwatch_logs_event(
             cloudwatch_logs_event,
             aws_region,
             event_input.id,
@@ -152,11 +147,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             else:
                 empty_events += 1
 
-            if (
-                is_last_event_expanded
-                and lambda_context is not None
-                and lambda_context.get_remaining_time_in_millis() < _completion_grace_period
-            ):
+            if lambda_context is not None and lambda_context.get_remaining_time_in_millis() < _completion_grace_period:
                 sqs_continuing_queue = os.environ["SQS_CONTINUE_URL"]
 
                 shared_logger.info(
@@ -204,7 +195,12 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             event_input=event_input, lambda_event=lambda_event, at_record=0, config_yaml=config_yaml
         )
 
+        integration_scope = event_input.discover_integration_scope(lambda_event=lambda_event, at_record=0)
+
         field_to_expand_event_list_from = event_input.expand_event_list_from_field
+        expand_event_list_from_field = ExpandEventListFromField(
+            field_to_expand_event_list_from, integration_scope, expand_event_list_from_field_resolver
+        )
 
         for kinesis_record in lambda_event["Records"]:
             all_sequence_numbers[kinesis_record["kinesis"]["sequenceNumber"]] = kinesis_record["kinesis"][
@@ -212,14 +208,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             ]
 
         for kinesis_record_n, kinesis_record in enumerate(lambda_event["Records"]):
-            integration_scope = event_input.discover_integration_scope(
-                lambda_event=lambda_event, at_record=kinesis_record_n
-            )
-            expand_event_list_from_field = ExpandEventListFromField(
-                field_to_expand_event_list_from, integration_scope, expand_event_list_from_field_resolver
-            )
-
-            for es_event, last_ending_offset in _handle_kinesis_record(
+            for es_event, last_ending_offset, event_expanded_offset in _handle_kinesis_record(
                 kinesis_record, event_input.id, expand_event_list_from_field, event_input.get_multiline_processor()
             ):
                 shared_logger.debug("es_event", extra={"es_event": es_event})
@@ -264,19 +253,13 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         composite_shipper_cache: dict[str, CompositeShipper] = {}
 
         def event_processing(
-            processing_composing_shipper: CompositeShipper,
-            processing_es_event: dict[str, Any],
-            processing_is_last_event_expanded: bool,
+            processing_composing_shipper: CompositeShipper, processing_es_event: dict[str, Any]
         ) -> tuple[bool, str]:
             shared_logger.debug("es_event", extra={"es_event": processing_es_event})
 
             processing_sent_outcome = processing_composing_shipper.send(processing_es_event)
 
-            if (
-                processing_is_last_event_expanded
-                and lambda_context is not None
-                and lambda_context.get_remaining_time_in_millis() < _completion_grace_period
-            ):
+            if lambda_context is not None and lambda_context.get_remaining_time_in_millis() < _completion_grace_period:
                 return True, processing_sent_outcome
 
             return False, processing_sent_outcome
@@ -302,8 +285,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 },
             )
 
-            lambda_event["Records"] = remaining_sqs_records
-            for timeout_current_sqs_record, timeout_sqs_record in enumerate(lambda_event["Records"]):
+            for timeout_current_sqs_record, timeout_sqs_record in enumerate(remaining_sqs_records):
                 if timeout_current_sqs_record > 0:
                     timeout_last_ending_offset = None
                     timeout_current_s3_record = 0
@@ -382,7 +364,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             )
 
             if event_input.type == "sqs" or event_input.type == "cloudwatch-logs":
-                for es_event, last_ending_offset, is_last_event_expanded in _handle_sqs_event(
+                for es_event, last_ending_offset, event_expanded_offset in _handle_sqs_event(
                     sqs_record,
                     is_continuation_of_cloudwatch_logs,
                     input_id,
@@ -390,9 +372,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                     event_input.get_multiline_processor(),
                 ):
                     timeout, sent_outcome = event_processing(
-                        processing_composing_shipper=composite_shipper,
-                        processing_es_event=es_event,
-                        processing_is_last_event_expanded=is_last_event_expanded,
+                        processing_composing_shipper=composite_shipper, processing_es_event=es_event
                     )
 
                     if sent_outcome == EVENT_IS_SENT:
@@ -418,13 +398,11 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                         return "continuing"
 
             elif event_input.type == "s3-sqs":
-                for es_event, last_ending_offset, current_s3_record, is_last_event_expanded in _handle_s3_sqs_event(
+                for es_event, last_ending_offset, current_s3_record, event_expanded_offset in _handle_s3_sqs_event(
                     sqs_record, event_input.id, expand_event_list_from_field, event_input.get_multiline_processor()
                 ):
                     timeout, sent_outcome = event_processing(
-                        processing_composing_shipper=composite_shipper,
-                        processing_es_event=es_event,
-                        processing_is_last_event_expanded=is_last_event_expanded,
+                        processing_composing_shipper=composite_shipper, processing_es_event=es_event
                     )
 
                     if sent_outcome == EVENT_IS_SENT:
