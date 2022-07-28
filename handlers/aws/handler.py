@@ -17,7 +17,7 @@ from .cloudwatch_logs_trigger import (
     _handle_cloudwatch_logs_continuation,
     _handle_cloudwatch_logs_event,
 )
-from .kinesis_trigger import _handle_kinesis_record
+from .kinesis_trigger import _handle_kinesis_continuation, _handle_kinesis_record
 from .replay_trigger import ReplayedEventReplayHandler, _handle_replay_event
 from .s3_sqs_trigger import _handle_s3_sqs_continuation, _handle_s3_sqs_event
 from .sqs_trigger import _handle_sqs_continuation, _handle_sqs_event
@@ -31,11 +31,11 @@ from .utils import (
     delete_sqs_record,
     discover_integration_scope,
     expand_event_list_from_field_resolver,
+    get_continuing_original_input_type,
     get_log_group_arn_and_region_from_log_group_name,
     get_shipper_from_input,
     get_sqs_client,
     get_trigger_type_and_config_source,
-    is_continuing_of_cloudwatch_logs,
     wrap_try_except,
 )
 
@@ -181,9 +181,6 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         )
 
     if trigger_type == "kinesis-data-stream":
-        all_sequence_numbers: dict[str, str] = {}
-        ret: dict[Any, list[dict[str, str]]] = {"batchItemFailures": []}
-
         input_id = lambda_event["Records"][0]["eventSourceARN"]
         event_input = config.get_input_by_id(input_id)
         if event_input is None:
@@ -202,44 +199,39 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             field_to_expand_event_list_from, integration_scope, expand_event_list_from_field_resolver
         )
 
-        for kinesis_record in lambda_event["Records"]:
-            all_sequence_numbers[kinesis_record["kinesis"]["sequenceNumber"]] = kinesis_record["kinesis"][
-                "sequenceNumber"
-            ]
+        for es_event, last_ending_offset, current_kinesis_record_n, event_expanded_offset in _handle_kinesis_record(
+            lambda_event, event_input.id, expand_event_list_from_field, event_input.get_multiline_processor()
+        ):
+            sqs_continuing_queue = os.environ["SQS_CONTINUE_URL"]
 
-        for kinesis_record_n, kinesis_record in enumerate(lambda_event["Records"]):
-            for es_event, last_ending_offset, event_expanded_offset in _handle_kinesis_record(
-                kinesis_record, event_input.id, expand_event_list_from_field, event_input.get_multiline_processor()
-            ):
-                shared_logger.debug("es_event", extra={"es_event": es_event})
+            shared_logger.info(
+                "lambda is going to shutdown, continuing on dedicated sqs queue",
+                extra={
+                    "sqs_queue": sqs_continuing_queue,
+                    "sent_events": sent_events,
+                    "empty_events": empty_events,
+                    "skipped_events": skipped_events,
+                },
+            )
 
-                sent_outcome = composite_shipper.send(es_event)
-                if sent_outcome == EVENT_IS_SENT:
-                    sent_events += 1
-                elif sent_outcome == EVENT_IS_FILTERED:
-                    skipped_events += 1
-                else:
-                    empty_events += 1
+            composite_shipper.flush()
 
-            del all_sequence_numbers[lambda_event["Records"][kinesis_record_n]["kinesis"]["sequenceNumber"]]
+            remaining_sqs_records = (lambda_event["Records"][current_kinesis_record_n:],)
+            for current_kinesis_record, kinesis_record in enumerate(remaining_sqs_records):
+                continuing_last_ending_offset: Optional[int] = last_ending_offset
+                if current_kinesis_record > 0:
+                    continuing_last_ending_offset = None
 
-            if lambda_context is not None and lambda_context.get_remaining_time_in_millis() < _completion_grace_period:
-                composite_shipper.flush()
-
-                shared_logger.info(
-                    "lambda is going to shutdown, failing unprocessed sequence numbers",
-                    extra={
-                        "sent_events": sent_events,
-                        "empty_events": empty_events,
-                        "skipped_events": skipped_events,
-                        "sequence_numbers": ", ".join(all_sequence_numbers.keys()),
-                    },
+                _handle_kinesis_continuation(
+                    sqs_client=sqs_client,
+                    sqs_continuing_queue=sqs_continuing_queue,
+                    last_ending_offset=continuing_last_ending_offset,
+                    kinesis_record=kinesis_record,
+                    event_input_id=input_id,
+                    config_yaml=config_yaml,
                 )
 
-                for sequence_number in all_sequence_numbers:
-                    ret["batchItemFailures"].append({"itemIdentifier": sequence_number})
-
-                return ret
+            return "continuing"
 
         composite_shipper.flush()
         shared_logger.info(
@@ -247,7 +239,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             extra={"sent_event": sent_events, "empty_events": empty_events, "skipped_events": skipped_events},
         )
 
-        return ret
+        return "completed"
 
     if trigger_type == "s3-sqs" or trigger_type == "sqs":
         composite_shipper_cache: dict[str, CompositeShipper] = {}
@@ -332,7 +324,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
                 previous_sqs_record = current_sqs_record
 
-            is_continuation_of_cloudwatch_logs = is_continuing_of_cloudwatch_logs(sqs_record)
+            continuing_original_input_type = get_continuing_original_input_type(sqs_record)
 
             input_id = sqs_record["eventSourceARN"]
             if "messageAttributes" in sqs_record and "originalEventSourceARN" in sqs_record["messageAttributes"]:
@@ -366,9 +358,9 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             if event_input.type == "sqs" or event_input.type == "cloudwatch-logs":
                 for es_event, last_ending_offset, event_expanded_offset in _handle_sqs_event(
                     sqs_record,
-                    is_continuation_of_cloudwatch_logs,
                     input_id,
                     expand_event_list_from_field,
+                    continuing_original_input_type,
                     event_input.get_multiline_processor(),
                 ):
                     timeout, sent_outcome = event_processing(
