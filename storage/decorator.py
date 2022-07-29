@@ -13,10 +13,6 @@ from share import ExpandEventListFromField, ProtocolMultiline, shared_logger
 from .storage import CHUNK_SIZE, GetByLinesCallable, ProtocolStorageType, StorageReader
 
 
-def _log_op(op: str, log: str) -> None:
-    pass
-
-
 # For overriding in benchmark
 def json_parser(payload: bytes) -> Any:
     return ujson.loads(payload)
