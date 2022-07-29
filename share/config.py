@@ -191,6 +191,7 @@ class Input:
         self.type = input_type
 
         self._tags: list[str] = []
+        self._json_content_type: str = ""
         self._expand_event_list_from_field: str = ""
         self._outputs: dict[str, Output] = {}
 
@@ -198,6 +199,8 @@ class Input:
 
         self._multiline_processor: Optional[ProtocolMultiline] = None
         self._include_exclude_filter: Optional[IncludeExcludeFilter] = None
+
+        self._valid_json_content_type: list[str] = ["json", "ndjson"]
 
     def discover_integration_scope(self, lambda_event: dict[str, Any], at_record: int) -> str:
         if self._integration_scope_discoverer is None:
@@ -259,6 +262,20 @@ class Input:
             raise ValueError(f"`expand_event_list_from_field` must be provided as string for input {self.id}")
 
         self._expand_event_list_from_field = value
+
+    @property
+    def json_content_type(self) -> str:
+        return self._json_content_type
+
+    @json_content_type.setter
+    def json_content_type(self, value: str) -> None:
+        if value not in self._valid_json_content_type:
+            raise ValueError(
+                f"`json_content_type` must be one of {','.join(self._valid_json_content_type)} "
+                f"for input {self.id}: {value} given"
+            )
+
+        self._json_content_type = value
 
     @property
     def include_exclude_filter(self) -> Optional[IncludeExcludeFilter]:
@@ -419,6 +436,9 @@ def parse_config(
 
         if "expand_event_list_from_field" in input_config:
             current_input.expand_event_list_from_field = input_config["expand_event_list_from_field"]
+
+        if "json_content_type" in input_config:
+            current_input.json_content_type = input_config["json_content_type"]
 
         include_rules: list[IncludeExcludeRule] = []
         if "include" in input_config:

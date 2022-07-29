@@ -14,7 +14,6 @@ from botocore.response import StreamingBody
 from storage import S3Storage
 
 from .test_benchmark import (
-    _IS_JSON,
     _IS_PLAIN,
     _LENGTH_ABOVE_THRESHOLD,
     MockContentBase,
@@ -96,25 +95,30 @@ def test_get_as_string() -> None:
 @pytest.mark.unit
 @mock.patch("storage.S3Storage._s3_client.head_object", new=MockContent.s3_client_head_object)
 @mock.patch("storage.S3Storage._s3_client.download_fileobj", new=MockContent.s3_client_download_fileobj)
-@pytest.mark.parametrize("length_multiplier,content_type,newline", get_by_lines_parameters())
-def test_get_by_lines(length_multiplier: int, content_type: str, newline: bytes) -> None:
+@pytest.mark.parametrize("length_multiplier,content_type,newline,json_content_type", get_by_lines_parameters())
+def test_get_by_lines(
+    length_multiplier: int, content_type: str, newline: bytes, json_content_type: Optional[str]
+) -> None:
     MockContent.init_content(content_type=content_type, newline=newline, length_multiplier=length_multiplier)
 
     joiner_token: bytes = newline
 
     original_length: int = MockContent.f_size_plain
 
-    if content_type is _IS_JSON and MockContent.f_content_plain.endswith(newline * 2):
-        original_length -= len(newline)
-
     bucket_name: str = "dummy_bucket"
 
     s3_storage = S3Storage(
-        bucket_name=bucket_name, object_key="dummy.key.gz", multiline_processor=multiline_processor(content_type)
+        bucket_name=bucket_name,
+        object_key="dummy.key.gz",
+        json_content_type=json_content_type,
+        multiline_processor=multiline_processor(content_type),
     )
     gzip_full: list[tuple[bytes, int, int, int]] = list(s3_storage.get_by_lines(range_start=0))
     s3_storage = S3Storage(
-        bucket_name=bucket_name, object_key="dummy.key", multiline_processor=multiline_processor(content_type)
+        bucket_name=bucket_name,
+        object_key="dummy.key",
+        json_content_type=json_content_type,
+        multiline_processor=multiline_processor(content_type),
     )
     plain_full: list[tuple[bytes, int, int, int]] = list(s3_storage.get_by_lines(range_start=0))
 
@@ -141,12 +145,18 @@ def test_get_by_lines(length_multiplier: int, content_type: str, newline: bytes)
     range_start = plain_full_01[-1][2]
 
     s3_storage = S3Storage(
-        bucket_name=bucket_name, object_key="dummy.key.gz", multiline_processor=multiline_processor(content_type)
+        bucket_name=bucket_name,
+        object_key="dummy.key.gz",
+        json_content_type=json_content_type,
+        multiline_processor=multiline_processor(content_type),
     )
     gzip_full_02: list[tuple[bytes, int, int, int]] = list(s3_storage.get_by_lines(range_start=range_start))
 
     s3_storage = S3Storage(
-        bucket_name=bucket_name, object_key="dummy.key", multiline_processor=multiline_processor(content_type)
+        bucket_name=bucket_name,
+        object_key="dummy.key",
+        json_content_type=json_content_type,
+        multiline_processor=multiline_processor(content_type),
     )
     plain_full_02: list[tuple[bytes, int, int, int]] = list(s3_storage.get_by_lines(range_start=range_start))
 
@@ -180,12 +190,18 @@ def test_get_by_lines(length_multiplier: int, content_type: str, newline: bytes)
     range_start = plain_full_02[-1][2]
 
     s3_storage = S3Storage(
-        bucket_name=bucket_name, object_key="dummy.key.gz", multiline_processor=multiline_processor(content_type)
+        bucket_name=bucket_name,
+        object_key="dummy.key.gz",
+        json_content_type=json_content_type,
+        multiline_processor=multiline_processor(content_type),
     )
     gzip_full_03: list[tuple[bytes, int, int, int]] = list(s3_storage.get_by_lines(range_start=range_start))
 
     s3_storage = S3Storage(
-        bucket_name=bucket_name, object_key="dummy.key", multiline_processor=multiline_processor(content_type)
+        bucket_name=bucket_name,
+        object_key="dummy.key",
+        json_content_type=json_content_type,
+        multiline_processor=multiline_processor(content_type),
     )
     plain_full_03: list[tuple[bytes, int, int, int]] = list(s3_storage.get_by_lines(range_start=range_start))
 
@@ -218,12 +234,18 @@ def test_get_by_lines(length_multiplier: int, content_type: str, newline: bytes)
     range_start = plain_full[-1][2] + random.randint(1, 100)
 
     s3_storage = S3Storage(
-        bucket_name=bucket_name, object_key="dummy.key.gz", multiline_processor=multiline_processor(content_type)
+        bucket_name=bucket_name,
+        object_key="dummy.key.gz",
+        json_content_type=json_content_type,
+        multiline_processor=multiline_processor(content_type),
     )
     gzip_full_empty: list[tuple[bytes, int, int, int]] = list(s3_storage.get_by_lines(range_start=range_start))
 
     s3_storage = S3Storage(
-        bucket_name=bucket_name, object_key="dummy.key", multiline_processor=multiline_processor(content_type)
+        bucket_name=bucket_name,
+        object_key="dummy.key",
+        json_content_type=json_content_type,
+        multiline_processor=multiline_processor(content_type),
     )
     plain_full_empty: list[tuple[bytes, int, int, int]] = list(s3_storage.get_by_lines(range_start=range_start))
 

@@ -5,13 +5,13 @@
 import base64
 import gzip
 import random
+from typing import Optional
 
 import pytest
 
 from storage import PayloadStorage
 
 from .test_benchmark import (
-    _IS_JSON,
     _IS_PLAIN,
     _LENGTH_ABOVE_THRESHOLD,
     MockContentBase,
@@ -63,8 +63,10 @@ def test_get_as_string_gzip() -> None:
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize("length_multiplier,content_type,newline", get_by_lines_parameters())
-def test_get_by_lines(length_multiplier: int, content_type: str, newline: bytes) -> None:
+@pytest.mark.parametrize("length_multiplier,content_type,newline,json_content_type", get_by_lines_parameters())
+def test_get_by_lines(
+    length_multiplier: int, content_type: str, newline: bytes, json_content_type: Optional[str]
+) -> None:
     MockContent.init_content(content_type=content_type, newline=newline, length_multiplier=length_multiplier)
 
     payload_content_gzip = MockContent.f_content_gzip.decode("utf-8")
@@ -75,16 +77,17 @@ def test_get_by_lines(length_multiplier: int, content_type: str, newline: bytes)
     original: bytes = base64.b64decode(MockContent.f_content_plain)
     original_length: int = len(original)
 
-    if content_type is _IS_JSON and original.endswith(newline * 2):
-        original_length -= len(newline)
-
     payload_storage = PayloadStorage(
-        payload=payload_content_gzip, multiline_processor=multiline_processor(content_type)
+        payload=payload_content_gzip,
+        json_content_type=json_content_type,
+        multiline_processor=multiline_processor(content_type),
     )
     gzip_full: list[tuple[bytes, int, int, int]] = list(payload_storage.get_by_lines(range_start=0))
 
     payload_storage = PayloadStorage(
-        payload=payload_content_plain, multiline_processor=multiline_processor(content_type)
+        payload=payload_content_plain,
+        json_content_type=json_content_type,
+        multiline_processor=multiline_processor(content_type),
     )
     plain_full: list[tuple[bytes, int, int, int]] = list(payload_storage.get_by_lines(range_start=0))
 
@@ -109,12 +112,16 @@ def test_get_by_lines(length_multiplier: int, content_type: str, newline: bytes)
     range_start = plain_full_01[-1][2]
 
     payload_storage = PayloadStorage(
-        payload=payload_content_gzip, multiline_processor=multiline_processor(content_type)
+        payload=payload_content_gzip,
+        json_content_type=json_content_type,
+        multiline_processor=multiline_processor(content_type),
     )
     gzip_full_02: list[tuple[bytes, int, int, int]] = list(payload_storage.get_by_lines(range_start=range_start))
 
     payload_storage = PayloadStorage(
-        payload=payload_content_plain, multiline_processor=multiline_processor(content_type)
+        payload=payload_content_plain,
+        json_content_type=json_content_type,
+        multiline_processor=multiline_processor(content_type),
     )
     plain_full_02: list[tuple[bytes, int, int, int]] = list(payload_storage.get_by_lines(range_start=range_start))
 
@@ -146,12 +153,16 @@ def test_get_by_lines(length_multiplier: int, content_type: str, newline: bytes)
     range_start = plain_full_02[-1][2]
 
     payload_storage = PayloadStorage(
-        payload=payload_content_gzip, multiline_processor=multiline_processor(content_type)
+        payload=payload_content_gzip,
+        json_content_type=json_content_type,
+        multiline_processor=multiline_processor(content_type),
     )
     gzip_full_03: list[tuple[bytes, int, int, int]] = list(payload_storage.get_by_lines(range_start=range_start))
 
     payload_storage = PayloadStorage(
-        payload=payload_content_plain, multiline_processor=multiline_processor(content_type)
+        payload=payload_content_plain,
+        json_content_type=json_content_type,
+        multiline_processor=multiline_processor(content_type),
     )
     plain_full_03: list[tuple[bytes, int, int, int]] = list(payload_storage.get_by_lines(range_start=range_start))
 
@@ -182,12 +193,16 @@ def test_get_by_lines(length_multiplier: int, content_type: str, newline: bytes)
     range_start = plain_full[-1][2] + random.randint(1, 100)
 
     payload_storage = PayloadStorage(
-        payload=payload_content_gzip, multiline_processor=multiline_processor(content_type)
+        payload=payload_content_gzip,
+        json_content_type=json_content_type,
+        multiline_processor=multiline_processor(content_type),
     )
     gzip_full_empty: list[tuple[bytes, int, int, int]] = list(payload_storage.get_by_lines(range_start=range_start))
 
     payload_storage = PayloadStorage(
-        payload=payload_content_plain, multiline_processor=multiline_processor(content_type)
+        payload=payload_content_plain,
+        json_content_type=json_content_type,
+        multiline_processor=multiline_processor(content_type),
     )
     plain_full_empty: list[tuple[bytes, int, int, int]] = list(payload_storage.get_by_lines(range_start=range_start))
 

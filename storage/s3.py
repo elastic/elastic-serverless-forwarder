@@ -30,11 +30,13 @@ class S3Storage(CommonStorage):
         self,
         bucket_name: str,
         object_key: str,
+        json_content_type: Optional[str] = None,
         multiline_processor: Optional[ProtocolMultiline] = None,
         expand_event_list_from_field: Optional[ExpandEventListFromField] = None,
     ):
         self._bucket_name: str = bucket_name
         self._object_key: str = object_key
+        self.json_content_type = json_content_type
         self.multiline_processor = multiline_processor
         self.expand_event_list_from_field = expand_event_list_from_field
 

@@ -1148,6 +1148,31 @@ class TestLambdaHandlerFailure(TestCase):
 
                 handler(event, ctx)  # type:ignore
 
+        with self.subTest("json_content_type not valid"):
+            with self.assertRaisesRegex(
+                ConfigFileException,
+                "`json_content_type` must be one of json,ndjson for input mock_plain_text_sqs_arn: whatever given",
+            ):
+                ctx = ContextMock()
+                config_yml = """
+                    inputs:
+                      - type: "s3-sqs"
+                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret"
+                        json_content_type: whatever
+                        outputs:
+                          - type: "elasticsearch"
+                            args:
+                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
+                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
+                              es_datastream_name: "logs-redis.log-default"
+                """
+
+                event = deepcopy(event_with_config)
+                event["Records"][0]["messageAttributes"]["config"]["stringValue"] = config_yml
+
+                handler(event, ctx)  # type:ignore
+
 
 def _mock_awsclient(service_name: str, region_name: str = "") -> BotoBaseClient:
     if not region_name:

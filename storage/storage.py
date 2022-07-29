@@ -29,6 +29,7 @@ class ProtocolStorage(Protocol):
     Protocol for Storage components
     """
 
+    json_content_type: Optional[str]
     multiline_processor: Optional[ProtocolMultiline]
     expand_event_list_from_field: Optional[ExpandEventListFromField]
 
@@ -44,6 +45,7 @@ class CommonStorage(metaclass=ABCMeta):
     Common class for Storage components
     """
 
+    json_content_type: Optional[str] = None
     multiline_processor: Optional[ProtocolMultiline] = None
     expand_event_list_from_field: Optional[ExpandEventListFromField] = None
 

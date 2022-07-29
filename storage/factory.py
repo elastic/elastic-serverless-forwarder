@@ -26,6 +26,7 @@ class StorageFactory:
     @staticmethod
     def create(
         storage_type: str,
+        json_content_type: Optional[str] = None,
         expand_event_list_from_field: Optional[ExpandEventListFromField] = None,
         multiline_processor: Optional[ProtocolMultiline] = None,
         **kwargs: Any,
@@ -50,6 +51,7 @@ class StorageFactory:
                 + f"{', '.join(storage_kwargs)}. (provided: {json.dumps(kwargs)})"
             )
 
+        kwargs["json_content_type"] = json_content_type
         kwargs["multiline_processor"] = multiline_processor
         kwargs["expand_event_list_from_field"] = expand_event_list_from_field
 
