@@ -45,9 +45,12 @@ def _handle_kinesis_continuation(
     if last_ending_offset is not None:
         message_attributes["originalLastEndingOffset"] = {"StringValue": str(last_ending_offset), "DataType": "Number"}
 
+    kinesis_data: bytes = kinesis_record["kinesis"]["data"]
+    message_body: str = kinesis_data.decode("utf-8")
+
     sqs_client.send_message(
         QueueUrl=sqs_continuing_queue,
-        MessageBody=kinesis_record["kinesis"]["data"],
+        MessageBody=message_body,
         MessageAttributes=message_attributes,
     )
 

@@ -2406,8 +2406,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
     def tearDown(self) -> None:
         super(TestLambdaHandlerSuccessKinesisDataStream, self).tearDown()
 
-    @mock.patch("handlers.aws.handler._completion_grace_period", 1)
-    def test_lambda_handler_kinesis_full(self) -> None:
+    def test_lambda_handler_continuing(self) -> None:
         self._kinesis_client.put_records(
             Records=[
                 {
@@ -2472,149 +2471,6 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
 
         records = self._kinesis_client.get_records(ShardIterator=shard_iterator["ShardIterator"], Limit=2)
 
-        ctx = ContextMock(remaining_time_in_millis=2)
-        event = _event_from_kinesis_records(
-            records=records, stream_attribute=self._kinesis_streams_info["source-kinesis"]
-        )
-
-        first_call = handler(event, ctx)  # type:ignore
-
-        assert first_call == {"batchItemFailures": []}
-
-        self._es_client.indices.refresh(index="logs-generic-default")
-        assert self._es_client.count(index="logs-generic-default")["count"] == 3
-
-        res = self._es_client.search(index="logs-generic-default", sort="_seq_no")
-        assert res["hits"]["total"] == {"value": 3, "relation": "eq"}
-
-        assert res["hits"]["hits"][0]["_source"]["message"] == ujson.dumps(self._first_log_entry)
-
-        assert res["hits"]["hits"][0]["_source"]["log"] == {
-            "offset": 0,
-            "file": {"path": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamARN"]},
-        }
-        assert res["hits"]["hits"][0]["_source"]["aws"] == {
-            "kinesis": {
-                "type": "stream",
-                "name": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
-                "sequence_number": event["Records"][0]["kinesis"]["sequenceNumber"],
-            }
-        }
-        assert res["hits"]["hits"][0]["_source"]["cloud"] == {
-            "account": {"id": "000000000000"},
-            "provider": "aws",
-            "region": "us-east-1",
-        }
-
-        assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
-
-        assert res["hits"]["hits"][1]["_source"]["message"] == ujson.dumps(self._second_log_entry)
-
-        assert res["hits"]["hits"][1]["_source"]["log"] == {
-            "offset": 296,
-            "file": {"path": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamARN"]},
-        }
-        assert res["hits"]["hits"][1]["_source"]["aws"] == {
-            "kinesis": {
-                "type": "stream",
-                "name": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
-                "sequence_number": event["Records"][0]["kinesis"]["sequenceNumber"],
-            }
-        }
-        assert res["hits"]["hits"][1]["_source"]["cloud"] == {
-            "account": {"id": "000000000000"},
-            "provider": "aws",
-            "region": "us-east-1",
-        }
-
-        assert res["hits"]["hits"][1]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
-
-        assert res["hits"]["hits"][2]["_source"]["message"] == ujson.dumps(self._third_log_entry)
-
-        assert res["hits"]["hits"][2]["_source"]["log"] == {
-            "offset": 250,
-            "file": {"path": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamARN"]},
-        }
-        assert res["hits"]["hits"][2]["_source"]["aws"] == {
-            "kinesis": {
-                "type": "stream",
-                "name": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
-                "sequence_number": event["Records"][1]["kinesis"]["sequenceNumber"],
-            }
-        }
-        assert res["hits"]["hits"][2]["_source"]["cloud"] == {
-            "account": {"id": "000000000000"},
-            "provider": "aws",
-            "region": "us-east-1",
-        }
-
-        assert res["hits"]["hits"][2]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
-
-        while "NextShardIterator" in records:
-            records = self._kinesis_client.get_records(ShardIterator=records["NextShardIterator"], Limit=2)
-            assert not records["Records"]
-            break
-
-    def test_lambda_handler_kinesis_continuing(self) -> None:
-        self._kinesis_client.put_records(
-            Records=[
-                {
-                    "PartitionKey": "PartitionKey",
-                    "Data": base64.b64encode(
-                        json.dumps(
-                            {
-                                "messageType": "DATA_MESSAGE",
-                                "owner": "000000000000",
-                                "logGroup": "group_name",
-                                "logStream": "stream_name",
-                                "subscriptionFilters": ["a-subscription-filter"],
-                                "logEvents": [self._first_log_entry, self._second_log_entry],
-                            }
-                        ).encode("utf-8")
-                    ),
-                },
-                {
-                    "PartitionKey": "PartitionKey",
-                    "Data": base64.b64encode(
-                        json.dumps(
-                            {
-                                "messageType": "DATA_MESSAGE",
-                                "owner": "000000000000",
-                                "logGroup": "group_name",
-                                "logStream": "stream_name",
-                                "subscriptionFilters": ["a-subscription-filter"],
-                                "logEvents": [
-                                    self._third_log_entry,
-                                ],
-                            }
-                        ).encode("utf-8")
-                    ),
-                },
-            ],
-            StreamName=self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
-        )
-
-        shards_paginator = self._kinesis_client.get_paginator("list_shards")
-        shards_available = [
-            shard
-            for shard in shards_paginator.paginate(
-                StreamName=self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
-                ShardFilter={"Type": "FROM_TRIM_HORIZON", "Timestamp": datetime.datetime(2015, 1, 1)},
-                PaginationConfig={"MaxItems": 1, "PageSize": 1},
-            )
-        ]
-
-        assert len(shards_available) == 1 and len(shards_available[0]["Shards"]) == 1
-
-        shard_iterator = self._kinesis_client.get_shard_iterator(
-            StreamName=self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
-            ShardId=shards_available[0]["Shards"][0]["ShardId"],
-            ShardIteratorType="TRIM_HORIZON",
-            Timestamp=datetime.datetime(2015, 1, 1),
-        )
-
-        records = self._kinesis_client.get_records(ShardIterator=shard_iterator["ShardIterator"], Limit=2)
-
         ctx = ContextMock()
         event = _event_from_kinesis_records(
             records=records, stream_attribute=self._kinesis_streams_info["source-kinesis"]
@@ -2622,15 +2478,12 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
 
         first_call = handler(event, ctx)  # type:ignore
 
-        assert first_call == {
-            "batchItemFailures": [{"itemIdentifier": event["Records"][1]["kinesis"]["sequenceNumber"]}]
-        }
-
+        assert first_call == "continuing"
         self._es_client.indices.refresh(index="logs-generic-default")
-        assert self._es_client.count(index="logs-generic-default")["count"] == 2
+        assert self._es_client.count(index="logs-generic-default")["count"] == 1
 
         res = self._es_client.search(index="logs-generic-default", sort="_seq_no")
-        assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
+        assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
 
         assert res["hits"]["hits"][0]["_source"]["message"] == ujson.dumps(self._first_log_entry)
 
@@ -2653,58 +2506,88 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
-        assert res["hits"]["hits"][1]["_source"]["message"] == ujson.dumps(self._second_log_entry)
-
-        assert res["hits"]["hits"][1]["_source"]["log"] == {
-            "offset": 296,
-            "file": {"path": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamARN"]},
-        }
-        assert res["hits"]["hits"][1]["_source"]["aws"] == {
-            "kinesis": {
-                "type": "stream",
-                "name": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
-                "sequence_number": event["Records"][0]["kinesis"]["sequenceNumber"],
-            }
-        }
-        assert res["hits"]["hits"][1]["_source"]["cloud"] == {
-            "account": {"id": "000000000000"},
-            "provider": "aws",
-            "region": "us-east-1",
-        }
-
-        assert res["hits"]["hits"][1]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
-
-        event["Records"] = event["Records"][1:]
+        event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
         second_call = handler(event, ctx)  # type:ignore
 
-        assert second_call == {"batchItemFailures": []}
+        assert second_call == "completed"
 
         self._es_client.indices.refresh(index="logs-generic-default")
-        assert self._es_client.count(index="logs-generic-default")["count"] == 3
-
+        # @TODO: revert when dealing with expand_event_list_from_field continuation
+        # assert self._es_client.count(index="logs-generic-default")["count"] == 2
+        assert self._es_client.count(index="logs-generic-default")["count"] == 1
         res = self._es_client.search(index="logs-generic-default", sort="_seq_no")
-        assert res["hits"]["total"] == {"value": 3, "relation": "eq"}
 
-        assert res["hits"]["hits"][2]["_source"]["message"] == ujson.dumps(self._third_log_entry)
+        # @TODO: revert when dealing with expand_event_list_from_field continuation
+        # assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
+        assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
 
-        assert res["hits"]["hits"][2]["_source"]["log"] == {
-            "offset": 0,
-            "file": {"path": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamARN"]},
-        }
-        assert res["hits"]["hits"][2]["_source"]["aws"] == {
-            "kinesis": {
-                "type": "stream",
-                "name": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
-                "sequence_number": event["Records"][0]["kinesis"]["sequenceNumber"],
-            }
-        }
-        assert res["hits"]["hits"][2]["_source"]["cloud"] == {
-            "account": {"id": "000000000000"},
-            "provider": "aws",
-            "region": "us-east-1",
-        }
+        # @TODO: revert when dealing with expand_event_list_from_field continuation
+        # assert res["hits"]["hits"][1]["_source"]["message"] == ujson.dumps(self._second_log_entry)
+        #
+        # assert res["hits"]["hits"][1]["_source"]["log"] == {
+        #     "offset": 296,
+        #     "file": {"path": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamARN"]},
+        # }
+        # assert res["hits"]["hits"][1]["_source"]["aws"] == {
+        #     "kinesis": {
+        #         "type": "stream",
+        #         "name": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
+        #         "sequence_number": event["Records"][0]["kinesis"]["sequenceNumber"],
+        #     }
+        # }
+        # assert res["hits"]["hits"][1]["_source"]["cloud"] == {
+        #     "account": {"id": "000000000000"},
+        #     "provider": "aws",
+        #     "region": "us-east-1",
+        # }
+        #
+        # assert res["hits"]["hits"][1]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
-        assert res["hits"]["hits"][2]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
+        event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        third_call = handler(event, ctx)  # type:ignore
+
+        assert third_call == "continuing"
+
+        self._es_client.indices.refresh(index="logs-generic-default")
+        # @TODO: revert when dealing with expand_event_list_from_field continuation
+        # assert self._es_client.count(index="logs-generic-default")["count"] == 2
+        assert self._es_client.count(index="logs-generic-default")["count"] == 1
+
+        event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        fourth_call = handler(event, ctx)  # type:ignore
+
+        assert fourth_call == "completed"
+
+        self._es_client.indices.refresh(index="logs-generic-default")
+        assert self._es_client.count(index="logs-generic-default")["count"] == 1
+
+        # @TODO: revert when dealing with expand_event_list_from_field continuation
+        # self._es_client.indices.refresh(index="logs-generic-default")
+        # assert self._es_client.count(index="logs-generic-default")["count"] == 3
+        #
+        # res = self._es_client.search(index="logs-generic-default", sort="_seq_no")
+        # assert res["hits"]["total"] == {"value": 3, "relation": "eq"}
+        #
+        # assert res["hits"]["hits"][2]["_source"]["message"] == ujson.dumps(self._third_log_entry)
+        #
+        # assert res["hits"]["hits"][2]["_source"]["log"] == {
+        #     "offset": 0,
+        #     "file": {"path": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamARN"]},
+        # }
+        # assert res["hits"]["hits"][2]["_source"]["aws"] == {
+        #     "kinesis": {
+        #         "type": "stream",
+        #         "name": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
+        #         "sequence_number": event["Records"][0]["kinesis"]["sequenceNumber"],
+        #     }
+        # }
+        # assert res["hits"]["hits"][2]["_source"]["cloud"] == {
+        #     "account": {"id": "000000000000"},
+        #     "provider": "aws",
+        #     "region": "us-east-1",
+        # }
+        #
+        # assert res["hits"]["hits"][2]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
         while "NextShardIterator" in records:
             records = self._kinesis_client.get_records(ShardIterator=records["NextShardIterator"], Limit=2)
@@ -2712,7 +2595,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
             break
 
     @mock.patch("handlers.aws.handler._completion_grace_period", 1)
-    def test_lambda_handler_kinesis_replay(self) -> None:
+    def test_lambda_handler_replay(self) -> None:
         self._kinesis_client.put_records(
             Records=[
                 {
@@ -2810,7 +2693,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
 
         first_call = handler(event, ctx)  # type:ignore
 
-        assert first_call == {"batchItemFailures": []}
+        assert first_call == "completed"
 
         self._es_client.indices.refresh(index="logs-generic-default")
         res = self._es_client.search(
