@@ -446,7 +446,7 @@ class TestInput(TestCase):
         with self.subTest("json_content_type not valid"):
             input_sqs = Input(input_type="s3-sqs", input_id="id")
             with self.assertRaisesRegex(
-                ValueError, "`json_content_type` must be one of json,ndjson for input id: whatever given"
+                ValueError, "`json_content_type` must be one of ndjson,single for input id: whatever given"
             ):
                 input_sqs.json_content_type = "whatever"
 
@@ -958,13 +958,13 @@ class TestParseConfig(TestCase):
             """
                 )
 
-        with self.subTest("json_content_type json"):
+        with self.subTest("json_content_type single"):
             config = parse_config(
                 config_yaml="""
             inputs:
               - type: s3-sqs
                 id: id
-                json_content_type: json
+                json_content_type: single
                 outputs:
                   - type: elasticsearch
                     args:
@@ -978,7 +978,7 @@ class TestParseConfig(TestCase):
             assert input_sqs is not None
             assert input_sqs.type == "s3-sqs"
             assert input_sqs.id == "id"
-            assert input_sqs.json_content_type == "json"
+            assert input_sqs.json_content_type == "single"
 
         with self.subTest("json_content_type ndjson"):
             config = parse_config(
@@ -1004,7 +1004,7 @@ class TestParseConfig(TestCase):
 
         with self.subTest("json_content_type not valid"):
             with self.assertRaisesRegex(
-                ValueError, "`json_content_type` must be one of json,ndjson for input id: whatever given"
+                ValueError, "`json_content_type` must be one of ndjson,single for input id: whatever given"
             ):
                 parse_config(
                     config_yaml="""

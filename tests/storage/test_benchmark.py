@@ -55,7 +55,7 @@ def get_by_lines_parameters() -> list[tuple[int, str, bytes]]:
             _IS_MULTILINE_WHILE,
         ]:
             for newline in [b"", b"\n", b"\r\n"]:
-                for json_content_type in [None, "json", "ndjson"]:
+                for json_content_type in [None, "single", "ndjson"]:
                     parameters.append(
                         pytest.param(
                             length_multiplier,
@@ -195,7 +195,7 @@ class Setup:
             mock_content = mock_content.replace(b'\n"', b'"').replace(b'"\n', b'"')
             mock_content = mock_content.replace(b"\n}", b"}")
 
-        if json_content_type == "json":
+        if json_content_type == "single":
             mock_content = mock_content.replace(b"}\n\n{\n", b"\n,\n")
 
         return mock_content
@@ -213,7 +213,7 @@ def wrap(payload: str, json_content_type: Optional[str] = None) -> int:
 
 @pytest.mark.benchmark(group="plain")
 @mock.patch("storage.decorator.json_parser", new=lambda x: orjson.loads(x))
-@pytest.mark.parametrize("json_content_type", [None, "json", "ndjson"])
+@pytest.mark.parametrize("json_content_type", [None, "single", "ndjson"])
 def test_json_collector_plain_orjson(
     benchmark: pytest_benchmark.fixture.BenchmarkFixture, json_content_type: Optional[str]
 ) -> None:
@@ -229,7 +229,7 @@ def test_json_collector_plain_orjson(
 
 @pytest.mark.benchmark(group="json")
 @mock.patch("storage.decorator.json_parser", new=lambda x: orjson.loads(x))
-@pytest.mark.parametrize("json_content_type", [None, "json", "ndjson"])
+@pytest.mark.parametrize("json_content_type", [None, "single", "ndjson"])
 def test_json_collector_json_orjson(
     benchmark: pytest_benchmark.fixture.BenchmarkFixture, json_content_type: Optional[str]
 ) -> None:
@@ -247,7 +247,7 @@ def test_json_collector_json_orjson(
 
 @pytest.mark.benchmark(group="json like")
 @mock.patch("storage.decorator.json_parser", new=lambda x: orjson.loads(x))
-@pytest.mark.parametrize("json_content_type", [None, "json", "ndjson"])
+@pytest.mark.parametrize("json_content_type", [None, "single", "ndjson"])
 def test_json_collector_json_like_orjson(
     benchmark: pytest_benchmark.fixture.BenchmarkFixture, json_content_type: Optional[str]
 ) -> None:
@@ -263,7 +263,7 @@ def test_json_collector_json_like_orjson(
 
 @pytest.mark.benchmark(group="plain")
 @mock.patch("storage.decorator.json_parser", new=lambda x: simplejson.loads(x))
-@pytest.mark.parametrize("json_content_type", [None, "json", "ndjson"])
+@pytest.mark.parametrize("json_content_type", [None, "single", "ndjson"])
 def test_json_collector_plain_simplejson(
     benchmark: pytest_benchmark.fixture.BenchmarkFixture, json_content_type: Optional[str]
 ) -> None:
@@ -279,7 +279,7 @@ def test_json_collector_plain_simplejson(
 
 @pytest.mark.benchmark(group="json")
 @mock.patch("storage.decorator.json_parser", new=lambda x: simplejson.loads(x))
-@pytest.mark.parametrize("json_content_type", [None, "json", "ndjson"])
+@pytest.mark.parametrize("json_content_type", [None, "single", "ndjson"])
 def test_json_collector_json_simplejson(
     benchmark: pytest_benchmark.fixture.BenchmarkFixture, json_content_type: Optional[str]
 ) -> None:
@@ -297,7 +297,7 @@ def test_json_collector_json_simplejson(
 
 @pytest.mark.benchmark(group="json like")
 @mock.patch("storage.decorator.json_parser", new=lambda x: simplejson.loads(x))
-@pytest.mark.parametrize("json_content_type", [None, "json", "ndjson"])
+@pytest.mark.parametrize("json_content_type", [None, "single", "ndjson"])
 def test_json_collector_json_like_simplejson(
     benchmark: pytest_benchmark.fixture.BenchmarkFixture, json_content_type: Optional[str]
 ) -> None:
@@ -313,7 +313,7 @@ def test_json_collector_json_like_simplejson(
 
 @pytest.mark.benchmark(group="plain")
 @mock.patch("storage.decorator.json_parser", new=lambda x: ujson.loads(x))
-@pytest.mark.parametrize("json_content_type", [None, "json", "ndjson"])
+@pytest.mark.parametrize("json_content_type", [None, "jsingleson", "ndjson"])
 def test_json_collector_plain_ujson(
     benchmark: pytest_benchmark.fixture.BenchmarkFixture, json_content_type: Optional[str]
 ) -> None:
@@ -329,7 +329,7 @@ def test_json_collector_plain_ujson(
 
 @pytest.mark.benchmark(group="json")
 @mock.patch("storage.decorator.json_parser", new=lambda x: ujson.loads(x))
-@pytest.mark.parametrize("json_content_type", [None, "json", "ndjson"])
+@pytest.mark.parametrize("json_content_type", [None, "single", "ndjson"])
 def test_json_collector_json_ujson(
     benchmark: pytest_benchmark.fixture.BenchmarkFixture, json_content_type: Optional[str]
 ) -> None:
@@ -347,7 +347,7 @@ def test_json_collector_json_ujson(
 
 @pytest.mark.benchmark(group="json like")
 @mock.patch("storage.decorator.json_parser", new=lambda x: ujson.loads(x))
-@pytest.mark.parametrize("json_content_type", [None, "json", "ndjson"])
+@pytest.mark.parametrize("json_content_type", [None, "single", "ndjson"])
 def test_json_collector_json_like_ujson(
     benchmark: pytest_benchmark.fixture.BenchmarkFixture, json_content_type: Optional[str]
 ) -> None:
@@ -363,7 +363,7 @@ def test_json_collector_json_like_ujson(
 
 @pytest.mark.benchmark(group="plain")
 @mock.patch("storage.decorator.json_parser", new=json_parser_simdjson)
-@pytest.mark.parametrize("json_content_type", [None, "json", "ndjson"])
+@pytest.mark.parametrize("json_content_type", [None, "single", "ndjson"])
 def test_json_collector_plain_simdjson(
     benchmark: pytest_benchmark.fixture.BenchmarkFixture, json_content_type: Optional[str]
 ) -> None:
@@ -379,7 +379,7 @@ def test_json_collector_plain_simdjson(
 
 @pytest.mark.benchmark(group="json")
 @mock.patch("storage.decorator.json_parser", new=json_parser_simdjson)
-@pytest.mark.parametrize("json_content_type", [None, "json", "ndjson"])
+@pytest.mark.parametrize("json_content_type", [None, "single", "ndjson"])
 def test_json_collector_json_simdjson(
     benchmark: pytest_benchmark.fixture.BenchmarkFixture, json_content_type: Optional[str]
 ) -> None:
@@ -397,7 +397,7 @@ def test_json_collector_json_simdjson(
 
 @pytest.mark.benchmark(group="json like")
 @mock.patch("storage.decorator.json_parser", new=json_parser_simdjson)
-@pytest.mark.parametrize("json_content_type", [None, "json", "ndjson"])
+@pytest.mark.parametrize("json_content_type", [None, "single", "ndjson"])
 def test_json_collector_json_like_simdjson(
     benchmark: pytest_benchmark.fixture.BenchmarkFixture, json_content_type: Optional[str]
 ) -> None:
@@ -413,7 +413,7 @@ def test_json_collector_json_like_simdjson(
 
 @pytest.mark.benchmark(group="plain")
 @mock.patch("storage.decorator.json_parser", new=lambda x: rapidjson.loads(x))
-@pytest.mark.parametrize("json_content_type", [None, "json", "ndjson"])
+@pytest.mark.parametrize("json_content_type", [None, "single", "ndjson"])
 def test_json_collector_plain_rapidjson(
     benchmark: pytest_benchmark.fixture.BenchmarkFixture, json_content_type: Optional[str]
 ) -> None:
@@ -429,7 +429,7 @@ def test_json_collector_plain_rapidjson(
 
 @pytest.mark.benchmark(group="json")
 @mock.patch("storage.decorator.json_parser", new=lambda x: rapidjson.loads(x))
-@pytest.mark.parametrize("json_content_type", [None, "json", "ndjson"])
+@pytest.mark.parametrize("json_content_type", [None, "single", "ndjson"])
 def test_json_collector_json_rapidjson(
     benchmark: pytest_benchmark.fixture.BenchmarkFixture, json_content_type: Optional[str]
 ) -> None:
@@ -447,7 +447,7 @@ def test_json_collector_json_rapidjson(
 
 @pytest.mark.benchmark(group="json like")
 @mock.patch("storage.decorator.json_parser", new=lambda x: rapidjson.loads(x))
-@pytest.mark.parametrize("json_content_type", [None, "json", "ndjson"])
+@pytest.mark.parametrize("json_content_type", [None, "single", "ndjson"])
 def test_json_collector_json_like_rapidjson(
     benchmark: pytest_benchmark.fixture.BenchmarkFixture, json_content_type: Optional[str]
 ) -> None:
@@ -463,7 +463,7 @@ def test_json_collector_json_like_rapidjson(
 
 @pytest.mark.benchmark(group="plain")
 @mock.patch("storage.decorator.json_parser", new=json_parser_cysimdjson)
-@pytest.mark.parametrize("json_content_type", [None, "json", "ndjson"])
+@pytest.mark.parametrize("json_content_type", [None, "single", "ndjson"])
 def test_json_collector_plain_cysimdjson(
     benchmark: pytest_benchmark.fixture.BenchmarkFixture, json_content_type: Optional[str]
 ) -> None:
@@ -479,7 +479,7 @@ def test_json_collector_plain_cysimdjson(
 
 @pytest.mark.benchmark(group="json")
 @mock.patch("storage.decorator.json_parser", new=json_parser_cysimdjson)
-@pytest.mark.parametrize("json_content_type", [None, "json", "ndjson"])
+@pytest.mark.parametrize("json_content_type", [None, "single", "ndjson"])
 def test_json_collector_json_cyimdjson(
     benchmark: pytest_benchmark.fixture.BenchmarkFixture, json_content_type: Optional[str]
 ) -> None:
@@ -497,7 +497,7 @@ def test_json_collector_json_cyimdjson(
 
 @pytest.mark.benchmark(group="json like")
 @mock.patch("storage.decorator.json_parser", new=json_parser_cysimdjson)
-@pytest.mark.parametrize("json_content_type", [None, "json", "ndjson"])
+@pytest.mark.parametrize("json_content_type", [None, "single", "ndjson"])
 def test_json_collector_json_like_cysimdjson(
     benchmark: pytest_benchmark.fixture.BenchmarkFixture, json_content_type: Optional[str]
 ) -> None:

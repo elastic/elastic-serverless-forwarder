@@ -36,7 +36,7 @@ def by_lines(func: GetByLinesCallable[ProtocolStorageType]) -> GetByLinesCallabl
 
         iterator = func(storage, range_start, body, is_gzipped)
 
-        if json_content_type == "json" and storage.multiline_processor is None:
+        if json_content_type == "single" and storage.multiline_processor is None:
             try:
                 while True:
                     data, _, _, _, _ = next(iterator)
@@ -344,7 +344,7 @@ class JsonCollector:
                         wait_for_object_start_buffer = b""
 
                         # json_content_type as json collected the whole content: let's pass through by_lines()
-                        if storage.json_content_type == "json":
+                        if storage.json_content_type == "single":
                             for (
                                 line,
                                 starting_offset,

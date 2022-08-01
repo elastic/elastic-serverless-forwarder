@@ -1151,7 +1151,7 @@ class TestLambdaHandlerFailure(TestCase):
         with self.subTest("json_content_type not valid"):
             with self.assertRaisesRegex(
                 ConfigFileException,
-                "`json_content_type` must be one of json,ndjson for input mock_plain_text_sqs_arn: whatever given",
+                "`json_content_type` must be one of ndjson,single for input mock_plain_text_sqs_arn: whatever given",
             ):
                 ctx = ContextMock()
                 config_yml = """

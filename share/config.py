@@ -200,7 +200,7 @@ class Input:
         self._multiline_processor: Optional[ProtocolMultiline] = None
         self._include_exclude_filter: Optional[IncludeExcludeFilter] = None
 
-        self._valid_json_content_type: list[str] = ["json", "ndjson"]
+        self._valid_json_content_type: list[str] = ["ndjson", "single"]
 
     def discover_integration_scope(self, lambda_event: dict[str, Any], at_record: int) -> str:
         if self._integration_scope_discoverer is None:
