@@ -32,8 +32,7 @@ Resources:
                         "Properties": {
                             "Stream": kinesis_event,
                             "StartingPosition": "TRIM_HORIZON",
-                            "BatchSize": 100,
-                            "FunctionResponseTypes": ["ReportBatchItemFailures"],
+                            "BatchSize": 10,
                             "Enabled": True,
                         }
                     }
