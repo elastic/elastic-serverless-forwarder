@@ -391,8 +391,10 @@ class JsonCollector:
                                         expanded_event_n,
                                     )
 
+                                    del json_object
                                     yield to_be_yield
                             else:
+                                del json_object
                                 yield data_to_yield, self._starting_offset, self._ending_offset, newline_length, 0
 
                         if self._is_a_json_object_circuit_broken:
