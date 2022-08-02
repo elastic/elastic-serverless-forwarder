@@ -188,8 +188,6 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             extra={"sent_event": sent_events, "empty_events": empty_events, "skipped_events": skipped_events},
         )
 
-        return "completed"
-
     if trigger_type == "kinesis-data-stream":
         input_id = lambda_event["Records"][0]["eventSourceARN"]
         event_input = config.get_input_by_id(input_id)
@@ -267,8 +265,6 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             "lambda processed all the events",
             extra={"sent_event": sent_events, "empty_events": empty_events, "skipped_events": skipped_events},
         )
-
-        return "completed"
 
     if trigger_type == "s3-sqs" or trigger_type == "sqs":
         composite_shipper_cache: dict[str, CompositeShipper] = {}
@@ -488,7 +484,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             extra={"sent_events": sent_events, "empty_events": empty_events, "skipped_events": skipped_events},
         )
 
-        if last_sqs_record is not None:
-            delete_sqs_record(last_sqs_record["eventSourceARN"], last_sqs_record["receiptHandle"])
+        assert last_sqs_record is not None
+        delete_sqs_record(last_sqs_record["eventSourceARN"], last_sqs_record["receiptHandle"])
 
-        return "completed"
+    return "completed"

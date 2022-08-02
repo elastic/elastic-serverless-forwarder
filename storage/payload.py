@@ -64,7 +64,9 @@ class PayloadStorage(CommonStorage):
 
         try:
             base64_decoded = base64.b64decode(self._payload, validate=True)
-        except binascii.Error:
+            if not base64_decoded.startswith(b"\037\213"):  # gzip compression method
+                base64_decoded.decode("utf-8")
+        except (UnicodeDecodeError, binascii.Error):
             base64_decoded = self._payload.encode("utf-8")
 
         is_gzipped: bool = False

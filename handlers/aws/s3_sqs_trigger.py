@@ -40,8 +40,6 @@ def _handle_s3_sqs_continuation(
     body["Records"] = body["Records"][current_s3_record:]
     if last_ending_offset is not None:
         body["Records"][0]["last_ending_offset"] = last_ending_offset
-    elif "last_ending_offset" in body["Records"][0]:
-        del body["Records"][0]["last_ending_offset"]
 
     if last_event_expanded_offset is not None:
         body["Records"][0]["last_event_expanded_offset"] = last_event_expanded_offset

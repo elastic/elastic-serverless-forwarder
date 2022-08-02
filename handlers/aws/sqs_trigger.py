@@ -150,7 +150,7 @@ def _handle_sqs_event(
                     "event_id": event_id,
                 }
             }
-        elif continuing_original_input_type == "kinesis-data-stream":
+        else:
             assert "originalStreamType" in payload
             stream_type = payload["originalStreamType"]["stringValue"]
 
