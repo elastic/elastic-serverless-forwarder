@@ -3294,7 +3294,8 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
 
         # @TODO: revert when dealing with expand_event_list_from_field continuation
-        # assert res["hits"]["hits"][1]["_source"]["message"] == ujson.dumps(ujson.loads(self._second_cloudtrail_record))
+        # assert res["hits"]["hits"][1]["_source"]["message"] ==
+        # ujson.dumps(ujson.loads(self._second_cloudtrail_record))
         #
         # assert res["hits"]["hits"][1]["_source"]["log"] == {
         #     "offset": 837,
