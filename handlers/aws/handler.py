@@ -366,7 +366,11 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 field_to_expand_event_list_from, integration_scope, expand_event_list_from_field_resolver
             )
 
-            if event_input.type == "kinesis-data-stream" or event_input.type == "sqs" or event_input.type == "cloudwatch-logs":
+            if (
+                event_input.type == "kinesis-data-stream"
+                or event_input.type == "sqs"
+                or event_input.type == "cloudwatch-logs"
+            ):
                 for es_event, last_ending_offset, event_expanded_offset in _handle_sqs_event(
                     sqs_record,
                     input_id,
