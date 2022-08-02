@@ -595,7 +595,6 @@ class TestLambdaHandlerFailure(TestCase):
     @mock.patch("share.secretsmanager._get_aws_sm_client", new=MockContent._get_aws_sm_client)
     @mock.patch("handlers.aws.handler.get_sqs_client", lambda: _mock_awsclient(service_name="sqs"))
     def test_lambda_handler_failure(self) -> None:
-
         dummy_event: dict[str, Any] = {
             "Records": [
                 {
@@ -1215,33 +1214,37 @@ def _upload_content_to_bucket(content: Union[bytes, str], content_type: str, buc
 
 def _event_from_sqs_message(queue_attributes: dict[str, Any]) -> dict[str, Any]:
     sqs_client = aws_stack.connect_to_service("sqs")
-    messages = sqs_client.receive_message(
-        QueueUrl=queue_attributes["QueueUrl"], MaxNumberOfMessages=1, MessageAttributeNames=["All"]
-    )
+    collected_messages: list[dict[str, Any]] = []
+    while True:
+        try:
+            messages = sqs_client.receive_message(QueueUrl=queue_attributes["QueueUrl"], MessageAttributeNames=["All"])
+            assert "Messages" in messages
+            assert len(messages["Messages"]) == 1
+            original_message = messages["Messages"][0]
 
-    assert "Messages" in messages
-    assert len(messages["Messages"]) == 1
+            message: dict[str, Any] = {}
+            for key in original_message:
+                new_value = deepcopy(original_message[key])
+                camel_case_key = "".join([key[0].lower(), key[1:]])
+                message[camel_case_key] = new_value
 
-    message = {}
-    original_message = messages["Messages"][0]
-    for key in original_message:
-        new_value = deepcopy(original_message[key])
-        camel_case_key = "".join([key[0].lower(), key[1:]])
-        message[camel_case_key] = new_value
+            if "messageAttributes" in message:
+                for attribute in message["messageAttributes"]:
+                    new_attribute = deepcopy(message["messageAttributes"][attribute])
+                    for attribute_key in message["messageAttributes"][attribute]:
+                        camel_case_key = "".join([attribute_key[0].lower(), attribute_key[1:]])
+                        new_attribute[camel_case_key] = new_attribute[attribute_key]
 
-    if "messageAttributes" in message:
-        for attribute in message["messageAttributes"]:
-            new_attribute = deepcopy(message["messageAttributes"][attribute])
-            for attribute_key in message["messageAttributes"][attribute]:
-                camel_case_key = "".join([attribute_key[0].lower(), attribute_key[1:]])
-                new_attribute[camel_case_key] = new_attribute[attribute_key]
+                    message["messageAttributes"][attribute] = new_attribute
 
-            message["messageAttributes"][attribute] = new_attribute
+            message["eventSource"] = "aws:sqs"
+            message["eventSourceARN"] = queue_attributes["QueueArn"]
 
-    message["eventSource"] = "aws:sqs"
-    message["eventSourceARN"] = queue_attributes["QueueArn"]
+            collected_messages.append(message)
+        except Exception:
+            break
 
-    return dict(Records=[message])
+    return dict(Records=collected_messages)
 
 
 def _create_cloudwatch_logs_group_and_stream(group_name: str, stream_name: str) -> Any:
@@ -1896,18 +1899,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
-        first_replayed_event = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
-        second_replayed_event = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
-        third_replayed_event = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
-
-        replayed_events = dict(
-            Records=[
-                first_replayed_event["Records"][0],
-                second_replayed_event["Records"][0],
-                third_replayed_event["Records"][0],
-            ]
-        )
-
+        replayed_events = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
         with self.assertRaises(ReplayHandlerException):
             handler(replayed_events, ctx)  # type:ignore
 
@@ -1931,11 +1923,12 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
 
         self._es_client.indices.refresh(index="logs-generic-default")
 
+        ctx = ContextMock(remaining_time_in_millis=0)
+
         # implicit wait for the message to be back on the queue
         time.sleep(35)
-        fourth_replayed_event = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
-
-        fifth_call = handler(fourth_replayed_event, ctx)  # type:ignore
+        replayed_events = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
+        fifth_call = handler(replayed_events, ctx)  # type:ignore
 
         assert fifth_call == "replayed"
 
@@ -1966,16 +1959,17 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
+        ctx = ContextMock(remaining_time_in_millis=2)
+
         # implicit wait for the message to be back on the queue
         time.sleep(35)
-        fifth_replayed_event = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
-
-        sixth_call = handler(fifth_replayed_event, ctx)  # type:ignore
+        replayed_events = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
+        sixth_call = handler(replayed_events, ctx)  # type:ignore
 
         assert sixth_call == "replayed"
 
         self._es_client.indices.refresh(index="logs-generic-default")
-        assert self._es_client.count(index="logs-generic-default")["count"] == 8
+        assert self._es_client.count(index="logs-generic-default")["count"] == 9
 
         res = self._es_client.search(
             index="logs-generic-default", query={"ids": {"values": [f"{hex_prefix_sqs}-000000000000"]}}
@@ -1996,17 +1990,6 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         }
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
-
-        # implicit wait for the message to be back on the queue
-        time.sleep(35)
-        sixth_replayed_event = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
-
-        seventh_call = handler(sixth_replayed_event, ctx)  # type:ignore
-
-        assert seventh_call == "replayed"
-
-        self._es_client.indices.refresh(index="logs-generic-default")
-        assert self._es_client.count(index="logs-generic-default")["count"] == 9
 
         res = self._es_client.search(
             index="logs-generic-default", query={"ids": {"values": [f"{hex_prefix_cloudwatch_logs}-000000000000"]}}
@@ -2040,8 +2023,8 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             filenames=[first_filename, second_filename],
             single_message=False,
         )
-        first_s3_event = _event_from_sqs_message(queue_attributes=self._queues_info["source-s3-sqs-queue"])
-        second_s3_event = _event_from_sqs_message(queue_attributes=self._queues_info["source-s3-sqs-queue"])
+
+        s3_events = _event_from_sqs_message(queue_attributes=self._queues_info["source-s3-sqs-queue"])
 
         _event_to_sqs_message(queue_attributes=self._queues_info["source-sqs-queue"], message_body=self._cloudwatch_log)
         event_sqs = _event_from_sqs_message(queue_attributes=self._queues_info["source-sqs-queue"])
@@ -2065,7 +2048,6 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         src = f"source-groupsource-stream{event_id_cloudwatch_logs}"
         hex_prefix_cloudwatch_logs = hashlib.sha256(src.encode("UTF-8")).hexdigest()[:10]
 
-        s3_events = dict(Records=[first_s3_event["Records"][0], second_s3_event["Records"][0]])
         first_call = handler(s3_events, ctx)  # type:ignore
 
         assert first_call == "continuing"
@@ -2097,10 +2079,6 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
-        first_continued_event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
-
-        second_continued_event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
-
         second_call = handler(event_sqs, ctx)  # type:ignore
 
         assert second_call == "continuing"
@@ -2127,8 +2105,6 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         }
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
-
-        third_continued_event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
 
         third_call = handler(event_cloudwatch_logs, ctx)  # type:ignore
 
@@ -2159,17 +2135,8 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
-        fourth_continued_event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
-
-        continued_events = dict(
-            Records=[
-                first_continued_event["Records"][0],
-                second_continued_event["Records"][0],
-                third_continued_event["Records"][0],
-                fourth_continued_event["Records"][0],
-                event_no_config["Records"][0],
-            ]
-        )
+        continued_events = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        continued_events["Records"].append(event_no_config["Records"][0])
 
         fourth_call = handler(continued_events, ctx)  # type:ignore
 
@@ -2178,23 +2145,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         self._es_client.indices.refresh(index="logs-generic-default")
         assert self._es_client.count(index="logs-generic-default")["count"] == 3
 
-        fifth_continued_event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
-
-        sixth_continued_event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
-
-        seventh_continued_event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
-
-        eighth_continued_event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
-
-        continued_events = dict(
-            Records=[
-                fifth_continued_event["Records"][0],
-                sixth_continued_event["Records"][0],
-                seventh_continued_event["Records"][0],
-                eighth_continued_event["Records"][0],
-            ]
-        )
-
+        continued_events = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
         fifth_call = handler(continued_events, ctx)  # type:ignore
 
         assert fifth_call == "continuing"
@@ -2226,24 +2177,9 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
-        ninth_continued_event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
-
-        tenth_continued_event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
-
-        eleventh_continued_event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
-
-        twelfth_continued_event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
-
-        continued_events = dict(
-            Records=[
-                ninth_continued_event["Records"][0],
-                tenth_continued_event["Records"][0],
-                eleventh_continued_event["Records"][0],
-                twelfth_continued_event["Records"][0],
-            ]
-        )
-
         ctx = ContextMock(remaining_time_in_millis=2)
+
+        continued_events = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
         sixth_call = handler(continued_events, ctx)  # type:ignore
 
         assert sixth_call == "completed"
@@ -2472,13 +2408,14 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
         records = self._kinesis_client.get_records(ShardIterator=shard_iterator["ShardIterator"], Limit=2)
 
         ctx = ContextMock()
-        event = _event_from_kinesis_records(
+        kinesis_event = _event_from_kinesis_records(
             records=records, stream_attribute=self._kinesis_streams_info["source-kinesis"]
         )
 
-        first_call = handler(event, ctx)  # type:ignore
+        first_call = handler(kinesis_event, ctx)  # type:ignore
 
         assert first_call == "continuing"
+
         self._es_client.indices.refresh(index="logs-generic-default")
         assert self._es_client.count(index="logs-generic-default")["count"] == 1
 
@@ -2495,7 +2432,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
             "kinesis": {
                 "type": "stream",
                 "name": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
-                "sequence_number": event["Records"][0]["kinesis"]["sequenceNumber"],
+                "sequence_number": kinesis_event["Records"][0]["kinesis"]["sequenceNumber"],
             }
         }
         assert res["hits"]["hits"][0]["_source"]["cloud"] == {
@@ -2509,39 +2446,34 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
         event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
         second_call = handler(event, ctx)  # type:ignore
 
-        assert second_call == "completed"
+        assert second_call == "continuing"
 
         self._es_client.indices.refresh(index="logs-generic-default")
-        # @TODO: revert when dealing with expand_event_list_from_field continuation
-        # assert self._es_client.count(index="logs-generic-default")["count"] == 2
-        assert self._es_client.count(index="logs-generic-default")["count"] == 1
+        assert self._es_client.count(index="logs-generic-default")["count"] == 2
+
         res = self._es_client.search(index="logs-generic-default", sort="_seq_no")
+        assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
 
-        # @TODO: revert when dealing with expand_event_list_from_field continuation
-        # assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
-        assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
+        assert res["hits"]["hits"][1]["_source"]["message"] == ujson.dumps(self._second_log_entry)
 
-        # @TODO: revert when dealing with expand_event_list_from_field continuation
-        # assert res["hits"]["hits"][1]["_source"]["message"] == ujson.dumps(self._second_log_entry)
-        #
-        # assert res["hits"]["hits"][1]["_source"]["log"] == {
-        #     "offset": 296,
-        #     "file": {"path": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamARN"]},
-        # }
-        # assert res["hits"]["hits"][1]["_source"]["aws"] == {
-        #     "kinesis": {
-        #         "type": "stream",
-        #         "name": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
-        #         "sequence_number": event["Records"][0]["kinesis"]["sequenceNumber"],
-        #     }
-        # }
-        # assert res["hits"]["hits"][1]["_source"]["cloud"] == {
-        #     "account": {"id": "000000000000"},
-        #     "provider": "aws",
-        #     "region": "us-east-1",
-        # }
-        #
-        # assert res["hits"]["hits"][1]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
+        assert res["hits"]["hits"][1]["_source"]["log"] == {
+            "offset": 296,
+            "file": {"path": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamARN"]},
+        }
+        assert res["hits"]["hits"][1]["_source"]["aws"] == {
+            "kinesis": {
+                "type": "stream",
+                "name": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
+                "sequence_number": kinesis_event["Records"][0]["kinesis"]["sequenceNumber"],
+            }
+        }
+        assert res["hits"]["hits"][1]["_source"]["cloud"] == {
+            "account": {"id": "000000000000"},
+            "provider": "aws",
+            "region": "us-east-1",
+        }
+
+        assert res["hits"]["hits"][1]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
         event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
         third_call = handler(event, ctx)  # type:ignore
@@ -2549,45 +2481,47 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
         assert third_call == "continuing"
 
         self._es_client.indices.refresh(index="logs-generic-default")
-        # @TODO: revert when dealing with expand_event_list_from_field continuation
-        # assert self._es_client.count(index="logs-generic-default")["count"] == 2
-        assert self._es_client.count(index="logs-generic-default")["count"] == 1
+        assert self._es_client.count(index="logs-generic-default")["count"] == 2
 
         event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
         fourth_call = handler(event, ctx)  # type:ignore
 
-        assert fourth_call == "completed"
+        assert fourth_call == "continuing"
 
         self._es_client.indices.refresh(index="logs-generic-default")
-        assert self._es_client.count(index="logs-generic-default")["count"] == 1
+        assert self._es_client.count(index="logs-generic-default")["count"] == 3
 
-        # @TODO: revert when dealing with expand_event_list_from_field continuation
-        # self._es_client.indices.refresh(index="logs-generic-default")
-        # assert self._es_client.count(index="logs-generic-default")["count"] == 3
-        #
-        # res = self._es_client.search(index="logs-generic-default", sort="_seq_no")
-        # assert res["hits"]["total"] == {"value": 3, "relation": "eq"}
-        #
-        # assert res["hits"]["hits"][2]["_source"]["message"] == ujson.dumps(self._third_log_entry)
-        #
-        # assert res["hits"]["hits"][2]["_source"]["log"] == {
-        #     "offset": 0,
-        #     "file": {"path": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamARN"]},
-        # }
-        # assert res["hits"]["hits"][2]["_source"]["aws"] == {
-        #     "kinesis": {
-        #         "type": "stream",
-        #         "name": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
-        #         "sequence_number": event["Records"][0]["kinesis"]["sequenceNumber"],
-        #     }
-        # }
-        # assert res["hits"]["hits"][2]["_source"]["cloud"] == {
-        #     "account": {"id": "000000000000"},
-        #     "provider": "aws",
-        #     "region": "us-east-1",
-        # }
-        #
-        # assert res["hits"]["hits"][2]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
+        res = self._es_client.search(index="logs-generic-default", sort="_seq_no")
+        assert res["hits"]["total"] == {"value": 3, "relation": "eq"}
+
+        assert res["hits"]["hits"][2]["_source"]["message"] == ujson.dumps(self._third_log_entry)
+
+        assert res["hits"]["hits"][2]["_source"]["log"] == {
+            "offset": 250,
+            "file": {"path": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamARN"]},
+        }
+        assert res["hits"]["hits"][2]["_source"]["aws"] == {
+            "kinesis": {
+                "type": "stream",
+                "name": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
+                "sequence_number": kinesis_event["Records"][1]["kinesis"]["sequenceNumber"],
+            }
+        }
+        assert res["hits"]["hits"][2]["_source"]["cloud"] == {
+            "account": {"id": "000000000000"},
+            "provider": "aws",
+            "region": "us-east-1",
+        }
+
+        assert res["hits"]["hits"][2]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
+
+        event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        fifth_call = handler(event, ctx)  # type:ignore
+
+        assert fifth_call == "completed"
+
+        self._es_client.indices.refresh(index="logs-generic-default")
+        assert self._es_client.count(index="logs-generic-default")["count"] == 3
 
         while "NextShardIterator" in records:
             records = self._kinesis_client.get_records(ShardIterator=records["NextShardIterator"], Limit=2)
@@ -3148,14 +3082,11 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         assert first_call == "continuing"
 
         self._es_client.indices.refresh(index="logs-aws.cloudtrail-default")
-        # @TODO: revert when dealing with expand_event_list_from_field continuation
-        # assert self._es_client.count(index="logs-aws.cloudtrail-default")["count"] == 2
         assert self._es_client.count(index="logs-aws.cloudtrail-default")["count"] == 1
 
         res = self._es_client.search(index="logs-aws.cloudtrail-default", sort="_seq_no")
-        # @TODO: revert when dealing with expand_event_list_from_field continuation
-        # assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
         assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
+
         assert res["hits"]["hits"][0]["_source"]["message"] == ujson.dumps(ujson.loads(self._first_cloudtrail_record))
 
         assert res["hits"]["hits"][0]["_source"]["log"] == {
@@ -3176,47 +3107,21 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
 
-        # @TODO: revert when dealing with expand_event_list_from_field continuation
-        # assert res["hits"]["hits"][1]["_source"]["message"] ==
-        # ujson.dumps(ujson.loads(self._second_cloudtrail_record))
-        #
-        # assert res["hits"]["hits"][1]["_source"]["log"] == {
-        #     "offset": 837,
-        #     "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
-        # }
-        # assert res["hits"]["hits"][1]["_source"]["aws"] == {
-        #     "s3": {
-        #         "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
-        #         "object": {"key": f"{filename}"},
-        #     }
-        # }
-        # assert res["hits"]["hits"][1]["_source"]["cloud"] == {
-        #     "account": {"id": "000000000000"},
-        #     "provider": "aws",
-        #     "region": "eu-central-1",
-        # }
-        #
-        # assert res["hits"]["hits"][1]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
-
         event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
         second_call = handler(event, ctx)  # type:ignore
 
         assert second_call == "continuing"
 
         self._es_client.indices.refresh(index="logs-aws.cloudtrail-default")
-        # @TODO: revert when dealing with expand_event_list_from_field continuation
-        # assert self._es_client.count(index="logs-aws.cloudtrail-default")["count"] == 3
         assert self._es_client.count(index="logs-aws.cloudtrail-default")["count"] == 2
 
         res = self._es_client.search(index="logs-aws.cloudtrail-default", sort="_seq_no")
-        # @TODO: revert when dealing with expand_event_list_from_field continuation
-        # assert res["hits"]["total"] == {"value": 3, "relation": "eq"}
         assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
 
-        assert res["hits"]["hits"][1]["_source"]["message"] == ujson.dumps(ujson.loads(self._third_cloudtrail_record))
+        assert res["hits"]["hits"][1]["_source"]["message"] == ujson.dumps(ujson.loads(self._second_cloudtrail_record))
 
         assert res["hits"]["hits"][1]["_source"]["log"] == {
-            "offset": 1674,
+            "offset": 837,
             "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
         }
         assert res["hits"]["hits"][1]["_source"]["aws"] == {
@@ -3239,19 +3144,15 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         assert third_call == "continuing"
 
         self._es_client.indices.refresh(index="logs-aws.cloudtrail-default")
-        # @TODO: revert when dealing with expand_event_list_from_field continuation
-        # assert self._es_client.count(index="logs-aws.cloudtrail-default")["count"] == 4
         assert self._es_client.count(index="logs-aws.cloudtrail-default")["count"] == 3
 
         res = self._es_client.search(index="logs-aws.cloudtrail-default", sort="_seq_no")
-        # @TODO: revert when dealing with expand_event_list_from_field continuation
-        # assert res["hits"]["total"] == {"value": 4, "relation": "eq"}
         assert res["hits"]["total"] == {"value": 3, "relation": "eq"}
 
-        assert res["hits"]["hits"][2]["_source"]["message"] == ujson.dumps(ujson.loads(self._fifth_cloudtrail_record))
+        assert res["hits"]["hits"][2]["_source"]["message"] == ujson.dumps(ujson.loads(self._third_cloudtrail_record))
 
         assert res["hits"]["hits"][2]["_source"]["log"] == {
-            "offset": 4325,
+            "offset": 1674,
             "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
         }
         assert res["hits"]["hits"][2]["_source"]["aws"] == {
@@ -3271,7 +3172,49 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
         fourth_call = handler(event, ctx)  # type:ignore
 
-        assert fourth_call == "completed"
+        self._es_client.indices.refresh(index="logs-aws.cloudtrail-default")
+        assert self._es_client.count(index="logs-aws.cloudtrail-default")["count"] == 3
+
+        assert fourth_call == "continuing"
+
+        event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        fifth_call = handler(event, ctx)  # type:ignore
+
+        assert fifth_call == "continuing"
+
+        self._es_client.indices.refresh(index="logs-aws.cloudtrail-default")
+        assert self._es_client.count(index="logs-aws.cloudtrail-default")["count"] == 4
+
+        res = self._es_client.search(index="logs-aws.cloudtrail-default", sort="_seq_no")
+        assert res["hits"]["total"] == {"value": 4, "relation": "eq"}
+
+        assert res["hits"]["hits"][3]["_source"]["message"] == ujson.dumps(ujson.loads(self._fifth_cloudtrail_record))
+
+        assert res["hits"]["hits"][3]["_source"]["log"] == {
+            "offset": 4325,
+            "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
+        }
+        assert res["hits"]["hits"][3]["_source"]["aws"] == {
+            "s3": {
+                "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
+                "object": {"key": f"{filename}"},
+            }
+        }
+        assert res["hits"]["hits"][3]["_source"]["cloud"] == {
+            "account": {"id": "000000000000"},
+            "provider": "aws",
+            "region": "eu-central-1",
+        }
+
+        assert res["hits"]["hits"][3]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
+
+        event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        sixth_call = handler(event, ctx)  # type:ignore
+
+        assert sixth_call == "completed"
+
+        self._es_client.indices.refresh(index="logs-aws.cloudtrail-default")
+        assert self._es_client.count(index="logs-aws.cloudtrail-default")["count"] == 4
 
 
 @pytest.mark.integration
@@ -3529,6 +3472,9 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
         fourth_call = handler(event, ctx)  # type:ignore
 
         assert fourth_call == "completed"
+
+        self._es_client.indices.refresh(index="logs-generic-default")
+        assert self._es_client.count(index="logs-generic-default")["count"] == 3
 
 
 @pytest.mark.integration
@@ -3790,3 +3736,6 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
             fourth_call = handler(event, ctx)  # type:ignore
 
             assert fourth_call == "completed"
+
+            self._es_client.indices.refresh(index="logs-generic-default")
+            assert self._es_client.count(index="logs-generic-default")["count"] == 3
