@@ -19,6 +19,7 @@ def _handle_sqs_continuation(
     sqs_client: BotoBaseClient,
     sqs_continuing_queue: str,
     last_ending_offset: Optional[int],
+    last_event_expanded_offset: Optional[int],
     sqs_record: dict[str, Any],
     event_input_id: str,
     config_yaml: str,
@@ -50,6 +51,12 @@ def _handle_sqs_continuation(
     if last_ending_offset is not None:
         message_attributes["originalLastEndingOffset"] = {"StringValue": str(last_ending_offset), "DataType": "Number"}
 
+    if last_event_expanded_offset is not None:
+        message_attributes["originalLastEventExpandedOffset"] = {
+            "StringValue": str(last_event_expanded_offset),
+            "DataType": "Number",
+        }
+
     sqs_client.send_message(
         QueueUrl=sqs_continuing_queue,
         MessageBody=sqs_record["body"],
@@ -61,6 +68,7 @@ def _handle_sqs_continuation(
         extra={
             "sqs_continuing_queue": sqs_continuing_queue,
             "last_ending_offset": last_ending_offset,
+            "last_event_expanded_offset": last_event_expanded_offset,
             "message_id": sqs_record["messageId"],
         },
     )
@@ -72,7 +80,7 @@ def _handle_sqs_event(
     expand_event_list_from_field: ExpandEventListFromField,
     continuing_original_input_type: Optional[str],
     multiline_processor: Optional[ProtocolMultiline],
-) -> Iterator[tuple[dict[str, Any], int, int]]:
+) -> Iterator[tuple[dict[str, Any], int, Optional[int]]]:
     """
     Handler for sqs inputs.
     It iterates through sqs records in the sqs trigger and process
