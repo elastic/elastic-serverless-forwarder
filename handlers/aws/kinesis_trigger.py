@@ -19,6 +19,7 @@ def _handle_kinesis_continuation(
     sqs_client: BotoBaseClient,
     sqs_continuing_queue: str,
     last_ending_offset: Optional[int],
+    last_event_expanded_offset: Optional[int],
     kinesis_record: dict[str, Any],
     event_input_id: str,
     config_yaml: str,
@@ -45,6 +46,12 @@ def _handle_kinesis_continuation(
     if last_ending_offset is not None:
         message_attributes["originalLastEndingOffset"] = {"StringValue": str(last_ending_offset), "DataType": "Number"}
 
+    if last_event_expanded_offset is not None:
+        message_attributes["originalLastEventExpandedOffset"] = {
+            "StringValue": str(last_event_expanded_offset),
+            "DataType": "Number",
+        }
+
     kinesis_data: bytes = kinesis_record["kinesis"]["data"]
     message_body: str = kinesis_data.decode("utf-8")
 
@@ -59,6 +66,7 @@ def _handle_kinesis_continuation(
         extra={
             "sqs_continuing_queue": sqs_continuing_queue,
             "last_ending_offset": last_ending_offset,
+            "last_event_expanded_offset": last_event_expanded_offset,
             "sequence_number": sequence_number,
         },
     )
@@ -69,7 +77,7 @@ def _handle_kinesis_record(
     input_id: str,
     expand_event_list_from_field: ExpandEventListFromField,
     multiline_processor: Optional[ProtocolMultiline],
-) -> Iterator[tuple[dict[str, Any], int, int, int]]:
+) -> Iterator[tuple[dict[str, Any], int, Optional[int], int]]:
     """
     Handler for kinesis data stream inputs.
     It iterates through kinesis records in the kinesis trigger and process
@@ -115,4 +123,4 @@ def _handle_kinesis_record(
             es_event["fields"]["cloud"]["region"] = aws_region
             es_event["fields"]["cloud"]["account"] = {"id": account_id}
 
-            yield es_event, ending_offset, kinesis_record_n, event_expanded_offset
+            yield es_event, ending_offset, event_expanded_offset, kinesis_record_n
