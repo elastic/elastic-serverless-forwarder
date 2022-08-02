@@ -113,14 +113,14 @@ def test_get_by_lines(
         json_content_type=json_content_type,
         multiline_processor=multiline_processor(content_type),
     )
-    gzip_full: list[tuple[bytes, int, int, int]] = list(s3_storage.get_by_lines(range_start=0))
+    gzip_full: list[tuple[bytes, int, int, Optional[int]]] = list(s3_storage.get_by_lines(range_start=0))
     s3_storage = S3Storage(
         bucket_name=bucket_name,
         object_key="dummy.key",
         json_content_type=json_content_type,
         multiline_processor=multiline_processor(content_type),
     )
-    plain_full: list[tuple[bytes, int, int, int]] = list(s3_storage.get_by_lines(range_start=0))
+    plain_full: list[tuple[bytes, int, int, Optional[int]]] = list(s3_storage.get_by_lines(range_start=0))
 
     diff = set(gzip_full) ^ set(plain_full)
     assert not diff
@@ -150,7 +150,7 @@ def test_get_by_lines(
         json_content_type=json_content_type,
         multiline_processor=multiline_processor(content_type),
     )
-    gzip_full_02: list[tuple[bytes, int, int, int]] = list(s3_storage.get_by_lines(range_start=range_start))
+    gzip_full_02: list[tuple[bytes, int, int, Optional[int]]] = list(s3_storage.get_by_lines(range_start=range_start))
 
     s3_storage = S3Storage(
         bucket_name=bucket_name,
@@ -158,7 +158,7 @@ def test_get_by_lines(
         json_content_type=json_content_type,
         multiline_processor=multiline_processor(content_type),
     )
-    plain_full_02: list[tuple[bytes, int, int, int]] = list(s3_storage.get_by_lines(range_start=range_start))
+    plain_full_02: list[tuple[bytes, int, int, Optional[int]]] = list(s3_storage.get_by_lines(range_start=range_start))
 
     diff = set(gzip_full_01) ^ set(plain_full_01)
     assert not diff
@@ -195,7 +195,7 @@ def test_get_by_lines(
         json_content_type=json_content_type,
         multiline_processor=multiline_processor(content_type),
     )
-    gzip_full_03: list[tuple[bytes, int, int, int]] = list(s3_storage.get_by_lines(range_start=range_start))
+    gzip_full_03: list[tuple[bytes, int, int, Optional[int]]] = list(s3_storage.get_by_lines(range_start=range_start))
 
     s3_storage = S3Storage(
         bucket_name=bucket_name,
@@ -203,7 +203,7 @@ def test_get_by_lines(
         json_content_type=json_content_type,
         multiline_processor=multiline_processor(content_type),
     )
-    plain_full_03: list[tuple[bytes, int, int, int]] = list(s3_storage.get_by_lines(range_start=range_start))
+    plain_full_03: list[tuple[bytes, int, int, Optional[int]]] = list(s3_storage.get_by_lines(range_start=range_start))
 
     diff = set(gzip_full_02) ^ set(plain_full_02)
     assert not diff
@@ -239,7 +239,9 @@ def test_get_by_lines(
         json_content_type=json_content_type,
         multiline_processor=multiline_processor(content_type),
     )
-    gzip_full_empty: list[tuple[bytes, int, int, int]] = list(s3_storage.get_by_lines(range_start=range_start))
+    gzip_full_empty: list[tuple[bytes, int, int, Optional[int]]] = list(
+        s3_storage.get_by_lines(range_start=range_start)
+    )
 
     s3_storage = S3Storage(
         bucket_name=bucket_name,
@@ -247,7 +249,9 @@ def test_get_by_lines(
         json_content_type=json_content_type,
         multiline_processor=multiline_processor(content_type),
     )
-    plain_full_empty: list[tuple[bytes, int, int, int]] = list(s3_storage.get_by_lines(range_start=range_start))
+    plain_full_empty: list[tuple[bytes, int, int, Optional[int]]] = list(
+        s3_storage.get_by_lines(range_start=range_start)
+    )
 
     assert not gzip_full_empty
     assert not plain_full_empty
