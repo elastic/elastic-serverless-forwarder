@@ -33,7 +33,7 @@ class ProtocolStorage(Protocol):
     multiline_processor: Optional[ProtocolMultiline]
     expand_event_list_from_field: Optional[ExpandEventListFromField]
 
-    def get_by_lines(self, range_start: int) -> Iterator[tuple[bytes, int, int, int]]:
+    def get_by_lines(self, range_start: int) -> Iterator[tuple[bytes, int, int, Optional[int]]]:
         pass  # pragma: no cover
 
     def get_as_string(self) -> str:
@@ -52,5 +52,6 @@ class CommonStorage(metaclass=ABCMeta):
 
 ProtocolStorageType = TypeVar("ProtocolStorageType", bound=ProtocolStorage)
 GetByLinesCallable = Callable[
-    [ProtocolStorageType, int, BytesIO, bool], Iterator[tuple[Union[StorageReader, bytes], int, int, int, int]]
+    [ProtocolStorageType, int, BytesIO, bool],
+    Iterator[tuple[Union[StorageReader, bytes], int, int, int, Optional[int]]],
 ]
