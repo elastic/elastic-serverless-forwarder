@@ -22,6 +22,7 @@ def _handle_s3_sqs_continuation(
     sqs_client: BotoBaseClient,
     sqs_continuing_queue: str,
     last_ending_offset: Optional[int],
+    last_event_expanded_offset: Optional[int],
     sqs_record: dict[str, Any],
     current_s3_record: int,
     event_input_id: str,
@@ -39,6 +40,13 @@ def _handle_s3_sqs_continuation(
     body["Records"] = body["Records"][current_s3_record:]
     if last_ending_offset is not None:
         body["Records"][0]["last_ending_offset"] = last_ending_offset
+    elif "last_ending_offset" in body["Records"][0]:
+        del body["Records"][0]["last_ending_offset"]
+
+    if last_event_expanded_offset is not None:
+        body["Records"][0]["last_event_expanded_offset"] = last_event_expanded_offset
+    elif "last_event_expanded_offset" in body["Records"][0]:
+        del body["Records"][0]["last_event_expanded_offset"]
 
     sqs_record["body"] = json.dumps(body)
 
@@ -51,15 +59,23 @@ def _handle_s3_sqs_continuation(
         },
     )
 
-    shared_logger.debug("continuing", extra={"sqs_continuing_queue": sqs_continuing_queue})
+    shared_logger.debug(
+        "continuing",
+        extra={
+            "sqs_continuing_queue": sqs_continuing_queue,
+            "last_ending_offset": last_ending_offset,
+            "last_event_expanded_offset": last_event_expanded_offset,
+            "current_s3_record": current_s3_record,
+        },
+    )
 
 
 def _handle_s3_sqs_event(
-    sqs_record: dict[str, Any],
+    sqs_record_body: dict[str, Any],
     input_id: str,
     expand_event_list_from_field: ExpandEventListFromField,
     multiline_processor: Optional[ProtocolMultiline],
-) -> Iterator[tuple[dict[str, Any], int, int, int]]:
+) -> Iterator[tuple[dict[str, Any], int, Optional[int], int]]:
     """
     Handler for s3-sqs input.
     It takes an sqs record in the sqs trigger and process
@@ -68,8 +84,7 @@ def _handle_s3_sqs_event(
 
     account_id = get_account_id_from_arn(input_id)
 
-    body = json.loads(sqs_record["body"])
-    for s3_record_n, s3_record in enumerate(body["Records"]):
+    for s3_record_n, s3_record in enumerate(sqs_record_body["Records"]):
         aws_region = s3_record["awsRegion"]
         bucket_arn = unquote_plus(s3_record["s3"]["bucket"]["arn"], "utf-8")
         object_key = unquote_plus(s3_record["s3"]["object"]["key"], "utf-8")
@@ -127,4 +142,4 @@ def _handle_s3_sqs_event(
             es_event["fields"]["cloud"]["region"] = aws_region
             es_event["fields"]["cloud"]["account"] = {"id": account_id}
 
-            yield es_event, ending_offset, s3_record_n, event_expanded_offset
+            yield es_event, ending_offset, event_expanded_offset, s3_record_n
