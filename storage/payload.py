@@ -38,7 +38,7 @@ class PayloadStorage(CommonStorage):
     @inflate
     def _generate(
         self, range_start: int, body: BytesIO, is_gzipped: bool
-    ) -> Iterator[tuple[Union[StorageReader, bytes], int, int, int, int]]:
+    ) -> Iterator[tuple[Union[StorageReader, bytes], int, int, int, Optional[int]]]:
         """
         Concrete implementation of the iterator for get_by_lines
         """
@@ -50,21 +50,23 @@ class PayloadStorage(CommonStorage):
 
         if is_gzipped:
             reader: StorageReader = StorageReader(raw=body)
-            yield reader, 0, 0, 0, True
+            yield reader, 0, 0, 0, None
         else:
             for chunk in iter(chunk_lambda, b""):
                 file_starting_offset = file_ending_offset
                 file_ending_offset += len(chunk)
 
                 shared_logger.debug("_generate flat", extra={"offset": file_ending_offset})
-                yield chunk, file_starting_offset, file_ending_offset, 0, True
+                yield chunk, file_starting_offset, file_ending_offset, 0, None
 
-    def get_by_lines(self, range_start: int) -> Iterator[tuple[bytes, int, int, int]]:
+    def get_by_lines(self, range_start: int) -> Iterator[tuple[bytes, int, int, Optional[int]]]:
         original_range_start: int = range_start
 
         try:
             base64_decoded = base64.b64decode(self._payload, validate=True)
-        except binascii.Error:
+            if not base64_decoded.startswith(b"\037\213"):  # gzip compression method
+                base64_decoded.decode("utf-8")
+        except (UnicodeDecodeError, binascii.Error):
             base64_decoded = self._payload.encode("utf-8")
 
         is_gzipped: bool = False

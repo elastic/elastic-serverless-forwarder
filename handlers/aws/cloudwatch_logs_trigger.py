@@ -28,7 +28,8 @@ def _from_awslogs_data_to_event(awslogs_data: str) -> Any:
 def _handle_cloudwatch_logs_continuation(
     sqs_client: BotoBaseClient,
     sqs_continuing_queue: str,
-    last_ending_offset: int,
+    last_ending_offset: Optional[int],
+    last_event_expanded_offset: Optional[int],
     cloudwatch_logs_event: dict[str, Any],
     current_log_event: int,
     event_input_id: str,
@@ -46,18 +47,34 @@ def _handle_cloudwatch_logs_continuation(
     log_stream_name = cloudwatch_logs_event["logStream"]
     logs_events = cloudwatch_logs_event["logEvents"][current_log_event:]
 
-    for log_event in logs_events:
+    for current_log_event, log_event in enumerate(logs_events):
+        if current_log_event > 0:
+            last_ending_offset = None
+
+        message_attributes = {
+            "config": {"StringValue": config_yaml, "DataType": "String"},
+            "originalEventId": {"StringValue": log_event["id"], "DataType": "String"},
+            "originalEventSourceARN": {"StringValue": event_input_id, "DataType": "String"},
+            "originalLogGroup": {"StringValue": log_group_name, "DataType": "String"},
+            "originalLogStream": {"StringValue": log_stream_name, "DataType": "String"},
+        }
+
+        if last_ending_offset is not None:
+            message_attributes["originalLastEndingOffset"] = {
+                "StringValue": str(last_ending_offset),
+                "DataType": "Number",
+            }
+
+        if last_event_expanded_offset is not None:
+            message_attributes["originalLastEventExpandedOffset"] = {
+                "StringValue": str(last_event_expanded_offset),
+                "DataType": "Number",
+            }
+
         sqs_client.send_message(
             QueueUrl=sqs_continuing_queue,
             MessageBody=log_event["message"],
-            MessageAttributes={
-                "config": {"StringValue": config_yaml, "DataType": "String"},
-                "originalEventId": {"StringValue": log_event["id"], "DataType": "String"},
-                "originalEventSourceARN": {"StringValue": event_input_id, "DataType": "String"},
-                "originalLogGroup": {"StringValue": log_group_name, "DataType": "String"},
-                "originalLogStream": {"StringValue": log_stream_name, "DataType": "String"},
-                "originalLastEndingOffset": {"StringValue": str(last_ending_offset), "DataType": "Number"},
-            },
+            MessageAttributes=message_attributes,
         )
 
         shared_logger.debug(
@@ -65,6 +82,7 @@ def _handle_cloudwatch_logs_continuation(
             extra={
                 "sqs_continuing_queue": sqs_continuing_queue,
                 "last_ending_offset": last_ending_offset,
+                "last_event_expanded_offset": last_event_expanded_offset,
                 "event_id": log_event["id"],
             },
         )
@@ -76,7 +94,7 @@ def _handle_cloudwatch_logs_event(
     input_id: str,
     expand_event_list_from_field: ExpandEventListFromField,
     multiline_processor: Optional[ProtocolMultiline],
-) -> Iterator[tuple[dict[str, Any], int, int, int]]:
+) -> Iterator[tuple[dict[str, Any], int, Optional[int], int]]:
     """
     Handler for cloudwatch logs inputs.
     It iterates through the logEvents in cloudwatch logs trigger payload and process
@@ -124,4 +142,4 @@ def _handle_cloudwatch_logs_event(
             es_event["fields"]["cloud"]["region"] = aws_region
             es_event["fields"]["cloud"]["account"] = {"id": account_id}
 
-            yield es_event, ending_offset, cloudwatch_log_event_n, event_expanded_offset
+            yield es_event, ending_offset, event_expanded_offset, cloudwatch_log_event_n
