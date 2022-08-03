@@ -7,7 +7,7 @@ import gzip
 from io import SEEK_SET, BytesIO
 from typing import Any, Iterator, Optional, Union
 
-from share import ProtocolMultiline, shared_logger
+from share import ExpandEventListFromField, ProtocolMultiline, shared_logger
 
 from .decorator import JsonCollector, by_lines, inflate, multi_line
 from .storage import CHUNK_SIZE, CommonStorage, StorageReader
@@ -20,17 +20,25 @@ class PayloadStorage(CommonStorage):
     The payload might be base64 and gzip encoded
     """
 
-    def __init__(self, payload: str, multiline_processor: Optional[ProtocolMultiline]):
+    def __init__(
+        self,
+        payload: str,
+        json_content_type: Optional[str] = None,
+        multiline_processor: Optional[ProtocolMultiline] = None,
+        expand_event_list_from_field: Optional[ExpandEventListFromField] = None,
+    ):
         self._payload: str = payload
+        self.json_content_type = json_content_type
         self.multiline_processor = multiline_processor
+        self.expand_event_list_from_field = expand_event_list_from_field
 
     @multi_line
     @JsonCollector
     @by_lines
     @inflate
     def _generate(
-        self, range_start: int, body: BytesIO, is_gzipped: bool, content_length: int
-    ) -> Iterator[tuple[Union[StorageReader, bytes], Optional[dict[str, Any]], int, int, int]]:
+        self, range_start: int, body: BytesIO, is_gzipped: bool
+    ) -> Iterator[tuple[Union[StorageReader, bytes], int, int, int, int]]:
         """
         Concrete implementation of the iterator for get_by_lines
         """
@@ -42,18 +50,16 @@ class PayloadStorage(CommonStorage):
 
         if is_gzipped:
             reader: StorageReader = StorageReader(raw=body)
-            yield reader, None, 0, 0, 0
+            yield reader, 0, 0, 0, True
         else:
             for chunk in iter(chunk_lambda, b""):
                 file_starting_offset = file_ending_offset
                 file_ending_offset += len(chunk)
 
                 shared_logger.debug("_generate flat", extra={"offset": file_ending_offset})
-                yield chunk, None, file_ending_offset, file_starting_offset, 0
+                yield chunk, file_starting_offset, file_ending_offset, 0, True
 
-    def get_by_lines(
-        self, range_start: int
-    ) -> Iterator[tuple[Union[StorageReader, bytes], Optional[dict[str, Any]], int, int, int]]:
+    def get_by_lines(self, range_start: int) -> Iterator[tuple[bytes, int, int, int]]:
         original_range_start: int = range_start
 
         try:
@@ -73,13 +79,11 @@ class PayloadStorage(CommonStorage):
             file_content.flush()
             file_content.seek(range_start, SEEK_SET)
 
-            for log_event, json_object, line_ending_offset, line_starting_offset, newline_length in self._generate(
-                original_range_start,
-                file_content,
-                is_gzipped,
-                content_length,
+            for log_event, line_starting_offset, line_ending_offset, _, event_expanded_offset in self._generate(
+                original_range_start, file_content, is_gzipped
             ):
-                yield log_event, json_object, line_ending_offset, line_starting_offset, newline_length
+                assert isinstance(log_event, bytes)
+                yield log_event, line_starting_offset, line_ending_offset, event_expanded_offset
         else:
             shared_logger.info(f"requested payload content from {range_start}, payload size {content_length}: skip it")
 

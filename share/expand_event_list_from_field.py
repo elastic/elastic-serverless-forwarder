@@ -21,9 +21,9 @@ class ExpandEventListFromField:
     @staticmethod
     def _expander_event_list_from_field(
         json_object: dict[str, Any], starting_offset: int, ending_offset: int, field_to_expand_event_list_from: str
-    ) -> Iterator[tuple[Any, int, bool, bool]]:
+    ) -> Iterator[tuple[Any, int, int, bool]]:
         if len(field_to_expand_event_list_from) == 0 or field_to_expand_event_list_from not in json_object:
-            yield {}, starting_offset, True, False
+            yield {}, starting_offset, 0, False
         else:
             events_list: list[Any] = json_object[field_to_expand_event_list_from]
             # let's set to 1 if empty list to avoid division by zero in the line below,
@@ -31,20 +31,18 @@ class ExpandEventListFromField:
             events_list_length = max(1, len(events_list))
             avg_event_length = (ending_offset - starting_offset) / events_list_length
             for event_n, event in enumerate(events_list):
-                yield event, int(
-                    starting_offset + (event_n * avg_event_length)
-                ), event_n == events_list_length - 1, True
+                yield event, int(starting_offset + (event_n * avg_event_length)), event_n, True
 
     def expand(
         self, log_event: bytes, json_object: Optional[dict[str, Any]], starting_offset: int, ending_offset: int
-    ) -> Iterator[tuple[bytes, int, bool]]:
+    ) -> Iterator[tuple[bytes, int, int]]:
         if json_object is None:
             yield log_event, starting_offset, True
         else:
             for (
                 expanded_event,
                 expanded_starting_offset,
-                is_last_event_expanded,
+                expanded_event_n,
                 event_was_expanded,
             ) in self._expander_event_list_from_field(
                 json_object, starting_offset, ending_offset, self.field_to_expand_event_list_from
@@ -59,4 +57,4 @@ class ExpandEventListFromField:
                 else:
                     expanded_log_event = log_event
 
-                yield expanded_log_event, expanded_starting_offset, is_last_event_expanded
+                yield expanded_log_event, expanded_starting_offset, expanded_event_n

@@ -442,6 +442,14 @@ class TestInput(TestCase):
             ):
                 input_sqs.expand_event_list_from_field = 0  # type:ignore
 
+    def test_input_json_content_type(self) -> None:
+        with self.subTest("json_content_type not valid"):
+            input_sqs = Input(input_type="s3-sqs", input_id="id")
+            with self.assertRaisesRegex(
+                ValueError, "`json_content_type` must be one of ndjson,single for input id: whatever given"
+            ):
+                input_sqs.json_content_type = "whatever"
+
     def test_input_include_exclude_filter(self) -> None:
         with self.subTest("valid include_exclude_filter"):
             input_sqs = Input(input_type="s3-sqs", input_id="id")
@@ -898,6 +906,39 @@ class TestParseConfig(TestCase):
             """
                 )
 
+        with self.subTest("valid expand_event_list_from_field"):
+            config = parse_config(
+                config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                expand_event_list_from_field: aField
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      es_datastream_name: "es_datastream_name"
+            """
+            )
+
+            input_sqs = config.get_input_by_id(input_id="id")
+            assert input_sqs is not None
+            assert input_sqs.type == "s3-sqs"
+            assert input_sqs.id == "id"
+            assert input_sqs.expand_event_list_from_field == "aField"
+            elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
+
+            assert elasticsearch is not None
+            assert isinstance(elasticsearch, ElasticsearchOutput)
+            assert elasticsearch.type == "elasticsearch"
+            assert elasticsearch.cloud_id == "cloud_id"
+            assert elasticsearch.api_key == "api_key"
+            assert elasticsearch.es_datastream_name == "es_datastream_name"
+            assert elasticsearch.tags == []
+            assert elasticsearch.batch_max_actions == 500
+            assert elasticsearch.batch_max_bytes == 10485760
+
         with self.subTest("expand_event_list_from_field not str"):
             with self.assertRaisesRegex(
                 ValueError, "`expand_event_list_from_field` must be provided as string for input id"
@@ -908,6 +949,69 @@ class TestParseConfig(TestCase):
               - type: s3-sqs
                 id: id
                 expand_event_list_from_field: 0
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      es_datastream_name: "es_datastream_name"
+            """
+                )
+
+        with self.subTest("json_content_type single"):
+            config = parse_config(
+                config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                json_content_type: single
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      es_datastream_name: "es_datastream_name"
+            """
+            )
+
+            input_sqs = config.get_input_by_id(input_id="id")
+            assert input_sqs is not None
+            assert input_sqs.type == "s3-sqs"
+            assert input_sqs.id == "id"
+            assert input_sqs.json_content_type == "single"
+
+        with self.subTest("json_content_type ndjson"):
+            config = parse_config(
+                config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                json_content_type: ndjson
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      es_datastream_name: "es_datastream_name"
+            """
+            )
+
+            input_sqs = config.get_input_by_id(input_id="id")
+            assert input_sqs is not None
+            assert input_sqs.type == "s3-sqs"
+            assert input_sqs.id == "id"
+            assert input_sqs.json_content_type == "ndjson"
+
+        with self.subTest("json_content_type not valid"):
+            with self.assertRaisesRegex(
+                ValueError, "`json_content_type` must be one of ndjson,single for input id: whatever given"
+            ):
+                parse_config(
+                    config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                json_content_type: whatever
                 outputs:
                   - type: elasticsearch
                     args:

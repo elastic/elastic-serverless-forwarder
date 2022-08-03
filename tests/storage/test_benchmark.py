@@ -5,7 +5,7 @@
 import base64
 import random
 import string
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 import cysimdjson
 import mock
@@ -32,15 +32,15 @@ _IS_MULTILINE_PATTERN: str = "_IS_MULTILINE_PATTERN"
 _IS_MULTILINE_WHILE: str = "_IS_MULTILINE_WHILE"
 
 cysimdjson_parser = cysimdjson.JSONParser()
-simdjson_parser = simdjson.Parser()
+pysimdjson_parser = simdjson.Parser()
 
 
-def json_parser_cysimdjson(payload: bytes) -> None:
-    cysimdjson_parser.parse(payload)
+def json_parser_cysimdjson(payload: bytes) -> Any:
+    return cysimdjson_parser.parse(payload).get_value()
 
 
-def json_parser_simdjson(payload: bytes) -> None:
-    simdjson_parser.parse(payload)
+def json_parser_pysimdjson(payload: bytes) -> Any:
+    return pysimdjson_parser.parse(payload)
 
 
 def get_by_lines_parameters() -> list[tuple[int, str, bytes]]:
@@ -55,15 +55,17 @@ def get_by_lines_parameters() -> list[tuple[int, str, bytes]]:
             _IS_MULTILINE_WHILE,
         ]:
             for newline in [b"", b"\n", b"\r\n"]:
-                parameters.append(
-                    pytest.param(
-                        length_multiplier,
-                        content_type,
-                        newline,
-                        id=f"newline length {len(newline)} for content type {content_type} "
-                        f"with length multiplier {length_multiplier}",
+                for json_content_type in [None, "single", "ndjson"]:
+                    parameters.append(
+                        pytest.param(
+                            length_multiplier,
+                            content_type,
+                            newline,
+                            json_content_type,
+                            id=f"newline length {len(newline)} for content type {content_type} "
+                            f"with length multiplier {length_multiplier} and `json_content_type` {json_content_type}",
+                        )
                     )
-                )
 
     return parameters
 
@@ -182,13 +184,25 @@ class MockContentBase:
 
 class Setup:
     @staticmethod
-    def setup() -> None:
+    def setup(json_content_type: Optional[str]) -> bytes:
         if len(MockContentBase.mock_content) == 0:
             MockContentBase.init_content(content_type=_IS_JSON, newline=b"\n", length_multiplier=_LENGTH_1M)
 
+        mock_content = MockContentBase.mock_content
+        if json_content_type == "ndjson":
+            mock_content = mock_content.replace(b"\n{", b"{").replace(b"{\n", b"{")
+            mock_content = mock_content.replace(b"\n:", b":").replace(b":\n", b":")
+            mock_content = mock_content.replace(b'\n"', b'"').replace(b'"\n', b'"')
+            mock_content = mock_content.replace(b"\n}", b"}")
 
-def wrap(payload: str) -> int:
-    payload_storage = PayloadStorage(payload=payload, multiline_processor=None)
+        if json_content_type == "single":
+            mock_content = mock_content.replace(b"}\n\n{\n", b"\n,\n")
+
+        return mock_content
+
+
+def wrap(payload: str, json_content_type: Optional[str] = None) -> int:
+    payload_storage = PayloadStorage(payload=payload, json_content_type=json_content_type)
     lines = payload_storage.get_by_lines(range_start=0)
     last_length: int = 0
     for line in lines:
@@ -197,211 +211,161 @@ def wrap(payload: str) -> int:
     return last_length
 
 
-@pytest.mark.benchmark(group="plain")
-@mock.patch("storage.decorator.json_parser", new=lambda x: orjson.loads(x))
-def test_json_collector_plain_orjson(benchmark: pytest_benchmark.fixture.BenchmarkFixture) -> None:
-    Setup.setup()
-    original: bytes = MockContentBase.mock_content[1:]
-    last_length = benchmark.pedantic(wrap, [base64.b64encode(original).decode("utf-8")], iterations=1, rounds=100)
-    original_length: int = len(original)
-
-    assert last_length == original_length
-
-
-@pytest.mark.benchmark(group="json")
-@mock.patch("storage.decorator.json_parser", new=lambda x: orjson.loads(x))
-def test_json_collector_json_orjson(benchmark: pytest_benchmark.fixture.BenchmarkFixture) -> None:
-    Setup.setup()
-    original: bytes = MockContentBase.mock_content
-    last_length = benchmark.pedantic(wrap, [base64.b64encode(original).decode("utf-8")], iterations=1, rounds=100)
-    original_length: int = len(original)
-    if original.endswith(b"\n" * 2):
-        original_length -= 2
-
-    assert last_length == original_length
+json_parser_params = [
+    pytest.param(json_parser_cysimdjson, id="cysimdjson"),
+    pytest.param(lambda x: orjson.loads(x), id="orjson"),
+    pytest.param(json_parser_pysimdjson, id="pysimdjson"),
+    pytest.param(lambda x: rapidjson.loads(x), id="rapidjson"),
+    pytest.param(lambda x: simplejson.loads(x), id="simplejson"),
+    pytest.param(lambda x: ujson.loads(x), id="ujson"),
+]
 
 
-@pytest.mark.benchmark(group="json like")
-@mock.patch("storage.decorator.json_parser", new=lambda x: orjson.loads(x))
-def test_json_collector_json_like_orjson(benchmark: pytest_benchmark.fixture.BenchmarkFixture) -> None:
-    Setup.setup()
-    original: bytes = MockContentBase.mock_content
-    last_length = benchmark.pedantic(wrap, [base64.b64encode(original).decode("utf-8")], iterations=1, rounds=100)
-    original_length: int = len(original)
+@pytest.mark.benchmark(group="plain None")
+@pytest.mark.parametrize("json_parser", json_parser_params)
+def test_json_collector_plain_none(
+    benchmark: pytest_benchmark.fixture.BenchmarkFixture, json_parser: Callable[[bytes], Any]
+) -> None:
+    with mock.patch("storage.decorator.json_parser", new=json_parser):
+        mock_content = Setup.setup(None)
+        original: bytes = mock_content[1:]
+        last_length = benchmark.pedantic(
+            wrap, [base64.b64encode(original).decode("utf-8"), None], iterations=1, rounds=100
+        )
+        original_length: int = len(original)
 
-    assert last_length == original_length
-
-
-@pytest.mark.benchmark(group="plain")
-@mock.patch("storage.decorator.json_parser", new=lambda x: simplejson.loads(x))
-def test_json_collector_plain_simplejson(benchmark: pytest_benchmark.fixture.BenchmarkFixture) -> None:
-    Setup.setup()
-    original: bytes = MockContentBase.mock_content[1:]
-    last_length = benchmark.pedantic(wrap, [base64.b64encode(original).decode("utf-8")], iterations=1, rounds=100)
-    original_length: int = len(original)
-
-    assert last_length == original_length
+        assert last_length == original_length
 
 
-@pytest.mark.benchmark(group="json")
-@mock.patch("storage.decorator.json_parser", new=lambda x: simplejson.loads(x))
-def test_json_collector_json_simplejson(benchmark: pytest_benchmark.fixture.BenchmarkFixture) -> None:
-    Setup.setup()
-    original: bytes = MockContentBase.mock_content
-    last_length = benchmark.pedantic(wrap, [base64.b64encode(original).decode("utf-8")], iterations=1, rounds=100)
-    original_length: int = len(original)
-    if original.endswith(b"\n" * 2):
-        original_length -= 2
+@pytest.mark.benchmark(group="plain single")
+@pytest.mark.parametrize("json_parser", json_parser_params)
+def test_json_collector_plain_single(
+    benchmark: pytest_benchmark.fixture.BenchmarkFixture, json_parser: Callable[[bytes], Any]
+) -> None:
+    with mock.patch("storage.decorator.json_parser", new=json_parser):
+        mock_content = Setup.setup("single")
+        original: bytes = mock_content[1:]
+        last_length = benchmark.pedantic(
+            wrap, [base64.b64encode(original).decode("utf-8"), "single"], iterations=1, rounds=100
+        )
+        original_length: int = len(original)
 
-    assert last_length == original_length
-
-
-@pytest.mark.benchmark(group="json like")
-@mock.patch("storage.decorator.json_parser", new=lambda x: simplejson.loads(x))
-def test_json_collector_json_like_simplejson(benchmark: pytest_benchmark.fixture.BenchmarkFixture) -> None:
-    Setup.setup()
-    original: bytes = b"{" + MockContentBase.mock_content
-    last_length = benchmark.pedantic(wrap, [base64.b64encode(original).decode("utf-8")], iterations=1, rounds=100)
-    original_length: int = len(original)
-
-    assert last_length == original_length
+        assert last_length == original_length
 
 
-@pytest.mark.benchmark(group="plain")
-@mock.patch("storage.decorator.json_parser", new=lambda x: ujson.loads(x))
-def test_json_collector_plain_ujson(benchmark: pytest_benchmark.fixture.BenchmarkFixture) -> None:
-    Setup.setup()
-    original: bytes = MockContentBase.mock_content[1:]
-    last_length = benchmark.pedantic(wrap, [base64.b64encode(original).decode("utf-8")], iterations=1, rounds=100)
-    original_length: int = len(original)
+@pytest.mark.benchmark(group="plain ndjson")
+@pytest.mark.parametrize("json_parser", json_parser_params)
+def test_json_collector_plain_ndjson(
+    benchmark: pytest_benchmark.fixture.BenchmarkFixture, json_parser: Callable[[bytes], Any]
+) -> None:
+    with mock.patch("storage.decorator.json_parser", new=json_parser):
+        mock_content = Setup.setup("ndjson")
+        original: bytes = mock_content[1:]
+        last_length = benchmark.pedantic(
+            wrap, [base64.b64encode(original).decode("utf-8"), "ndjson"], iterations=1, rounds=100
+        )
+        original_length: int = len(original)
 
-    assert last_length == original_length
-
-
-@pytest.mark.benchmark(group="json")
-@mock.patch("storage.decorator.json_parser", new=lambda x: ujson.loads(x))
-def test_json_collector_json_ujson(benchmark: pytest_benchmark.fixture.BenchmarkFixture) -> None:
-    Setup.setup()
-    original: bytes = MockContentBase.mock_content
-    last_length = benchmark.pedantic(wrap, [base64.b64encode(original).decode("utf-8")], iterations=1, rounds=100)
-    original_length: int = len(original)
-    if original.endswith(b"\n" * 2):
-        original_length -= 2
-
-    assert last_length == original_length
+        assert last_length == original_length
 
 
-@pytest.mark.benchmark(group="json like")
-@mock.patch("storage.decorator.json_parser", new=lambda x: ujson.loads(x))
-def test_json_collector_json_like_ujson(benchmark: pytest_benchmark.fixture.BenchmarkFixture) -> None:
-    Setup.setup()
-    original: bytes = b"{" + MockContentBase.mock_content
-    last_length = benchmark.pedantic(wrap, [base64.b64encode(original).decode("utf-8")], iterations=1, rounds=100)
-    original_length: int = len(original)
+@pytest.mark.benchmark(group="json None")
+@pytest.mark.parametrize("json_parser", json_parser_params)
+def test_json_collector_json_none(
+    benchmark: pytest_benchmark.fixture.BenchmarkFixture, json_parser: Callable[[bytes], Any]
+) -> None:
+    with mock.patch("storage.decorator.json_parser", new=json_parser):
+        mock_content = Setup.setup(None)
+        original: bytes = mock_content
+        last_length = benchmark.pedantic(
+            wrap, [base64.b64encode(original).decode("utf-8"), None], iterations=1, rounds=100
+        )
+        original_length: int = len(original)
+        if original.endswith(b"\n" * 2):
+            original_length -= 2
 
-    assert last_length == original_length
-
-
-@pytest.mark.benchmark(group="plain")
-@mock.patch("storage.decorator.json_parser", new=json_parser_simdjson)
-def test_json_collector_plain_simdjson(benchmark: pytest_benchmark.fixture.BenchmarkFixture) -> None:
-    Setup.setup()
-    original: bytes = MockContentBase.mock_content[1:]
-    last_length = benchmark.pedantic(wrap, [base64.b64encode(original).decode("utf-8")], iterations=1, rounds=100)
-    original_length: int = len(original)
-
-    assert last_length == original_length
+        assert last_length == original_length
 
 
-@pytest.mark.benchmark(group="json")
-@mock.patch("storage.decorator.json_parser", new=json_parser_simdjson)
-def test_json_collector_json_simdjson(benchmark: pytest_benchmark.fixture.BenchmarkFixture) -> None:
-    Setup.setup()
-    original: bytes = MockContentBase.mock_content
-    last_length = benchmark.pedantic(wrap, [base64.b64encode(original).decode("utf-8")], iterations=1, rounds=100)
-    original_length: int = len(original)
-    if original.endswith(b"\n" * 2):
-        original_length -= 2
+@pytest.mark.benchmark(group="json single")
+@pytest.mark.parametrize("json_parser", json_parser_params)
+def test_json_collector_json_single(
+    benchmark: pytest_benchmark.fixture.BenchmarkFixture, json_parser: Callable[[bytes], Any]
+) -> None:
+    with mock.patch("storage.decorator.json_parser", new=json_parser):
+        mock_content = Setup.setup("single")
+        original: bytes = mock_content
+        last_length = benchmark.pedantic(
+            wrap, [base64.b64encode(original).decode("utf-8"), "single"], iterations=1, rounds=100
+        )
+        original_length: int = len(original)
+        if original.endswith(b"\n" * 2):
+            original_length -= 2
 
-    assert last_length == original_length
-
-
-@pytest.mark.benchmark(group="json like")
-@mock.patch("storage.decorator.json_parser", new=json_parser_simdjson)
-def test_json_collector_json_like_simdjson(benchmark: pytest_benchmark.fixture.BenchmarkFixture) -> None:
-    Setup.setup()
-    original: bytes = b"{" + MockContentBase.mock_content
-    last_length = benchmark.pedantic(wrap, [base64.b64encode(original).decode("utf-8")], iterations=1, rounds=100)
-    original_length: int = len(original)
-
-    assert last_length == original_length
+        assert last_length == original_length
 
 
-@pytest.mark.benchmark(group="plain")
-@mock.patch("storage.decorator.json_parser", new=lambda x: rapidjson.loads(x))
-def test_json_collector_plain_rapidjson(benchmark: pytest_benchmark.fixture.BenchmarkFixture) -> None:
-    Setup.setup()
-    original: bytes = MockContentBase.mock_content[1:]
-    last_length = benchmark.pedantic(wrap, [base64.b64encode(original).decode("utf-8")], iterations=1, rounds=100)
-    original_length: int = len(original)
+@pytest.mark.benchmark(group="json ndjson")
+@pytest.mark.parametrize("json_parser", json_parser_params)
+def test_json_collector_json_ndjson(
+    benchmark: pytest_benchmark.fixture.BenchmarkFixture, json_parser: Callable[[bytes], Any]
+) -> None:
+    with mock.patch("storage.decorator.json_parser", new=json_parser):
+        mock_content = Setup.setup("ndjson")
+        original: bytes = mock_content
+        last_length = benchmark.pedantic(
+            wrap, [base64.b64encode(original).decode("utf-8"), "ndjson"], iterations=1, rounds=100
+        )
+        original_length: int = len(original)
+        if original.endswith(b"\n" * 2):
+            original_length -= 2
 
-    assert last_length == original_length
-
-
-@pytest.mark.benchmark(group="json")
-@mock.patch("storage.decorator.json_parser", new=lambda x: rapidjson.loads(x))
-def test_json_collector_json_rapidjson(benchmark: pytest_benchmark.fixture.BenchmarkFixture) -> None:
-    Setup.setup()
-    original: bytes = MockContentBase.mock_content
-    last_length = benchmark.pedantic(wrap, [base64.b64encode(original).decode("utf-8")], iterations=1, rounds=100)
-    original_length: int = len(original)
-    if original.endswith(b"\n" * 2):
-        original_length -= 2
-
-    assert last_length == original_length
+        assert last_length == original_length
 
 
-@pytest.mark.benchmark(group="json like")
-@mock.patch("storage.decorator.json_parser", new=lambda x: rapidjson.loads(x))
-def test_json_collector_json_like_rapidjson(benchmark: pytest_benchmark.fixture.BenchmarkFixture) -> None:
-    Setup.setup()
-    original: bytes = b"{" + MockContentBase.mock_content
-    last_length = benchmark.pedantic(wrap, [base64.b64encode(original).decode("utf-8")], iterations=1, rounds=100)
-    original_length: int = len(original)
+@pytest.mark.benchmark(group="json like None")
+@pytest.mark.parametrize("json_parser", json_parser_params)
+def test_json_collector_json_like_none(
+    benchmark: pytest_benchmark.fixture.BenchmarkFixture, json_parser: Callable[[bytes], Any]
+) -> None:
+    with mock.patch("storage.decorator.json_parser", new=json_parser):
+        mock_content = Setup.setup(None)
+        original: bytes = mock_content
+        last_length = benchmark.pedantic(
+            wrap, [base64.b64encode(original).decode("utf-8"), None], iterations=1, rounds=100
+        )
+        original_length: int = len(original)
 
-    assert last_length == original_length
-
-
-@pytest.mark.benchmark(group="plain")
-@mock.patch("storage.decorator.json_parser", new=json_parser_cysimdjson)
-def test_json_collector_plain_cysimdjson(benchmark: pytest_benchmark.fixture.BenchmarkFixture) -> None:
-    Setup.setup()
-    original: bytes = MockContentBase.mock_content[1:]
-    last_length = benchmark.pedantic(wrap, [base64.b64encode(original).decode("utf-8")], iterations=1, rounds=100)
-    original_length: int = len(original)
-
-    assert last_length == original_length
+        assert last_length == original_length
 
 
-@pytest.mark.benchmark(group="json")
-@mock.patch("storage.decorator.json_parser", new=json_parser_cysimdjson)
-def test_json_collector_json_cyimdjson(benchmark: pytest_benchmark.fixture.BenchmarkFixture) -> None:
-    Setup.setup()
-    original: bytes = MockContentBase.mock_content
-    last_length = benchmark.pedantic(wrap, [base64.b64encode(original).decode("utf-8")], iterations=1, rounds=100)
-    original_length: int = len(original)
-    if original.endswith(b"\n" * 2):
-        original_length -= 2
+@pytest.mark.benchmark(group="json like single")
+@pytest.mark.parametrize("json_parser", json_parser_params)
+def test_json_collector_json_like_single(
+    benchmark: pytest_benchmark.fixture.BenchmarkFixture, json_parser: Callable[[bytes], Any]
+) -> None:
+    with mock.patch("storage.decorator.json_parser", new=json_parser):
+        mock_content = Setup.setup("single")
+        original: bytes = mock_content
+        last_length = benchmark.pedantic(
+            wrap, [base64.b64encode(original).decode("utf-8"), "single"], iterations=1, rounds=100
+        )
+        original_length: int = len(original)
 
-    assert last_length == original_length
+        assert last_length == original_length
 
 
-@pytest.mark.benchmark(group="json like")
-@mock.patch("storage.decorator.json_parser", new=json_parser_cysimdjson)
-def test_json_collector_json_like_cysimdjson(benchmark: pytest_benchmark.fixture.BenchmarkFixture) -> None:
-    Setup.setup()
-    original: bytes = b"{" + MockContentBase.mock_content
-    last_length = benchmark.pedantic(wrap, [base64.b64encode(original).decode("utf-8")], iterations=1, rounds=100)
-    original_length: int = len(original)
+@pytest.mark.benchmark(group="json like ndjson")
+@pytest.mark.parametrize("json_parser", json_parser_params)
+def test_json_collector_json_like_ndjson(
+    benchmark: pytest_benchmark.fixture.BenchmarkFixture, json_parser: Callable[[bytes], Any]
+) -> None:
+    with mock.patch("storage.decorator.json_parser", new=json_parser):
+        mock_content = Setup.setup("ndjson")
+        original: bytes = mock_content
+        last_length = benchmark.pedantic(
+            wrap, [base64.b64encode(original).decode("utf-8"), "ndjson"], iterations=1, rounds=100
+        )
+        original_length: int = len(original)
 
-    assert last_length == original_length
+        assert last_length == original_length
