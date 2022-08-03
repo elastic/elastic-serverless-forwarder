@@ -72,11 +72,11 @@ class MockContent:
         },
         "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret_not_str_byte": {
             "type": "SecretString",
-            "data": b"i am not a string",  # type: ignore
+            "data": b"i am not a string",  # type:ignore
         },
         "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret_not_str_int": {
             "type": "SecretString",
-            "data": 2021,  # type: ignore
+            "data": 2021,  # type:ignore
         },
         "arn:aws:secretsmanager:eu-central-1:123456789:secret:binary_secret": {
             "type": "SecretBinary",

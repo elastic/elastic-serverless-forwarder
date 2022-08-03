@@ -9,6 +9,11 @@ import ujson
 ExpandEventListFromFieldResolverCallable = Callable[[str, str], str]
 
 
+# For overriding in benchmark
+def json_dumper(json_object: Any) -> bytes:
+    return ujson.dumps(json_object).encode("utf-8")
+
+
 class ExpandEventListFromField:
     def __init__(
         self,
@@ -63,7 +68,7 @@ class ExpandEventListFromField:
                     if not expanded_event:
                         expanded_log_event = b""
                     else:
-                        expanded_log_event = ujson.dumps(expanded_event).encode("utf-8")
+                        expanded_log_event = json_dumper(expanded_event)
 
                     if is_last_expanded_event:
                         expanded_event_n = None
