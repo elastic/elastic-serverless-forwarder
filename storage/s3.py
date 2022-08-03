@@ -58,14 +58,14 @@ class S3Storage(CommonStorage):
 
         if is_gzipped:
             reader: StorageReader = StorageReader(raw=body)
-            yield reader, 0, 0, 0, True
+            yield reader, 0, 0, 0, None
         else:
             for chunk in iter(chunk_lambda, b""):
                 file_starting_offset = file_ending_offset
                 file_ending_offset += len(chunk)
 
                 shared_logger.debug("_generate flat", extra={"offset": file_ending_offset})
-                yield chunk, file_ending_offset, file_starting_offset, 0, True
+                yield chunk, file_ending_offset, file_starting_offset, 0, None
 
     def get_by_lines(self, range_start: int) -> Iterator[tuple[bytes, int, int, Optional[int]]]:
         original_range_start: int = range_start
