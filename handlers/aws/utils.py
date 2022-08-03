@@ -264,20 +264,26 @@ def get_sqs_queue_name_and_region_from_arn(sqs_queue_arn: str) -> tuple[str, str
     return arn_components[-1], arn_components[3]
 
 
-def is_continuing_of_cloudwatch_logs(sqs_record: dict[str, Any]) -> bool:
+def get_continuing_original_input_type(sqs_record: dict[str, Any]) -> Optional[str]:
     """
-    Determines if the event is the continue queue payload of a cloudwatch logs
+    Determines the original input type of the continue queue payload
     """
 
     if "messageAttributes" not in sqs_record:
-        return False
+        return None
 
     if "originalEventSourceARN" not in sqs_record["messageAttributes"]:
-        return False
+        return None
 
     original_event_source: str = sqs_record["messageAttributes"]["originalEventSourceARN"]["stringValue"]
 
-    return original_event_source.startswith("arn:aws:logs")
+    if original_event_source.startswith("arn:aws:logs"):
+        return "cloudwatch-logs"
+
+    if original_event_source.startswith("arn:aws:kinesis") and original_event_source.find(":stream/") > -1:
+        return "kinesis-data-stream"
+
+    return None
 
 
 def get_trigger_type_and_config_source(event: dict[str, Any]) -> tuple[str, str]:

@@ -68,9 +68,9 @@ def _handle_sqs_continuation(
 
 def _handle_sqs_event(
     sqs_record: dict[str, Any],
-    is_continuation_of_cloudwatch_logs: bool,
     input_id: str,
     expand_event_list_from_field: ExpandEventListFromField,
+    continuing_original_input_type: Optional[str],
     multiline_processor: Optional[ProtocolMultiline],
 ) -> Iterator[tuple[dict[str, Any], int, int]]:
     """
@@ -109,7 +109,21 @@ def _handle_sqs_event(
 
         es_event["fields"]["log"]["offset"] = starting_offset
 
-        if is_continuation_of_cloudwatch_logs:
+        if continuing_original_input_type is None:
+            es_event["fields"]["log"]["file"]["path"] = get_queue_url_from_sqs_arn(input_id)
+
+            message_id = sqs_record["messageId"]
+
+            if "originalMessageId" in payload:
+                message_id = payload["originalMessageId"]["stringValue"]
+
+            es_event["fields"]["aws"] = {
+                "sqs": {
+                    "name": queue_name,
+                    "message_id": message_id,
+                }
+            }
+        elif continuing_original_input_type == "cloudwatch-logs":
             assert "originalEventId" in payload
             event_id = payload["originalEventId"]["stringValue"]
 
@@ -128,18 +142,23 @@ def _handle_sqs_event(
                     "event_id": event_id,
                 }
             }
-        else:
-            es_event["fields"]["log"]["file"]["path"] = get_queue_url_from_sqs_arn(input_id)
+        elif continuing_original_input_type == "kinesis-data-stream":
+            assert "originalStreamType" in payload
+            stream_type = payload["originalStreamType"]["stringValue"]
 
-            message_id = sqs_record["messageId"]
+            assert "originalStreamName" in payload
+            stream_name = payload["originalStreamName"]["stringValue"]
 
-            if "originalMessageId" in payload:
-                message_id = payload["originalMessageId"]["stringValue"]
+            assert "originalSequenceNumber" in payload
+            sequence_number = payload["originalSequenceNumber"]["stringValue"]
+
+            es_event["fields"]["log"]["file"]["path"] = input_id
 
             es_event["fields"]["aws"] = {
-                "sqs": {
-                    "name": queue_name,
-                    "message_id": message_id,
+                "kinesis": {
+                    "type": stream_type,
+                    "name": stream_name,
+                    "sequence_number": sequence_number,
                 }
             }
 

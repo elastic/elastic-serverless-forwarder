@@ -794,9 +794,7 @@ Every other error that occurs during the execution of the Lambda function is sil
 ### Execution timeout
 There is a grace period of 2 minutes before the timeout of the Lambda function where no more ingestion will occur. Instead, during this grace period the Lambda will collect and handle any unprocessed payloads in the batch of the input used as trigger.
 
-For CloudWatch Logs event input, S3 SQS Event Notifications input and direct SQS message payload input, the unprocessed batch will be sent to the SQS continuing queue.
-
-For the Kinesis data stream input, the Lambda function will return the sequence numbers of the unprocessed batch in the `batchItemFailures` response, which allows the affected records to be included in later batches that will trigger the Lambda. It is therefore important to set the number of retry attempts high enough, and/or lower the batch size, to ensure the whole batch can be processed either during a single execution of the function or, with extra retry attempts, during multiple executions of the function.
+For CloudWatch Logs event input, Kinesis data stream input, S3 SQS Event Notifications input and direct SQS message payload input, the unprocessed batch will be sent to the SQS continuing queue.
 
 ## Resources and links
 
