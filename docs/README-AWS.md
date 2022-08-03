@@ -463,18 +463,18 @@ No flags are used when the regular expression is compiled. Please refer to [inli
 
 ## JSON content discovery
 
-The Elastic Serverless Forwarder is able to discovery automatically JSON content in the payload of an input and collect the contained JSON objects in the payload.
-The JSON objects can be either be on a single line or spanning multiple lines. In the second case the Elastic Serverless Forwarder expects the different JSON objects spanning multiple lines to be separated by a newline.
+The Elastic Serverless Forwarder is able to discovery automatically JSON content in the payload of an input and collect the JSON objects contained in the payload.
+The JSON objects can be either be on a single line or spanning multiple lines. In the second case the Elastic Serverless Forwarder expects each different JSON objects spanning multiple lines to be separated by a newline delimiter.
 
-In case of JSON objects spanning multiple lines a limit of 1000 lines is applied: every JSON object spanning on more lines than those will not be collected. Every line composing the whole JSON object will be forwarder individually instead,
+In case of JSON objects spanning multiple lines a limit of 1000 lines is applied: every JSON object spanning across more 1000 lines will not be collected. Every line composing the whole JSON object will be forwarded individually instead.
 
 Sometimes relaying on the Elastic Serverless Forwarder JSON content auto-discovery feature might have a huge impact on performance, or you have a known payload content of a single JSON object spanning more than 1000 lines. In this case you can provide in the input configuration and hint on the nature of the JSON content: this will change the parsing logic applied and improve performance or overcome the 1000 lines limit.
 
 **Notes:**
 
-`inputs.[].json_content_type` can be defined as a string with on the of the follwing values:
-- *single*: indicates that the content of a single entry in the input payload is a single JSON object spanning multiple lines. In this case the whole content of the payload is decoded as JSON object, with no limit on the number of lines the JSON object is spanning on.
-- *ndjson*: indicates that the content of a single entry in the input payload is a valid NDJSON format. In NDJSON format multiple single JSON objects spanning a single line each are separated by a newline delimiter. In this case each line will be decoded as JSON object, improving the parsing performance.
+`inputs.[].json_content_type` can be defined as a string with on the of the following values:
+- *single*: indicates that the content of a single entry in the input payload is a single JSON object. The content can either be on a single line or spanning multiple lines. In this case the whole content of the payload is decoded as JSON object, with no limit on the number of lines the JSON object is spanning on.
+- *ndjson*: indicates that the content of a single entry in the input payload is a valid NDJSON format. In NDJSON format multiple single JSON objects formatted on a single line each are separated by a newline delimiter. In this case each line will be decoded as JSON object, improving the parsing performance.
 
 You should note that there is no need to configure the json content type hint when relaying on [Expanding events from list in json object](#expanding-events-from-list-in-json-object), unless you are in the case of a single JSON object spanning more than 1000 lines.
 
