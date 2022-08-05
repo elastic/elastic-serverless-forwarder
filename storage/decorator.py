@@ -35,7 +35,6 @@ def by_lines(func: GetByLinesCallable[ProtocolStorageType]) -> GetByLinesCallabl
         json_content_type: Optional[str] = storage.json_content_type
 
         iterator = func(storage, range_start, body, is_gzipped)
-
         if json_content_type == "single" and storage.multiline_processor is None:
             try:
                 while True:
@@ -56,7 +55,7 @@ def by_lines(func: GetByLinesCallable[ProtocolStorageType]) -> GetByLinesCallabl
 
                 unfinished_line = unfinished_line.rstrip(newline)
 
-                shared_logger.debug("by_line json_content_type json", extra={"offset": ending_offset})
+                shared_logger.debug("by_line json_content_type single", extra={"offset": ending_offset})
 
                 yield unfinished_line, starting_offset, ending_offset, newline_length, None
         else:

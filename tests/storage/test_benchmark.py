@@ -99,7 +99,12 @@ class MockContentBase:
     mock_content: bytes = b""
 
     @staticmethod
-    def init_content(content_type: str, newline: bytes, length_multiplier: int = _LENGTH_ABOVE_THRESHOLD) -> None:
+    def init_content(
+        content_type: str,
+        newline: bytes,
+        length_multiplier: int = _LENGTH_ABOVE_THRESHOLD,
+        json_content_type: Optional[str] = None,
+    ) -> None:
         if len(newline) == 0:
             if content_type == _IS_JSON:
                 mock_content = (
@@ -187,6 +192,15 @@ class MockContentBase:
         if content_type == _IS_JSON_LIKE:
             mock_content = b"{" + mock_content
 
+        if content_type == _IS_JSON and json_content_type == "ndjson":
+            mock_content = mock_content.replace(newline + b"{", b"{").replace(b"{" + newline, b"{")
+            mock_content = mock_content.replace(newline + b":", b":").replace(b":" + newline, b":")
+            mock_content = mock_content.replace(newline + b'"', b'"').replace(b'"' + newline, b'"')
+            mock_content = mock_content.replace(newline + b"}", b"}")
+
+        if content_type == _IS_JSON and json_content_type == "single":
+            mock_content = mock_content.replace(b"}" + newline + newline + b"{" + newline, newline + b"," + newline)
+
         MockContentBase.mock_content = mock_content
 
 
@@ -196,25 +210,17 @@ class Setup:
     @staticmethod
     def setup(json_content_type: Optional[str]) -> bytes:
         if len(MockContentBase.mock_content) == 0:
-            MockContentBase.init_content(content_type=_IS_JSON, newline=b"\n", length_multiplier=_LENGTH_1M)
-
-        mock_content = MockContentBase.mock_content
-        if json_content_type == "ndjson":
-            mock_content = mock_content.replace(b"\n{", b"{").replace(b"{\n", b"{")
-            mock_content = mock_content.replace(b"\n:", b":").replace(b":\n", b":")
-            mock_content = mock_content.replace(b'\n"', b'"').replace(b'"\n', b'"')
-            mock_content = mock_content.replace(b"\n}", b"}")
-
-        if json_content_type == "single":
-            mock_content = mock_content.replace(b"}\n\n{\n", b"\n,\n")
+            MockContentBase.init_content(
+                content_type=_IS_JSON, newline=b"\n", length_multiplier=_LENGTH_1M, json_content_type=json_content_type
+            )
 
         if Setup.expanded_offset == -1:
             # -1 for `"pleaseExpand":`, -1 returning at least one event
-            total_events: int = mock_content.count(b":") - 2
+            total_events: int = MockContentBase.mock_content.count(b":") - 2
 
             Setup.expanded_offset = random.randint(int(total_events / 2), total_events)
 
-        return mock_content
+        return MockContentBase.mock_content
 
 
 def wrap(payload: str, json_content_type: Optional[str] = None, expand: bool = False) -> int:
@@ -265,7 +271,7 @@ def test_json_collector_plain_none(
         mock_content = Setup.setup(None)
         original: bytes = mock_content[1:]
         last_length = benchmark.pedantic(
-            wrap, [base64.b64encode(original).decode("utf-8"), None], iterations=1, rounds=100
+            wrap, [base64.b64encode(original).decode("utf-8"), None], iterations=1, rounds=1
         )
         original_length: int = len(original)
 
@@ -281,7 +287,7 @@ def test_json_collector_plain_single(
         mock_content = Setup.setup("single")
         original: bytes = mock_content[1:]
         encoded: str = base64.b64encode(original).decode("utf-8")
-        last_length = benchmark.pedantic(wrap, [encoded, "single"], iterations=1, rounds=100)
+        last_length = benchmark.pedantic(wrap, [encoded, "single"], iterations=1, rounds=1)
         original_length: int = len(original)
 
         assert last_length == original_length
@@ -296,7 +302,7 @@ def test_json_collector_plain_ndjson(
         mock_content = Setup.setup("ndjson")
         original: bytes = mock_content[1:]
         encoded: str = base64.b64encode(original).decode("utf-8")
-        last_length = benchmark.pedantic(wrap, [encoded, "ndjson"], iterations=1, rounds=100)
+        last_length = benchmark.pedantic(wrap, [encoded, "ndjson"], iterations=1, rounds=1)
         original_length: int = len(original)
 
         assert last_length == original_length
@@ -311,7 +317,7 @@ def test_json_collector_json_none(
         mock_content = Setup.setup(None)
         original: bytes = mock_content
         encoded: str = base64.b64encode(original).decode("utf-8")
-        last_length = benchmark.pedantic(wrap, [encoded, None], iterations=1, rounds=100)
+        last_length = benchmark.pedantic(wrap, [encoded, None], iterations=1, rounds=1)
         original_length: int = len(original)
         if original.endswith(b"\n" * 2):
             original_length -= 2
@@ -328,7 +334,7 @@ def test_json_collector_json_single(
         mock_content = Setup.setup("single")
         original: bytes = mock_content
         encoded: str = base64.b64encode(original).decode("utf-8")
-        last_length = benchmark.pedantic(wrap, [encoded, "single"], iterations=1, rounds=100)
+        last_length = benchmark.pedantic(wrap, [encoded, "single"], iterations=1, rounds=1)
         original_length: int = len(original)
         if original.endswith(b"\n" * 2):
             original_length -= 2
@@ -345,7 +351,7 @@ def test_json_collector_json_ndjson(
         mock_content = Setup.setup("ndjson")
         original: bytes = mock_content
         encoded: str = base64.b64encode(original).decode("utf-8")
-        last_length = benchmark.pedantic(wrap, [encoded, "ndjson"], iterations=1, rounds=100)
+        last_length = benchmark.pedantic(wrap, [encoded, "ndjson"], iterations=1, rounds=1)
         original_length: int = len(original)
         if original.endswith(b"\n" * 2):
             original_length -= 2
@@ -362,7 +368,7 @@ def test_json_collector_json_like_none(
         mock_content = Setup.setup(None)
         original: bytes = mock_content
         encoded: str = base64.b64encode(original).decode("utf-8")
-        last_length = benchmark.pedantic(wrap, [encoded, None], iterations=1, rounds=100)
+        last_length = benchmark.pedantic(wrap, [encoded, None], iterations=1, rounds=1)
         original_length: int = len(original)
 
         assert last_length == original_length
@@ -377,7 +383,7 @@ def test_json_collector_json_like_single(
         mock_content = Setup.setup("single")
         original: bytes = mock_content
         encoded: str = base64.b64encode(original).decode("utf-8")
-        last_length = benchmark.pedantic(wrap, [encoded, "single"], iterations=1, rounds=100)
+        last_length = benchmark.pedantic(wrap, [encoded, "single"], iterations=1, rounds=1)
         original_length: int = len(original)
 
         assert last_length == original_length
@@ -392,7 +398,7 @@ def test_json_collector_json_like_ndjson(
         mock_content = Setup.setup("ndjson")
         original: bytes = mock_content
         encoded: str = base64.b64encode(original).decode("utf-8")
-        last_length = benchmark.pedantic(wrap, [encoded, "ndjson"], iterations=1, rounds=100)
+        last_length = benchmark.pedantic(wrap, [encoded, "ndjson"], iterations=1, rounds=1)
         original_length: int = len(original)
 
         assert last_length == original_length
@@ -410,7 +416,7 @@ def test_json_collector_expanded_none(
             mock_content = Setup.setup(None)
             original: bytes = b'{"pleaseExpand": [' + mock_content + b"]}"
             encoded: str = base64.b64encode(original).decode("utf-8")
-            last_length = benchmark.pedantic(wrap, [encoded, None, True], iterations=1, rounds=100)
+            last_length = benchmark.pedantic(wrap, [encoded, None, True], iterations=1, rounds=1)
             original_length: int = len(original)
             if original.endswith(b"\n" * 2):
                 original_length -= 2
@@ -430,7 +436,7 @@ def test_json_collector_expanded_single(
             mock_content = Setup.setup("single")
             original: bytes = b'{"pleaseExpand": [' + mock_content + b"]}"
             encoded: str = base64.b64encode(original).decode("utf-8")
-            last_length = benchmark.pedantic(wrap, [encoded, "single", True], iterations=1, rounds=100)
+            last_length = benchmark.pedantic(wrap, [encoded, "single", True], iterations=1, rounds=1)
             original_length: int = len(original)
             if original.endswith(b"\n" * 2):
                 original_length -= 2
@@ -450,7 +456,7 @@ def test_json_collector_expanded_ndjson(
             mock_content = Setup.setup("ndjson")
             original: bytes = b'{"pleaseExpand": [' + mock_content + b"]}"
             encoded: str = base64.b64encode(original).decode("utf-8")
-            last_length = benchmark.pedantic(wrap, [encoded, "ndjson", True], iterations=1, rounds=100)
+            last_length = benchmark.pedantic(wrap, [encoded, "ndjson", True], iterations=1, rounds=1)
             original_length: int = len(original)
             if original.endswith(b"\n" * 2):
                 original_length -= 2

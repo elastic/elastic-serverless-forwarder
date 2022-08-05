@@ -12,6 +12,7 @@ import pytest
 from storage import PayloadStorage
 
 from .test_benchmark import (
+    _IS_JSON,
     _IS_PLAIN,
     _LENGTH_ABOVE_THRESHOLD,
     MockContentBase,
@@ -22,8 +23,18 @@ from .test_benchmark import (
 
 class MockContent(MockContentBase):
     @staticmethod
-    def init_content(content_type: str, newline: bytes, length_multiplier: int = _LENGTH_ABOVE_THRESHOLD) -> None:
-        MockContentBase.init_content(content_type=content_type, newline=newline, length_multiplier=length_multiplier)
+    def init_content(
+        content_type: str,
+        newline: bytes,
+        length_multiplier: int = _LENGTH_ABOVE_THRESHOLD,
+        json_content_type: Optional[str] = None,
+    ) -> None:
+        MockContentBase.init_content(
+            content_type=content_type,
+            newline=newline,
+            length_multiplier=length_multiplier,
+            json_content_type=json_content_type,
+        )
 
         MockContent.f_content_gzip = base64.b64encode(gzip.compress(MockContentBase.mock_content))
         MockContent.f_content_plain = base64.b64encode(MockContentBase.mock_content)
@@ -67,7 +78,12 @@ def test_get_as_string_gzip() -> None:
 def test_get_by_lines(
     length_multiplier: int, content_type: str, newline: bytes, json_content_type: Optional[str]
 ) -> None:
-    MockContent.init_content(content_type=content_type, newline=newline, length_multiplier=length_multiplier)
+    MockContent.init_content(
+        content_type=content_type,
+        newline=newline,
+        length_multiplier=length_multiplier,
+        json_content_type=json_content_type,
+    )
 
     payload_content_gzip = MockContent.f_content_gzip.decode("utf-8")
     payload_content_plain = MockContent.f_content_plain.decode("utf-8")
@@ -103,7 +119,7 @@ def test_get_by_lines(
 
     assert joined == original
 
-    if len(newline) == 0:
+    if len(newline) == 0 or (content_type == _IS_JSON and json_content_type == "single"):
         return
 
     gzip_full_01 = gzip_full[: int(len(gzip_full) / 2)]

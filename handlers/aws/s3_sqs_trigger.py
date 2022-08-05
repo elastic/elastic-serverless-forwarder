@@ -72,6 +72,7 @@ def _handle_s3_sqs_event(
     sqs_record_body: dict[str, Any],
     input_id: str,
     expand_event_list_from_field: ExpandEventListFromField,
+    json_content_type: Optional[str],
     multiline_processor: Optional[ProtocolMultiline],
 ) -> Iterator[tuple[dict[str, Any], int, Optional[int], int]]:
     """
@@ -96,6 +97,7 @@ def _handle_s3_sqs_event(
             storage_type="s3",
             bucket_name=bucket_name,
             object_key=object_key,
+            json_content_type=json_content_type,
             expand_event_list_from_field=expand_event_list_from_field,
             multiline_processor=multiline_processor,
         )

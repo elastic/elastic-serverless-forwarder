@@ -93,6 +93,7 @@ def _handle_cloudwatch_logs_event(
     aws_region: str,
     input_id: str,
     expand_event_list_from_field: ExpandEventListFromField,
+    json_content_type: Optional[str],
     multiline_processor: Optional[ProtocolMultiline],
 ) -> Iterator[tuple[dict[str, Any], int, Optional[int], int]]:
     """
@@ -114,6 +115,7 @@ def _handle_cloudwatch_logs_event(
         storage_message: ProtocolStorage = StorageFactory.create(
             storage_type="payload",
             payload=cloudwatch_log_event["message"],
+            json_content_type=json_content_type,
             expand_event_list_from_field=expand_event_list_from_field,
             multiline_processor=multiline_processor,
         )

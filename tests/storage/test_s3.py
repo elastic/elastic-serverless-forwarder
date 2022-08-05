@@ -14,6 +14,7 @@ from botocore.response import StreamingBody
 from storage import S3Storage
 
 from .test_benchmark import (
+    _IS_JSON,
     _IS_PLAIN,
     _LENGTH_ABOVE_THRESHOLD,
     MockContentBase,
@@ -34,8 +35,18 @@ class MockContent(MockContentBase):
         MockContent.f_stream_plain.seek(0)
 
     @staticmethod
-    def init_content(content_type: str, newline: bytes, length_multiplier: int = _LENGTH_ABOVE_THRESHOLD) -> None:
-        MockContentBase.init_content(content_type=content_type, newline=newline, length_multiplier=length_multiplier)
+    def init_content(
+        content_type: str,
+        newline: bytes,
+        length_multiplier: int = _LENGTH_ABOVE_THRESHOLD,
+        json_content_type: Optional[str] = None,
+    ) -> None:
+        MockContentBase.init_content(
+            content_type=content_type,
+            newline=newline,
+            length_multiplier=length_multiplier,
+            json_content_type=json_content_type,
+        )
 
         MockContent.f_content_plain = MockContentBase.mock_content
         MockContent.f_content_gzip = gzip.compress(MockContent.f_content_plain)
@@ -99,7 +110,12 @@ def test_get_as_string() -> None:
 def test_get_by_lines(
     length_multiplier: int, content_type: str, newline: bytes, json_content_type: Optional[str]
 ) -> None:
-    MockContent.init_content(content_type=content_type, newline=newline, length_multiplier=length_multiplier)
+    MockContent.init_content(
+        content_type=content_type,
+        newline=newline,
+        length_multiplier=length_multiplier,
+        json_content_type=json_content_type,
+    )
 
     joiner_token: bytes = newline
 
@@ -134,7 +150,7 @@ def test_get_by_lines(
 
     assert joined == MockContent.f_content_plain
 
-    if len(newline) == 0:
+    if len(newline) == 0 or (content_type == _IS_JSON and json_content_type == "single"):
         return
 
     gzip_full_01 = gzip_full[: int(len(gzip_full) / 2)]

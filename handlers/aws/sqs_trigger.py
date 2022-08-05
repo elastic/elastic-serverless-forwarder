@@ -79,6 +79,7 @@ def _handle_sqs_event(
     input_id: str,
     expand_event_list_from_field: ExpandEventListFromField,
     continuing_original_input_type: Optional[str],
+    json_content_type: Optional[str],
     multiline_processor: Optional[ProtocolMultiline],
 ) -> Iterator[tuple[dict[str, Any], int, Optional[int]]]:
     """
@@ -93,6 +94,7 @@ def _handle_sqs_event(
     storage: ProtocolStorage = StorageFactory.create(
         storage_type="payload",
         payload=sqs_record["body"],
+        json_content_type=json_content_type,
         expand_event_list_from_field=expand_event_list_from_field,
         multiline_processor=multiline_processor,
     )

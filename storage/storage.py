@@ -8,7 +8,7 @@ from typing import Any, Callable, Iterator, Optional, Protocol, TypeVar, Union
 
 from share import ExpandEventListFromField, ProtocolMultiline
 
-CHUNK_SIZE: int = 1024
+CHUNK_SIZE: int = 1024 ** 2
 
 
 class StorageReader:

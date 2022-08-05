@@ -142,6 +142,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             aws_region,
             event_input.id,
             expand_event_list_from_field,
+            event_input.json_content_type,
             event_input.get_multiline_processor(),
         ):
             shared_logger.debug("es_event", extra={"es_event": es_event})
@@ -213,7 +214,11 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             last_event_expanded_offset,
             current_kinesis_record_n,
         ) in _handle_kinesis_record(
-            lambda_event, event_input.id, expand_event_list_from_field, event_input.get_multiline_processor()
+            lambda_event,
+            event_input.id,
+            expand_event_list_from_field,
+            event_input.json_content_type,
+            event_input.get_multiline_processor(),
         ):
             shared_logger.debug("es_event", extra={"es_event": es_event})
 
@@ -415,6 +420,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                     input_id,
                     expand_event_list_from_field,
                     continuing_original_input_type,
+                    event_input.json_content_type,
                     event_input.get_multiline_processor(),
                 ):
                     timeout, sent_outcome = event_processing(
@@ -446,7 +452,11 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
             elif event_input.type == "s3-sqs":
                 for es_event, last_ending_offset, last_event_expanded_offset, current_s3_record in _handle_s3_sqs_event(
-                    sqs_record_body, event_input.id, expand_event_list_from_field, event_input.get_multiline_processor()
+                    sqs_record_body,
+                    event_input.id,
+                    expand_event_list_from_field,
+                    event_input.json_content_type,
+                    event_input.get_multiline_processor(),
                 ):
                     timeout, sent_outcome = event_processing(
                         processing_composing_shipper=composite_shipper, processing_es_event=es_event

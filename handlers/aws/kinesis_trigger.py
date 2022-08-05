@@ -76,6 +76,7 @@ def _handle_kinesis_record(
     event: dict[str, Any],
     input_id: str,
     expand_event_list_from_field: ExpandEventListFromField,
+    json_content_type: Optional[str],
     multiline_processor: Optional[ProtocolMultiline],
 ) -> Iterator[tuple[dict[str, Any], int, Optional[int], int]]:
     """
@@ -89,6 +90,7 @@ def _handle_kinesis_record(
         storage: ProtocolStorage = StorageFactory.create(
             storage_type="payload",
             payload=kinesis_record["kinesis"]["data"],
+            json_content_type=json_content_type,
             expand_event_list_from_field=expand_event_list_from_field,
             multiline_processor=multiline_processor,
         )
