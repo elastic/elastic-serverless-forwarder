@@ -46,11 +46,10 @@ class JSONSerializer(Serializer):
     def loads(self, s: str) -> Any:
         try:
             return json_parser(s)
-        except (ValueError, TypeError) as e:
+        except Exception as e:
             raise SerializationError(s, e)
 
     def dumps(self, data: Any) -> str:
-        # don't serialize strings
         if isinstance(data, str):
             return data
 
@@ -59,7 +58,7 @@ class JSONSerializer(Serializer):
 
         try:
             return json_dumper(data)
-        except (ValueError, TypeError) as e:
+        except Exception as e:
             raise SerializationError(data, e)
 
 
