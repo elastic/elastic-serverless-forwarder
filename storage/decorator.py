@@ -17,15 +17,7 @@ pysimdjson_parser = simdjson.Parser()
 
 # For overriding in benchmark
 def json_parser(payload: bytes) -> Any:
-    value = pysimdjson_parser.parse(payload)
-
-    if isinstance(value, simdjson.Array):
-        return value.as_list()
-
-    if isinstance(value, simdjson.Object):
-        return value.as_dict()
-
-    return value
+    return pysimdjson_parser.parse(payload)
 
 
 def by_lines(func: GetByLinesCallable[ProtocolStorageType]) -> GetByLinesCallable[ProtocolStorageType]:
