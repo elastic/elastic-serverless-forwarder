@@ -3,7 +3,6 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 import datetime
-from copy import deepcopy
 from typing import Any, Iterator, Optional
 
 from botocore.client import BaseClient as BotoBaseClient
@@ -11,7 +10,6 @@ from botocore.client import BaseClient as BotoBaseClient
 from share import ExpandEventListFromField, ProtocolMultiline, shared_logger
 from storage import ProtocolStorage, StorageFactory
 
-from .event import _default_event
 from .utils import get_account_id_from_arn, get_kinesis_stream_name_type_and_region_from_arn
 
 
@@ -106,23 +104,30 @@ def _handle_kinesis_record(
         for log_event, starting_offset, ending_offset, event_expanded_offset in events:
             assert isinstance(log_event, bytes)
 
-            es_event = deepcopy(_default_event)
-            es_event["@timestamp"] = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            es_event["fields"]["message"] = log_event.decode("UTF-8")
-
-            es_event["fields"]["log"]["offset"] = starting_offset
-
-            es_event["fields"]["log"]["file"]["path"] = kinesis_record["eventSourceARN"]
-
-            es_event["fields"]["aws"] = {
-                "kinesis": {
-                    "type": stream_type,
-                    "name": stream_name,
-                    "sequence_number": kinesis_record["kinesis"]["sequenceNumber"],
-                }
+            es_event: dict[str, Any] = {
+                "@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                "fields": {
+                    "message": log_event.decode("UTF-8"),
+                    "log": {
+                        "offset": starting_offset,
+                        "file": {
+                            "path": kinesis_record["eventSourceARN"],
+                        },
+                    },
+                    "aws": {
+                        "kinesis": {
+                            "type": stream_type,
+                            "name": stream_name,
+                            "sequence_number": kinesis_record["kinesis"]["sequenceNumber"],
+                        }
+                    },
+                    "cloud": {
+                        "provider": "aws",
+                        "region": aws_region,
+                        "account": {"id": account_id},
+                    },
+                },
+                "meta": {},
             }
-
-            es_event["fields"]["cloud"]["region"] = aws_region
-            es_event["fields"]["cloud"]["account"] = {"id": account_id}
 
             yield es_event, ending_offset, event_expanded_offset, kinesis_record_n

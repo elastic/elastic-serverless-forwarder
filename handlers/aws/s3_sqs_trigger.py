@@ -4,7 +4,6 @@
 
 import datetime
 import json
-from copy import deepcopy
 from typing import Any, Iterator, Optional
 from urllib.parse import unquote_plus
 
@@ -14,7 +13,6 @@ from botocore.client import BaseClient as BotoBaseClient
 from share import ExpandEventListFromField, ProtocolMultiline, shared_logger
 from storage import ProtocolStorage, StorageFactory
 
-from .event import _default_event
 from .utils import get_account_id_from_arn, get_bucket_name_from_arn
 
 
@@ -122,24 +120,29 @@ def _handle_s3_sqs_event(
                 span.__exit__(None, None, None)
                 span = None
 
-            es_event = deepcopy(_default_event)
-            es_event["@timestamp"] = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            es_event["fields"]["message"] = log_event.decode("UTF-8")
-
-            es_event["fields"]["log"]["offset"] = starting_offset
-
-            es_event["fields"]["log"]["file"]["path"] = "https://{0}.s3.{1}.amazonaws.com/{2}".format(
-                bucket_name, aws_region, object_key
-            )
-
-            es_event["fields"]["aws"] = {
-                "s3": {
-                    "bucket": {"name": bucket_name, "arn": bucket_arn},
-                    "object": {"key": object_key},
-                }
+            es_event: dict[str, Any] = {
+                "@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                "fields": {
+                    "message": log_event.decode("UTF-8"),
+                    "log": {
+                        "offset": starting_offset,
+                        "file": {
+                            "path": "https://{0}.s3.{1}.amazonaws.com/{2}".format(bucket_name, aws_region, object_key),
+                        },
+                    },
+                    "aws": {
+                        "s3": {
+                            "bucket": {"name": bucket_name, "arn": bucket_arn},
+                            "object": {"key": object_key},
+                        }
+                    },
+                    "cloud": {
+                        "provider": "aws",
+                        "region": aws_region,
+                        "account": {"id": account_id},
+                    },
+                },
+                "meta": {},
             }
-
-            es_event["fields"]["cloud"]["region"] = aws_region
-            es_event["fields"]["cloud"]["account"] = {"id": account_id}
 
             yield es_event, ending_offset, event_expanded_offset, s3_record_n
