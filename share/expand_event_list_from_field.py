@@ -4,14 +4,12 @@
 
 from typing import Any, Callable, Iterator, Optional
 
-import ujson
-
 ExpandEventListFromFieldResolverCallable = Callable[[str, str], str]
 
 
 # For overriding in benchmark
 def json_dumper(json_object: Any) -> bytes:
-    return ujson.dumps(json_object).encode("utf-8")
+    return json_object.mini  # type:ignore
 
 
 class ExpandEventListFromField:

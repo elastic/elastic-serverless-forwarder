@@ -6,16 +6,26 @@ import gzip
 from io import BytesIO
 from typing import Any, Iterator, Optional, Union
 
-import ujson
+import simdjson
 
 from share import ExpandEventListFromField, ProtocolMultiline, shared_logger
 
 from .storage import CHUNK_SIZE, GetByLinesCallable, ProtocolStorageType, StorageReader
 
+pysimdjson_parser = simdjson.Parser()
+
 
 # For overriding in benchmark
 def json_parser(payload: bytes) -> Any:
-    return ujson.loads(payload)
+    value = pysimdjson_parser.parse(payload)
+
+    if isinstance(value, simdjson.Array):
+        return value.as_list()
+
+    if isinstance(value, simdjson.Object):
+        return value.as_dict()
+
+    return value
 
 
 def by_lines(func: GetByLinesCallable[ProtocolStorageType]) -> GetByLinesCallable[ProtocolStorageType]:

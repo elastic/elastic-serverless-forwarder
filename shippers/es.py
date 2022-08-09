@@ -5,8 +5,12 @@
 from typing import Any, Dict, Optional, Union
 
 import elasticapm  # noqa: F401
+import simdjson
+import ujson
 from elasticsearch import Elasticsearch
+from elasticsearch.exceptions import SerializationError
 from elasticsearch.helpers import bulk as es_bulk
+from elasticsearch.serializer import Serializer
 
 from share import shared_logger
 
@@ -14,6 +18,49 @@ from .shipper import EventIdGeneratorCallable, ReplayHandlerCallable
 
 _EVENT_BUFFERED = "_EVENT_BUFFERED"
 _EVENT_SENT = "_EVENT_SENT"
+
+pysimdjson_parser = simdjson.Parser()
+
+
+# For overriding in benchmark
+def json_parser(payload: str) -> Any:
+    value = pysimdjson_parser.parse(payload)
+
+    if isinstance(value, simdjson.Array):
+        return value.as_list()
+
+    if isinstance(value, simdjson.Object):
+        return value.as_dict()
+
+    return value
+
+
+# For overriding in benchmark
+def json_dumper(json_object: Any) -> str:
+    return ujson.dumps(json_object, ensure_ascii=False)
+
+
+class JSONSerializer(Serializer):
+    mimetype = "application/json"
+
+    def loads(self, s: str) -> Any:
+        try:
+            return json_parser(s)
+        except (ValueError, TypeError) as e:
+            raise SerializationError(s, e)
+
+    def dumps(self, data: Any) -> str:
+        # don't serialize strings
+        if isinstance(data, str):
+            return data
+
+        if isinstance(data, bytes):
+            return data.decode("utf-8")
+
+        try:
+            return json_dumper(data)
+        except (ValueError, TypeError) as e:
+            raise SerializationError(data, e)
 
 
 class ElasticsearchShipper:
@@ -64,6 +111,8 @@ class ElasticsearchShipper:
             es_client_kwargs["api_key"] = api_key
         else:
             raise ValueError("You must provide one between username and password or api_key")
+
+        es_client_kwargs["serializer"] = JSONSerializer()
 
         self._replay_args: dict[str, Any] = {}
 
