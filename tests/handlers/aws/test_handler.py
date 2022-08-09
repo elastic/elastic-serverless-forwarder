@@ -2881,7 +2881,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         )
 
         self._fifth_cloudtrail_record: bytes = (
-            b"{\n"
+            b"[{\n"
             b'    "eventVersion": "1.0",\n'
             b'    "userIdentity": {\n'
             b'        "type": "IAMUser",\n'
@@ -2905,7 +2905,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
             b'        "path": "/",\n'
             b'        "userId": "EXAMPLEUSERID"\n'
             b"    }}\n"
-            b"}\n"
+            b"}]\n"
         )
 
         cloudtrail_log: bytes = (
