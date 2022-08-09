@@ -22,7 +22,7 @@ from storage import PayloadStorage
 
 _LENGTH_1M: int = 1024**2
 _LENGTH_BELOW_THRESHOLD: int = 40
-_LENGTH_ABOVE_THRESHOLD: int = 1024 * 100
+_LENGTH_ABOVE_THRESHOLD: int = 1024 * 10
 
 _IS_PLAIN: str = "_IS_PLAIN"
 _IS_JSON: str = "_IS_JSON"

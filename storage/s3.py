@@ -94,7 +94,7 @@ class S3Storage(CommonStorage):
             is_gzipped = True
             range_start = 0
 
-        if is_gzipped or original_range_start < content_length:
+        if range_start < content_length:
             file_content.seek(range_start, SEEK_SET)
 
             for log_event, line_starting_offset, line_ending_offset, _, event_expanded_offset in self._generate(

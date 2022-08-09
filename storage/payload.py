@@ -62,20 +62,33 @@ class PayloadStorage(CommonStorage):
     def get_by_lines(self, range_start: int) -> Iterator[tuple[bytes, int, int, Optional[int]]]:
         original_range_start: int = range_start
 
+        is_gzipped: bool = False
+        is_b64encoded: bool = False
         try:
             base64_decoded = base64.b64decode(self._payload, validate=True)
             if not base64_decoded.startswith(b"\037\213"):  # gzip compression method
                 base64_decoded.decode("utf-8")
+                is_b64encoded = True
+            else:
+                is_b64encoded = True
         except (UnicodeDecodeError, binascii.Error):
             base64_decoded = self._payload.encode("utf-8")
 
-        is_gzipped: bool = False
         if base64_decoded.startswith(b"\037\213"):  # gzip compression method
             is_gzipped = True
             range_start = 0
 
+        shared_logger.debug(
+            "get_by_lines",
+            extra={
+                "range_start": original_range_start,
+                "is_b64encoded": is_b64encoded,
+                "is_gzipped": is_gzipped,
+            },
+        )
+
         content_length = len(base64_decoded)
-        if is_gzipped or original_range_start < content_length:
+        if range_start < content_length:
             file_content: BytesIO = BytesIO(base64_decoded)
 
             file_content.flush()
@@ -90,8 +103,6 @@ class PayloadStorage(CommonStorage):
             shared_logger.info(f"requested payload content from {range_start}, payload size {content_length}: skip it")
 
     def get_as_string(self) -> str:
-        shared_logger.debug("get_as_string", extra={"payload": self._payload[0:11]})
-
         try:
             base64_decoded = base64.b64decode(self._payload, validate=True)
         except binascii.Error:

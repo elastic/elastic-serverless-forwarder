@@ -73,7 +73,6 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         raise ConfigFileException("Empty config")
 
     try:
-        shared_logger.debug("config", extra={"yaml": config_yaml})
         config = parse_config(config_yaml, _expanders, discover_integration_scope)
     except Exception as e:
         raise ConfigFileException(e)
@@ -145,8 +144,6 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             event_input.json_content_type,
             event_input.get_multiline_processor(),
         ):
-            shared_logger.debug("es_event", extra={"es_event": es_event})
-
             sent_outcome = composite_shipper.send(es_event)
             if sent_outcome == EVENT_IS_SENT:
                 sent_events += 1
@@ -220,8 +217,6 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             event_input.json_content_type,
             event_input.get_multiline_processor(),
         ):
-            shared_logger.debug("es_event", extra={"es_event": es_event})
-
             sent_outcome = composite_shipper.send(es_event)
             if sent_outcome == EVENT_IS_SENT:
                 sent_events += 1
@@ -277,8 +272,6 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         def event_processing(
             processing_composing_shipper: CompositeShipper, processing_es_event: dict[str, Any]
         ) -> tuple[bool, str]:
-            shared_logger.debug("es_event", extra={"es_event": processing_es_event})
-
             processing_sent_outcome = processing_composing_shipper.send(processing_es_event)
 
             if lambda_context is not None and lambda_context.get_remaining_time_in_millis() < _completion_grace_period:

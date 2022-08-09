@@ -372,7 +372,9 @@ class ReplayEventHandler:
             },
         )
 
-        shared_logger.warning("sent to replay queue", extra=message_payload)
+        shared_logger.warning(
+            "sent to replay queue", extra={"output_type": output_type, "event_input_id": self._event_input_id}
+        )
 
 
 def get_queue_url_from_sqs_arn(sqs_arn: str) -> str:

@@ -100,15 +100,6 @@ def _handle_s3_sqs_event(
             multiline_processor=multiline_processor,
         )
 
-        shared_logger.info(
-            "sqs event",
-            extra={
-                "range_start": last_ending_offset,
-                "bucket_arn": bucket_arn,
-                "object_key": object_key,
-            },
-        )
-
         span = elasticapm.capture_span(f"WAIT FOR OFFSET STARTING AT {last_ending_offset}")
         span.__enter__()
         events = storage.get_by_lines(range_start=last_ending_offset)

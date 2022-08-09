@@ -75,7 +75,7 @@ class CompositeShipper:
             return EVENT_IS_EMPTY
 
         if self._include_exclude_filter is not None and not self._include_exclude_filter.filter(message):
-            shared_logger.debug("event is filtered according to filter rules", extra={"es_event": event})
+            shared_logger.debug("event is filtered according to filter rules")
             return EVENT_IS_FILTERED
 
         if self._integration_scope != "":
