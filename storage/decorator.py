@@ -271,7 +271,7 @@ class JsonCollector:
     ) -> Iterator[tuple[Union[StorageReader, bytes], int, int, int, Optional[int]]]:
         self._storage = storage
         multiline_processor: Optional[ProtocolMultiline] = storage.multiline_processor
-        if multiline_processor:
+        if storage.json_content_type == "disabled" or multiline_processor:
             iterator = self._function(storage, range_start, body, is_gzipped)
             for data, original_starting_offset, original_ending_offset, newline_length, _ in iterator:
                 assert isinstance(data, bytes)

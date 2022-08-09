@@ -446,7 +446,7 @@ class TestInput(TestCase):
         with self.subTest("json_content_type not valid"):
             input_sqs = Input(input_type="s3-sqs", input_id="id")
             with self.assertRaisesRegex(
-                ValueError, "`json_content_type` must be one of ndjson,single for input id: whatever given"
+                ValueError, "`json_content_type` must be one of ndjson,single,disabled for input id: whatever given"
             ):
                 input_sqs.json_content_type = "whatever"
 
@@ -1002,9 +1002,31 @@ class TestParseConfig(TestCase):
             assert input_sqs.id == "id"
             assert input_sqs.json_content_type == "ndjson"
 
+        with self.subTest("json_content_type disabled"):
+            config = parse_config(
+                config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                json_content_type: disabled
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      es_datastream_name: "es_datastream_name"
+            """
+            )
+
+            input_sqs = config.get_input_by_id(input_id="id")
+            assert input_sqs is not None
+            assert input_sqs.type == "s3-sqs"
+            assert input_sqs.id == "id"
+            assert input_sqs.json_content_type == "disabled"
+
         with self.subTest("json_content_type not valid"):
             with self.assertRaisesRegex(
-                ValueError, "`json_content_type` must be one of ndjson,single for input id: whatever given"
+                ValueError, "`json_content_type` must be one of ndjson,single,disabled for input id: whatever given"
             ):
                 parse_config(
                     config_yaml="""

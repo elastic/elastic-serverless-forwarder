@@ -20,9 +20,9 @@ import ujson
 from share import CountMultiline, ExpandEventListFromField, PatternMultiline, ProtocolMultiline, WhileMultiline
 from storage import PayloadStorage
 
-_LENGTH_BELOW_THRESHOLD: int = 40
-_LENGTH_ABOVE_THRESHOLD: int = 1024 * 10
 _LENGTH_1M: int = 1024**2
+_LENGTH_BELOW_THRESHOLD: int = 40
+_LENGTH_ABOVE_THRESHOLD: int = 1024 * 100
 
 _IS_PLAIN: str = "_IS_PLAIN"
 _IS_JSON: str = "_IS_JSON"
@@ -63,7 +63,7 @@ def get_by_lines_parameters() -> list[tuple[int, str, bytes]]:
             _IS_MULTILINE_WHILE,
         ]:
             for newline in [b"", b"\n", b"\r\n"]:
-                for json_content_type in [None, "single", "ndjson"]:
+                for json_content_type in [None, "single", "ndjson", "disabled"]:
                     parameters.append(
                         pytest.param(
                             length_multiplier,
