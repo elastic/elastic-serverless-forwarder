@@ -22,7 +22,6 @@ import docker
 import localstack.utils.aws.aws_stack
 import mock
 import pytest
-import ujson
 from botocore.client import BaseClient as BotoBaseClient
 from botocore.exceptions import ClientError
 from botocore.response import StreamingBody
@@ -2430,7 +2429,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
         res = self._es_client.search(index="logs-generic-default", sort="_seq_no")
         assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
 
-        assert res["hits"]["hits"][0]["_source"]["message"] == ujson.dumps(self._first_log_entry)
+        assert res["hits"]["hits"][0]["_source"]["message"] == json.dumps(self._first_log_entry, separators=(",", ":"))
 
         assert res["hits"]["hits"][0]["_source"]["log"] == {
             "offset": 0,
@@ -2462,7 +2461,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
         res = self._es_client.search(index="logs-generic-default", sort="_seq_no")
         assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
 
-        assert res["hits"]["hits"][1]["_source"]["message"] == ujson.dumps(self._second_log_entry)
+        assert res["hits"]["hits"][1]["_source"]["message"] == json.dumps(self._second_log_entry, separators=(",", ":"))
 
         assert res["hits"]["hits"][1]["_source"]["log"] == {
             "offset": 296,
@@ -2502,7 +2501,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
         res = self._es_client.search(index="logs-generic-default", sort="_seq_no")
         assert res["hits"]["total"] == {"value": 3, "relation": "eq"}
 
-        assert res["hits"]["hits"][2]["_source"]["message"] == ujson.dumps(self._third_log_entry)
+        assert res["hits"]["hits"][2]["_source"]["message"] == json.dumps(self._third_log_entry, separators=(",", ":"))
 
         assert res["hits"]["hits"][2]["_source"]["log"] == {
             "offset": 250,
@@ -2649,7 +2648,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
 
         assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
 
-        assert res["hits"]["hits"][0]["_source"]["message"] == ujson.dumps(self._first_log_entry)
+        assert res["hits"]["hits"][0]["_source"]["message"] == json.dumps(self._first_log_entry, separators=(",", ":"))
 
         assert res["hits"]["hits"][0]["_source"]["log"] == {
             "offset": 0,
@@ -2670,7 +2669,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
-        assert res["hits"]["hits"][1]["_source"]["message"] == ujson.dumps(self._third_log_entry)
+        assert res["hits"]["hits"][1]["_source"]["message"] == json.dumps(self._third_log_entry, separators=(",", ":"))
 
         assert res["hits"]["hits"][1]["_source"]["log"] == {
             "offset": 168,
@@ -2721,7 +2720,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
         res = self._es_client.search(index="logs-generic-default", sort="_seq_no")
         assert res["hits"]["total"] == {"value": 3, "relation": "eq"}
 
-        assert res["hits"]["hits"][2]["_source"]["message"] == ujson.dumps(self._second_log_entry)
+        assert res["hits"]["hits"][2]["_source"]["message"] == json.dumps(self._second_log_entry, separators=(",", ":"))
 
         assert res["hits"]["hits"][2]["_source"]["log"] == {
             "offset": 296,
@@ -3095,7 +3094,9 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         res = self._es_client.search(index="logs-aws.cloudtrail-default", sort="_seq_no")
         assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
 
-        assert res["hits"]["hits"][0]["_source"]["message"] == ujson.dumps(ujson.loads(self._first_cloudtrail_record))
+        assert res["hits"]["hits"][0]["_source"]["message"] == json.dumps(
+            json.loads(self._first_cloudtrail_record), separators=(",", ":")
+        )
 
         assert res["hits"]["hits"][0]["_source"]["log"] == {
             "offset": 0,
@@ -3126,7 +3127,9 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         res = self._es_client.search(index="logs-aws.cloudtrail-default", sort="_seq_no")
         assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
 
-        assert res["hits"]["hits"][1]["_source"]["message"] == ujson.dumps(ujson.loads(self._second_cloudtrail_record))
+        assert res["hits"]["hits"][1]["_source"]["message"] == json.dumps(
+            json.loads(self._second_cloudtrail_record), separators=(",", ":")
+        ).replace("/", "\\/")
 
         assert res["hits"]["hits"][1]["_source"]["log"] == {
             "offset": 837,
@@ -3157,7 +3160,9 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         res = self._es_client.search(index="logs-aws.cloudtrail-default", sort="_seq_no")
         assert res["hits"]["total"] == {"value": 3, "relation": "eq"}
 
-        assert res["hits"]["hits"][2]["_source"]["message"] == ujson.dumps(ujson.loads(self._third_cloudtrail_record))
+        assert res["hits"]["hits"][2]["_source"]["message"] == json.dumps(
+            json.loads(self._third_cloudtrail_record), separators=(",", ":")
+        )
 
         assert res["hits"]["hits"][2]["_source"]["log"] == {
             "offset": 1674,
@@ -3196,7 +3201,9 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         res = self._es_client.search(index="logs-aws.cloudtrail-default", sort="_seq_no")
         assert res["hits"]["total"] == {"value": 4, "relation": "eq"}
 
-        assert res["hits"]["hits"][3]["_source"]["message"] == ujson.dumps(ujson.loads(self._fifth_cloudtrail_record))
+        assert res["hits"]["hits"][3]["_source"]["message"] == json.dumps(
+            json.loads(self._fifth_cloudtrail_record), separators=(",", ":")
+        )
 
         assert res["hits"]["hits"][3]["_source"]["log"] == {
             "offset": 4325,
