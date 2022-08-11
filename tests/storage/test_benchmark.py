@@ -22,7 +22,7 @@ from storage import PayloadStorage
 
 _LENGTH_1M: int = 1024**2
 _LENGTH_BELOW_THRESHOLD: int = 40
-_LENGTH_ABOVE_THRESHOLD: int = 1024 * 10
+_LENGTH_ABOVE_THRESHOLD: int = 1024 * 100
 
 _IS_PLAIN: str = "_IS_PLAIN"
 _IS_JSON: str = "_IS_JSON"
@@ -48,7 +48,13 @@ def json_parser_pysimdjson(payload: bytes) -> Any:
 
 
 def json_dumper_pysimdjson(json_object: Any) -> bytes:
-    return json_object.mini  # type:ignore
+    if isinstance(json_object, simdjson.Array):
+        return json_object.mini  # type:ignore
+
+    if isinstance(json_object, simdjson.Object):
+        return json_object.mini  # type:ignore
+
+    return ujson.dumps(json_object).encode("utf-8")
 
 
 def get_by_lines_parameters() -> list[tuple[int, str, bytes]]:

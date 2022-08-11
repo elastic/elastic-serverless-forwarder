@@ -4,21 +4,9 @@
 
 from typing import Any, Callable, Iterator, Optional
 
-import simdjson
-import ujson
+from .json import json_dumper
 
 ExpandEventListFromFieldResolverCallable = Callable[[str, str], str]
-
-
-# For overriding in benchmark
-def json_dumper(json_object: Any) -> bytes:
-    if isinstance(json_object, simdjson.Array):
-        return json_object.mini  # type:ignore
-
-    if isinstance(json_object, simdjson.Object):
-        return json_object.mini  # type:ignore
-
-    return ujson.dumps(json_object).encode("utf-8")
 
 
 class ExpandEventListFromField:
@@ -75,7 +63,7 @@ class ExpandEventListFromField:
                     if not expanded_event:
                         expanded_log_event = b""
                     else:
-                        expanded_log_event = json_dumper(expanded_event)
+                        expanded_log_event = json_dumper(expanded_event).encode("utf-8")
 
                     if is_last_expanded_event:
                         expanded_event_n = None

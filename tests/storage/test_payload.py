@@ -3,10 +3,12 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 import base64
+import datetime
 import gzip
 import random
 from typing import Optional
 
+import mock
 import pytest
 
 from storage import PayloadStorage
@@ -75,6 +77,7 @@ def test_get_as_string_gzip() -> None:
 
 @pytest.mark.unit
 @pytest.mark.parametrize("length_multiplier,content_type,newline,json_content_type", get_by_lines_parameters())
+@mock.patch("share.multiline.timedelta_circuit_breaker", new=datetime.timedelta(days=1))
 def test_get_by_lines(
     length_multiplier: int, content_type: str, newline: bytes, json_content_type: Optional[str]
 ) -> None:

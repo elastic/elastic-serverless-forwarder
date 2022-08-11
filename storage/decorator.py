@@ -6,18 +6,9 @@ import gzip
 from io import BytesIO
 from typing import Any, Iterator, Optional, Union
 
-import simdjson
-
-from share import ExpandEventListFromField, ProtocolMultiline, shared_logger
+from share import ExpandEventListFromField, ProtocolMultiline, json_parser, shared_logger
 
 from .storage import CHUNK_SIZE, GetByLinesCallable, ProtocolStorageType, StorageReader
-
-pysimdjson_parser = simdjson.Parser()
-
-
-# For overriding in benchmark
-def json_parser(payload: bytes) -> Any:
-    return pysimdjson_parser.parse(payload)
 
 
 def by_lines(func: GetByLinesCallable[ProtocolStorageType]) -> GetByLinesCallable[ProtocolStorageType]:
@@ -224,7 +215,9 @@ class JsonCollector:
 
             # finally yield
             yield data_to_yield, json_object
-        # it raised: we didn't collect enough content to reach the end of the json object: let's keep iterating
+        # it raised ValueError: we didn't collect enough content
+        # to reach the end of the json object
+        # let's keep iterating
         except ValueError:
             # it's an empty line, let's yield it
             if self._is_a_json_object and len(self._unfinished_line.strip(b"\r\n").strip(b"\n")) == 0:

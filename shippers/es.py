@@ -5,39 +5,17 @@
 from typing import Any, Dict, Optional, Union
 
 import elasticapm  # noqa: F401
-import simdjson
-import ujson
 from elasticsearch import Elasticsearch
 from elasticsearch.exceptions import SerializationError
 from elasticsearch.helpers import bulk as es_bulk
 from elasticsearch.serializer import Serializer
 
-from share import shared_logger
+from share import json_dumper, json_parser, shared_logger
 
 from .shipper import EventIdGeneratorCallable, ReplayHandlerCallable
 
 _EVENT_BUFFERED = "_EVENT_BUFFERED"
 _EVENT_SENT = "_EVENT_SENT"
-
-pysimdjson_parser = simdjson.Parser()
-
-
-# For overriding in benchmark
-def json_parser(payload: str) -> Any:
-    value = pysimdjson_parser.parse(payload)
-
-    if isinstance(value, simdjson.Array):
-        return value.as_list()
-
-    if isinstance(value, simdjson.Object):
-        return value.as_dict()
-
-    return value
-
-
-# For overriding in benchmark
-def json_dumper(json_object: Any) -> str:
-    return ujson.dumps(json_object, ensure_ascii=False)
 
 
 class JSONSerializer(Serializer):

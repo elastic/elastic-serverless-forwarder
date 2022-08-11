@@ -2,6 +2,7 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
+import datetime
 import gzip
 import io
 import random
@@ -107,6 +108,7 @@ def test_get_as_string() -> None:
 @mock.patch("storage.S3Storage._s3_client.head_object", new=MockContent.s3_client_head_object)
 @mock.patch("storage.S3Storage._s3_client.download_fileobj", new=MockContent.s3_client_download_fileobj)
 @pytest.mark.parametrize("length_multiplier,content_type,newline,json_content_type", get_by_lines_parameters())
+@mock.patch("share.multiline.timedelta_circuit_breaker", new=datetime.timedelta(days=1))
 def test_get_by_lines(
     length_multiplier: int, content_type: str, newline: bytes, json_content_type: Optional[str]
 ) -> None:
