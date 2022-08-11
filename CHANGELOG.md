@@ -1,5 +1,5 @@
 ### v1.3.0 - 2022/08/11
-##### Feature
+##### Features
 * Add `json_content_type` input setting as optional hint for json content auto discovery: [#145](https://github.com/elastic/elastic-serverless-forwarder/pull/145)
 * Switch timeout handling for `kinesis-data-stream` input to continuing queue like any other input: [#146](https://github.com/elastic/elastic-serverless-forwarder/pull/146)
 * Handle continuation from offset in the list when dealing with `expand_event_list_from_field`: [#147](https://github.com/elastic/elastic-serverless-forwarder/pull/147)
