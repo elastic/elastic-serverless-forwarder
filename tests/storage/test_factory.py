@@ -33,7 +33,7 @@ class TestStorageFactory(TestCase):
                 ValueError,
                 re.escape(
                     "You must provide the following not empty init kwargs for s3: bucket_name, object_key."
-                    + ' (provided: {"bucket_name": "", "object_key": ""})'
+                    + ' (provided: {"bucket_name":"","object_key":""})'
                 ),
             ):
                 StorageFactory.create(storage_type="s3", bucket_name="", object_key="")
@@ -57,7 +57,7 @@ class TestStorageFactory(TestCase):
                 ValueError,
                 re.escape(
                     "You must provide the following not empty init kwargs for payload: payload."
-                    + ' (provided: {"payload": ""})'
+                    + ' (provided: {"payload":""})'
                 ),
             ):
                 StorageFactory.create(storage_type="payload", payload="")
