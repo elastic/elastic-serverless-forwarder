@@ -3,7 +3,6 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 import hashlib
-import json
 import os
 from typing import Any, Callable, Optional
 
@@ -14,7 +13,7 @@ from elasticapm import Client
 from elasticapm import get_client as get_apm_client
 from elasticapm.contrib.serverless.aws import capture_serverless as apm_capture_serverless  # noqa: F401
 
-from share import Input, Output, shared_logger
+from share import Input, Output, json_dumper, json_parser, shared_logger
 from shippers import CompositeShipper, ElasticsearchShipper, ShipperFactory
 from storage import ProtocolStorage, StorageFactory
 
@@ -124,7 +123,7 @@ def discover_integration_scope(lambda_event: dict[str, Any], at_record: int) -> 
     body: str = lambda_event["Records"][at_record]["body"]
     s3_object_key: str = ""
     try:
-        json_body: dict[str, Any] = json.loads(body)
+        json_body: dict[str, Any] = json_parser(body)
         s3_object_key = json_body["Records"][0]["s3"]["object"]["key"]
     except Exception:
         pass
@@ -303,7 +302,7 @@ def get_trigger_type_and_config_source(event: dict[str, Any]) -> tuple[str, str]
     if "body" in first_record:
         event_body = first_record["body"]
         try:
-            body = json.loads(event_body)
+            body = json_parser(event_body)
             if (
                 isinstance(body, dict)
                 and "output_type" in event_body
@@ -366,7 +365,7 @@ class ReplayEventHandler:
 
         sqs_client.send_message(
             QueueUrl=sqs_replay_queue,
-            MessageBody=json.dumps(message_payload),
+            MessageBody=json_dumper(message_payload),
             MessageAttributes={
                 "config": {"StringValue": self._config_yaml, "DataType": "String"},
             },

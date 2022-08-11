@@ -3,12 +3,11 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 import datetime
-import json
 from typing import Any, Iterator, Optional
 
 from botocore.client import BaseClient as BotoBaseClient
 
-from share import ExpandEventListFromField, ProtocolMultiline, shared_logger
+from share import ExpandEventListFromField, ProtocolMultiline, json_parser, shared_logger
 from storage import ProtocolStorage, StorageFactory
 
 from .utils import get_account_id_from_arn
@@ -20,7 +19,7 @@ def _from_awslogs_data_to_event(awslogs_data: str) -> Any:
     """
     storage: ProtocolStorage = StorageFactory.create(storage_type="payload", payload=awslogs_data)
     cloudwatch_logs_payload_plain = storage.get_as_string()
-    return json.loads(cloudwatch_logs_payload_plain)
+    return json_parser(cloudwatch_logs_payload_plain)
 
 
 def _handle_cloudwatch_logs_continuation(

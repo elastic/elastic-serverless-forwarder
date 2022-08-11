@@ -3,14 +3,13 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 import datetime
-import json
 from typing import Any, Iterator, Optional
 from urllib.parse import unquote_plus
 
 import elasticapm
 from botocore.client import BaseClient as BotoBaseClient
 
-from share import ExpandEventListFromField, ProtocolMultiline, shared_logger
+from share import ExpandEventListFromField, ProtocolMultiline, json_dumper, json_parser, shared_logger
 from storage import ProtocolStorage, StorageFactory
 
 from .utils import get_account_id_from_arn, get_bucket_name_from_arn
@@ -34,7 +33,7 @@ def _handle_s3_sqs_continuation(
     internal continuing sqs queue
     """
 
-    body = json.loads(sqs_record["body"])
+    body = json_parser(sqs_record["body"])
     body["Records"] = body["Records"][current_s3_record:]
     if last_ending_offset is not None:
         body["Records"][0]["last_ending_offset"] = last_ending_offset
@@ -44,7 +43,7 @@ def _handle_s3_sqs_continuation(
     elif "last_event_expanded_offset" in body["Records"][0]:
         del body["Records"][0]["last_event_expanded_offset"]
 
-    sqs_record["body"] = json.dumps(body)
+    sqs_record["body"] = json_dumper(body)
 
     sqs_client.send_message(
         QueueUrl=sqs_continuing_queue,

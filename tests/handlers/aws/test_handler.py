@@ -7,7 +7,6 @@ import datetime
 import gzip
 import hashlib
 import importlib
-import json
 import os
 import random
 import string
@@ -56,7 +55,7 @@ class MockContent:
     SECRETS_MANAGER_MOCK_DATA: dict[str, dict[str, str]] = {
         "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets": {
             "type": "SecretString",
-            "data": json.dumps(
+            "data": json_dumper(
                 {
                     "url": "mock_elastic_url",
                     "username": "mock_elastic_username",
@@ -119,7 +118,7 @@ _dummy_lambda_event: dict[str, Any] = {
         {
             "messageId": "dummy_message_id",
             "receiptHandle": "dummy_receipt_handle",
-            "body": json.dumps(
+            "body": json_dumper(
                 {
                     "Records": [
                         {
@@ -345,7 +344,7 @@ class TestLambdaHandlerNoop(TestCase):
         with self.subTest("no input defined for cloudwatch_logs"):
             ctx = ContextMock()
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
-            lambda_event = {"awslogs": {"data": json.dumps({"logGroup": "logGroup", "logStream": "logStream"})}}
+            lambda_event = {"awslogs": {"data": json_dumper({"logGroup": "logGroup", "logStream": "logStream"})}}
             assert handler(lambda_event, ctx) == "completed"  # type:ignore
 
         with self.subTest("output not elasticsearch from payload config"):
@@ -422,7 +421,7 @@ class TestLambdaHandlerNoop(TestCase):
             os.environ["SQS_REPLAY_URL"] = "https://sqs.us-east-2.amazonaws.com/123456789012/replay_queue"
             os.environ["SQS_CONTINUE_URL"] = "https://sqs.us-east-2.amazonaws.com/123456789012/continue_queue"
             lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event["Records"][0]["body"] = json.dumps({"Records": [{"key": "value"}]})
+            lambda_event["Records"][0]["body"] = json_dumper({"Records": [{"key": "value"}]})
             lambda_event["Records"][0]["eventSourceARN"] = "arn:aws:sqs:eu-central-1:123456789:sqs-queue"
             del lambda_event["Records"][0]["messageAttributes"]["originalEventSourceARN"]
             assert handler(lambda_event, ctx) == "completed"  # type:ignore
@@ -431,7 +430,7 @@ class TestLambdaHandlerNoop(TestCase):
             ctx = ContextMock()
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
             lambda_event = {
-                "awslogs": {"data": json.dumps({"logGroup": "logGroupNotMatching", "logStream": "logStream"})}
+                "awslogs": {"data": json_dumper({"logGroup": "logGroupNotMatching", "logStream": "logStream"})}
             }
             assert (
                 handler(lambda_event, ctx) == "exception raised: "  # type:ignore
@@ -441,10 +440,10 @@ class TestLambdaHandlerNoop(TestCase):
         with self.subTest("raising unexpected exception"):
             ctx = ContextMock()
             lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+            lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
             lambda_event_body["Records"][0]["s3"]["object"]["key"] = "please raise"
 
-            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+            lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
 
             assert handler(lambda_event, ctx) == "exception raised: Exception('raised')"  # type:ignore
 
@@ -452,10 +451,10 @@ class TestLambdaHandlerNoop(TestCase):
             with mock.patch("handlers.aws.utils.get_apm_client", lambda: mock.MagicMock()):
                 ctx = ContextMock()
                 lambda_event = deepcopy(_dummy_lambda_event)
-                lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+                lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
                 lambda_event_body["Records"][0]["s3"]["object"]["key"] = "please raise"
 
-                lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+                lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
 
                 assert handler(lambda_event, ctx) == "exception raised: Exception('raised')"  # type:ignore
 
@@ -473,23 +472,23 @@ class TestDiscoverIntegrationScope(TestCase):
 
         with self.subTest("discover_integration_scope aws.cloudtrail integration scope"):
             lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+            lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
             lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
                 "AWSLogs/aws-account-id/CloudTrail/region/"
                 "yyyy/mm/dd/aws-account-id_CloudTrail_region_end-time_random-string.log.gz"
             )
-            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+            lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
 
             assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "aws.cloudtrail"
 
         with self.subTest("discover_integration_scope aws.cloudtrail digest integration scope"):
             lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+            lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
             lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
                 "AWSLogs/aws-account-id/CloudTrail-Digest/region/"
                 "yyyy/mm/dd/aws-account-id_CloudTrail-Digest_region_end-time_random-string.log.gz"
             )
-            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+            lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
 
             assert (
                 input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "aws.cloudtrail-digest"
@@ -497,78 +496,78 @@ class TestDiscoverIntegrationScope(TestCase):
 
         with self.subTest("discover_integration_scope aws.cloudtrail insight integration scope"):
             lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+            lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
             lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
                 "AWSLogs/aws-account-id/CloudTrail-Insight/region/"
                 "yyyy/mm/dd/aws-account-id_CloudTrail-Insight_region_end-time_random-string.log.gz"
             )
-            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+            lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
 
             assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "aws.cloudtrail"
 
         with self.subTest("discover_integration_scope aws.cloudwatch_logs integration scope"):
             lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+            lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
             lambda_event_body["Records"][0]["s3"]["object"]["key"] = "exportedlogs/111-222-333/2021-12-28/hash/file.gz"
-            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+            lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
 
             assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "aws.cloudwatch_logs"
 
         with self.subTest("discover_integration_scope aws.elb_logs integration scope"):
             lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+            lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
             lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
                 "AWSLogs/aws-account-id/elasticloadbalancing/"
                 "region/yyyy/mm/dd/"
                 "aws-account-id_elasticloadbalancing_region_load-balancer-id_end-time_ip-address_random-string.log.gz"
             )
-            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+            lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
 
             assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "aws.elb_logs"
 
         with self.subTest("discover_integration_scope aws.firewall_logs integration scope"):
             lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+            lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
             lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
                 "AWSLogs/aws-account-id/network-firewall/" "log-type/Region/firewall-name/timestamp/"
             )
-            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+            lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
 
             assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "aws.firewall_logs"
 
         with self.subTest("discover_integration_scope aws.waf integration scope"):
             lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+            lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
             lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
                 "AWSLogs/account-id/" "WAFLogs/Region/web-acl-name/YYYY/MM/dd/HH/mm"
             )
-            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+            lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
 
             assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "aws.waf"
 
         with self.subTest("discover_integration_scope aws.vpcflow integration scope"):
             lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+            lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
             lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
                 "AWSLogs/id/vpcflowlogs/" "region/date_vpcflowlogs_region_file.log.gz"
             )
-            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+            lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
 
             assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "aws.vpcflow"
 
         with self.subTest("discover_integration_scope unknown integration scope"):
             lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+            lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
             lambda_event_body["Records"][0]["s3"]["object"]["key"] = "random_hash"
-            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+            lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
 
             assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "generic"
 
         with self.subTest("discover_integration_scope records not in event"):
             lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+            lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
             del lambda_event_body["Records"]
-            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+            lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
 
             assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "generic"
 
@@ -579,9 +578,9 @@ class TestDiscoverIntegrationScope(TestCase):
 
         with self.subTest("discover_integration_scope empty s3"):
             lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+            lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
             lambda_event_body["Records"][0]["s3"]["object"]["key"] = ""
-            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+            lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
 
             assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "generic"
 
@@ -1200,7 +1199,7 @@ def _create_secrets(secret_name: str, secret_data: dict[str, str], localstack_ho
     client = aws_stack.connect_to_service(
         "secretsmanager", region_name="eu-central-1", endpoint_url=f"http://localhost:{localstack_host_port}"
     )
-    client.create_secret(Name=secret_name, SecretString=json.dumps(secret_data))
+    client.create_secret(Name=secret_name, SecretString=json_dumper(secret_data))
 
     return client.describe_secret(SecretId=secret_name)["ARN"]
 
@@ -1286,7 +1285,7 @@ def _event_from_cloudwatch_logs(group_name: str, stream_name: str) -> tuple[dict
         collected_log_events.append(log_event)
         collected_log_event_ids.append(event_id)
 
-    data_json = json.dumps(
+    data_json = json_dumper(
         {
             "messageType": "DATA_MESSAGE",
             "owner": "000000000000",
@@ -1366,13 +1365,13 @@ def _s3_event_to_sqs_message(
     if single_message:
         sqs_client.send_message(
             QueueUrl=queue_attributes["QueueUrl"],
-            MessageBody=json.dumps({"Records": records}),
+            MessageBody=json_dumper({"Records": records}),
         )
     else:
         for record in records:
             sqs_client.send_message(
                 QueueUrl=queue_attributes["QueueUrl"],
-                MessageBody=json.dumps({"Records": [record]}),
+                MessageBody=json_dumper({"Records": [record]}),
             )
 
 
@@ -2355,7 +2354,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
                 {
                     "PartitionKey": "PartitionKey",
                     "Data": base64.b64encode(
-                        json.dumps(
+                        json_dumper(
                             {
                                 "messageType": "DATA_MESSAGE",
                                 "owner": "000000000000",
@@ -2370,7 +2369,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
                 {
                     "PartitionKey": "PartitionKey",
                     "Data": base64.b64encode(
-                        json.dumps(
+                        json_dumper(
                             {
                                 "messageType": "DATA_MESSAGE",
                                 "owner": "000000000000",
@@ -2542,7 +2541,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
                 {
                     "PartitionKey": "PartitionKey",
                     "Data": base64.b64encode(
-                        json.dumps(
+                        json_dumper(
                             {
                                 "messageType": "DATA_MESSAGE",
                                 "owner": "000000000000",
@@ -2557,7 +2556,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
                 {
                     "PartitionKey": "PartitionKey",
                     "Data": base64.b64encode(
-                        json.dumps(
+                        json_dumper(
                             {
                                 "messageType": "DATA_MESSAGE",
                                 "owner": "000000000000",
@@ -3636,7 +3635,7 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
     def test_lambda_handler_continuing(self) -> None:
         ctx = ContextMock()
 
-        cloudwatch_log: str = json.dumps(
+        cloudwatch_log: str = json_dumper(
             {
                 "expandFromList": [
                     {"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"},

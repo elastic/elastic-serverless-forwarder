@@ -2,13 +2,12 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
-import json
 import os
 from typing import Any, Callable, Optional
 
 from aws_lambda_typing import context as context_
 
-from share import ExpandEventListFromField, parse_config, shared_logger
+from share import ExpandEventListFromField, json_parser, parse_config, shared_logger
 from share.secretsmanager import aws_sm_expander
 from shippers import EVENT_IS_FILTERED, EVENT_IS_SENT, CompositeShipper
 
@@ -85,7 +84,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         replay_queue_arn = lambda_event["Records"][0]["eventSourceARN"]
         replay_handler = ReplayedEventReplayHandler(replay_queue_arn=replay_queue_arn)
         for replay_record in lambda_event["Records"]:
-            event = json.loads(replay_record["body"])
+            event = json_parser(replay_record["body"])
             _handle_replay_event(
                 config=config,
                 output_type=event["output_type"],
@@ -392,7 +391,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 )
 
             if event_input.type == "s3-sqs":
-                sqs_record_body = json.loads(sqs_record["body"])
+                sqs_record_body = json_parser(sqs_record["body"])
                 if "last_event_expanded_offset" in sqs_record_body["Records"][0]:
                     continuing_event_expanded_offset = sqs_record_body["Records"][0]["last_event_expanded_offset"]
 
