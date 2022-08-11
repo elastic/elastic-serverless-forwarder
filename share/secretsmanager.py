@@ -3,7 +3,7 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 import re
-from json.decoder import JSONDecodeError
+from ujson import JSONDecodeError
 from typing import Any, Union
 
 import boto3

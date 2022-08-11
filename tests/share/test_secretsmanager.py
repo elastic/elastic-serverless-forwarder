@@ -323,7 +323,7 @@ class TestAWSSecretsManager(TestCase):
 
             with self.assertRaisesRegex(
                 Exception,
-                "the JSON object must be str, bytes or bytearray, not int while parsing "
+                "Expected String or Unicode while parsing "
                 "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret_not_str_in",
             ):
                 aws_sm_expander(config_yaml)

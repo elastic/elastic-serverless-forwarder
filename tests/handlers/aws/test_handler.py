@@ -1045,7 +1045,7 @@ class TestLambdaHandlerFailure(TestCase):
         with self.subTest("invalid secretsmanager: json TypeError risen"):
             with self.assertRaisesRegex(
                 ConfigFileException,
-                "the JSON object must be str, bytes or bytearray, not int while parsing "
+                "Expected String or Unicode while parsing "
                 "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret_not_str_int",
             ):
                 ctx = ContextMock()
@@ -2463,7 +2463,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
         assert res["hits"]["hits"][1]["_source"]["message"] == json_dumper(self._second_log_entry)
 
         assert res["hits"]["hits"][1]["_source"]["log"] == {
-            "offset": 296,
+            "offset": 285,
             "file": {"path": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamARN"]},
         }
         assert res["hits"]["hits"][1]["_source"]["aws"] == {
@@ -2503,7 +2503,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
         assert res["hits"]["hits"][2]["_source"]["message"] == json_dumper(self._third_log_entry)
 
         assert res["hits"]["hits"][2]["_source"]["log"] == {
-            "offset": 250,
+            "offset": 239,
             "file": {"path": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamARN"]},
         }
         assert res["hits"]["hits"][2]["_source"]["aws"] == {
@@ -2620,7 +2620,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
         self._es_client.index(
             index="logs-generic-default",
             op_type="create",
-            id=f"{hex_prefix_first_record}-000000000296",
+            id=f"{hex_prefix_first_record}-000000000285",
             document={"@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
         )
         self._es_client.indices.refresh(index="logs-generic-default")
@@ -2640,7 +2640,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
             index="logs-generic-default",
             query={
                 "ids": {
-                    "values": [f"{hex_prefix_first_record}-000000000000", f"{hex_prefix_second_record}-000000000168"]
+                    "values": [f"{hex_prefix_first_record}-000000000000", f"{hex_prefix_second_record}-000000000160"]
                 }
             },
         )
@@ -2671,7 +2671,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
         assert res["hits"]["hits"][1]["_source"]["message"] == json_dumper(self._third_log_entry)
 
         assert res["hits"]["hits"][1]["_source"]["log"] == {
-            "offset": 168,
+            "offset": 160,
             "file": {"path": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamARN"]},
         }
         assert res["hits"]["hits"][1]["_source"]["aws"] == {
@@ -2702,7 +2702,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
         # Remove the expected id so that it can be replayed
         self._es_client.delete_by_query(
             index="logs-generic-default",
-            body={"query": {"ids": {"values": [f"{hex_prefix_first_record}-000000000296"]}}},
+            body={"query": {"ids": {"values": [f"{hex_prefix_first_record}-000000000285"]}}},
         )
         self._es_client.indices.refresh(index="logs-generic-default")
 
@@ -2722,7 +2722,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
         assert res["hits"]["hits"][2]["_source"]["message"] == json_dumper(self._second_log_entry)
 
         assert res["hits"]["hits"][2]["_source"]["log"] == {
-            "offset": 296,
+            "offset": 285,
             "file": {"path": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamARN"]},
         }
         assert res["hits"]["hits"][2]["_source"]["aws"] == {
@@ -3704,7 +3704,7 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
         )
 
         assert res["hits"]["hits"][1]["_source"]["log"] == {
-            "offset": 113,
+            "offset": 104,
             "file": {"path": "source-group/source-stream"},
         }
         assert res["hits"]["hits"][1]["_source"]["aws"] == {
@@ -3735,7 +3735,7 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
         )
 
         assert res["hits"]["hits"][2]["_source"]["log"] == {
-            "offset": 227,
+            "offset": 208,
             "file": {"path": "source-group/source-stream"},
         }
         assert res["hits"]["hits"][2]["_source"]["aws"] == {
