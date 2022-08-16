@@ -8,7 +8,16 @@ from typing import Any, Callable, Iterator, Optional, Protocol, TypeVar, Union
 
 from share import ExpandEventListFromField, ProtocolMultiline
 
+# CHUNK_SIZE is how much we read from the gzip stream at every iteration in the inflate decorator
+# BEWARE, this CHUNK_SIZE has a huge impact on performance, contrary to what we stated here:
+# https://github.com/elastic/elastic-serverless-forwarder/pull/11#discussion_r732587976
+# Reinstating to 1M from 1K resulted on 6.2M gzip of 35.1 of inflated content
+# to be ingested in 45 secs instead of having the lambda timing out
 CHUNK_SIZE: int = 1024**2
+
+
+def is_gzip_content(content: bytes) -> bool:
+    return content.startswith(b"\037\213")  # gzip compression method
 
 
 class StorageReader:
