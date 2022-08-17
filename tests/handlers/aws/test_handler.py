@@ -7,7 +7,6 @@ import datetime
 import gzip
 import hashlib
 import importlib
-import json
 import os
 import random
 import string
@@ -22,7 +21,6 @@ import docker
 import localstack.utils.aws.aws_stack
 import mock
 import pytest
-import ujson
 from botocore.client import BaseClient as BotoBaseClient
 from botocore.exceptions import ClientError
 from botocore.response import StreamingBody
@@ -39,7 +37,7 @@ from handlers.aws.exceptions import (
     TriggerTypeException,
 )
 from main_aws import handler
-from share import Input
+from share import Input, json_dumper, json_parser
 
 
 class ContextMock:
@@ -57,7 +55,7 @@ class MockContent:
     SECRETS_MANAGER_MOCK_DATA: dict[str, dict[str, str]] = {
         "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets": {
             "type": "SecretString",
-            "data": json.dumps(
+            "data": json_dumper(
                 {
                     "url": "mock_elastic_url",
                     "username": "mock_elastic_username",
@@ -72,11 +70,11 @@ class MockContent:
         },
         "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret_not_str_byte": {
             "type": "SecretString",
-            "data": b"i am not a string",  # type: ignore
+            "data": b"i am not a string",  # type:ignore
         },
         "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret_not_str_int": {
             "type": "SecretString",
-            "data": 2021,  # type: ignore
+            "data": 2021,  # type:ignore
         },
         "arn:aws:secretsmanager:eu-central-1:123456789:secret:binary_secret": {
             "type": "SecretBinary",
@@ -120,7 +118,7 @@ _dummy_lambda_event: dict[str, Any] = {
         {
             "messageId": "dummy_message_id",
             "receiptHandle": "dummy_receipt_handle",
-            "body": json.dumps(
+            "body": json_dumper(
                 {
                     "Records": [
                         {
@@ -346,7 +344,7 @@ class TestLambdaHandlerNoop(TestCase):
         with self.subTest("no input defined for cloudwatch_logs"):
             ctx = ContextMock()
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
-            lambda_event = {"awslogs": {"data": json.dumps({"logGroup": "logGroup", "logStream": "logStream"})}}
+            lambda_event = {"awslogs": {"data": json_dumper({"logGroup": "logGroup", "logStream": "logStream"})}}
             assert handler(lambda_event, ctx) == "completed"  # type:ignore
 
         with self.subTest("output not elasticsearch from payload config"):
@@ -423,7 +421,7 @@ class TestLambdaHandlerNoop(TestCase):
             os.environ["SQS_REPLAY_URL"] = "https://sqs.us-east-2.amazonaws.com/123456789012/replay_queue"
             os.environ["SQS_CONTINUE_URL"] = "https://sqs.us-east-2.amazonaws.com/123456789012/continue_queue"
             lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event["Records"][0]["body"] = json.dumps({"Records": [{"key": "value"}]})
+            lambda_event["Records"][0]["body"] = json_dumper({"Records": [{"key": "value"}]})
             lambda_event["Records"][0]["eventSourceARN"] = "arn:aws:sqs:eu-central-1:123456789:sqs-queue"
             del lambda_event["Records"][0]["messageAttributes"]["originalEventSourceARN"]
             assert handler(lambda_event, ctx) == "completed"  # type:ignore
@@ -432,7 +430,7 @@ class TestLambdaHandlerNoop(TestCase):
             ctx = ContextMock()
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
             lambda_event = {
-                "awslogs": {"data": json.dumps({"logGroup": "logGroupNotMatching", "logStream": "logStream"})}
+                "awslogs": {"data": json_dumper({"logGroup": "logGroupNotMatching", "logStream": "logStream"})}
             }
             assert (
                 handler(lambda_event, ctx) == "exception raised: "  # type:ignore
@@ -442,10 +440,10 @@ class TestLambdaHandlerNoop(TestCase):
         with self.subTest("raising unexpected exception"):
             ctx = ContextMock()
             lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+            lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
             lambda_event_body["Records"][0]["s3"]["object"]["key"] = "please raise"
 
-            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+            lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
 
             assert handler(lambda_event, ctx) == "exception raised: Exception('raised')"  # type:ignore
 
@@ -453,10 +451,10 @@ class TestLambdaHandlerNoop(TestCase):
             with mock.patch("handlers.aws.utils.get_apm_client", lambda: mock.MagicMock()):
                 ctx = ContextMock()
                 lambda_event = deepcopy(_dummy_lambda_event)
-                lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+                lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
                 lambda_event_body["Records"][0]["s3"]["object"]["key"] = "please raise"
 
-                lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+                lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
 
                 assert handler(lambda_event, ctx) == "exception raised: Exception('raised')"  # type:ignore
 
@@ -474,23 +472,23 @@ class TestDiscoverIntegrationScope(TestCase):
 
         with self.subTest("discover_integration_scope aws.cloudtrail integration scope"):
             lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+            lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
             lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
                 "AWSLogs/aws-account-id/CloudTrail/region/"
                 "yyyy/mm/dd/aws-account-id_CloudTrail_region_end-time_random-string.log.gz"
             )
-            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+            lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
 
             assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "aws.cloudtrail"
 
         with self.subTest("discover_integration_scope aws.cloudtrail digest integration scope"):
             lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+            lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
             lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
                 "AWSLogs/aws-account-id/CloudTrail-Digest/region/"
                 "yyyy/mm/dd/aws-account-id_CloudTrail-Digest_region_end-time_random-string.log.gz"
             )
-            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+            lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
 
             assert (
                 input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "aws.cloudtrail-digest"
@@ -498,78 +496,78 @@ class TestDiscoverIntegrationScope(TestCase):
 
         with self.subTest("discover_integration_scope aws.cloudtrail insight integration scope"):
             lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+            lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
             lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
                 "AWSLogs/aws-account-id/CloudTrail-Insight/region/"
                 "yyyy/mm/dd/aws-account-id_CloudTrail-Insight_region_end-time_random-string.log.gz"
             )
-            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+            lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
 
             assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "aws.cloudtrail"
 
         with self.subTest("discover_integration_scope aws.cloudwatch_logs integration scope"):
             lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+            lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
             lambda_event_body["Records"][0]["s3"]["object"]["key"] = "exportedlogs/111-222-333/2021-12-28/hash/file.gz"
-            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+            lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
 
             assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "aws.cloudwatch_logs"
 
         with self.subTest("discover_integration_scope aws.elb_logs integration scope"):
             lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+            lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
             lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
                 "AWSLogs/aws-account-id/elasticloadbalancing/"
                 "region/yyyy/mm/dd/"
                 "aws-account-id_elasticloadbalancing_region_load-balancer-id_end-time_ip-address_random-string.log.gz"
             )
-            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+            lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
 
             assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "aws.elb_logs"
 
         with self.subTest("discover_integration_scope aws.firewall_logs integration scope"):
             lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+            lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
             lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
                 "AWSLogs/aws-account-id/network-firewall/" "log-type/Region/firewall-name/timestamp/"
             )
-            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+            lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
 
             assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "aws.firewall_logs"
 
         with self.subTest("discover_integration_scope aws.waf integration scope"):
             lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+            lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
             lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
                 "AWSLogs/account-id/" "WAFLogs/Region/web-acl-name/YYYY/MM/dd/HH/mm"
             )
-            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+            lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
 
             assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "aws.waf"
 
         with self.subTest("discover_integration_scope aws.vpcflow integration scope"):
             lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+            lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
             lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
                 "AWSLogs/id/vpcflowlogs/" "region/date_vpcflowlogs_region_file.log.gz"
             )
-            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+            lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
 
             assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "aws.vpcflow"
 
         with self.subTest("discover_integration_scope unknown integration scope"):
             lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+            lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
             lambda_event_body["Records"][0]["s3"]["object"]["key"] = "random_hash"
-            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+            lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
 
             assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "generic"
 
         with self.subTest("discover_integration_scope records not in event"):
             lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+            lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
             del lambda_event_body["Records"]
-            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+            lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
 
             assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "generic"
 
@@ -580,9 +578,9 @@ class TestDiscoverIntegrationScope(TestCase):
 
         with self.subTest("discover_integration_scope empty s3"):
             lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json.loads(lambda_event["Records"][0]["body"])
+            lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
             lambda_event_body["Records"][0]["s3"]["object"]["key"] = ""
-            lambda_event["Records"][0]["body"] = json.dumps(lambda_event_body)
+            lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
 
             assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "generic"
 
@@ -1047,7 +1045,7 @@ class TestLambdaHandlerFailure(TestCase):
         with self.subTest("invalid secretsmanager: json TypeError risen"):
             with self.assertRaisesRegex(
                 ConfigFileException,
-                "the JSON object must be str, bytes or bytearray, not int while parsing "
+                "Expected String or Unicode while parsing "
                 "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret_not_str_int",
             ):
                 ctx = ContextMock()
@@ -1150,7 +1148,8 @@ class TestLambdaHandlerFailure(TestCase):
         with self.subTest("json_content_type not valid"):
             with self.assertRaisesRegex(
                 ConfigFileException,
-                "`json_content_type` must be one of ndjson,single for input mock_plain_text_sqs_arn: whatever given",
+                "`json_content_type` must be one of ndjson,single,disabled "
+                "for input mock_plain_text_sqs_arn: whatever given",
             ):
                 ctx = ContextMock()
                 config_yml = """
@@ -1200,7 +1199,7 @@ def _create_secrets(secret_name: str, secret_data: dict[str, str], localstack_ho
     client = aws_stack.connect_to_service(
         "secretsmanager", region_name="eu-central-1", endpoint_url=f"http://localhost:{localstack_host_port}"
     )
-    client.create_secret(Name=secret_name, SecretString=json.dumps(secret_data))
+    client.create_secret(Name=secret_name, SecretString=json_dumper(secret_data))
 
     return client.describe_secret(SecretId=secret_name)["ARN"]
 
@@ -1286,7 +1285,7 @@ def _event_from_cloudwatch_logs(group_name: str, stream_name: str) -> tuple[dict
         collected_log_events.append(log_event)
         collected_log_event_ids.append(event_id)
 
-    data_json = json.dumps(
+    data_json = json_dumper(
         {
             "messageType": "DATA_MESSAGE",
             "owner": "000000000000",
@@ -1366,13 +1365,13 @@ def _s3_event_to_sqs_message(
     if single_message:
         sqs_client.send_message(
             QueueUrl=queue_attributes["QueueUrl"],
-            MessageBody=json.dumps({"Records": records}),
+            MessageBody=json_dumper({"Records": records}),
         )
     else:
         for record in records:
             sqs_client.send_message(
                 QueueUrl=queue_attributes["QueueUrl"],
-                MessageBody=json.dumps({"Records": [record]}),
+                MessageBody=json_dumper({"Records": [record]}),
             )
 
 
@@ -2355,7 +2354,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
                 {
                     "PartitionKey": "PartitionKey",
                     "Data": base64.b64encode(
-                        json.dumps(
+                        json_dumper(
                             {
                                 "messageType": "DATA_MESSAGE",
                                 "owner": "000000000000",
@@ -2370,7 +2369,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
                 {
                     "PartitionKey": "PartitionKey",
                     "Data": base64.b64encode(
-                        json.dumps(
+                        json_dumper(
                             {
                                 "messageType": "DATA_MESSAGE",
                                 "owner": "000000000000",
@@ -2429,7 +2428,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
         res = self._es_client.search(index="logs-generic-default", sort="_seq_no")
         assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
 
-        assert res["hits"]["hits"][0]["_source"]["message"] == ujson.dumps(self._first_log_entry)
+        assert res["hits"]["hits"][0]["_source"]["message"] == json_dumper(self._first_log_entry)
 
         assert res["hits"]["hits"][0]["_source"]["log"] == {
             "offset": 0,
@@ -2461,10 +2460,10 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
         res = self._es_client.search(index="logs-generic-default", sort="_seq_no")
         assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
 
-        assert res["hits"]["hits"][1]["_source"]["message"] == ujson.dumps(self._second_log_entry)
+        assert res["hits"]["hits"][1]["_source"]["message"] == json_dumper(self._second_log_entry)
 
         assert res["hits"]["hits"][1]["_source"]["log"] == {
-            "offset": 296,
+            "offset": 285,
             "file": {"path": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamARN"]},
         }
         assert res["hits"]["hits"][1]["_source"]["aws"] == {
@@ -2501,10 +2500,10 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
         res = self._es_client.search(index="logs-generic-default", sort="_seq_no")
         assert res["hits"]["total"] == {"value": 3, "relation": "eq"}
 
-        assert res["hits"]["hits"][2]["_source"]["message"] == ujson.dumps(self._third_log_entry)
+        assert res["hits"]["hits"][2]["_source"]["message"] == json_dumper(self._third_log_entry)
 
         assert res["hits"]["hits"][2]["_source"]["log"] == {
-            "offset": 250,
+            "offset": 239,
             "file": {"path": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamARN"]},
         }
         assert res["hits"]["hits"][2]["_source"]["aws"] == {
@@ -2542,7 +2541,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
                 {
                     "PartitionKey": "PartitionKey",
                     "Data": base64.b64encode(
-                        json.dumps(
+                        json_dumper(
                             {
                                 "messageType": "DATA_MESSAGE",
                                 "owner": "000000000000",
@@ -2557,7 +2556,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
                 {
                     "PartitionKey": "PartitionKey",
                     "Data": base64.b64encode(
-                        json.dumps(
+                        json_dumper(
                             {
                                 "messageType": "DATA_MESSAGE",
                                 "owner": "000000000000",
@@ -2621,7 +2620,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
         self._es_client.index(
             index="logs-generic-default",
             op_type="create",
-            id=f"{hex_prefix_first_record}-000000000296",
+            id=f"{hex_prefix_first_record}-000000000285",
             document={"@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
         )
         self._es_client.indices.refresh(index="logs-generic-default")
@@ -2641,14 +2640,14 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
             index="logs-generic-default",
             query={
                 "ids": {
-                    "values": [f"{hex_prefix_first_record}-000000000000", f"{hex_prefix_second_record}-000000000168"]
+                    "values": [f"{hex_prefix_first_record}-000000000000", f"{hex_prefix_second_record}-000000000160"]
                 }
             },
         )
 
         assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
 
-        assert res["hits"]["hits"][0]["_source"]["message"] == ujson.dumps(self._first_log_entry)
+        assert res["hits"]["hits"][0]["_source"]["message"] == json_dumper(self._first_log_entry)
 
         assert res["hits"]["hits"][0]["_source"]["log"] == {
             "offset": 0,
@@ -2669,10 +2668,10 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
-        assert res["hits"]["hits"][1]["_source"]["message"] == ujson.dumps(self._third_log_entry)
+        assert res["hits"]["hits"][1]["_source"]["message"] == json_dumper(self._third_log_entry)
 
         assert res["hits"]["hits"][1]["_source"]["log"] == {
-            "offset": 168,
+            "offset": 160,
             "file": {"path": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamARN"]},
         }
         assert res["hits"]["hits"][1]["_source"]["aws"] == {
@@ -2703,7 +2702,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
         # Remove the expected id so that it can be replayed
         self._es_client.delete_by_query(
             index="logs-generic-default",
-            body={"query": {"ids": {"values": [f"{hex_prefix_first_record}-000000000296"]}}},
+            body={"query": {"ids": {"values": [f"{hex_prefix_first_record}-000000000285"]}}},
         )
         self._es_client.indices.refresh(index="logs-generic-default")
 
@@ -2720,10 +2719,10 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
         res = self._es_client.search(index="logs-generic-default", sort="_seq_no")
         assert res["hits"]["total"] == {"value": 3, "relation": "eq"}
 
-        assert res["hits"]["hits"][2]["_source"]["message"] == ujson.dumps(self._second_log_entry)
+        assert res["hits"]["hits"][2]["_source"]["message"] == json_dumper(self._second_log_entry)
 
         assert res["hits"]["hits"][2]["_source"]["log"] == {
-            "offset": 296,
+            "offset": 285,
             "file": {"path": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamARN"]},
         }
         assert res["hits"]["hits"][2]["_source"]["aws"] == {
@@ -2881,7 +2880,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         )
 
         self._fifth_cloudtrail_record: bytes = (
-            b"{\n"
+            b"[{\n"
             b'    "eventVersion": "1.0",\n'
             b'    "userIdentity": {\n'
             b'        "type": "IAMUser",\n'
@@ -2905,7 +2904,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
             b'        "path": "/",\n'
             b'        "userId": "EXAMPLEUSERID"\n'
             b"    }}\n"
-            b"}\n"
+            b"}]\n"
         )
 
         cloudtrail_log: bytes = (
@@ -3094,7 +3093,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         res = self._es_client.search(index="logs-aws.cloudtrail-default", sort="_seq_no")
         assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
 
-        assert res["hits"]["hits"][0]["_source"]["message"] == ujson.dumps(ujson.loads(self._first_cloudtrail_record))
+        assert res["hits"]["hits"][0]["_source"]["message"] == json_dumper(json_parser(self._first_cloudtrail_record))
 
         assert res["hits"]["hits"][0]["_source"]["log"] == {
             "offset": 0,
@@ -3125,7 +3124,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         res = self._es_client.search(index="logs-aws.cloudtrail-default", sort="_seq_no")
         assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
 
-        assert res["hits"]["hits"][1]["_source"]["message"] == ujson.dumps(ujson.loads(self._second_cloudtrail_record))
+        assert res["hits"]["hits"][1]["_source"]["message"] == json_dumper(json_parser(self._second_cloudtrail_record))
 
         assert res["hits"]["hits"][1]["_source"]["log"] == {
             "offset": 837,
@@ -3156,7 +3155,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         res = self._es_client.search(index="logs-aws.cloudtrail-default", sort="_seq_no")
         assert res["hits"]["total"] == {"value": 3, "relation": "eq"}
 
-        assert res["hits"]["hits"][2]["_source"]["message"] == ujson.dumps(ujson.loads(self._third_cloudtrail_record))
+        assert res["hits"]["hits"][2]["_source"]["message"] == json_dumper(json_parser(self._third_cloudtrail_record))
 
         assert res["hits"]["hits"][2]["_source"]["log"] == {
             "offset": 1674,
@@ -3195,7 +3194,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         res = self._es_client.search(index="logs-aws.cloudtrail-default", sort="_seq_no")
         assert res["hits"]["total"] == {"value": 4, "relation": "eq"}
 
-        assert res["hits"]["hits"][3]["_source"]["message"] == ujson.dumps(ujson.loads(self._fifth_cloudtrail_record))
+        assert res["hits"]["hits"][3]["_source"]["message"] == json_dumper(json_parser(self._fifth_cloudtrail_record))
 
         assert res["hits"]["hits"][3]["_source"]["log"] == {
             "offset": 4325,
@@ -3636,7 +3635,7 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
     def test_lambda_handler_continuing(self) -> None:
         ctx = ContextMock()
 
-        cloudwatch_log: str = json.dumps(
+        cloudwatch_log: str = json_dumper(
             {
                 "expandFromList": [
                     {"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"},
@@ -3705,7 +3704,7 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
         )
 
         assert res["hits"]["hits"][1]["_source"]["log"] == {
-            "offset": 113,
+            "offset": 104,
             "file": {"path": "source-group/source-stream"},
         }
         assert res["hits"]["hits"][1]["_source"]["aws"] == {
@@ -3736,7 +3735,7 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
         )
 
         assert res["hits"]["hits"][2]["_source"]["log"] == {
-            "offset": 227,
+            "offset": 208,
             "file": {"path": "source-group/source-stream"},
         }
         assert res["hits"]["hits"][2]["_source"]["aws"] == {

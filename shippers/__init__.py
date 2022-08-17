@@ -3,7 +3,7 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 from .composite import CompositeShipper
-from .es import ElasticsearchShipper
+from .es import ElasticsearchShipper, JSONSerializer
 from .factory import ShipperFactory
 from .shipper import (
     EVENT_IS_EMPTY,

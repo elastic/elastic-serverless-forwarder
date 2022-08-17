@@ -10,8 +10,9 @@ from unittest import TestCase
 import elasticsearch
 import mock
 import pytest
+from elasticsearch import SerializationError
 
-from shippers import ElasticsearchShipper
+from shippers import ElasticsearchShipper, JSONSerializer
 
 _now = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
@@ -471,3 +472,32 @@ class TestDiscoverDataset(TestCase):
         assert shipper._dataset == "generic"
         assert shipper._namespace == "default"
         assert shipper._es_index == "logs-generic-default"
+
+
+@pytest.mark.unit
+class TestJSONSerializer(TestCase):
+    def test_loads(self) -> None:
+        json_serializer = JSONSerializer()
+
+        with self.subTest("loads raises"):
+            with self.assertRaises(SerializationError):
+                json_serializer.loads("[")
+
+    def test_dumps(self) -> None:
+        json_serializer = JSONSerializer()
+
+        with self.subTest("dumps raises"):
+            with self.assertRaises(SerializationError):
+                json_serializer.dumps(set())
+
+        with self.subTest("dumps bytes"):
+            dumped = json_serializer.dumps(b"bytes")
+            assert "bytes" == dumped
+
+        with self.subTest("dumps str"):
+            dumped = json_serializer.dumps("string")
+            assert "string" == dumped
+
+        with self.subTest("dumps dict"):
+            dumped = json_serializer.dumps({"key": "value"})
+            assert '{"key":"value"}' == dumped

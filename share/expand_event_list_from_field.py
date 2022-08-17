@@ -4,7 +4,7 @@
 
 from typing import Any, Callable, Iterator, Optional
 
-import ujson
+from .json import json_dumper
 
 ExpandEventListFromFieldResolverCallable = Callable[[str, str], str]
 
@@ -63,7 +63,7 @@ class ExpandEventListFromField:
                     if not expanded_event:
                         expanded_log_event = b""
                     else:
-                        expanded_log_event = ujson.dumps(expanded_event).encode("utf-8")
+                        expanded_log_event = json_dumper(expanded_event).encode("utf-8")
 
                     if is_last_expanded_event:
                         expanded_event_n = None

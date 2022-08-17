@@ -13,7 +13,7 @@ from botocore.response import StreamingBody
 from share import ExpandEventListFromField, ProtocolMultiline, shared_logger
 
 from .decorator import JsonCollector, by_lines, inflate, multi_line
-from .storage import CHUNK_SIZE, CommonStorage, StorageReader
+from .storage import CHUNK_SIZE, CommonStorage, StorageReader, is_gzip_content
 
 
 class S3Storage(CommonStorage):
@@ -90,11 +90,11 @@ class S3Storage(CommonStorage):
         file_content.flush()
         file_content.seek(0, SEEK_SET)
         is_gzipped: bool = False
-        if file_content.readline().startswith(b"\037\213"):  # gzip compression method
+        if is_gzip_content(file_content.readline()):
             is_gzipped = True
             range_start = 0
 
-        if is_gzipped or original_range_start < content_length:
+        if range_start < content_length:
             file_content.seek(range_start, SEEK_SET)
 
             for log_event, line_starting_offset, line_ending_offset, _, event_expanded_offset in self._generate(

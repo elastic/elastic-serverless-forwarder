@@ -10,7 +10,7 @@ from typing import Any, Iterator, Optional, Union
 from share import ExpandEventListFromField, ProtocolMultiline, shared_logger
 
 from .decorator import JsonCollector, by_lines, inflate, multi_line
-from .storage import CHUNK_SIZE, CommonStorage, StorageReader
+from .storage import CHUNK_SIZE, CommonStorage, StorageReader, is_gzip_content
 
 
 class PayloadStorage(CommonStorage):
@@ -62,20 +62,42 @@ class PayloadStorage(CommonStorage):
     def get_by_lines(self, range_start: int) -> Iterator[tuple[bytes, int, int, Optional[int]]]:
         original_range_start: int = range_start
 
+        is_gzipped: bool = False
+        is_b64encoded: bool = False
         try:
             base64_decoded = base64.b64decode(self._payload, validate=True)
-            if not base64_decoded.startswith(b"\037\213"):  # gzip compression method
+            # we try to unicode decode to catch if `base64.b64decode` decoded to non-valid unicode:
+            # in this case `UnicodeDecodeError` will be thrown, this mean that the original was not base64 encoded
+            # we try this only if it's not gzipped, because in that case `UnicodeDecodeError` will be thrown anyway
+            if not is_gzip_content(base64_decoded):
                 base64_decoded.decode("utf-8")
-        except (UnicodeDecodeError, binascii.Error):
+                # if `UnicodeDecodeError` was thrown, the content was not base64 encoded
+                # and the below assignment will not be executed
+                is_b64encoded = True
+            else:
+                # we have gzip content that was base64 encoded
+                # let's do the proper assignment
+                is_b64encoded = True
+        except (UnicodeDecodeError, ValueError, binascii.Error):
+            # it was not valid unicode base64 encoded value or is it bare gzip content
+            # just take as it is and encode to unicode bytes
             base64_decoded = self._payload.encode("utf-8")
 
-        is_gzipped: bool = False
-        if base64_decoded.startswith(b"\037\213"):  # gzip compression method
+        if is_gzip_content(base64_decoded):
             is_gzipped = True
             range_start = 0
 
+        shared_logger.debug(
+            "get_by_lines",
+            extra={
+                "range_start": original_range_start,
+                "is_b64encoded": is_b64encoded,
+                "is_gzipped": is_gzipped,
+            },
+        )
+
         content_length = len(base64_decoded)
-        if is_gzipped or original_range_start < content_length:
+        if range_start < content_length:
             file_content: BytesIO = BytesIO(base64_decoded)
 
             file_content.flush()
@@ -90,14 +112,14 @@ class PayloadStorage(CommonStorage):
             shared_logger.info(f"requested payload content from {range_start}, payload size {content_length}: skip it")
 
     def get_as_string(self) -> str:
-        shared_logger.debug("get_as_string", extra={"payload": self._payload[0:11]})
-
         try:
             base64_decoded = base64.b64decode(self._payload, validate=True)
-        except binascii.Error:
+            if not is_gzip_content(base64_decoded):
+                base64_decoded.decode("utf-8")
+        except (UnicodeDecodeError, ValueError, binascii.Error):
             base64_decoded = self._payload.encode("utf-8")
 
-        if base64_decoded.startswith(b"\037\213"):  # gzip compression method
+        if is_gzip_content(base64_decoded):
             return gzip.decompress(base64_decoded).decode("utf-8")
 
         return base64_decoded.decode("utf-8")

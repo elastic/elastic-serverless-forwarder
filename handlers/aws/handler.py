@@ -2,13 +2,12 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
-import json
 import os
 from typing import Any, Callable, Optional
 
 from aws_lambda_typing import context as context_
 
-from share import ExpandEventListFromField, parse_config, shared_logger
+from share import ExpandEventListFromField, json_parser, parse_config, shared_logger
 from share.secretsmanager import aws_sm_expander
 from shippers import EVENT_IS_FILTERED, EVENT_IS_SENT, CompositeShipper
 
@@ -51,9 +50,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
     Parses the config and acts as front controller for inputs
     """
 
-    shared_logger.debug(
-        "lambda triggered", extra={"event": lambda_event, "invoked_function_arn": lambda_context.invoked_function_arn}
-    )
+    shared_logger.debug("lambda triggered", extra={"invoked_function_arn": lambda_context.invoked_function_arn})
 
     try:
         trigger_type, config_source = get_trigger_type_and_config_source(lambda_event)
@@ -73,7 +70,6 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         raise ConfigFileException("Empty config")
 
     try:
-        shared_logger.debug("config", extra={"yaml": config_yaml})
         config = parse_config(config_yaml, _expanders, discover_integration_scope)
     except Exception as e:
         raise ConfigFileException(e)
@@ -86,7 +82,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         replay_queue_arn = lambda_event["Records"][0]["eventSourceARN"]
         replay_handler = ReplayedEventReplayHandler(replay_queue_arn=replay_queue_arn)
         for replay_record in lambda_event["Records"]:
-            event = json.loads(replay_record["body"])
+            event = json_parser(replay_record["body"])
             _handle_replay_event(
                 config=config,
                 output_type=event["output_type"],
@@ -142,10 +138,9 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             aws_region,
             event_input.id,
             expand_event_list_from_field,
+            event_input.json_content_type,
             event_input.get_multiline_processor(),
         ):
-            shared_logger.debug("es_event", extra={"es_event": es_event})
-
             sent_outcome = composite_shipper.send(es_event)
             if sent_outcome == EVENT_IS_SENT:
                 sent_events += 1
@@ -213,10 +208,12 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             last_event_expanded_offset,
             current_kinesis_record_n,
         ) in _handle_kinesis_record(
-            lambda_event, event_input.id, expand_event_list_from_field, event_input.get_multiline_processor()
+            lambda_event,
+            event_input.id,
+            expand_event_list_from_field,
+            event_input.json_content_type,
+            event_input.get_multiline_processor(),
         ):
-            shared_logger.debug("es_event", extra={"es_event": es_event})
-
             sent_outcome = composite_shipper.send(es_event)
             if sent_outcome == EVENT_IS_SENT:
                 sent_events += 1
@@ -272,8 +269,6 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         def event_processing(
             processing_composing_shipper: CompositeShipper, processing_es_event: dict[str, Any]
         ) -> tuple[bool, str]:
-            shared_logger.debug("es_event", extra={"es_event": processing_es_event})
-
             processing_sent_outcome = processing_composing_shipper.send(processing_es_event)
 
             if lambda_context is not None and lambda_context.get_remaining_time_in_millis() < _completion_grace_period:
@@ -394,7 +389,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 )
 
             if event_input.type == "s3-sqs":
-                sqs_record_body = json.loads(sqs_record["body"])
+                sqs_record_body = json_parser(sqs_record["body"])
                 if "last_event_expanded_offset" in sqs_record_body["Records"][0]:
                     continuing_event_expanded_offset = sqs_record_body["Records"][0]["last_event_expanded_offset"]
 
@@ -415,6 +410,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                     input_id,
                     expand_event_list_from_field,
                     continuing_original_input_type,
+                    event_input.json_content_type,
                     event_input.get_multiline_processor(),
                 ):
                     timeout, sent_outcome = event_processing(
@@ -446,7 +442,11 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
             elif event_input.type == "s3-sqs":
                 for es_event, last_ending_offset, last_event_expanded_offset, current_s3_record in _handle_s3_sqs_event(
-                    sqs_record_body, event_input.id, expand_event_list_from_field, event_input.get_multiline_processor()
+                    sqs_record_body,
+                    event_input.id,
+                    expand_event_list_from_field,
+                    event_input.json_content_type,
+                    event_input.get_multiline_processor(),
                 ):
                     timeout, sent_outcome = event_processing(
                         processing_composing_shipper=composite_shipper, processing_es_event=es_event

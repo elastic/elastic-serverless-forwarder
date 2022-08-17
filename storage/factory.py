@@ -2,10 +2,9 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
-import json
 from typing import Any, Callable, Optional
 
-from share import ExpandEventListFromField, ProtocolMultiline
+from share import ExpandEventListFromField, ProtocolMultiline, json_dumper
 
 from .payload import PayloadStorage
 from .s3 import S3Storage
@@ -48,7 +47,7 @@ class StorageFactory:
         if len(init_kwargs) != len(storage_kwargs):
             raise ValueError(
                 f"You must provide the following not empty init kwargs for {storage_type}: "
-                + f"{', '.join(storage_kwargs)}. (provided: {json.dumps(kwargs)})"
+                + f"{', '.join(storage_kwargs)}. (provided: {json_dumper(kwargs)})"
             )
 
         kwargs["json_content_type"] = json_content_type

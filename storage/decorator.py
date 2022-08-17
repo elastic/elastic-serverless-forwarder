@@ -6,16 +6,9 @@ import gzip
 from io import BytesIO
 from typing import Any, Iterator, Optional, Union
 
-import ujson
-
-from share import ExpandEventListFromField, ProtocolMultiline, shared_logger
+from share import ExpandEventListFromField, ProtocolMultiline, json_parser, shared_logger
 
 from .storage import CHUNK_SIZE, GetByLinesCallable, ProtocolStorageType, StorageReader
-
-
-# For overriding in benchmark
-def json_parser(payload: bytes) -> Any:
-    return ujson.loads(payload)
 
 
 def by_lines(func: GetByLinesCallable[ProtocolStorageType]) -> GetByLinesCallable[ProtocolStorageType]:
@@ -35,7 +28,6 @@ def by_lines(func: GetByLinesCallable[ProtocolStorageType]) -> GetByLinesCallabl
         json_content_type: Optional[str] = storage.json_content_type
 
         iterator = func(storage, range_start, body, is_gzipped)
-
         if json_content_type == "single" and storage.multiline_processor is None:
             try:
                 while True:
@@ -56,7 +48,7 @@ def by_lines(func: GetByLinesCallable[ProtocolStorageType]) -> GetByLinesCallabl
 
                 unfinished_line = unfinished_line.rstrip(newline)
 
-                shared_logger.debug("by_line json_content_type json", extra={"offset": ending_offset})
+                shared_logger.debug("by_line json_content_type single", extra={"offset": ending_offset})
 
                 yield unfinished_line, starting_offset, ending_offset, newline_length, None
         else:
@@ -223,7 +215,9 @@ class JsonCollector:
 
             # finally yield
             yield data_to_yield, json_object
-        # it raised: we didn't collect enough content to reach the end of the json object: let's keep iterating
+        # it raised ValueError: we didn't collect enough content
+        # to reach the end of the json object
+        # let's keep iterating
         except ValueError:
             # it's an empty line, let's yield it
             if self._is_a_json_object and len(self._unfinished_line.strip(b"\r\n").strip(b"\n")) == 0:
@@ -272,7 +266,7 @@ class JsonCollector:
     ) -> Iterator[tuple[Union[StorageReader, bytes], int, int, int, Optional[int]]]:
         self._storage = storage
         multiline_processor: Optional[ProtocolMultiline] = storage.multiline_processor
-        if multiline_processor:
+        if storage.json_content_type == "disabled" or multiline_processor:
             iterator = self._function(storage, range_start, body, is_gzipped)
             for data, original_starting_offset, original_ending_offset, newline_length, _ in iterator:
                 assert isinstance(data, bytes)

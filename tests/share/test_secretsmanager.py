@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import base64
-import json
 from typing import Optional, Union
 from unittest import TestCase
 
@@ -14,6 +13,7 @@ import pytest
 from botocore.client import BaseClient as BotoBaseClient
 from botocore.exceptions import ClientError, InvalidRegionError
 
+from share import json_dumper
 from share.secretsmanager import _get_aws_sm_client, aws_sm_expander
 
 
@@ -21,7 +21,7 @@ class MockContent:
     SECRETS_MANAGER_MOCK_DATA: dict[str, dict[str, str]] = {
         "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets": {
             "type": "SecretString",
-            "data": json.dumps(
+            "data": json_dumper(
                 {
                     "url": "mock_elastic_url",
                     "username": "mock_elastic_username",
@@ -323,7 +323,7 @@ class TestAWSSecretsManager(TestCase):
 
             with self.assertRaisesRegex(
                 Exception,
-                "the JSON object must be str, bytes or bytearray, not int while parsing "
+                "Expected String or Unicode while parsing "
                 "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret_not_str_in",
             ):
                 aws_sm_expander(config_yaml)

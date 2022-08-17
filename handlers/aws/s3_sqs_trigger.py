@@ -3,18 +3,15 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 import datetime
-import json
-from copy import deepcopy
 from typing import Any, Iterator, Optional
 from urllib.parse import unquote_plus
 
 import elasticapm
 from botocore.client import BaseClient as BotoBaseClient
 
-from share import ExpandEventListFromField, ProtocolMultiline, shared_logger
+from share import ExpandEventListFromField, ProtocolMultiline, json_dumper, json_parser, shared_logger
 from storage import ProtocolStorage, StorageFactory
 
-from .event import _default_event
 from .utils import get_account_id_from_arn, get_bucket_name_from_arn
 
 
@@ -36,7 +33,7 @@ def _handle_s3_sqs_continuation(
     internal continuing sqs queue
     """
 
-    body = json.loads(sqs_record["body"])
+    body = json_parser(sqs_record["body"])
     body["Records"] = body["Records"][current_s3_record:]
     if last_ending_offset is not None:
         body["Records"][0]["last_ending_offset"] = last_ending_offset
@@ -46,7 +43,7 @@ def _handle_s3_sqs_continuation(
     elif "last_event_expanded_offset" in body["Records"][0]:
         del body["Records"][0]["last_event_expanded_offset"]
 
-    sqs_record["body"] = json.dumps(body)
+    sqs_record["body"] = json_dumper(body)
 
     sqs_client.send_message(
         QueueUrl=sqs_continuing_queue,
@@ -72,6 +69,7 @@ def _handle_s3_sqs_event(
     sqs_record_body: dict[str, Any],
     input_id: str,
     expand_event_list_from_field: ExpandEventListFromField,
+    json_content_type: Optional[str],
     multiline_processor: Optional[ProtocolMultiline],
 ) -> Iterator[tuple[dict[str, Any], int, Optional[int], int]]:
     """
@@ -96,17 +94,9 @@ def _handle_s3_sqs_event(
             storage_type="s3",
             bucket_name=bucket_name,
             object_key=object_key,
+            json_content_type=json_content_type,
             expand_event_list_from_field=expand_event_list_from_field,
             multiline_processor=multiline_processor,
-        )
-
-        shared_logger.info(
-            "sqs event",
-            extra={
-                "range_start": last_ending_offset,
-                "bucket_arn": bucket_arn,
-                "object_key": object_key,
-            },
         )
 
         span = elasticapm.capture_span(f"WAIT FOR OFFSET STARTING AT {last_ending_offset}")
@@ -120,24 +110,29 @@ def _handle_s3_sqs_event(
                 span.__exit__(None, None, None)
                 span = None
 
-            es_event = deepcopy(_default_event)
-            es_event["@timestamp"] = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            es_event["fields"]["message"] = log_event.decode("UTF-8")
-
-            es_event["fields"]["log"]["offset"] = starting_offset
-
-            es_event["fields"]["log"]["file"]["path"] = "https://{0}.s3.{1}.amazonaws.com/{2}".format(
-                bucket_name, aws_region, object_key
-            )
-
-            es_event["fields"]["aws"] = {
-                "s3": {
-                    "bucket": {"name": bucket_name, "arn": bucket_arn},
-                    "object": {"key": object_key},
-                }
+            es_event: dict[str, Any] = {
+                "@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                "fields": {
+                    "message": log_event.decode("UTF-8"),
+                    "log": {
+                        "offset": starting_offset,
+                        "file": {
+                            "path": "https://{0}.s3.{1}.amazonaws.com/{2}".format(bucket_name, aws_region, object_key),
+                        },
+                    },
+                    "aws": {
+                        "s3": {
+                            "bucket": {"name": bucket_name, "arn": bucket_arn},
+                            "object": {"key": object_key},
+                        }
+                    },
+                    "cloud": {
+                        "provider": "aws",
+                        "region": aws_region,
+                        "account": {"id": account_id},
+                    },
+                },
+                "meta": {},
             }
-
-            es_event["fields"]["cloud"]["region"] = aws_region
-            es_event["fields"]["cloud"]["account"] = {"id": account_id}
 
             yield es_event, ending_offset, event_expanded_offset, s3_record_n

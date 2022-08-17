@@ -3,16 +3,13 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 import datetime
-import json
-from copy import deepcopy
 from typing import Any, Iterator, Optional
 
 from botocore.client import BaseClient as BotoBaseClient
 
-from share import ExpandEventListFromField, ProtocolMultiline, shared_logger
+from share import ExpandEventListFromField, ProtocolMultiline, json_parser, shared_logger
 from storage import ProtocolStorage, StorageFactory
 
-from .event import _default_event
 from .utils import get_account_id_from_arn
 
 
@@ -22,7 +19,7 @@ def _from_awslogs_data_to_event(awslogs_data: str) -> Any:
     """
     storage: ProtocolStorage = StorageFactory.create(storage_type="payload", payload=awslogs_data)
     cloudwatch_logs_payload_plain = storage.get_as_string()
-    return json.loads(cloudwatch_logs_payload_plain)
+    return json_parser(cloudwatch_logs_payload_plain)
 
 
 def _handle_cloudwatch_logs_continuation(
@@ -93,6 +90,7 @@ def _handle_cloudwatch_logs_event(
     aws_region: str,
     input_id: str,
     expand_event_list_from_field: ExpandEventListFromField,
+    json_content_type: Optional[str],
     multiline_processor: Optional[ProtocolMultiline],
 ) -> Iterator[tuple[dict[str, Any], int, Optional[int], int]]:
     """
@@ -114,6 +112,7 @@ def _handle_cloudwatch_logs_event(
         storage_message: ProtocolStorage = StorageFactory.create(
             storage_type="payload",
             payload=cloudwatch_log_event["message"],
+            json_content_type=json_content_type,
             expand_event_list_from_field=expand_event_list_from_field,
             multiline_processor=multiline_processor,
         )
@@ -123,23 +122,30 @@ def _handle_cloudwatch_logs_event(
         for log_event, starting_offset, ending_offset, event_expanded_offset in events:
             assert isinstance(log_event, bytes)
 
-            es_event = deepcopy(_default_event)
-            es_event["@timestamp"] = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            es_event["fields"]["message"] = log_event.decode("UTF-8")
-
-            es_event["fields"]["log"]["offset"] = starting_offset
-
-            es_event["fields"]["log"]["file"]["path"] = f"{log_group_name}/{log_stream_name}"
-
-            es_event["fields"]["aws"] = {
-                "cloudwatch": {
-                    "log_group": log_group_name,
-                    "log_stream": log_stream_name,
-                    "event_id": event_id,
-                }
+            es_event: dict[str, Any] = {
+                "@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                "fields": {
+                    "message": log_event.decode("UTF-8"),
+                    "log": {
+                        "offset": starting_offset,
+                        "file": {
+                            "path": f"{log_group_name}/{log_stream_name}",
+                        },
+                    },
+                    "aws": {
+                        "cloudwatch": {
+                            "log_group": log_group_name,
+                            "log_stream": log_stream_name,
+                            "event_id": event_id,
+                        }
+                    },
+                    "cloud": {
+                        "provider": "aws",
+                        "region": aws_region,
+                        "account": {"id": account_id},
+                    },
+                },
+                "meta": {},
             }
-
-            es_event["fields"]["cloud"]["region"] = aws_region
-            es_event["fields"]["cloud"]["account"] = {"id": account_id}
 
             yield es_event, ending_offset, event_expanded_offset, cloudwatch_log_event_n
