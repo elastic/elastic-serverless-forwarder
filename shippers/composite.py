@@ -70,7 +70,7 @@ class CompositeShipper:
         elif "message" in event:
             message = event["message"]
 
-        if len(message) == 0:
+        if len(message.strip()) == 0:
             shared_logger.debug("event is empty: message is zero length", extra={"es_event": event})
             return EVENT_IS_EMPTY
 
