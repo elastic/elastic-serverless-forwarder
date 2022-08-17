@@ -71,7 +71,7 @@ class CompositeShipper:
             message = event["message"]
 
         if len(message.strip()) == 0:
-            shared_logger.debug("event is empty: message is zero length", extra={"es_event": event})
+            shared_logger.debug("event is empty: message is zero length")
             return EVENT_IS_EMPTY
 
         if self._include_exclude_filter is not None and not self._include_exclude_filter.filter(message):

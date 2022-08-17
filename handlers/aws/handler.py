@@ -51,7 +51,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
     """
 
     shared_logger.debug(
-        "lambda triggered", extra={"event": lambda_event, "invoked_function_arn": lambda_context.invoked_function_arn}
+        "lambda triggered", extra={"invoked_function_arn": lambda_context.invoked_function_arn}
     )
 
     try:
