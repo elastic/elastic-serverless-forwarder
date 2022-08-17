@@ -50,9 +50,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
     Parses the config and acts as front controller for inputs
     """
 
-    shared_logger.debug(
-        "lambda triggered", extra={"invoked_function_arn": lambda_context.invoked_function_arn}
-    )
+    shared_logger.debug("lambda triggered", extra={"invoked_function_arn": lambda_context.invoked_function_arn})
 
     try:
         trigger_type, config_source = get_trigger_type_and_config_source(lambda_event)
