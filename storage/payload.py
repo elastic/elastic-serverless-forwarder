@@ -78,7 +78,7 @@ class PayloadStorage(CommonStorage):
                 # we have gzip content that was base64 encoded
                 # let's do the proper assignment
                 is_b64encoded = True
-        except (UnicodeDecodeError, binascii.Error):
+        except (UnicodeDecodeError, ValueError, binascii.Error):
             # it was not valid unicode base64 encoded value or is it bare gzip content
             # just take as it is and encode to unicode bytes
             base64_decoded = self._payload.encode("utf-8")
@@ -116,7 +116,7 @@ class PayloadStorage(CommonStorage):
             base64_decoded = base64.b64decode(self._payload, validate=True)
             if not is_gzip_content(base64_decoded):
                 base64_decoded.decode("utf-8")
-        except (UnicodeDecodeError, binascii.Error):
+        except (UnicodeDecodeError, ValueError, binascii.Error):
             base64_decoded = self._payload.encode("utf-8")
 
         if is_gzip_content(base64_decoded):
