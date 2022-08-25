@@ -5,7 +5,7 @@
 from typing import Any, Optional
 
 from share import Config, ElasticsearchOutput, Input, Output, shared_logger
-from shippers import ElasticsearchShipper, ShipperFactory
+from shippers import ProtocolShipper, ShipperFactory
 
 from .exceptions import InputConfigException, OutputConfigException, ReplayHandlerException
 from .utils import delete_sqs_record
@@ -34,16 +34,13 @@ class ReplayedEventReplayHandler:
             raise ReplayHandlerException()
 
 
-def _handle_replay_event(
+def get_shipper_for_replay_event(
     config: Config,
     output_type: str,
     output_args: dict[str, Any],
     event_input_id: str,
-    event_payload: dict[str, Any],
     replay_handler: ReplayedEventReplayHandler,
-    receipt_handle: str,
-) -> None:
-
+) -> Optional[ProtocolShipper]:
     event_input: Optional[Input] = config.get_input_by_id(event_input_id)
     if event_input is None:
         raise InputConfigException(f"Cannot load input for input id {event_input_id}")
@@ -56,9 +53,9 @@ def _handle_replay_event(
         assert isinstance(output, ElasticsearchOutput)
         output.es_datastream_name = output_args["es_datastream_name"]
         shared_logger.info("setting ElasticSearch shipper")
-        elasticsearch: ElasticsearchShipper = ShipperFactory.create_from_output(output_type=output_type, output=output)
+        elasticsearch: ProtocolShipper = ShipperFactory.create_from_output(output_type=output_type, output=output)
         elasticsearch.set_replay_handler(replay_handler=replay_handler.replay_handler)
-        elasticsearch.send(event_payload)
-        elasticsearch.flush()
 
-    replay_handler.add_event_id_with_receipt_handle(event_id=event_payload["_id"], receipt_handle=receipt_handle)
+        return elasticsearch
+
+    return None
