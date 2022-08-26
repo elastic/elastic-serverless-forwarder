@@ -4,6 +4,7 @@
 
 import datetime
 import hashlib
+import os
 import time
 from abc import ABCMeta
 from enum import Enum
@@ -12,6 +13,13 @@ from threading import Thread
 from typing import Optional, Protocol, TypeVar
 
 from aws_lambda_typing import context as context_
+
+
+def is_telemetry_enabled() -> bool:
+    try:
+        return bool(os.environ["TELEMETRY_ENABLED"])
+    except KeyError:  # PRODUCTION not in env dict
+        return False
 
 
 class WithExceptionTelemetryEnum(Enum):
@@ -241,12 +249,16 @@ class TelemetryThread(Thread):
                 continue
 
 
-telemetry_thread = TelemetryThread(telemetry_queue)
-telemetry_thread.setDaemon(True)
-telemetry_thread.start()
+if is_telemetry_enabled():
+    telemetry_thread = TelemetryThread(telemetry_queue)
+    telemetry_thread.setDaemon(True)
+    telemetry_thread.start()
 
 
 def events_forwarded_telemetry(sent_events: int, empty_events: int, skipped_events: int) -> None:
+    if not is_telemetry_enabled():
+        return
+
     telemetry_command = EventsForwardedCommand(
         sent_events=sent_events, empty_events=empty_events, skipped_events=skipped_events
     )
@@ -254,11 +266,17 @@ def events_forwarded_telemetry(sent_events: int, empty_events: int, skipped_even
 
 
 def input_has_output_type_telemetry(input_arn: str, output_type: str) -> None:
+    if not is_telemetry_enabled():
+        return
+
     telemetry_command = InputHasOutputTypeCommand(input_arn=input_arn, output_type=output_type)
     telemetry_queue.put(telemetry_command)
 
 
 def input_processed_telemetry(input_arn: str, is_continuing: bool = False) -> None:
+    if not is_telemetry_enabled():
+        return
+
     telemetry_command = InputProcessedCommand(input_arn=input_arn, is_continuing=is_continuing)
     telemetry_queue.put(telemetry_command)
 
@@ -266,6 +284,9 @@ def input_processed_telemetry(input_arn: str, is_continuing: bool = False) -> No
 def lambda_ended_telemetry(
     exception_ignored: bool = False, exception_raised: bool = False, to_be_continued: bool = False
 ) -> None:
+    if not is_telemetry_enabled():
+        return
+
     with_exception = None
     if exception_ignored:
         with_exception = WithExceptionTelemetryEnum.EXCEPTION_IGNORED
@@ -277,6 +298,9 @@ def lambda_ended_telemetry(
 
 
 def lambda_started_telemetry(lambda_context: context_.Context) -> None:
+    if not is_telemetry_enabled():
+        return
+
     telemetry_command = LambdaStartedCommand(
         lambda_arn=lambda_context.invoked_function_arn,
         execution_id=lambda_context.aws_request_id,
@@ -287,5 +311,8 @@ def lambda_started_telemetry(lambda_context: context_.Context) -> None:
 
 
 def output_events_sent_to_replay_telemetry(output_type: str, replayed_events: int) -> None:
+    if not is_telemetry_enabled():
+        return
+
     telemetry_command = OutputEventsSentToReplayCommand(output_type=output_type, replayed_events=replayed_events)
     telemetry_queue.put(telemetry_command)
