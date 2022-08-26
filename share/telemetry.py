@@ -10,15 +10,16 @@ from abc import ABCMeta
 from enum import Enum
 from queue import Empty, Queue
 from threading import Thread
-from typing import Optional, Protocol, TypeVar
+from typing import Any, Optional, Protocol, TypeVar
 
 from aws_lambda_typing import context as context_
 
 
 def is_telemetry_enabled() -> bool:
     try:
+        # @TODO fix this! bool("false") -> True
         return bool(os.environ["TELEMETRY_ENABLED"])
-    except KeyError:  # PRODUCTION not in env dict
+    except KeyError:  # TELEMETRY_ENABLED not in env dict
         return False
 
 
@@ -224,20 +225,39 @@ class OutputEventsSentToReplayCommand(CommonTelemetryCommand):
 
 
 class TelemetryThread(Thread):
-    """TelemetryThread"""
-
     def __init__(self, queue: Queue[ProtocolTelemetryCommand]) -> None:
         Thread.__init__(self)
         self.queue = queue
         self.telemetry_data = TelemetryData()
 
     def _send_telemetry(self) -> None:
-        if not self.telemetry_data.lambda_id or not self.telemetry_data.execution_id:
-            return
+        telemetry_data: dict[str, Any] = {
+            "lambda_id": self.telemetry_data.lambda_id,
+            "execution_id": self.telemetry_data.execution_id,
+            "lambda_region": self.telemetry_data.lambda_region,
+            "memory_limit_in_mb": self.telemetry_data.memory_limit_in_mb,
+            "start_time": self.telemetry_data.memory_limit_in_mb,
+        }
+
+        if self.telemetry_data.end_time:
+            telemetry_data.update(
+                {
+                    "end_time": self.telemetry_data.memory_limit_in_mb,
+                    "with_exception": self.telemetry_data.with_exception,
+                    "to_be_continued": self.telemetry_data.to_be_continued,
+                    "input_outputs_type": self.telemetry_data.input_outputs_type,
+                    "input_is_continuing": self.telemetry_data.input_is_continuing,
+                    "events_forwarded": self.telemetry_data.events_forwarded,
+                    "output_sent_to_replay": self.telemetry_data.output_sent_to_replay,
+                }
+            )
+
+        # @TODO: send the data
 
     def _execute_command(self, command: ProtocolTelemetryCommand) -> None:
         self.telemetry_data = command.execute(self.telemetry_data)
-        self._send_telemetry()
+        if isinstance(command, LambdaStartedCommand) or isinstance(command, LambdaEndedCommand):
+            self._send_telemetry()
 
     def run(self) -> None:
         while True:
