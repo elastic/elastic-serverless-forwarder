@@ -12,3 +12,11 @@ from .logger import logger as shared_logger
 from .multiline import CollectBuffer, CountMultiline, PatternMultiline, ProtocolMultiline, WhileMultiline
 from .secretsmanager import aws_sm_expander
 from .utils import get_hex_prefix
+from .telemetry import (
+    events_forwarded_telemetry,
+    input_has_output_type_telemetry,
+    input_processed_telemetry,
+    lambda_ended_telemetry,
+    lambda_started_telemetry,
+    output_events_sent_to_replay_telemetry,
+)
