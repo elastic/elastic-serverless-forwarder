@@ -3040,7 +3040,8 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
 
         # Remove the expected ids so that they can be replayed
         self._es_client.delete_by_query(
-            index="logs-aws.cloudtrail-default", body={"query": {"ids": {"values": ["c2fe2a3df7-000000000000", "c2fe2a3df7-000000000345"]}}}
+            index="logs-aws.cloudtrail-default",
+            body={"query": {"ids": {"values": ["c2fe2a3df7-000000000000", "c2fe2a3df7-000000000345"]}}},
         )
         self._es_client.indices.refresh(index="logs-aws.cloudtrail-default")
 
