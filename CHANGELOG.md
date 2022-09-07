@@ -1,3 +1,7 @@
+### v1.4.0 - 2022/08/11
+##### Features
+* Allow to use a CloudWatch Logs Log Stream ARN as ID for `cloudwatch-logs` input type: [#160](https://github.com/elastic/elastic-serverless-forwarder/pull/160)
+
 ### v1.3.0 - 2022/08/11
 ##### Features
 * Add `json_content_type` input setting as optional hint for json content auto discovery: [#145](https://github.com/elastic/elastic-serverless-forwarder/pull/145)
