@@ -10,12 +10,13 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       InlineCode: |
+        import hashlib
         import random
         import string
 
 
-        def random_suffix():
-            return "".join(random.choices(string.ascii_letters + string.digits, k=10))
+        def hex_suffix(src):
+            return hashlib.sha256(src.encode("UTF-8")).hexdigest()[:10]
 
         def create_events(event):
             events_fragment = {}
@@ -26,7 +27,7 @@ Resources:
                     if len(kinesis_event) == 0:
                         continue
 
-                    kinesis_event_name = f"KinesisEvent{random_suffix()}"
+                    kinesis_event_name = f"KinesisEvent{hex_suffix(kinesis_event)}"
                     events_fragment[kinesis_event_name] = {
                         "Type": "Kinesis",
                         "Properties": {
@@ -43,7 +44,7 @@ Resources:
                     if len(sqs_event) == 0:
                         continue
 
-                    sqs_event_name = f"SQSEvent{random_suffix()}"
+                    sqs_event_name = f"SQSEvent{hex_suffix(sqs_event)}"
                     events_fragment[sqs_event_name] = {
                         "Type": "SQS",
                         "Properties": {
@@ -59,7 +60,7 @@ Resources:
                     if len(s3_sqs_event) == 0:
                         continue
 
-                    s3_sqs_event_name = f"S3SQSEvent{random_suffix()}"
+                    s3_sqs_event_name = f"S3SQSEvent{hex_suffix(s3_sqs_event)}"
                     events_fragment[s3_sqs_event_name] = {
                         "Type": "SQS",
                         "Properties": {
@@ -78,8 +79,8 @@ Resources:
                     arn_components = cloudwatch_logs_event.split(":")
                     cloudwatch_logs_group_name = arn_components[6]
 
-                    cloudwatch_logs_event_name = f"CloudWatchLogsEvent{random_suffix()}"
-                    events_fragment[cloudwatch_logs_event_name] = {
+                    cloudwatch_logs_event_name = f"CloudWatchLogsEvent{hex_suffix(cloudwatch_logs_group_name)}"
+                    events_fragment[cloudwatch_logs_group_name] = {
                         "Type": "CloudWatchLogs",
                         "Properties": {
                             "FilterPattern": "",
@@ -154,19 +155,34 @@ Resources:
                     )
 
             if "ElasticServerlessForwarderCloudWatchLogsEvents" in parameters:
-                cloudwatch_logs_group_arn = [f"{':'.join(x[0:-1])}:*:*" if len(x) == 7 else f"{':'.join(x[0:-2])}:*:*"
-                                             for x
-                                             in
-                                             [x.split(':') for x in
-                                              parameters["ElasticServerlessForwarderCloudWatchLogsEvents"]
-                                              if len(x.strip()) > 0]]
+                cloudwatch_logs_group_arn = {}
+                cloudwatch_logs_stream_arn = {}
+                cloudwatch_logs_event_arns = [x.split(':') for x in parameters["ElasticServerlessForwarderCloudWatchLogsEvents"] if len(x.strip()) > 0]
+                for cloudwatch_logs_event_arn in cloudwatch_logs_event_arns:
+                    if len(cloudwatch_logs_event_arn) == 7:
+                        cloudwatch_logs_group_arn[f"{':'.join(x[0:-1])}:*:*"] = True
+                        cloudwatch_logs_stream_arn[f"{':'.join(x)}:log-stream:*"] = True
+                    elif len(cloudwatch_logs_event_arn) == 8:
+                        cloudwatch_logs_group_arn[f"{':'.join(x[0:-2])}:*:*"] = True
+                        cloudwatch_logs_stream_arn[f"{':'.join(x[0:-1])}:log-stream:*"] = True
+                    elif len(cloudwatch_logs_event_arn) == 9:
+                        cloudwatch_logs_group_arn[f"{':'.join(x[0:-3])}:*:*"] = True
+                        cloudwatch_logs_stream_arn[f"{':'.join(x[0:-1])}"] = True
+
 
                 if len(cloudwatch_logs_group_arn) > 0:
                     policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
                         {
                             "Effect": "Allow",
                             "Action": "logs:DescribeLogGroups",
-                            "Resource": cloudwatch_logs_group_arn[0]
+                            "Resource": cloudwatch_logs_group_arn.keys()
+                        }
+                    )
+                    policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
+                        {
+                            "Effect": "Allow",
+                            "Action": "logs:DescribeLogStreams",
+                            "Resource": cloudwatch_logs_stream_arn.keys()
                         }
                     )
 
