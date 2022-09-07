@@ -152,7 +152,8 @@ There are several deployment methods available via AWS SAR:
     ```
 
 **Note:**
-Due to a [bug](https://github.com/aws/serverless-application-model/issues/1320) in AWS CloudFormation, if you want to update the Events settings for the deployment, you will have to manually delete existing settings before applying the new settings.
+Starting from **v1.4.0**, if you want to update the Events settings for the deployment, it is no longer required to manually delete existing settings before applying the new settings.
+
 
 ### Deploy using Terraform
 
@@ -198,7 +199,7 @@ Due to a [bug](https://github.com/aws/serverless-application-model/issues/1320) 
     ```
 
 **Notes:**
-* Due to a [bug](https://github.com/aws/serverless-application-model/issues/1320) in AWS CloudFormation, if you want to update the Events settings for the deployment, you will have to manually delete existing settings before applying the new settings.
+* Starting from **v1.4.0**, if you want to update the Events settings for the deployment, it is no longer required to manually delete existing settings before applying the new settings.
 * Due to a [bug](https://github.com/hashicorp/terraform-provider-aws/issues/24771) in Terraform related to `aws_serverlessapplicationrepository_application`, if you want to delete existing Event parameters you have to set the related `aws_serverlessapplicationrepository_cloudformation_stack.parameters` to a blank space value (`" "`) instead of an empty string (`""`).
 
 
