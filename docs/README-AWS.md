@@ -209,9 +209,9 @@ You can view the execution role associated with your function from the *Configur
 
 The Lambda funcion is given the following `ManagedPolicyArns` permissions. By default these are automatically added if relevant to the Events configuration:
 ```
-arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole`
-arn:aws:iam::aws:policy/service-role/AWSLambdaKinesisExecutionRole`
-arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole`
+arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+arn:aws:iam::aws:policy/service-role/AWSLambdaKinesisExecutionRole
+arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole
 ```
 
 In addition to these basic permissions, the following permissions are added <!-- how? by whom?-->:
@@ -249,9 +249,9 @@ In addition to these basic permissions, the following permissions are added <!--
 #### Lambda resource-based policy for CloudWatch Logs subscription filter input
 For CloudWatch Logs subscription filter log group resources that you want to use as triggers of the Lambda function, the following is allowed as a resource-based policy in separate Policy statements:
 ```
-  * Principal: `logs.%AWS_REGION%.amazonaws.com`
-  * Action: `lambda:InvokeFunction`
-  * Source ARN: `arn:aws:logs:%AWS_REGION%:%AWS_ACCOUNT_ID%:log-group:%LOG_GROUP_NAME%:*`
+  * Principal: logs.%AWS_REGION%.amazonaws.com
+  * Action: lambda:InvokeFunction
+  * Source ARN: arn:aws:logs:%AWS_REGION%:%AWS_ACCOUNT_ID%:log-group:%LOG_GROUP_NAME%:*
 ```
 
 ## Sample S3 config file
@@ -320,6 +320,21 @@ inputs:
           es_datastream_name: "logs-generic-default"
           batch_max_actions: 500
           batch_max_bytes: 10485760
+  - type: "cloudwatch-logs"
+    id: "arn:aws:logs:%AWS_REGION%:%AWS_ACCOUNT_ID%:log-group:%LOG_GROUP_NAME%:log-stream:%LOG_STREAM_NAME%"
+    outputs:
+      - type: "elasticsearch"
+        args:
+          # either elasticsearch_url or cloud_id, elasticsearch_url takes precedence
+          elasticsearch_url: "http(s)://domain.tld:port"
+          cloud_id: "cloud_id:bG9jYWxob3N0OjkyMDAkMA=="
+          # either api_key or username/password, api_key takes precedence
+          api_key: "YXBpX2tleV9pZDphcGlfa2V5X3NlY3JldAo="
+          username: "username"
+          password: "password"
+          es_datastream_name: "logs-generic-default"
+          batch_max_actions: 500
+          batch_max_bytes: 10485760
 ```
 
 ### Fields
@@ -334,6 +349,7 @@ The type of the trigger input (currently `cloudwatch-logs`, `kinesis-data-stream
 `inputs.[].id`:
 
 The ARN of the trigger input according to the type. Multiple input entries can have different unique ids with the same type.
+Inputs of type `cloudwatch-logs` accept both CloudWatch Logs Log Group and CloudWatch Logs Log Stream ARNs.
 
 `inputs.[].outputs`:
 
