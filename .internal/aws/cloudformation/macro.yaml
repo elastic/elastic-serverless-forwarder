@@ -32,7 +32,7 @@ Resources:
                         "Type": "Kinesis",
                         "Properties": {
                             "Stream": kinesis_event,
-                            "StartingPosition": "LATEST",
+                            "StartingPosition": "TRIM_HORIZON",
                             "BatchSize": 10,
                             "Enabled": True,
                         }
