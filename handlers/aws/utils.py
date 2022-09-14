@@ -393,32 +393,32 @@ def get_account_id_from_arn(lambda_arn: str) -> str:
     return arn_components[4]
 
 
-def get_log_group_arn_and_region_from_log_group_name(log_group_name: str) -> tuple[str, str]:
+def get_log_group_arn_and_region_from_log_group_name(log_group_name: str, log_stream_name: str) -> tuple[str, str]:
     """
     Return cloudwatch log group arn given a log group name
     """
     logs_client = get_cloudwatch_logs_client()
 
-    describe_log_groups_kwargs = {"logGroupNamePrefix": log_group_name, "limit": 50}
+    describe_log_streams_kwargs = {"logGroupName": log_group_name, "logStreamNamePrefix": log_stream_name, "limit": 50}
     while True:
-        log_groups = logs_client.describe_log_groups(**describe_log_groups_kwargs)
+        log_streams = logs_client.describe_log_streams(**describe_log_streams_kwargs)
 
-        assert "logGroups" in log_groups
+        assert "logStreams" in log_streams
 
-        for log_group in log_groups["logGroups"]:
-            if "logGroupName" in log_group and log_group["logGroupName"] == log_group_name:
-                log_group_arn = log_group["arn"]
-                region = log_group_arn.split(":")[3]
+        for log_stream in log_streams["logStreams"]:
+            if "logStreamName" in log_stream and log_stream["logStreamName"] == log_stream_name:
+                log_stream_arn = log_stream["arn"]
+                region = log_stream_arn.split(":")[3]
 
-                return log_group_arn, region
+                return log_stream_arn, region
 
-        if "nextToken" in log_groups and len(log_groups["nextToken"]) > 0:
-            describe_log_groups_kwargs["nextToken"] = log_groups["nextToken"]
+        if "nextToken" in log_streams and len(log_streams["nextToken"]) > 0:
+            describe_log_streams_kwargs["nextToken"] = log_streams["nextToken"]
         else:
-            describe_log_groups_kwargs["nextToken"] = ""
+            describe_log_streams_kwargs["nextToken"] = ""
             break
 
-    raise ValueError("Cannot find cloudwatch log group ARN")
+    raise ValueError("Cannot find cloudwatch log stream ARN")
 
 
 def delete_sqs_record(sqs_arn: str, receipt_handle: str) -> None:

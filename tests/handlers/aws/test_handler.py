@@ -242,39 +242,41 @@ _s3_client_mock.download_fileobj = _download_fileobj
 _s3_client_mock.get_object = _get_object
 
 
-def _describe_log_groups(*args: Any, **kwargs: Any) -> dict[str, Any]:
+def _describe_log_streams(*args: Any, **kwargs: Any) -> dict[str, Any]:
     if "nextToken" not in kwargs:
         next_token = "0"
     else:
         next_token = "0" * (len(kwargs["nextToken"]) + 1)
 
     if len(next_token) > 2:
-        if kwargs["logGroupNamePrefix"] == "logGroupNotMatching":
-            log_group_name = "let_not_match"
+        log_group_name = kwargs["logGroupName"]
+
+        if kwargs["logStreamNamePrefix"] == "logStreamNotMatching":
+            log_stream_name = "let_not_match"
         else:
-            log_group_name = kwargs["logGroupNamePrefix"]
+            log_stream_name = kwargs["logStreamNamePrefix"]
 
         return {
-            "logGroups": [
-                {"logGroupName": "string", "arn": "string"},
+            "logStreams": [
+                {"logStreamName": "string", "arn": "string"},
                 {
-                    "logGroupName": log_group_name,
-                    "arn": f"arn:aws:logs:us-east-1:000000000000:log-group:{log_group_name}:*",
+                    "logStreamName": log_stream_name,
+                    "arn": f"arn:aws:logs:us-east-1:000000000000:log-group:{log_group_name}:{log_stream_name}",
                 },
             ]
         }
 
     return {
-        "logGroups": [
-            {"logGroupName": "another_string", "arn": "another_string"},
-            {"logGroupName": "another_string_2", "arn": "another_string_2"},
+        "logStreams": [
+            {"logStreamName": "another_string", "arn": "another_string"},
+            {"logStreamName": "another_string_2", "arn": "another_string_2"},
         ],
         "nextToken": next_token,
     }
 
 
 _cloudwatch_logs_client = mock.Mock()
-_cloudwatch_logs_client.describe_log_groups = _describe_log_groups
+_cloudwatch_logs_client.describe_log_streams = _describe_log_streams
 
 
 def _apm_capture_serverless() -> Any:
@@ -430,11 +432,11 @@ class TestLambdaHandlerNoop(TestCase):
             ctx = ContextMock()
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
             lambda_event = {
-                "awslogs": {"data": json_dumper({"logGroup": "logGroupNotMatching", "logStream": "logStream"})}
+                "awslogs": {"data": json_dumper({"logGroup": "logGroup", "logStream": "logStreamNotMatching"})}
             }
             assert (
                 handler(lambda_event, ctx) == "exception raised: "  # type:ignore
-                "ValueError('Cannot find cloudwatch log group ARN')"
+                "ValueError('Cannot find cloudwatch log stream ARN')"
             )
 
         with self.subTest("raising unexpected exception"):
@@ -1246,12 +1248,16 @@ def _event_from_sqs_message(queue_attributes: dict[str, Any]) -> dict[str, Any]:
     return dict(Records=collected_messages)
 
 
-def _create_cloudwatch_logs_group_and_stream(group_name: str, stream_name: str) -> Any:
+def _create_cloudwatch_logs_stream(group_name: str, stream_name: str) -> Any:
     logs_client = aws_stack.connect_to_service("logs")
-    logs_client.create_log_group(logGroupName=group_name)
     logs_client.create_log_stream(logGroupName=group_name, logStreamName=stream_name)
 
-    return logs_client.describe_log_groups(logGroupNamePrefix=group_name)["logGroups"][0]
+    return logs_client.describe_log_streams(logGroupName=group_name, logStreamNamePrefix=stream_name)["logStreams"][0]
+
+
+def _create_cloudwatch_logs_group(group_name: str) -> Any:
+    logs_client = aws_stack.connect_to_service("logs")
+    logs_client.create_log_group(logGroupName=group_name)
 
 
 def _event_to_cloudwatch_logs(group_name: str, stream_name: str, messages_body: list[str]) -> None:
@@ -1513,15 +1519,24 @@ class IntegrationTestCase(TestCase):
 
         self._cloudwatch_logs_groups_info = {}
         for cloudwatch_logs_group in self._cloudwatch_logs_groups:
-            self._cloudwatch_logs_groups_info[
-                cloudwatch_logs_group["group_name"]
-            ] = _create_cloudwatch_logs_group_and_stream(
+            _create_cloudwatch_logs_group(group_name=cloudwatch_logs_group["group_name"])
+            self._cloudwatch_logs_groups_info[cloudwatch_logs_group["stream_name"]] = _create_cloudwatch_logs_stream(
                 group_name=cloudwatch_logs_group["group_name"], stream_name=cloudwatch_logs_group["stream_name"]
             )
 
+            arn_for_input_id: str = self._cloudwatch_logs_groups_info[cloudwatch_logs_group["stream_name"]]["arn"]
+            if "input_id_type" in cloudwatch_logs_group and cloudwatch_logs_group["input_id_type"] == "group_arn":
+                log_group_arn_components = arn_for_input_id.split(":")
+                arn_for_input_id = f"{':'.join(log_group_arn_components[:-2])}:*"
+
+                different_stream_name = f"{cloudwatch_logs_group['stream_name']}-different"
+                _create_cloudwatch_logs_stream(
+                    group_name=cloudwatch_logs_group["group_name"], stream_name=different_stream_name
+                )
+
             self._config_yaml += f"""
               - type: "cloudwatch-logs"
-                id: "{self._cloudwatch_logs_groups_info[cloudwatch_logs_group["group_name"]]["arn"]}"
+                id: "{arn_for_input_id}"
                 exclude:
                   - "excluded"
                 tags:
@@ -1612,7 +1627,9 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             {"name": "source-sqs-queue", "type": "sqs"},
             {"name": "source-no-conf-queue"},
         ]
-        self._cloudwatch_logs_groups = [{"group_name": "source-group", "stream_name": "source-stream"}]
+        self._cloudwatch_logs_groups = [
+            {"group_name": "source-group", "stream_name": "source-stream", "input_id_type": "group_arn"}
+        ]
 
         super(TestLambdaHandlerSuccessMixedInput, self).setUp()
 
@@ -1699,14 +1716,26 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         hex_prefix_sqs = hashlib.sha256(src.encode("UTF-8")).hexdigest()[:10]
 
         _event_to_cloudwatch_logs(
-            group_name="source-group", stream_name="source-stream", messages_body=[self._cloudwatch_log]
+            group_name="source-group",
+            stream_name="source-stream",
+            messages_body=[self._first_log_entry + self._second_log_entry],
         )
         event_cloudwatch_logs, event_ids_cloudwatch_logs = _event_from_cloudwatch_logs(
             group_name="source-group", stream_name="source-stream"
         )
 
+        _event_to_cloudwatch_logs(
+            group_name="source-group", stream_name="source-stream-different", messages_body=[self._third_log_entry]
+        )
+        event_cloudwatch_logs_different, event_ids_cloudwatch_logs_different = _event_from_cloudwatch_logs(
+            group_name="source-group", stream_name="source-stream-different"
+        )
+
         src = f"source-groupsource-stream{event_ids_cloudwatch_logs[0]}"
         hex_prefix_cloudwatch_logs = hashlib.sha256(src.encode("UTF-8")).hexdigest()[:10]
+
+        src = f"source-groupsource-stream-different{event_ids_cloudwatch_logs_different[0]}"
+        hex_prefix_cloudwatch_logs_different = hashlib.sha256(src.encode("UTF-8")).hexdigest()[:10]
 
         # Create an expected id for s3-sqs so that es.send will fail
         self._es_client.index(
@@ -1880,21 +1909,27 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
+        fourth_call = handler(event_cloudwatch_logs_different, ctx)  # type:ignore
+
+        assert fourth_call == "completed"
+
+        self._es_client.indices.refresh(index="logs-generic-default")
         res = self._es_client.search(
-            index="logs-generic-default", query={"ids": {"values": [f"{hex_prefix_cloudwatch_logs}-000000000399"]}}
+            index="logs-generic-default",
+            query={"ids": {"values": [f"{hex_prefix_cloudwatch_logs_different}-000000000000"]}},
         )
 
         assert res["hits"]["hits"][0]["_source"]["message"] == self._third_log_entry.rstrip("\n")
 
         assert res["hits"]["hits"][0]["_source"]["log"] == {
-            "offset": 399,
-            "file": {"path": "source-group/source-stream"},
+            "offset": 0,
+            "file": {"path": "source-group/source-stream-different"},
         }
         assert res["hits"]["hits"][0]["_source"]["aws"] == {
             "cloudwatch": {
                 "log_group": "source-group",
-                "log_stream": "source-stream",
-                "event_id": event_ids_cloudwatch_logs[0],
+                "log_stream": "source-stream-different",
+                "event_id": event_ids_cloudwatch_logs_different[0],
             }
         }
         assert res["hits"]["hits"][0]["_source"]["cloud"] == {
@@ -2045,14 +2080,26 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         hex_prefix_sqs = hashlib.sha256(src.encode("UTF-8")).hexdigest()[:10]
 
         _event_to_cloudwatch_logs(
-            group_name="source-group", stream_name="source-stream", messages_body=[self._cloudwatch_log]
+            group_name="source-group",
+            stream_name="source-stream",
+            messages_body=[self._first_log_entry + self._second_log_entry],
         )
         event_cloudwatch_logs, event_ids_cloudwatch_logs = _event_from_cloudwatch_logs(
             group_name="source-group", stream_name="source-stream"
         )
 
+        _event_to_cloudwatch_logs(
+            group_name="source-group", stream_name="source-stream-different", messages_body=[self._third_log_entry]
+        )
+        event_cloudwatch_logs_different, event_ids_cloudwatch_logs_different = _event_from_cloudwatch_logs(
+            group_name="source-group", stream_name="source-stream-different"
+        )
+
         src = f"source-groupsource-stream{event_ids_cloudwatch_logs[0]}"
         hex_prefix_cloudwatch_logs = hashlib.sha256(src.encode("UTF-8")).hexdigest()[:10]
+
+        src = f"source-groupsource-stream-different{event_ids_cloudwatch_logs_different[0]}"
+        hex_prefix_cloudwatch_logs_different = hashlib.sha256(src.encode("UTF-8")).hexdigest()[:10]
 
         first_call = handler(s3_events, ctx)  # type:ignore
 
@@ -2141,23 +2188,56 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
-        continued_events = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
-        continued_events["Records"].append(event_no_config["Records"][0])
-
-        fourth_call = handler(continued_events, ctx)  # type:ignore
+        fourth_call = handler(event_cloudwatch_logs_different, ctx)  # type:ignore
 
         assert fourth_call == "continuing"
 
         self._es_client.indices.refresh(index="logs-generic-default")
-        assert self._es_client.count(index="logs-generic-default")["count"] == 3
+        assert self._es_client.count(index="logs-generic-default")["count"] == 4
+
+        res = self._es_client.search(
+            index="logs-generic-default",
+            query={"ids": {"values": [f"{hex_prefix_cloudwatch_logs_different}-000000000000"]}},
+        )
+
+        assert res["hits"]["hits"][0]["_source"]["message"] == self._third_log_entry.rstrip("\n")
+
+        assert res["hits"]["hits"][0]["_source"]["log"] == {
+            "offset": 0,
+            "file": {"path": "source-group/source-stream-different"},
+        }
+        assert res["hits"]["hits"][0]["_source"]["aws"] == {
+            "cloudwatch": {
+                "log_group": "source-group",
+                "log_stream": "source-stream-different",
+                "event_id": event_ids_cloudwatch_logs_different[0],
+            }
+        }
+        assert res["hits"]["hits"][0]["_source"]["cloud"] == {
+            "account": {"id": "000000000000"},
+            "provider": "aws",
+            "region": "us-east-1",
+        }
+
+        assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
         continued_events = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        continued_events["Records"].append(event_no_config["Records"][0])
+
         fifth_call = handler(continued_events, ctx)  # type:ignore
 
         assert fifth_call == "continuing"
 
         self._es_client.indices.refresh(index="logs-generic-default")
         assert self._es_client.count(index="logs-generic-default")["count"] == 4
+
+        continued_events = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        sixth_call = handler(continued_events, ctx)  # type:ignore
+
+        assert sixth_call == "continuing"
+
+        self._es_client.indices.refresh(index="logs-generic-default")
+        assert self._es_client.count(index="logs-generic-default")["count"] == 5
 
         res = self._es_client.search(
             index="logs-generic-default", query={"ids": {"values": ["17b2d3c934-000000000098"]}}
@@ -2186,9 +2266,9 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         ctx = ContextMock(remaining_time_in_millis=2)
 
         continued_events = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
-        sixth_call = handler(continued_events, ctx)  # type:ignore
+        seventh_call = handler(continued_events, ctx)  # type:ignore
 
-        assert sixth_call == "completed"
+        assert seventh_call == "completed"
 
         self._es_client.indices.refresh(index="logs-generic-default")
         assert self._es_client.count(index="logs-generic-default")["count"] == 9
@@ -2275,31 +2355,6 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         }
         assert res["hits"]["hits"][0]["_source"]["aws"] == {
             "sqs": {"name": "source-sqs-queue", "message_id": message_id}
-        }
-        assert res["hits"]["hits"][0]["_source"]["cloud"] == {
-            "account": {"id": "000000000000"},
-            "provider": "aws",
-            "region": "us-east-1",
-        }
-
-        assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
-
-        res = self._es_client.search(
-            index="logs-generic-default", query={"ids": {"values": [f"{hex_prefix_cloudwatch_logs}-000000000399"]}}
-        )
-
-        assert res["hits"]["hits"][0]["_source"]["message"] == self._third_log_entry.rstrip("\n")
-
-        assert res["hits"]["hits"][0]["_source"]["log"] == {
-            "offset": 399,
-            "file": {"path": "source-group/source-stream"},
-        }
-        assert res["hits"]["hits"][0]["_source"]["aws"] == {
-            "cloudwatch": {
-                "log_group": "source-group",
-                "log_stream": "source-stream",
-                "event_id": event_ids_cloudwatch_logs[0],
-            }
         }
         assert res["hits"]["hits"][0]["_source"]["cloud"] == {
             "account": {"id": "000000000000"},

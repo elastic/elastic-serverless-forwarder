@@ -127,15 +127,23 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
     if trigger_type == "cloudwatch-logs":
         cloudwatch_logs_event = _from_awslogs_data_to_event(lambda_event["awslogs"]["data"])
-        log_group_arn, aws_region = get_log_group_arn_and_region_from_log_group_name(cloudwatch_logs_event["logGroup"])
-        input_id = log_group_arn
+        log_stream_arn, aws_region = get_log_group_arn_and_region_from_log_group_name(
+            cloudwatch_logs_event["logGroup"], cloudwatch_logs_event["logStream"]
+        )
+        input_id = log_stream_arn
 
         event_input = config.get_input_by_id(input_id)
 
         if event_input is None:
-            shared_logger.warning("no input defined", extra={"input_type": trigger_type, "input_id": input_id})
+            log_group_arn_components = log_stream_arn.split(":")
+            input_id = f"{':'.join(log_group_arn_components[:-2])}:*"
 
-            return "completed"
+            event_input = config.get_input_by_id(input_id)
+
+            if event_input is None:
+                shared_logger.warning("no input defined", extra={"input_type": trigger_type, "input_id": input_id})
+
+                return "completed"
 
         composite_shipper = get_shipper_from_input(
             event_input=event_input, lambda_event=lambda_event, at_record=0, config_yaml=config_yaml
