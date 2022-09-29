@@ -1,6 +1,6 @@
 mock>=4.0,<4.1
 pytest>=7.0,<7.2
-pytest-cov>=3.0,<3.1
+pytest-cov>=3.0,<4.1
 pytest-benchmark>=3.4,<3.5
 coverage>=6.3,<6.5
 localstack[runtime]>=1.0,<1.2
