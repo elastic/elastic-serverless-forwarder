@@ -17,7 +17,7 @@ class ProtocolShipper(Protocol):
     """
     Protocol for Shipper components
     """
-    
+
     @abstractmethod
     def send(self, event: dict[str, Any]) -> str:
         pass  # pragma: no cover

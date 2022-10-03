@@ -43,9 +43,7 @@ class ShipperFactory:
                 batch_max_bytes=output.batch_max_bytes,
             )
 
-        raise ValueError(
-            f"You must provide one of the following outputs: " f"{', '.join(_shippers.keys())}"
-        )
+        raise ValueError(f"You must provide one of the following outputs: " f"{', '.join(_shippers.keys())}")
 
     @staticmethod
     def create(output_type: str, **kwargs: Any) -> ProtocolShipper:
@@ -54,8 +52,6 @@ class ShipperFactory:
         """
 
         if output_type not in _shippers:
-            raise ValueError(
-                f"You must provide one of the following outputs: " f"{', '.join(_shippers.keys())}"
-            )
+            raise ValueError(f"You must provide one of the following outputs: " f"{', '.join(_shippers.keys())}")
 
         return _shippers[output_type](**kwargs)
