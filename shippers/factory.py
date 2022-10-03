@@ -23,7 +23,9 @@ class ShipperFactory:
     """
 
     @staticmethod
-    def create_from_output(output_type: str, output: Output) -> ProtocolShipperType:
+    def create_from_output(
+        output_type: str, output: Output
+    ) -> ProtocolShipperType:  # type:ignore # https://github.com/python/mypy/issues/13765
         """
         Instantiates a concrete Shipper given an output type and an Output instance
         """
@@ -50,7 +52,9 @@ class ShipperFactory:
         )
 
     @staticmethod
-    def create(output_type: str, **kwargs: Any) -> ProtocolShipperType:
+    def create(
+        output_type: str, **kwargs: Any
+    ) -> ProtocolShipperType:  # type:ignore # https://github.com/python/mypy/issues/13765
         """
         Instantiates a concrete Shipper given an output type and the shipper init kwargs
         """
