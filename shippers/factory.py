@@ -7,7 +7,7 @@ from typing import Any, Callable
 from share.config import ElasticsearchOutput, Output
 
 from .es import ElasticsearchShipper
-from .shipper import ProtocolShipperType
+from .shipper import ProtocolShipper
 
 _init_definition_by_output: dict[str, dict[str, Any]] = {
     "elasticsearch": {
@@ -23,9 +23,7 @@ class ShipperFactory:
     """
 
     @staticmethod
-    def create_from_output(
-        output_type: str, output: Output
-    ) -> ProtocolShipperType:  # type:ignore # https://github.com/python/mypy/issues/13765
+    def create_from_output(output_type: str, output: Output) -> ProtocolShipper:
         """
         Instantiates a concrete Shipper given an output type and an Output instance
         """
@@ -52,9 +50,7 @@ class ShipperFactory:
         )
 
     @staticmethod
-    def create(
-        output_type: str, **kwargs: Any
-    ) -> ProtocolShipperType:  # type:ignore # https://github.com/python/mypy/issues/13765
+    def create(output_type: str, **kwargs: Any) -> ProtocolShipper:
         """
         Instantiates a concrete Shipper given an output type and the shipper init kwargs
         """
@@ -66,6 +62,6 @@ class ShipperFactory:
 
         output_definition = _init_definition_by_output[output_type]
 
-        output_builder: Callable[..., ProtocolShipperType] = output_definition["class"]
+        output_builder: Callable[..., ProtocolShipper] = output_definition["class"]
 
         return output_builder(**kwargs)
