@@ -12,7 +12,7 @@ from elasticsearch.serializer import Serializer
 
 from share import json_dumper, json_parser, shared_logger
 
-from .shipper import EventIdGeneratorCallable, ReplayHandlerCallable
+from .shipper import EventIdGeneratorCallable, ProtocolShipper, ReplayHandlerCallable
 
 _EVENT_BUFFERED = "_EVENT_BUFFERED"
 _EVENT_SENT = "_EVENT_SENT"
@@ -40,7 +40,7 @@ class JSONSerializer(Serializer):
             raise SerializationError(data, e)
 
 
-class ElasticsearchShipper:
+class ElasticsearchShipper(ProtocolShipper):
     """
     Elasticsearch Shipper.
     This class implements concrete Elasticsearch Shipper

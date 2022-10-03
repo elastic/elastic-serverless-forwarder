@@ -5,7 +5,7 @@
 from typing import Any, Optional
 
 from share import Config, ElasticsearchOutput, Input, Output, shared_logger
-from shippers import ElasticsearchShipper, ShipperFactory
+from shippers import ShipperFactory
 
 from .exceptions import InputConfigException, OutputConfigException, ReplayHandlerException
 from .utils import delete_sqs_record
@@ -56,7 +56,7 @@ def _handle_replay_event(
         assert isinstance(output, ElasticsearchOutput)
         output.es_datastream_name = output_args["es_datastream_name"]
         shared_logger.info("setting ElasticSearch shipper")
-        elasticsearch: ElasticsearchShipper = ShipperFactory.create_from_output(output_type=output_type, output=output)
+        elasticsearch = ShipperFactory.create_from_output(output_type=output_type, output=output)
         elasticsearch.set_replay_handler(replay_handler=replay_handler.replay_handler)
         elasticsearch.send(event_payload)
         elasticsearch.flush()

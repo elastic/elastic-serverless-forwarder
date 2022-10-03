@@ -2,17 +2,15 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
-from typing import Any, Callable
+from typing import Any, Type
 
 from share.config import ElasticsearchOutput, Output
 
 from .es import ElasticsearchShipper
-from .shipper import ProtocolShipperType
+from .shipper import ProtocolShipper
 
-_init_definition_by_output: dict[str, dict[str, Any]] = {
-    "elasticsearch": {
-        "class": ElasticsearchShipper,
-    }
+_shippers: dict[str, Type[ProtocolShipper]] = {
+    "elasticsearch": ElasticsearchShipper,
 }
 
 
@@ -23,7 +21,7 @@ class ShipperFactory:
     """
 
     @staticmethod
-    def create_from_output(output_type: str, output: Output) -> ProtocolShipperType:
+    def create_from_output(output_type: str, output: Output) -> ProtocolShipper:
         """
         Instantiates a concrete Shipper given an output type and an Output instance
         """
@@ -46,22 +44,18 @@ class ShipperFactory:
             )
 
         raise ValueError(
-            f"You must provide one of the following outputs: " f"{', '.join(_init_definition_by_output.keys())}"
+            f"You must provide one of the following outputs: " f"{', '.join(_shippers.keys())}"
         )
 
     @staticmethod
-    def create(output_type: str, **kwargs: Any) -> ProtocolShipperType:
+    def create(output_type: str, **kwargs: Any) -> ProtocolShipper:
         """
         Instantiates a concrete Shipper given an output type and the shipper init kwargs
         """
 
-        if output_type not in _init_definition_by_output:
+        if output_type not in _shippers:
             raise ValueError(
-                f"You must provide one of the following outputs: " f"{', '.join(_init_definition_by_output.keys())}"
+                f"You must provide one of the following outputs: " f"{', '.join(_shippers.keys())}"
             )
 
-        output_definition = _init_definition_by_output[output_type]
-
-        output_builder: Callable[..., ProtocolShipperType] = output_definition["class"]
-
-        return output_builder(**kwargs)
+        return _shippers[output_type](**kwargs)
