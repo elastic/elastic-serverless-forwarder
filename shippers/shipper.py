@@ -28,6 +28,3 @@ class ProtocolShipper(Protocol):
 
     def flush(self) -> None:
         pass  # pragma: no cover
-
-
-ProtocolShipperType = TypeVar("ProtocolShipperType", bound=ProtocolShipper)

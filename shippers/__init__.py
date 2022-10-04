@@ -11,6 +11,5 @@ from .shipper import (
     EVENT_IS_SENT,
     EventIdGeneratorCallable,
     ProtocolShipper,
-    ProtocolShipperType,
     ReplayHandlerCallable,
 )
