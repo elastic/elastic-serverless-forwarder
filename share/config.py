@@ -176,6 +176,35 @@ class ElasticsearchOutput(Output):
         self._batch_max_bytes = value
 
 
+class LogstashOutput(Output):
+    def __init__(self, host: str = "", port: str = "") -> None:
+        super().__init__(output_type="logstash")
+        self._host = host
+        self._port = port
+
+    @property
+    def host(self) -> str:
+        return self._host
+
+    @host.setter
+    def host(self, value: str) -> None:
+        if not isinstance(value, str):
+            raise ValueError("`host` must be provided as string")
+
+        self._host = value
+
+    @property
+    def port(self) -> str:
+        return self._port
+
+    @port.setter
+    def port(self, value: str) -> None:
+        if not isinstance(value, str):
+            raise ValueError("`port` must be provided as string")
+
+        self._port = value
+
+
 class Input:
     """
     Base class for Input component

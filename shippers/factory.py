@@ -4,15 +4,22 @@
 
 from typing import Any, Callable
 
-from share.config import ElasticsearchOutput, Output
+from share.config import ElasticsearchOutput, LogstashOutput, Output
 
 from .es import ElasticsearchShipper
+
 from .shipper import ProtocolShipper
+
+from .logstash import LogstashShipper
+
 
 _init_definition_by_output: dict[str, dict[str, Any]] = {
     "elasticsearch": {
         "class": ElasticsearchShipper,
-    }
+    },
+    "logstash": {
+        "class": LogstashShipper,
+    },
 }
 
 
@@ -43,6 +50,17 @@ class ShipperFactory:
                 tags=output.tags,
                 batch_max_actions=output.batch_max_actions,
                 batch_max_bytes=output.batch_max_bytes,
+            )
+
+        if output_type == "logstash":
+            if not isinstance(output, LogstashOutput):
+                raise ValueError(f"output expected to be LogstashOutput type, given {type(output)}")
+
+            return ShipperFactory.create(
+                output_type="logstash",
+                host=output.host,
+                port=output.port,
+                max_batch_size=1,
             )
 
         raise ValueError(
