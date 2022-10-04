@@ -16,7 +16,6 @@ pip-log.txt
 /cover
 /example_project/local_settings.py
 /docs/html
-/docs/json
 /docs/doctrees
 /example_project/*.db
 tests/.schemacache
