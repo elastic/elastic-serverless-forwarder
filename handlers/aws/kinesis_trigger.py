@@ -3,6 +3,7 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 import datetime
+import json
 from typing import Any, Iterator, Optional
 
 from botocore.client import BaseClient as BotoBaseClient
@@ -84,6 +85,7 @@ def _handle_kinesis_record(
     """
     account_id = get_account_id_from_arn(input_id)
 
+
     for kinesis_record_n, kinesis_record in enumerate(event["Records"]):
         storage: ProtocolStorage = StorageFactory.create(
             storage_type="payload",
@@ -100,6 +102,11 @@ def _handle_kinesis_record(
         shared_logger.info("kinesis event")
 
         events = storage.get_by_lines(range_start=0)
+        events_json = json.loads(storage.get_as_string())
+
+        owner_name = events_json["owner"]
+        log_group_name = events_json["logGroup"]
+        log_stream_name = events_json["logStream"]
 
         for log_event, starting_offset, ending_offset, event_expanded_offset in events:
             assert isinstance(log_event, bytes)
@@ -119,6 +126,9 @@ def _handle_kinesis_record(
                             "type": stream_type,
                             "name": stream_name,
                             "sequence_number": kinesis_record["kinesis"]["sequenceNumber"],
+                            "log_group": log_group_name,
+                            "log_stream": log_stream_name,
+                            "owner": owner_name,
                         }
                     },
                     "cloud": {
