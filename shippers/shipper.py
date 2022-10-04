@@ -2,7 +2,7 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
-from typing import Any, Callable, Protocol, TypeVar
+from typing import Any, Callable, Protocol
 
 ReplayHandlerCallable = Callable[[str, dict[str, Any], dict[str, Any]], None]
 EventIdGeneratorCallable = Callable[[dict[str, Any]], str]
