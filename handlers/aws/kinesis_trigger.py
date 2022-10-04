@@ -104,9 +104,9 @@ def _handle_kinesis_record(
         events = storage.get_by_lines(range_start=0)
         events_json = json.loads(storage.get_as_string())
 
-        owner_name = events_json["owner"]
-        log_group_name = events_json["logGroup"]
-        log_stream_name = events_json["logStream"]
+        owner_name = events_json.get("owner")
+        log_group_name = events_json.get("logGroup")
+        log_stream_name = events_json.get("logStream")
 
         for log_event, starting_offset, ending_offset, event_expanded_offset in events:
             assert isinstance(log_event, bytes)
@@ -126,9 +126,6 @@ def _handle_kinesis_record(
                             "type": stream_type,
                             "name": stream_name,
                             "sequence_number": kinesis_record["kinesis"]["sequenceNumber"],
-                            "log_group": log_group_name,
-                            "log_stream": log_stream_name,
-                            "owner": owner_name,
                         }
                     },
                     "cloud": {
@@ -139,5 +136,14 @@ def _handle_kinesis_record(
                 },
                 "meta": {},
             }
+
+            # Add Custom values if present from Cloudwatch Subscription
+            if not (owner_name is None):
+                es_event["fields"]["aws"]["kinesis"]["owner"] = owner_name
+            if not (log_group_name is None):
+                es_event["fields"]["aws"]["kinesis"]["log_group"] = log_group_name
+            if not (log_stream_name is None):
+                es_event["fields"]["aws"]["kinesis"]["log_stream"] = log_stream_name
+
 
             yield es_event, ending_offset, event_expanded_offset, kinesis_record_n
