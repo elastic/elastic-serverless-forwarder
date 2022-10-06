@@ -12,7 +12,7 @@ from .logger import logger as shared_logger
 from .multiline import ProtocolMultiline
 
 _available_input_types: list[str] = ["cloudwatch-logs", "s3-sqs", "sqs", "kinesis-data-stream"]
-_available_output_types: list[str] = ["elasticsearch"]
+_available_output_types: list[str] = ["elasticsearch", "logstash"]
 
 IntegrationScopeDiscovererCallable = Callable[[dict[str, Any], int], str]
 
@@ -177,10 +177,12 @@ class ElasticsearchOutput(Output):
 
 
 class LogstashOutput(Output):
-    def __init__(self, host: str = "", port: str = "") -> None:
+    def __init__(self, host: str = "", port: str = "", tags: list[str] = []) -> None:
         super().__init__(output_type="logstash")
         self._host = host
         self._port = port
+        self.tags = tags
+        shared_logger.debug("tags: ", extra={"tags": self.tags})
 
     @property
     def host(self) -> str:
@@ -355,6 +357,8 @@ class Input:
         output: Optional[Output] = None
         if output_type == "elasticsearch":
             output = ElasticsearchOutput(**kwargs)
+        elif output_type == "logstash":
+            output = LogstashOutput(**kwargs)
         else:
             output = Output(output_type=output_type)
 

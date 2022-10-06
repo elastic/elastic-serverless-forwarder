@@ -20,6 +20,7 @@ from share import (
     WhileMultiline,
     parse_config,
 )
+from share.config import LogstashOutput
 
 
 class DummyOutput(Output):
@@ -31,7 +32,7 @@ class DummyOutput(Output):
 class TestOutput(TestCase):
     def test_init(self) -> None:
         with self.subTest("not valid type"):
-            with self.assertRaisesRegex(ValueError, "^`type` must be one of elasticsearch: another-type given$"):
+            with self.assertRaisesRegex(ValueError, "^`type` must be one of elasticsearch,logstash: another-type given$"):
                 DummyOutput(output_type="another-type")
 
         with self.subTest("type not str"):
@@ -374,6 +375,21 @@ class TestElasticsearchOutput(TestCase):
 
 
 @pytest.mark.unit
+class TestLogstashOutput(TestCase):
+    def test_init(self) -> None:
+        with self.subTest("valid init with host and port"):
+            logstash = LogstashOutput(
+                host="localhost",
+                port="8080",
+                tags=["tag1"],
+            )
+
+            assert logstash.type == "logstash"
+            assert logstash.host == "localhost"
+            assert logstash.port == "8080"
+
+
+@pytest.mark.unit
 class TestInput(TestCase):
     def test_init(self) -> None:
         with self.subTest("valid s3-sqs init"):
@@ -499,7 +515,7 @@ class TestInput(TestCase):
 
         with self.subTest("not elasticsearch output"):
             input_sqs = Input(input_type="s3-sqs", input_id="id")
-            with self.assertRaisesRegex(ValueError, "^`type` must be one of elasticsearch: another-type given$"):
+            with self.assertRaisesRegex(ValueError, "^`type` must be one of elasticsearch,logstash: another-type given$"):
                 input_sqs.add_output(output_type="another-type")
 
         with self.subTest("type is not str"):
@@ -781,7 +797,7 @@ class TestParseConfig(TestCase):
             with self.assertRaisesRegex(
                 ValueError,
                 "^An error occurred while applying output configuration at position 1 for input id: "
-                "`type` must be one of elasticsearch: another-type given$",
+                "`type` must be one of elasticsearch,logstash: another-type given$",
             ):
                 parse_config(
                     config_yaml="""

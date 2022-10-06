@@ -51,8 +51,11 @@ class LogstashShipper:
         session = requests.Session()
         compression_level = 9
         ndjson = "\n".join(ujson.dumps(event) for event in events)
-        session.put(
+        response = session.put(
             f"http://{host}:{port}",
             data=gzip.compress(ndjson.encode("utf-8"), compression_level),
             headers={"Content-Encoding": "gzip", "Content-Type": "application/x-ndjson"},
         )
+        if response.status_code != 200:
+            # TODO: Change with actual handling after PoC
+            raise RuntimeError(f"Errors while sending data to Logstash. Return code {response.status_code}")
