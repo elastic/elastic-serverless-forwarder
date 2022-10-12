@@ -2981,7 +2981,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
             b'{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}\n\n{"excluded": '
             b'"by filter"}\n{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": {"line": 30, '
             b'"name": "handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}\n{"another": '
-            b'"continuation", "from": "the", "continuing": "queue"}'
+            b'"continuation", "from": "the", "continuing": "queue"}\n{"replayed": "as well"}'
         )
 
         _upload_content_to_bucket(
@@ -3015,6 +3015,12 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
             index="logs-aws.cloudtrail-default",
             op_type="create",
             id="c2fe2a3df7-000000000000",
+            document={"@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
+        )
+        self._es_client.index(
+            index="logs-aws.cloudtrail-default",
+            op_type="create",
+            id="c2fe2a3df7-000000000345",
             document={"@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
         )
         self._es_client.indices.refresh(index="logs-aws.cloudtrail-default")
@@ -3087,9 +3093,10 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         with self.assertRaises(ReplayHandlerException):
             handler(event, ctx)  # type:ignore
 
-        # Remove the expected id so that it can be replayed
+        # Remove the expected ids so that they can be replayed
         self._es_client.delete_by_query(
-            index="logs-aws.cloudtrail-default", body={"query": {"ids": {"values": ["c2fe2a3df7-000000000000"]}}}
+            index="logs-aws.cloudtrail-default",
+            body={"query": {"ids": {"values": ["c2fe2a3df7-000000000000", "c2fe2a3df7-000000000345"]}}},
         )
         self._es_client.indices.refresh(index="logs-aws.cloudtrail-default")
 
@@ -3101,10 +3108,10 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         assert third_call == "replayed"
 
         self._es_client.indices.refresh(index="logs-aws.cloudtrail-default")
-        assert self._es_client.count(index="logs-aws.cloudtrail-default")["count"] == 3
+        assert self._es_client.count(index="logs-aws.cloudtrail-default")["count"] == 4
 
         res = self._es_client.search(index="logs-aws.cloudtrail-default", sort="_seq_no")
-        assert res["hits"]["total"] == {"value": 3, "relation": "eq"}
+        assert res["hits"]["total"] == {"value": 4, "relation": "eq"}
         assert (
             res["hits"]["hits"][2]["_source"]["message"]
             == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}'
@@ -3127,6 +3134,26 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         }
 
         assert res["hits"]["hits"][2]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
+
+        assert res["hits"]["hits"][3]["_source"]["message"] == '{"replayed": "as well"}'
+
+        assert res["hits"]["hits"][3]["_source"]["log"] == {
+            "offset": 345,
+            "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
+        }
+        assert res["hits"]["hits"][2]["_source"]["aws"] == {
+            "s3": {
+                "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
+                "object": {"key": f"{filename}"},
+            }
+        }
+        assert res["hits"]["hits"][3]["_source"]["cloud"] == {
+            "account": {"id": "000000000000"},
+            "provider": "aws",
+            "region": "eu-central-1",
+        }
+
+        assert res["hits"]["hits"][3]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
 
     def test_lambda_handler_continuing(self) -> None:
         filename: str = (
