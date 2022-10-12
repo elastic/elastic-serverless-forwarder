@@ -1392,9 +1392,11 @@ class IntegrationTestCase(TestCase):
 
     @staticmethod
     def _create_sqs_queue(queue_name: str) -> dict[str, str]:
-        aws_stack.create_sqs_queue(queue_name=queue_name)
-        queue_arn = aws_stack.sqs_queue_arn(queue_name=queue_name)
-        queue_url = aws_stack.sqs_queue_url_for_arn(queue_arn=queue_arn)
+        sqs_client = aws_stack.connect_to_service("sqs")
+        queue_url = sqs_client.create_queue(QueueName=queue_name)["QueueUrl"]
+        queue_arn = sqs_client.get_queue_attributes(QueueUrl=queue_url, AttributeNames=["QueueArn"])["Attributes"][
+            "QueueArn"
+        ]
 
         return {
             "QueueArn": queue_arn,
