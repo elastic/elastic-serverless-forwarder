@@ -1,6 +1,7 @@
-### v1.4.0 - 2022/08/11
+### v1.4.0 - 2022/10/04
 ##### Features
 * Allow to use a CloudWatch Logs Log Stream ARN as ID for `cloudwatch-logs` input type: [#160](https://github.com/elastic/elastic-serverless-forwarder/pull/160)
+* Respect batch settings of original input in replay queue: [#157](https://github.com/elastic/elastic-serverless-forwarder/pull/157)
 
 ### v1.3.0 - 2022/08/11
 ##### Features
