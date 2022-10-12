@@ -26,7 +26,6 @@ from botocore.exceptions import ClientError
 from botocore.response import StreamingBody
 from docker.models.containers import Container
 from elasticsearch import Elasticsearch
-from localstack.utils import testutil
 from localstack.utils.aws import aws_stack
 
 from handlers.aws.exceptions import (
@@ -1391,6 +1390,18 @@ class IntegrationTestCase(TestCase):
         self._cloudwatch_logs_groups: list[dict[str, str]] = []
         self._expand_event_list_from_field = ""
 
+    @staticmethod
+    def _create_sqs_queue(queue_name: str) -> dict[str, str]:
+        aws_stack.create_sqs_queue(queue_name=queue_name)
+        queue_arn = aws_stack.sqs_queue_arn(queue_name=queue_name)
+        queue_url = aws_stack.sqs_queue_url_for_arn(queue_arn=queue_arn)
+
+        return {
+            "QueueArn": queue_arn,
+            "QueueUrl": queue_url,
+            "QueueUrlPath": queue_url.replace(os.environ["SQS_BACKEND"], "https://sqs.us-east-1.amazonaws.com"),
+        }
+
     def setUp(self) -> None:
         revert_handlers_aws_handler()
 
@@ -1558,11 +1569,7 @@ class IntegrationTestCase(TestCase):
 
         self._queues_info = {}
         for queue in self._queues:
-            self._queues_info[queue["name"]] = testutil.create_sqs_queue(queue["name"])
-            queue_url: str = self._queues_info[queue["name"]]["QueueUrl"]
-            self._queues_info[queue["name"]]["QueueUrlPath"] = queue_url.replace(
-                os.environ["SQS_BACKEND"], "https://sqs.us-east-1.amazonaws.com"
-            )
+            self._queues_info[queue["name"]] = self._create_sqs_queue(queue["name"])
 
             if "type" not in queue:
                 continue
@@ -1589,8 +1596,8 @@ class IntegrationTestCase(TestCase):
                 expand_event_list_from_field: {self._expand_event_list_from_field}
                 """
 
-        self._continuing_queue_info = testutil.create_sqs_queue("continuing-queue")
-        self._replay_queue_info = testutil.create_sqs_queue("replay-queue")
+        self._continuing_queue_info = self._create_sqs_queue(queue_name="continuing-queue")
+        self._replay_queue_info = self._create_sqs_queue(queue_name="replay-queue")
 
         _upload_content_to_bucket(
             content=self._config_yaml,
