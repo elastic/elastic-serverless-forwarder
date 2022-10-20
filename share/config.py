@@ -51,6 +51,7 @@ class ElasticsearchOutput(Output):
         tags: list[str] = [],
         batch_max_actions: int = 500,
         batch_max_bytes: int = 10 * 1024 * 1024,
+        ssl_assert_fingerprint: str = "",
     ):
 
         super().__init__(output_type="elasticsearch")
@@ -63,6 +64,7 @@ class ElasticsearchOutput(Output):
         self.tags = tags
         self.batch_max_actions = batch_max_actions
         self.batch_max_bytes = batch_max_bytes
+        self.ssl_assert_fingerprint = ssl_assert_fingerprint
 
         if not self.cloud_id and not self.elasticsearch_url:
             raise ValueError("One between `elasticsearch_url` or `cloud_id` must be set")
@@ -175,6 +177,16 @@ class ElasticsearchOutput(Output):
 
         self._batch_max_bytes = value
 
+    @property
+    def ssl_assert_fingerprint(self) -> str:
+        return self._ssl_assert_fingerprint
+
+    @ssl_assert_fingerprint.setter
+    def ssl_assert_fingerprint(self, value: str) -> None:
+        if not isinstance(value, str):
+            raise ValueError("`ssl_assert_fingerprint` must be provided as string")
+
+        self._ssl_assert_fingerprint = value
 
 class Input:
     """
