@@ -755,8 +755,8 @@ The `flush_pattern` option, specifies a regex at which the current multiline wil
 
 To make it easier for you to test the regexp patterns in your multiline config, we’ve created a [Multiline Regexp Test](https://replit.com/@AndreaSpacca/Multiline-Regexp-Test#main.py). You can simply plug in the regexp pattern at line `3`, along with the `multiline.negate` setting that you plan to use at line `4`, and paste a sample message between the three double quotes delimiters (`""" """`) at line `5`. Then click `Run`, and you’ll see which lines in the message match your specified configuration. For example:
 
-![](https://github.com/elastic/elastic-serverless-forwarder/raw/lambda-v1.2.0/docs/multiline-regexp-test-repl-main.png)
-![](https://github.com/elastic/elastic-serverless-forwarder/raw/lambda-v1.2.0/docs/multiline-regexp-test-repl-run.png)
+![](https://github.com/elastic/elastic-serverless-forwarder/raw/lambda-v1.4.0/docs/multiline-regexp-test-repl-main.png)
+![](https://github.com/elastic/elastic-serverless-forwarder/raw/lambda-v1.4.0/docs/multiline-regexp-test-repl-run.png)
 
 
 
