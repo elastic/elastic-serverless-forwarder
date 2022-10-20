@@ -188,6 +188,7 @@ class ElasticsearchOutput(Output):
 
         self._ssl_assert_fingerprint = value
 
+
 class Input:
     """
     Base class for Input component

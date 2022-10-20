@@ -10,3 +10,4 @@ orjson>=3.6,<3.9
 pysimdjson>=4.0,<5.1
 python-rapidjson>=1.6,<1.9
 cysimdjson>=21.11,<21.12
+pyopenssl>=22.0,<22.2

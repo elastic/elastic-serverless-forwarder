@@ -1812,7 +1812,7 @@ class TestParseConfig(TestCase):
                       cloud_id: "cloud_id"
                       api_key: "api_key"
                       es_datastream_name: "es_datastream_name"
-                      ssl_assert_fingerprint: "58:D9:EF:94:CF:2D:3B:13:F6:7E:3E:20:FE:B8:F6:C2:19:C6:2A:4C:A5:B0:49:E8:34:B2:1A:05:0C:72:6C:D2"
+                      ssl_assert_fingerprint: "2D:4D:CF:FD:6C:2C:00:7E:C3:78:F6:70:A8:F9:34:09:58:6E:40:FC"
             """
             )
 
@@ -1833,4 +1833,4 @@ class TestParseConfig(TestCase):
             assert elasticsearch.tags == []
             assert elasticsearch.batch_max_actions == 500
             assert elasticsearch.batch_max_bytes == 10485760
-            assert elasticsearch.ssl_assert_fingerprint == "58:D9:EF:94:CF:2D:3B:13:F6:7E:3E:20:FE:B8:F6:C2:19:C6:2A:4C:A5:B0:49:E8:34:B2:1A:05:0C:72:6C:D2"
+            assert elasticsearch.ssl_assert_fingerprint == "2D:4D:CF:FD:6C:2C:00:7E:C3:78:F6:70:A8:F9:34:09:58:6E:40:FC"

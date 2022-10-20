@@ -7,13 +7,11 @@ import datetime
 import gzip
 import hashlib
 import importlib
-import OpenSSL
 import os
 import random
-import socket
+import ssl
 import string
 import sys
-import ssl
 import time
 from copy import deepcopy
 from io import BytesIO
@@ -30,6 +28,7 @@ from botocore.response import StreamingBody
 from docker.models.containers import Container
 from elasticsearch import Elasticsearch
 from localstack.utils.aws import aws_stack
+from OpenSSL import crypto as OpenSSLCrypto
 
 from handlers.aws.exceptions import (
     ConfigFileException,
@@ -1187,11 +1186,13 @@ def _wait_for_fingerprint(host: str, port: str) -> str:
     while True:
         try:
             pem_server_certificate: str = ssl.get_server_certificate((host, int(port)))
-            openssl_certificate = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM, pem_server_certificate.encode("utf-8"))
-        except:
+            openssl_certificate = OpenSSLCrypto.load_certificate(
+                OpenSSLCrypto.FILETYPE_PEM, pem_server_certificate.encode("utf-8")
+            )
+        except Exception:
             time.sleep(1)
         else:
-            return openssl_certificate.digest('sha256').decode()
+            return str(openssl_certificate.digest("sha256").decode())
 
 
 def _wait_for_container(container: Container, port: str) -> None:
@@ -1469,10 +1470,15 @@ class IntegrationTestCase(TestCase):
             ports={"9200/tcp": None},
         )
 
-        exit_code, output = self._elastic_container.exec_run(cmd="elasticsearch-certutil cert --silent --name localhost --dns localhost --keep-ca-key --out /usr/share/elasticsearch/elasticsearch-ssl-http.zip --self-signed --ca-pass '' --pass ''")
+        exit_code, output = self._elastic_container.exec_run(
+            cmd="elasticsearch-certutil cert --silent --name localhost --dns localhost --keep-ca-key "
+            "--out /usr/share/elasticsearch/elasticsearch-ssl-http.zip --self-signed --ca-pass '' --pass ''"
+        )
         assert exit_code == 0
 
-        exit_code, output = self._elastic_container.exec_run(cmd="unzip /usr/share/elasticsearch/elasticsearch-ssl-http.zip -d /usr/share/elasticsearch/config/certs/")
+        exit_code, output = self._elastic_container.exec_run(
+            cmd="unzip /usr/share/elasticsearch/elasticsearch-ssl-http.zip -d /usr/share/elasticsearch/config/certs/"
+        )
         assert exit_code == 0
 
         self._elastic_container.exec_run(
