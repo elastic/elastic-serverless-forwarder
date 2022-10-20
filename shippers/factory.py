@@ -7,11 +7,8 @@ from typing import Any, Callable
 from share.config import ElasticsearchOutput, LogstashOutput, Output
 
 from .es import ElasticsearchShipper
-
-from .shipper import ProtocolShipper
-
 from .logstash import LogstashShipper
-
+from .shipper import ProtocolShipper
 
 _init_definition_by_output: dict[str, dict[str, Any]] = {
     "elasticsearch": {
@@ -58,9 +55,9 @@ class ShipperFactory:
 
             return ShipperFactory.create(
                 output_type="logstash",
-                host=output.host,
-                port=output.port,
-                max_batch_size=1,
+                url=output.url,
+                max_batch_size=output.compression_level,
+                compression_level=output.compression_level,
             )
 
         raise ValueError(

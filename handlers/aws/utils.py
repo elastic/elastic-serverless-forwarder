@@ -14,7 +14,6 @@ from elasticapm import get_client as get_apm_client
 from elasticapm.contrib.serverless.aws import capture_serverless as apm_capture_serverless  # noqa: F401
 
 from share import Input, Output, json_dumper, json_parser, shared_logger
-
 from shippers import CompositeShipper, ProtocolShipper, ShipperFactory
 from storage import ProtocolStorage, StorageFactory
 
@@ -183,9 +182,8 @@ def get_shipper_from_input(
             output: Optional[Output] = event_input.get_output_by_type("logstash")
             assert output is not None
 
-            shipper: ProtocolShipper = ShipperFactory.create_from_output(
-                output_type="logstash", output=output
-            )
+            shipper: ProtocolShipper = ShipperFactory.create_from_output(output_type="logstash", output=output)
+
             composite_shipper.add_shipper(shipper=shipper)
             composite_shipper.set_integration_scope(integration_scope=integration_scope)
             replay_handler = ReplayEventHandler(config_yaml=config_yaml, event_input=event_input)

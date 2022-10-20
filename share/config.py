@@ -177,34 +177,48 @@ class ElasticsearchOutput(Output):
 
 
 class LogstashOutput(Output):
-    def __init__(self, host: str = "", port: str = "", tags: list[str] = []) -> None:
+    def __init__(
+        self, url: str = "", max_batch_size: int = 500, compression_level: int = 9, tags: list[str] = []
+    ) -> None:
         super().__init__(output_type="logstash")
-        self._host = host
-        self._port = port
+        self._url = url
+        self._max_batch_size = max_batch_size
+        self._compression_level = compression_level
         self.tags = tags
         shared_logger.debug("tags: ", extra={"tags": self.tags})
 
     @property
-    def host(self) -> str:
-        return self._host
+    def url(self) -> str:
+        return self._url
 
-    @host.setter
-    def host(self, value: str) -> None:
+    @url.setter
+    def url(self, value: str) -> None:
         if not isinstance(value, str):
-            raise ValueError("`host` must be provided as string")
+            raise ValueError("`url` must be provided as string")
 
-        self._host = value
+        self._url = value
 
     @property
-    def port(self) -> str:
-        return self._port
+    def max_batch_size(self) -> int:
+        return self._max_batch_size
 
-    @port.setter
-    def port(self, value: str) -> None:
-        if not isinstance(value, str):
-            raise ValueError("`port` must be provided as string")
+    @max_batch_size.setter
+    def max_batch_size(self, value: int) -> None:
+        if not isinstance(value, int):
+            raise ValueError("`max_batch_size` must be provided as int")
 
-        self._port = value
+        self._max_batch_size = value
+
+    @property
+    def compression_level(self) -> int:
+        return self._compression_level
+
+    @compression_level.setter
+    def compression_level(self, value: int) -> None:
+        if not isinstance(value, int):
+            raise ValueError("`compression_level` must be provided as int")
+
+        self._compression_level = value
 
 
 class Input:

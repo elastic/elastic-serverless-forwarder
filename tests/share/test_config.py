@@ -32,7 +32,9 @@ class DummyOutput(Output):
 class TestOutput(TestCase):
     def test_init(self) -> None:
         with self.subTest("not valid type"):
-            with self.assertRaisesRegex(ValueError, "^`type` must be one of elasticsearch,logstash: another-type given$"):
+            with self.assertRaisesRegex(
+                ValueError, "^`type` must be one of elasticsearch,logstash: another-type given$"
+            ):
                 DummyOutput(output_type="another-type")
 
         with self.subTest("type not str"):
@@ -377,16 +379,26 @@ class TestElasticsearchOutput(TestCase):
 @pytest.mark.unit
 class TestLogstashOutput(TestCase):
     def test_init(self) -> None:
-        with self.subTest("valid init with host and port"):
+        with self.subTest("valid init with valid url"):
             logstash = LogstashOutput(
-                host="localhost",
-                port="8080",
+                url="http://localhost:8080",
                 tags=["tag1"],
             )
 
             assert logstash.type == "logstash"
-            assert logstash.host == "localhost"
-            assert logstash.port == "8080"
+            assert logstash.url == "http://localhost:8080"
+        with self.subTest("valid init with valid url, max_batch_size and compression_level"):
+            logstash = LogstashOutput(
+                url="http://localhost:8080",
+                max_batch_size=400,
+                compression_level=2,
+                tags=["tag1"],
+            )
+
+            assert logstash.type == "logstash"
+            assert logstash.url == "http://localhost:8080"
+            assert logstash.max_batch_size == 400
+            assert logstash.compression_level == 2
 
 
 @pytest.mark.unit
@@ -515,7 +527,9 @@ class TestInput(TestCase):
 
         with self.subTest("not elasticsearch output"):
             input_sqs = Input(input_type="s3-sqs", input_id="id")
-            with self.assertRaisesRegex(ValueError, "^`type` must be one of elasticsearch,logstash: another-type given$"):
+            with self.assertRaisesRegex(
+                ValueError, "^`type` must be one of elasticsearch,logstash: another-type given$"
+            ):
                 input_sqs.add_output(output_type="another-type")
 
         with self.subTest("type is not str"):
