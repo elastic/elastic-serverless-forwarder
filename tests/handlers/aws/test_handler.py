@@ -7,10 +7,13 @@ import datetime
 import gzip
 import hashlib
 import importlib
+import OpenSSL
 import os
 import random
+import socket
 import string
 import sys
+import ssl
 import time
 from copy import deepcopy
 from io import BytesIO
@@ -1180,6 +1183,17 @@ def _mock_awsclient(service_name: str, region_name: str = "") -> BotoBaseClient:
     return aws_stack.connect_to_service(service_name, region_name=region_name)
 
 
+def _wait_for_fingerprint(host: str, port: str) -> str:
+    while True:
+        try:
+            pem_server_certificate: str = ssl.get_server_certificate((host, int(port)))
+            openssl_certificate = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM, pem_server_certificate.encode("utf-8"))
+        except:
+            time.sleep(1)
+        else:
+            return openssl_certificate.digest('sha256').decode()
+
+
 def _wait_for_container(container: Container, port: str) -> None:
     while port not in container.ports or len(container.ports[port]) == 0 or "HostPort" not in container.ports[port][0]:
         container.reload()
@@ -1449,6 +1463,20 @@ class IntegrationTestCase(TestCase):
 
         self._elastic_container = docker_client.containers.run(
             "docker.elastic.co/elasticsearch/elasticsearch:7.16.3",
+            entrypoint="sleep",
+            command="infinity",
+            detach=True,
+            ports={"9200/tcp": None},
+        )
+
+        exit_code, output = self._elastic_container.exec_run(cmd="elasticsearch-certutil cert --silent --name localhost --dns localhost --keep-ca-key --out /usr/share/elasticsearch/elasticsearch-ssl-http.zip --self-signed --ca-pass '' --pass ''")
+        assert exit_code == 0
+
+        exit_code, output = self._elastic_container.exec_run(cmd="unzip /usr/share/elasticsearch/elasticsearch-ssl-http.zip -d /usr/share/elasticsearch/config/certs/")
+        assert exit_code == 0
+
+        self._elastic_container.exec_run(
+            cmd="/bin/tini -- /usr/local/bin/docker-entrypoint.sh",
             detach=True,
             environment=[
                 "ES_JAVA_OPTS=-Xms1g -Xmx1g",
@@ -1457,18 +1485,24 @@ class IntegrationTestCase(TestCase):
                 "discovery.type=single-node",
                 "network.bind_host=0.0.0.0",
                 "logger.org.elasticsearch=DEBUG",
+                "xpack.security.http.ssl.enabled=true",
+                "xpack.security.http.ssl.keystore.path=/usr/share/elasticsearch/config/certs/localhost/localhost.p12",
             ],
-            ports={"9200/tcp": None},
         )
 
         _wait_for_container(self._elastic_container, "9200/tcp")
 
         self._ES_HOST_PORT: str = self._elastic_container.ports["9200/tcp"][0]["HostPort"]
 
+        ssl_assert_fingerprint = _wait_for_fingerprint("localhost", self._ES_HOST_PORT)
+        assert len(ssl_assert_fingerprint) > 0
+
         self._es_client = Elasticsearch(
-            hosts=[f"127.0.0.1:{self._ES_HOST_PORT}"],
-            scheme="http",
+            hosts=[f"localhost:{self._ES_HOST_PORT}"],
+            scheme="https",
             http_auth=(self._ELASTIC_USER, self._ELASTIC_PASSWORD),
+            ssl_assert_fingerprint=ssl_assert_fingerprint,
+            verify_certs=False,
             timeout=30,
             max_retries=10,
             retry_on_timeout=True,
@@ -1509,7 +1543,8 @@ class IntegrationTestCase(TestCase):
                 outputs:
                   - type: "elasticsearch"
                     args:
-                      elasticsearch_url: "http://127.0.0.1:{self._ES_HOST_PORT}"
+                      elasticsearch_url: "https://localhost:{self._ES_HOST_PORT}"
+                      ssl_assert_fingerprint: {ssl_assert_fingerprint}
                       username: "{self._secret_arn}:username"
                       password: "{self._secret_arn}:password"
                     """
@@ -1559,7 +1594,8 @@ class IntegrationTestCase(TestCase):
                 outputs:
                   - type: "elasticsearch"
                     args:
-                      elasticsearch_url: "http://127.0.0.1:{self._ES_HOST_PORT}"
+                      elasticsearch_url: "https://localhost:{self._ES_HOST_PORT}"
+                      ssl_assert_fingerprint: {ssl_assert_fingerprint}
                       username: "{self._secret_arn}:username"
                       password: "{self._secret_arn}:password"
                 """
@@ -1588,7 +1624,8 @@ class IntegrationTestCase(TestCase):
                 outputs:
                   - type: "elasticsearch"
                     args:
-                      elasticsearch_url: "http://127.0.0.1:{self._ES_HOST_PORT}"
+                      elasticsearch_url: "https://localhost:{self._ES_HOST_PORT}"
+                      ssl_assert_fingerprint: {ssl_assert_fingerprint}
                       username: "{self._secret_arn}:username"
                       password: "{self._secret_arn}:password"
                     """
