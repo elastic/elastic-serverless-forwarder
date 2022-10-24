@@ -1403,7 +1403,8 @@ class IntegrationTestCase(TestCase):
         self._queues: list[dict[str, str]] = []
         self._kinesis_streams: list[str] = []
         self._cloudwatch_logs_groups: list[dict[str, str]] = []
-        self._expand_event_list_from_field = ""
+        self._expand_event_list_from_field: str = ""
+        self._ssl_fingerprint_mismatch: bool = False
 
     @staticmethod
     def _create_sqs_queue(queue_name: str) -> dict[str, str]:
@@ -1525,6 +1526,9 @@ class IntegrationTestCase(TestCase):
                 break
 
             time.sleep(1)
+
+        if self._ssl_fingerprint_mismatch:
+            ssl_assert_fingerprint += ":AA"
 
         self._config_yaml: str = """
             inputs:
@@ -3898,3 +3902,88 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
 
         self._es_client.indices.refresh(index="logs-generic-default")
         assert self._es_client.count(index="logs-generic-default")["count"] == 3
+
+
+@pytest.mark.integration
+class TestLambdaHandlerFailureSSLFingerprint(IntegrationTestCase):
+    def setUp(self) -> None:
+        self._services = ["s3", "sqs", "secretsmanager"]
+        self._queues = [{"name": "source-queue", "type": "sqs"}]
+        self._ssl_fingerprint_mismatch = True
+
+        super(TestLambdaHandlerFailureSSLFingerprint, self).setUp()
+
+        mock.patch("storage.S3Storage._s3_client", _mock_awsclient(service_name="s3")).start()
+        mock.patch("handlers.aws.handler.get_sqs_client", lambda: _mock_awsclient(service_name="sqs")).start()
+        mock.patch("handlers.aws.utils.get_sqs_client", lambda: _mock_awsclient(service_name="sqs")).start()
+        mock.patch(
+            "share.secretsmanager._get_aws_sm_client",
+            lambda region_name: _mock_awsclient(service_name="secretsmanager", region_name=region_name),
+        ).start()
+
+    def tearDown(self) -> None:
+        super(TestLambdaHandlerFailureSSLFingerprint, self).tearDown()
+
+    def test_lambda_handler_ssl_fingerprint_mismatch(self) -> None:
+        ctx = ContextMock()
+
+        cloudwatch_log: str = (
+            '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}\n{"ecs": '
+            '{"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": {"line": 30, "name": "handler.py"}, '
+            '"function": "lambda_handler"}, "original": "trigger"}}\n{"another": "continuation", "from": "the", '
+            '"continuing": "queue"}\n'
+        )
+
+        _event_to_sqs_message(queue_attributes=self._queues_info["source-queue"], message_body=cloudwatch_log)
+
+        event = _event_from_sqs_message(queue_attributes=self._queues_info["source-queue"])
+
+        first_call = handler(event, ctx)  # type:ignore
+
+        assert first_call == "continuing"
+
+        assert self._es_client.indices.exists(index="logs-generic-default") is False
+
+        event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        second_call = handler(event, ctx)  # type:ignore
+
+        assert second_call == "continuing"
+
+        assert self._es_client.indices.exists(index="logs-generic-default") is False
+
+        event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        third_call = handler(event, ctx)  # type:ignore
+
+        assert third_call == "continuing"
+
+        assert self._es_client.indices.exists(index="logs-generic-default") is False
+
+        event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        fourth_call = handler(event, ctx)  # type:ignore
+
+        assert fourth_call == "completed"
+
+        assert self._es_client.indices.exists(index="logs-generic-default") is False
+
+        events = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
+        assert len(events["Records"]) == 3
+
+        first_body: dict[str, Any] = json_parser(events["Records"][0]["body"])
+        second_body: dict[str, Any] = json_parser(events["Records"][1]["body"])
+        third_body: dict[str, Any] = json_parser(events["Records"][2]["body"])
+
+        assert (
+            first_body["event_payload"]["message"]
+            == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}'
+        )
+
+        assert (
+            second_body["event_payload"]["message"]
+            == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": {"line": 30, "name": '
+            '"handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}'
+        )
+
+        assert (
+            third_body["event_payload"]["message"]
+            == '{"another": "continuation", "from": "the", "continuing": "queue"}'
+        )
