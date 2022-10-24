@@ -276,7 +276,7 @@ inputs:
           es_datastream_name: "logs-generic-default"
           batch_max_actions: 500
           batch_max_bytes: 10485760
-          ssl_assert_fingerprint: "2D:4D:CF:FD:6C:2C:00:7E:C3:78:F6:70:A8:F9:34:09:58:6E:40:FC"
+          ssl_assert_fingerprint: ""
   - type: "sqs"
     id: "arn:aws:sqs:%REGION%:%ACCOUNT%:%QUEUENAME%"
     outputs:
@@ -292,7 +292,7 @@ inputs:
           es_datastream_name: "logs-generic-default"
           batch_max_actions: 500
           batch_max_bytes: 10485760
-          ssl_assert_fingerprint: "2D:4D:CF:FD:6C:2C:00:7E:C3:78:F6:70:A8:F9:34:09:58:6E:40:FC"
+          ssl_assert_fingerprint: ""
   - type: "kinesis-data-stream"
     id: "arn:aws:kinesis:%REGION%:%ACCOUNT%:stream/%STREAMNAME%"
     outputs:
@@ -308,7 +308,7 @@ inputs:
           es_datastream_name: "logs-generic-default"
           batch_max_actions: 500
           batch_max_bytes: 10485760
-          ssl_assert_fingerprint: "2D:4D:CF:FD:6C:2C:00:7E:C3:78:F6:70:A8:F9:34:09:58:6E:40:FC"
+          ssl_assert_fingerprint: ""
   - type: "cloudwatch-logs"
     id: "arn:aws:logs:%AWS_REGION%:%AWS_ACCOUNT_ID%:log-group:%LOG_GROUP_NAME%:*"
     outputs:
@@ -324,7 +324,7 @@ inputs:
           es_datastream_name: "logs-generic-default"
           batch_max_actions: 500
           batch_max_bytes: 10485760
-          ssl_assert_fingerprint: "2D:4D:CF:FD:6C:2C:00:7E:C3:78:F6:70:A8:F9:34:09:58:6E:40:FC"
+          ssl_assert_fingerprint: ""
   - type: "cloudwatch-logs"
     id: "arn:aws:logs:%AWS_REGION%:%AWS_ACCOUNT_ID%:log-group:%LOG_GROUP_NAME%:log-stream:%LOG_STREAM_NAME%"
     outputs:
@@ -340,7 +340,7 @@ inputs:
           es_datastream_name: "logs-generic-default"
           batch_max_actions: 500
           batch_max_bytes: 10485760
-          ssl_assert_fingerprint: "2D:4D:CF:FD:6C:2C:00:7E:C3:78:F6:70:A8:F9:34:09:58:6E:40:FC"
+          ssl_assert_fingerprint: ""
 ```
 
 ### Fields
