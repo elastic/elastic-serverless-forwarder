@@ -57,6 +57,7 @@ class ElasticsearchShipper:
         tags: list[str] = [],
         batch_max_actions: int = 500,
         batch_max_bytes: int = 10 * 1024 * 1024,
+        ssl_assert_fingerprint: str = "",
     ):
 
         self._bulk_actions: list[dict[str, Any]] = []
@@ -88,6 +89,10 @@ class ElasticsearchShipper:
             es_client_kwargs["api_key"] = api_key
         else:
             raise ValueError("You must provide one between username and password or api_key")
+
+        if ssl_assert_fingerprint:
+            es_client_kwargs["verify_certs"] = False
+            es_client_kwargs["ssl_assert_fingerprint"] = ssl_assert_fingerprint
 
         es_client_kwargs["serializer"] = JSONSerializer()
 

@@ -1,3 +1,7 @@
+### v1.5.0 - 2022/10/20
+##### Features
+* Allow to connect to ES with self-signed certificate through certificate fingerprint assertion: [#173](https://github.com/elastic/elastic-serverless-forwarder/pull/173)
+
 ### v1.4.0 - 2022/10/04
 ##### Features
 * Allow to use a CloudWatch Logs Log Stream ARN as ID for `cloudwatch-logs` input type: [#160](https://github.com/elastic/elastic-serverless-forwarder/pull/160)

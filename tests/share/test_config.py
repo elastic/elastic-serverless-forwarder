@@ -66,6 +66,7 @@ class TestElasticsearchOutput(TestCase):
             assert elasticsearch.tags == []
             assert elasticsearch.batch_max_actions == 1
             assert elasticsearch.batch_max_bytes == 1
+            assert elasticsearch.ssl_assert_fingerprint == ""
 
         with self.subTest("valid init with cloud_id and http_auth"):
             elasticsearch = ElasticsearchOutput(
@@ -87,6 +88,7 @@ class TestElasticsearchOutput(TestCase):
             assert elasticsearch.tags == []
             assert elasticsearch.batch_max_actions == 1
             assert elasticsearch.batch_max_bytes == 1
+            assert elasticsearch.ssl_assert_fingerprint == ""
 
         with self.subTest("valid init with elasticsearch_url and api key"):
             elasticsearch = ElasticsearchOutput(
@@ -107,6 +109,7 @@ class TestElasticsearchOutput(TestCase):
             assert elasticsearch.tags == []
             assert elasticsearch.batch_max_actions == 1
             assert elasticsearch.batch_max_bytes == 1
+            assert elasticsearch.ssl_assert_fingerprint == ""
 
         with self.subTest("valid init with cloud_id and api key"):
             elasticsearch = ElasticsearchOutput(
@@ -127,6 +130,7 @@ class TestElasticsearchOutput(TestCase):
             assert elasticsearch.tags == []
             assert elasticsearch.batch_max_actions == 1
             assert elasticsearch.batch_max_bytes == 1
+            assert elasticsearch.ssl_assert_fingerprint == ""
 
         with self.subTest("neither elasticsearch_url or cloud_id"):
             with self.assertRaisesRegex(ValueError, "`elasticsearch_url` or `cloud_id` must be set"):
@@ -152,6 +156,7 @@ class TestElasticsearchOutput(TestCase):
             assert elasticsearch.tags == []
             assert elasticsearch.batch_max_actions == 1
             assert elasticsearch.batch_max_bytes == 1
+            assert elasticsearch.ssl_assert_fingerprint == ""
 
         with self.subTest("no username or api_key"):
             with self.assertRaisesRegex(ValueError, "One between `username` and `password`, or `api_key` must be set"):
@@ -181,6 +186,7 @@ class TestElasticsearchOutput(TestCase):
             assert elasticsearch.tags == []
             assert elasticsearch.batch_max_actions == 1
             assert elasticsearch.batch_max_bytes == 1
+            assert elasticsearch.ssl_assert_fingerprint == ""
 
         with self.subTest("with tags"):
             elasticsearch = ElasticsearchOutput(
@@ -204,6 +210,7 @@ class TestElasticsearchOutput(TestCase):
             assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
             assert elasticsearch.batch_max_actions == 1
             assert elasticsearch.batch_max_bytes == 1
+            assert elasticsearch.ssl_assert_fingerprint == ""
 
         with self.subTest("empty password"):
             with self.assertRaisesRegex(ValueError, "`password` must be set when using `username`"):
@@ -234,6 +241,7 @@ class TestElasticsearchOutput(TestCase):
             assert elasticsearch.tags == []
             assert elasticsearch.batch_max_actions == 1
             assert elasticsearch.batch_max_bytes == 1
+            assert elasticsearch.ssl_assert_fingerprint == ""
 
         with self.subTest("empty tags"):
             elasticsearch = ElasticsearchOutput(
@@ -256,6 +264,7 @@ class TestElasticsearchOutput(TestCase):
             assert elasticsearch.tags == []
             assert elasticsearch.batch_max_actions == 1
             assert elasticsearch.batch_max_bytes == 1
+            assert elasticsearch.ssl_assert_fingerprint == ""
 
         with self.subTest("empty batch_max_actions"):
             elasticsearch = ElasticsearchOutput(
@@ -277,6 +286,7 @@ class TestElasticsearchOutput(TestCase):
             assert elasticsearch.tags == []
             assert elasticsearch.batch_max_actions == 500
             assert elasticsearch.batch_max_bytes == 1
+            assert elasticsearch.ssl_assert_fingerprint == ""
 
         with self.subTest("empty batch_max_bytes"):
             elasticsearch = ElasticsearchOutput(
@@ -298,6 +308,30 @@ class TestElasticsearchOutput(TestCase):
             assert elasticsearch.tags == []
             assert elasticsearch.batch_max_actions == 1
             assert elasticsearch.batch_max_bytes == 10485760
+            assert elasticsearch.ssl_assert_fingerprint == ""
+
+        with self.subTest("empty ssl_assert_fingerprint"):
+            elasticsearch = ElasticsearchOutput(
+                cloud_id="cloud_id",
+                api_key="api_key",
+                username="username",
+                password="password",
+                es_datastream_name="es_datastream_name",
+                batch_max_actions=1,
+                batch_max_bytes=1,
+            )
+
+            assert elasticsearch.type == "elasticsearch"
+            assert elasticsearch.cloud_id == "cloud_id"
+            assert elasticsearch.api_key == "api_key"
+            assert not elasticsearch.elasticsearch_url
+            assert not elasticsearch.username
+            assert not elasticsearch.password
+            assert elasticsearch.es_datastream_name == "es_datastream_name"
+            assert elasticsearch.tags == []
+            assert elasticsearch.batch_max_actions == 1
+            assert elasticsearch.batch_max_bytes == 1
+            assert elasticsearch.ssl_assert_fingerprint == ""
 
         with self.subTest("elasticsearch_url not str"):
             with self.assertRaisesRegex(ValueError, re.escape("`elasticsearch_url` must be provided as string")):
@@ -371,6 +405,16 @@ class TestElasticsearchOutput(TestCase):
                     es_datastream_name="es_datastream_name",
                     batch_max_bytes="test",  # type:ignore
                 )
+
+            with self.subTest("ssl_assert_fingerprint not str"):
+                with self.assertRaisesRegex(ValueError, "`ssl_assert_fingerprint` must be provided as string"):
+                    ElasticsearchOutput(
+                        elasticsearch_url="elasticsearch_url",
+                        username="username",
+                        password="password",
+                        es_datastream_name="es_datastream_name",
+                        ssl_assert_fingerprint=0,  # type:ignore
+                    )
 
 
 @pytest.mark.unit
@@ -849,6 +893,27 @@ class TestParseConfig(TestCase):
             """
                 )
 
+        with self.subTest("ssl_assert_fingerprint not str"):
+            with self.assertRaisesRegex(
+                ValueError,
+                "An error occurred while applying output configuration at position 1 for input id: "
+                "`ssl_assert_fingerprint` must be provided as string",
+            ):
+                parse_config(
+                    config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      es_datastream_name: "es_datastream_name"
+                      ssl_assert_fingerprint: [0, 1]
+            """
+                )
+
         with self.subTest("tags not list"):
             with self.assertRaisesRegex(ValueError, "`tags` must be provided as list for input id"):
                 parse_config(
@@ -938,6 +1003,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch.tags == []
             assert elasticsearch.batch_max_actions == 500
             assert elasticsearch.batch_max_bytes == 10485760
+            assert elasticsearch.ssl_assert_fingerprint == ""
 
         with self.subTest("expand_event_list_from_field not str"):
             with self.assertRaisesRegex(
@@ -1161,6 +1227,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
             assert elasticsearch.batch_max_actions == 500
             assert elasticsearch.batch_max_bytes == 10485760
+            assert elasticsearch.ssl_assert_fingerprint == ""
 
         with self.subTest("valid input valid elasticsearch output with elasticsearch_url and api key"):
             config = parse_config(
@@ -1198,6 +1265,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
             assert elasticsearch.batch_max_actions == 500
             assert elasticsearch.batch_max_bytes == 10485760
+            assert elasticsearch.ssl_assert_fingerprint == ""
 
         with self.subTest("valid input valid elasticsearch output with cloud id and http auth"):
             config = parse_config(
@@ -1237,6 +1305,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
             assert elasticsearch.batch_max_actions == 500
             assert elasticsearch.batch_max_bytes == 10485760
+            assert elasticsearch.ssl_assert_fingerprint == ""
 
         with self.subTest("valid input valid elasticsearch output cloud_id and api key"):
             config = parse_config(
@@ -1274,6 +1343,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
             assert elasticsearch.batch_max_actions == 500
             assert elasticsearch.batch_max_bytes == 10485760
+            assert elasticsearch.ssl_assert_fingerprint == ""
 
         with self.subTest("tags added at output level"):
             config = parse_config(
@@ -1311,6 +1381,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch.tags == []
             assert elasticsearch.batch_max_actions == 500
             assert elasticsearch.batch_max_bytes == 10485760
+            assert elasticsearch.ssl_assert_fingerprint == ""
 
         with self.subTest("tags added at input level and output level"):
             config = parse_config(
@@ -1351,6 +1422,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch.tags == ["input_tag1", "input_tag2"]
             assert elasticsearch.batch_max_actions == 500
             assert elasticsearch.batch_max_bytes == 10485760
+            assert elasticsearch.ssl_assert_fingerprint == ""
 
         with self.subTest("valid tags"):
             config = parse_config(
@@ -1388,6 +1460,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch.tags == ["tag1", "tag2", "tag3"]
             assert elasticsearch.batch_max_actions == 500
             assert elasticsearch.batch_max_bytes == 10485760
+            assert elasticsearch.ssl_assert_fingerprint == ""
 
         with self.subTest("valid include_exclude_filter"):
             config = parse_config(
@@ -1436,6 +1509,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch.tags == []
             assert elasticsearch.batch_max_actions == 500
             assert elasticsearch.batch_max_bytes == 10485760
+            assert elasticsearch.ssl_assert_fingerprint == ""
 
         with self.subTest("no list for include"):
             with self.assertRaisesRegex(ValueError, "`include` must be provided as list for input id"):
@@ -1689,6 +1763,7 @@ class TestParseConfig(TestCase):
             assert elasticsearch.tags == []
             assert elasticsearch.batch_max_actions == 1
             assert elasticsearch.batch_max_bytes == 10485760
+            assert elasticsearch.ssl_assert_fingerprint == ""
 
         with self.subTest("batch_max_bytes not default"):
             config = parse_config(
@@ -1723,3 +1798,39 @@ class TestParseConfig(TestCase):
             assert elasticsearch.tags == []
             assert elasticsearch.batch_max_actions == 500
             assert elasticsearch.batch_max_bytes == 1
+            assert elasticsearch.ssl_assert_fingerprint == ""
+
+        with self.subTest("ssl_assert_fingerprint not default"):
+            config = parse_config(
+                config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      es_datastream_name: "es_datastream_name"
+                      ssl_assert_fingerprint: "2D:4D:CF:FD:6C:2C:00:7E:C3:78:F6:70:A8:F9:34:09:58:6E:40:FC"
+            """
+            )
+
+            input_sqs = config.get_input_by_id(input_id="id")
+            assert input_sqs is not None
+            assert input_sqs.type == "s3-sqs"
+            assert input_sqs.id == "id"
+            assert input_sqs.tags == []
+
+            elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
+
+            assert elasticsearch is not None
+            assert isinstance(elasticsearch, ElasticsearchOutput)
+            assert elasticsearch.type == "elasticsearch"
+            assert elasticsearch.cloud_id == "cloud_id"
+            assert elasticsearch.api_key == "api_key"
+            assert elasticsearch.es_datastream_name == "es_datastream_name"
+            assert elasticsearch.tags == []
+            assert elasticsearch.batch_max_actions == 500
+            assert elasticsearch.batch_max_bytes == 10485760
+            assert elasticsearch.ssl_assert_fingerprint == "2D:4D:CF:FD:6C:2C:00:7E:C3:78:F6:70:A8:F9:34:09:58:6E:40:FC"

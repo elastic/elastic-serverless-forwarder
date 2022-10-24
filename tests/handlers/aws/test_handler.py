@@ -9,6 +9,7 @@ import hashlib
 import importlib
 import os
 import random
+import ssl
 import string
 import sys
 import time
@@ -27,6 +28,7 @@ from botocore.response import StreamingBody
 from docker.models.containers import Container
 from elasticsearch import Elasticsearch
 from localstack.utils.aws import aws_stack
+from OpenSSL import crypto as OpenSSLCrypto
 
 from handlers.aws.exceptions import (
     ConfigFileException,
@@ -1180,6 +1182,19 @@ def _mock_awsclient(service_name: str, region_name: str = "") -> BotoBaseClient:
     return aws_stack.connect_to_service(service_name, region_name=region_name)
 
 
+def _wait_for_fingerprint(host: str, port: str) -> str:
+    while True:
+        try:
+            pem_server_certificate: str = ssl.get_server_certificate((host, int(port)))
+            openssl_certificate = OpenSSLCrypto.load_certificate(
+                OpenSSLCrypto.FILETYPE_PEM, pem_server_certificate.encode("utf-8")
+            )
+        except Exception:
+            time.sleep(1)
+        else:
+            return str(openssl_certificate.digest("sha256").decode())
+
+
 def _wait_for_container(container: Container, port: str) -> None:
     while port not in container.ports or len(container.ports[port]) == 0 or "HostPort" not in container.ports[port][0]:
         container.reload()
@@ -1388,7 +1403,8 @@ class IntegrationTestCase(TestCase):
         self._queues: list[dict[str, str]] = []
         self._kinesis_streams: list[str] = []
         self._cloudwatch_logs_groups: list[dict[str, str]] = []
-        self._expand_event_list_from_field = ""
+        self._expand_event_list_from_field: str = ""
+        self._ssl_fingerprint_mismatch: bool = False
 
     @staticmethod
     def _create_sqs_queue(queue_name: str) -> dict[str, str]:
@@ -1449,6 +1465,25 @@ class IntegrationTestCase(TestCase):
 
         self._elastic_container = docker_client.containers.run(
             "docker.elastic.co/elasticsearch/elasticsearch:7.16.3",
+            entrypoint="sleep",
+            command="infinity",
+            detach=True,
+            ports={"9200/tcp": None},
+        )
+
+        exit_code, output = self._elastic_container.exec_run(
+            cmd="elasticsearch-certutil cert --silent --name localhost --dns localhost --keep-ca-key "
+            "--out /usr/share/elasticsearch/elasticsearch-ssl-http.zip --self-signed --ca-pass '' --pass ''"
+        )
+        assert exit_code == 0
+
+        exit_code, output = self._elastic_container.exec_run(
+            cmd="unzip /usr/share/elasticsearch/elasticsearch-ssl-http.zip -d /usr/share/elasticsearch/config/certs/"
+        )
+        assert exit_code == 0
+
+        self._elastic_container.exec_run(
+            cmd="/bin/tini -- /usr/local/bin/docker-entrypoint.sh",
             detach=True,
             environment=[
                 "ES_JAVA_OPTS=-Xms1g -Xmx1g",
@@ -1457,18 +1492,24 @@ class IntegrationTestCase(TestCase):
                 "discovery.type=single-node",
                 "network.bind_host=0.0.0.0",
                 "logger.org.elasticsearch=DEBUG",
+                "xpack.security.http.ssl.enabled=true",
+                "xpack.security.http.ssl.keystore.path=/usr/share/elasticsearch/config/certs/localhost/localhost.p12",
             ],
-            ports={"9200/tcp": None},
         )
 
         _wait_for_container(self._elastic_container, "9200/tcp")
 
         self._ES_HOST_PORT: str = self._elastic_container.ports["9200/tcp"][0]["HostPort"]
 
+        ssl_assert_fingerprint = _wait_for_fingerprint("localhost", self._ES_HOST_PORT)
+        assert len(ssl_assert_fingerprint) > 0
+
         self._es_client = Elasticsearch(
-            hosts=[f"127.0.0.1:{self._ES_HOST_PORT}"],
-            scheme="http",
+            hosts=[f"localhost:{self._ES_HOST_PORT}"],
+            scheme="https",
             http_auth=(self._ELASTIC_USER, self._ELASTIC_PASSWORD),
+            ssl_assert_fingerprint=ssl_assert_fingerprint,
+            verify_certs=False,
             timeout=30,
             max_retries=10,
             retry_on_timeout=True,
@@ -1485,6 +1526,9 @@ class IntegrationTestCase(TestCase):
                 break
 
             time.sleep(1)
+
+        if self._ssl_fingerprint_mismatch:
+            ssl_assert_fingerprint += ":AA"
 
         self._config_yaml: str = """
             inputs:
@@ -1509,7 +1553,8 @@ class IntegrationTestCase(TestCase):
                 outputs:
                   - type: "elasticsearch"
                     args:
-                      elasticsearch_url: "http://127.0.0.1:{self._ES_HOST_PORT}"
+                      elasticsearch_url: "https://localhost:{self._ES_HOST_PORT}"
+                      ssl_assert_fingerprint: {ssl_assert_fingerprint}
                       username: "{self._secret_arn}:username"
                       password: "{self._secret_arn}:password"
                     """
@@ -1559,7 +1604,8 @@ class IntegrationTestCase(TestCase):
                 outputs:
                   - type: "elasticsearch"
                     args:
-                      elasticsearch_url: "http://127.0.0.1:{self._ES_HOST_PORT}"
+                      elasticsearch_url: "https://localhost:{self._ES_HOST_PORT}"
+                      ssl_assert_fingerprint: {ssl_assert_fingerprint}
                       username: "{self._secret_arn}:username"
                       password: "{self._secret_arn}:password"
                 """
@@ -1588,7 +1634,8 @@ class IntegrationTestCase(TestCase):
                 outputs:
                   - type: "elasticsearch"
                     args:
-                      elasticsearch_url: "http://127.0.0.1:{self._ES_HOST_PORT}"
+                      elasticsearch_url: "https://localhost:{self._ES_HOST_PORT}"
+                      ssl_assert_fingerprint: {ssl_assert_fingerprint}
                       username: "{self._secret_arn}:username"
                       password: "{self._secret_arn}:password"
                     """
@@ -3855,3 +3902,88 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
 
         self._es_client.indices.refresh(index="logs-generic-default")
         assert self._es_client.count(index="logs-generic-default")["count"] == 3
+
+
+@pytest.mark.integration
+class TestLambdaHandlerFailureSSLFingerprint(IntegrationTestCase):
+    def setUp(self) -> None:
+        self._services = ["s3", "sqs", "secretsmanager"]
+        self._queues = [{"name": "source-queue", "type": "sqs"}]
+        self._ssl_fingerprint_mismatch = True
+
+        super(TestLambdaHandlerFailureSSLFingerprint, self).setUp()
+
+        mock.patch("storage.S3Storage._s3_client", _mock_awsclient(service_name="s3")).start()
+        mock.patch("handlers.aws.handler.get_sqs_client", lambda: _mock_awsclient(service_name="sqs")).start()
+        mock.patch("handlers.aws.utils.get_sqs_client", lambda: _mock_awsclient(service_name="sqs")).start()
+        mock.patch(
+            "share.secretsmanager._get_aws_sm_client",
+            lambda region_name: _mock_awsclient(service_name="secretsmanager", region_name=region_name),
+        ).start()
+
+    def tearDown(self) -> None:
+        super(TestLambdaHandlerFailureSSLFingerprint, self).tearDown()
+
+    def test_lambda_handler_ssl_fingerprint_mismatch(self) -> None:
+        ctx = ContextMock()
+
+        cloudwatch_log: str = (
+            '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}\n{"ecs": '
+            '{"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": {"line": 30, "name": "handler.py"}, '
+            '"function": "lambda_handler"}, "original": "trigger"}}\n{"another": "continuation", "from": "the", '
+            '"continuing": "queue"}\n'
+        )
+
+        _event_to_sqs_message(queue_attributes=self._queues_info["source-queue"], message_body=cloudwatch_log)
+
+        event = _event_from_sqs_message(queue_attributes=self._queues_info["source-queue"])
+
+        first_call = handler(event, ctx)  # type:ignore
+
+        assert first_call == "continuing"
+
+        assert self._es_client.indices.exists(index="logs-generic-default") is False
+
+        event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        second_call = handler(event, ctx)  # type:ignore
+
+        assert second_call == "continuing"
+
+        assert self._es_client.indices.exists(index="logs-generic-default") is False
+
+        event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        third_call = handler(event, ctx)  # type:ignore
+
+        assert third_call == "continuing"
+
+        assert self._es_client.indices.exists(index="logs-generic-default") is False
+
+        event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        fourth_call = handler(event, ctx)  # type:ignore
+
+        assert fourth_call == "completed"
+
+        assert self._es_client.indices.exists(index="logs-generic-default") is False
+
+        events = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
+        assert len(events["Records"]) == 3
+
+        first_body: dict[str, Any] = json_parser(events["Records"][0]["body"])
+        second_body: dict[str, Any] = json_parser(events["Records"][1]["body"])
+        third_body: dict[str, Any] = json_parser(events["Records"][2]["body"])
+
+        assert (
+            first_body["event_payload"]["message"]
+            == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}'
+        )
+
+        assert (
+            second_body["event_payload"]["message"]
+            == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": {"line": 30, "name": '
+            '"handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}'
+        )
+
+        assert (
+            third_body["event_payload"]["message"]
+            == '{"another": "continuation", "from": "the", "continuing": "queue"}'
+        )
