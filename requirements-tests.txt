@@ -8,6 +8,6 @@ docker==5.0.0
 simplejson>=3.17,<3.18
 orjson>=3.6,<3.9
 pysimdjson>=4.0,<5.1
-python-rapidjson>=1.6,<1.9
+python-rapidjson>=1.6,<1.10
 cysimdjson>=21.11,<21.12
 pyopenssl>=22.0,<22.2
