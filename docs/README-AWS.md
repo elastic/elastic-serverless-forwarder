@@ -276,6 +276,7 @@ inputs:
           es_datastream_name: "logs-generic-default"
           batch_max_actions: 500
           batch_max_bytes: 10485760
+          ssl_assert_fingerprint: ""
   - type: "sqs"
     id: "arn:aws:sqs:%REGION%:%ACCOUNT%:%QUEUENAME%"
     outputs:
@@ -291,6 +292,7 @@ inputs:
           es_datastream_name: "logs-generic-default"
           batch_max_actions: 500
           batch_max_bytes: 10485760
+          ssl_assert_fingerprint: ""
   - type: "kinesis-data-stream"
     id: "arn:aws:kinesis:%REGION%:%ACCOUNT%:stream/%STREAMNAME%"
     outputs:
@@ -306,6 +308,7 @@ inputs:
           es_datastream_name: "logs-generic-default"
           batch_max_actions: 500
           batch_max_bytes: 10485760
+          ssl_assert_fingerprint: ""
   - type: "cloudwatch-logs"
     id: "arn:aws:logs:%AWS_REGION%:%AWS_ACCOUNT_ID%:log-group:%LOG_GROUP_NAME%:*"
     outputs:
@@ -321,6 +324,7 @@ inputs:
           es_datastream_name: "logs-generic-default"
           batch_max_actions: 500
           batch_max_bytes: 10485760
+          ssl_assert_fingerprint: ""
   - type: "cloudwatch-logs"
     id: "arn:aws:logs:%AWS_REGION%:%AWS_ACCOUNT_ID%:log-group:%LOG_GROUP_NAME%:log-stream:%LOG_STREAM_NAME%"
     outputs:
@@ -336,6 +340,7 @@ inputs:
           es_datastream_name: "logs-generic-default"
           batch_max_actions: 500
           batch_max_bytes: 10485760
+          ssl_assert_fingerprint: ""
 ```
 
 ### Fields
@@ -373,6 +378,7 @@ For `elasticsearch` the following arguments are supported:
   * `args.es_datastream_name`: Name of data stream or the index where to forward the logs to. Lambda supports automatic routing of various AWS service logs to the corresponding data streams for further processing and storage in the Elasticsearch cluster. It supports automatic routing of `aws.cloudtrail`, `aws.cloudwatch_logs`, `aws.elb_logs`, `aws.firewall_logs`, `aws.vpcflow`, and `aws.waf` logs. For other log types, if using data streams, you can optionally set its value in the configuration file according to the naming convention for data streams and available integrations. If the `es_datastream_name` is not specified and it cannot be matched with any of the above AWS services, then the value will be set to "logs-generic-default". In version **v0.29.1** and earlier, this configuration parameter was named `es_index_or_datastream_name`. Rename the configuration parameter to `es_datastream_name` in your config.yaml file on the S3 bucket to continue using it in the future version. The older name `es_index_or_datastream_name` is deprecated as of version **v0.30.0**. The related backward compatibility code is removed from version **v1.0.0**.
   * `args.batch_max_actions`: Maximum number of actions to send in a single bulk request. Default value: 500
   * `args.batch_max_bytes`: Maximum size in bytes to send in a single bulk request. Default value: 10485760 (10MB)
+  * `args.ssl_assert_fingerprint`: SSL fingerprint for self-signed SSL certificate on HTTPS transport
 
 ## Using Secrets Manager
 
