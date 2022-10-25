@@ -178,25 +178,25 @@ class ElasticsearchOutput(Output):
 
 class LogstashOutput(Output):
     def __init__(
-        self, url: str = "", max_batch_size: int = 500, compression_level: int = 9, tags: list[str] = []
+        self, logstash_url: str = "", max_batch_size: int = 500, compression_level: int = 9, tags: list[str] = []
     ) -> None:
         super().__init__(output_type="logstash")
-        self._url = url
-        self._max_batch_size = max_batch_size
-        self._compression_level = compression_level
+        self.logstash_url = logstash_url
+        self.max_batch_size = max_batch_size
+        self.compression_level = compression_level
         self.tags = tags
         shared_logger.debug("tags: ", extra={"tags": self.tags})
 
     @property
-    def url(self) -> str:
-        return self._url
+    def logstash_url(self) -> str:
+        return self._logstash_url
 
-    @url.setter
-    def url(self, value: str) -> None:
+    @logstash_url.setter
+    def logstash_url(self, value: str) -> None:
         if not isinstance(value, str):
-            raise ValueError("`url` must be provided as string")
+            raise ValueError("`logstash_url` must be provided as string")
 
-        self._url = value
+        self._logstash_url = value
 
     @property
     def max_batch_size(self) -> int:

@@ -55,8 +55,8 @@ class ShipperFactory:
 
             return ShipperFactory.create(
                 output_type="logstash",
-                url=output.url,
-                max_batch_size=output.compression_level,
+                logstash_url=output.logstash_url,
+                max_batch_size=output.max_batch_size,
                 compression_level=output.compression_level,
             )
 

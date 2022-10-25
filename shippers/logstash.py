@@ -56,5 +56,5 @@ class LogstashShipper:
             headers={"Content-Encoding": "gzip", "Content-Type": "application/x-ndjson"},
         )
         if response.status_code != 200:
-            # TODO: Change with actual handling after PoC
+            # TODO: Change with actual handling
             raise RuntimeError(f"Errors while sending data to Logstash. Return code {response.status_code}")

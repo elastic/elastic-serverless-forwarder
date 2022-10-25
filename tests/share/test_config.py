@@ -381,22 +381,22 @@ class TestLogstashOutput(TestCase):
     def test_init(self) -> None:
         with self.subTest("valid init with valid url"):
             logstash = LogstashOutput(
-                url="http://localhost:8080",
+                logstash_url="http://localhost:8080",
                 tags=["tag1"],
             )
 
             assert logstash.type == "logstash"
-            assert logstash.url == "http://localhost:8080"
+            assert logstash.logstash_url == "http://localhost:8080"
         with self.subTest("valid init with valid url, max_batch_size and compression_level"):
             logstash = LogstashOutput(
-                url="http://localhost:8080",
+                logstash_url="http://localhost:8080",
                 max_batch_size=400,
                 compression_level=2,
                 tags=["tag1"],
             )
 
             assert logstash.type == "logstash"
-            assert logstash.url == "http://localhost:8080"
+            assert logstash.logstash_url == "http://localhost:8080"
             assert logstash.max_batch_size == 400
             assert logstash.compression_level == 2
 
