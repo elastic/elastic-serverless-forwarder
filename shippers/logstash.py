@@ -27,6 +27,7 @@ class LogstashShipper:
         self._events_batch: list[dict[str, Any]] = []
         self._max_batch_size = max_batch_size
         self._compression_level = compression_level
+        self._session = requests.Session()
 
     def send(self, event: dict[str, Any]) -> str:
         self._events_batch.append(event)
@@ -48,9 +49,8 @@ class LogstashShipper:
         return
 
     def _send(self, logstash_url: str, events: list[dict[str, Any]], compression_level: int) -> None:
-        session = requests.Session()
         ndjson = "\n".join(ujson.dumps(event) for event in events)
-        response = session.put(
+        response = self._session.put(
             logstash_url,
             data=gzip.compress(ndjson.encode("utf-8"), compression_level),
             headers={"Content-Encoding": "gzip", "Content-Type": "application/x-ndjson"},
