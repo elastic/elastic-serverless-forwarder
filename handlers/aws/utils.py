@@ -159,11 +159,13 @@ def get_shipper_from_input(
     for output_type in event_input.get_output_types():
         if output_type == "elasticsearch":
             shared_logger.info("setting ElasticSearch shipper")
-            output: Optional[Output] = event_input.get_output_by_type("elasticsearch")
-            assert output is not None
+            elasticsearch_output: Optional[Output] = event_input.get_output_by_type("elasticsearch")
+            assert elasticsearch_output is not None
 
-            shipper: ProtocolShipper = ShipperFactory.create_from_output(output_type="elasticsearch", output=output)
-            composite_shipper.add_shipper(shipper=shipper)
+            elasticsearch_shipper: ProtocolShipper = ShipperFactory.create_from_output(
+                output_type="elasticsearch", output=elasticsearch_output
+            )
+            composite_shipper.add_shipper(shipper=elasticsearch_shipper)
             composite_shipper.set_integration_scope(integration_scope=integration_scope)
             replay_handler = ReplayEventHandler(config_yaml=config_yaml, event_input=event_input)
             composite_shipper.set_replay_handler(replay_handler=replay_handler.replay_handler)
@@ -179,12 +181,14 @@ def get_shipper_from_input(
 
         if output_type == "logstash":
             shared_logger.info("setting Logstash shipper")
-            output: Optional[Output] = event_input.get_output_by_type("logstash")
-            assert output is not None
+            logstash_output: Optional[Output] = event_input.get_output_by_type("logstash")
+            assert logstash_output is not None
 
-            shipper: ProtocolShipper = ShipperFactory.create_from_output(output_type="logstash", output=output)
+            logstash_shipper: ProtocolShipper = ShipperFactory.create_from_output(
+                output_type="logstash", output=logstash_output
+            )
 
-            composite_shipper.add_shipper(shipper=shipper)
+            composite_shipper.add_shipper(shipper=logstash_shipper)
             composite_shipper.set_integration_scope(integration_scope=integration_scope)
             replay_handler = ReplayEventHandler(config_yaml=config_yaml, event_input=event_input)
             composite_shipper.set_replay_handler(replay_handler=replay_handler.replay_handler)
