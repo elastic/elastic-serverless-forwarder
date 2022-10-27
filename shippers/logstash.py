@@ -21,12 +21,19 @@ class LogstashShipper:
     """
 
     def __init__(self, logstash_url: str = "", max_batch_size: int = 1, compression_level: int = 9) -> None:
-        self._logstash_url = logstash_url
+        if logstash_url:
+            self._logstash_url = logstash_url
+        else:
+            raise ValueError("You must provide logstash_url")
+
         self._replay_handler: Optional[ReplayHandlerCallable] = None
         self._event_id_generator: Optional[EventIdGeneratorCallable] = None
         self._events_batch: list[dict[str, Any]] = []
         self._max_batch_size = max_batch_size
-        self._compression_level = compression_level
+        if 0 <= compression_level <= 9:
+            self._compression_level = compression_level
+        else:
+            raise ValueError("compression_level must be an integer value between 0 and 9")
         self._session = requests.Session()
 
     def send(self, event: dict[str, Any]) -> str:

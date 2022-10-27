@@ -444,6 +444,24 @@ class TestLogstashOutput(TestCase):
             assert logstash.max_batch_size == 400
             assert logstash.compression_level == 2
 
+        with self.subTest("logstash_url not string"):
+            with self.assertRaisesRegex(ValueError, "`logstash_url` must be provided as string"):
+                LogstashOutput(logstash_url=0)  # type: ignore
+
+        with self.subTest("valid init with valid url, max_batch_size must be provided as int"):
+            with self.assertRaisesRegex(ValueError, "`max_batch_size` must be provided as int"):
+                LogstashOutput(
+                    logstash_url="http://localhost:8080",
+                    max_batch_size="string",  # type: ignore
+                )
+
+        with self.subTest("valid init with valid url, compression_level must be provided as int"):
+            with self.assertRaisesRegex(ValueError, "`compression_level` must be provided as int"):
+                LogstashOutput(
+                    logstash_url="http://localhost:8080",
+                    compression_level="string",  # type: ignore
+                )
+
 
 @pytest.mark.unit
 class TestInput(TestCase):
@@ -554,6 +572,15 @@ class TestInput(TestCase):
 
             assert isinstance(input_sqs.get_output_by_type(output_type="elasticsearch"), ElasticsearchOutput)
 
+        with self.subTest("logstash output"):
+            input_sqs = Input(input_type="s3-sqs", input_id="id")
+            input_sqs.add_output(
+                output_type="logstash",
+                logstash_url="logstash_url",
+            )
+
+            assert isinstance(input_sqs.get_output_by_type(output_type="logstash"), LogstashOutput)
+
     def test_add_output(self) -> None:
         with self.subTest("elasticsearch output"):
             input_sqs = Input(input_type="s3-sqs", input_id="id")
@@ -569,7 +596,16 @@ class TestInput(TestCase):
 
             assert isinstance(input_sqs.get_output_by_type(output_type="elasticsearch"), ElasticsearchOutput)
 
-        with self.subTest("not elasticsearch output"):
+        with self.subTest("logstash output"):
+            input_sqs = Input(input_type="s3-sqs", input_id="id")
+            input_sqs.add_output(
+                output_type="logstash",
+                logstash_url="logstash_url",
+            )
+
+            assert isinstance(input_sqs.get_output_by_type(output_type="logstash"), LogstashOutput)
+
+        with self.subTest("not elasticsearch or logstash output"):
             input_sqs = Input(input_type="s3-sqs", input_id="id")
             with self.assertRaisesRegex(
                 ValueError, "^`type` must be one of elasticsearch,logstash: another-type given$"
