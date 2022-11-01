@@ -7,7 +7,7 @@ from unittest import TestCase
 import pytest
 
 from handlers.aws.utils import get_shipper_from_input
-from share import Input, parse_config
+from share import parse_config
 from shippers.logstash import LogstashShipper
 
 
@@ -15,7 +15,7 @@ from shippers.logstash import LogstashShipper
 class TestUtils(TestCase):
     def test_get_shipper_from_input(self) -> None:
         with self.subTest("Logstash shipper from Kinesis input"):
-            config_yaml: str = """
+            config_yaml_kinesis: str = """
                                 inputs:
                                   - type: kinesis-data-stream
                                     id: arn:aws:kinesis:eu-central-1:123456789:stream/test-esf-kinesis-stream
@@ -24,19 +24,18 @@ class TestUtils(TestCase):
                                           args:
                                             logstash_url: logstash_url
                             """
-            lambda_event = {}
-
-            config = parse_config(config_yaml)
+            config = parse_config(config_yaml_kinesis)
             event_input = config.get_input_by_id(
                 "arn:aws:kinesis:eu-central-1:123456789:stream/test-esf-kinesis-stream"
             )
+            assert event_input is not None
             shipper = get_shipper_from_input(
-                event_input=event_input, lambda_event=lambda_event, at_record=0, config_yaml=config_yaml
+                event_input=event_input, lambda_event={}, at_record=0, config_yaml=config_yaml_kinesis
             )
             assert len(shipper._shippers) == 1
             assert isinstance(shipper._shippers[0], LogstashShipper)
         with self.subTest("Logstash shipper from Cloudwatch logs input"):
-            config_yaml: str = """
+            config_yaml_cw: str = """
                                 inputs:
                                   - type: cloudwatch-logs
                                     id: arn:aws:logs:eu-central-1:123456789:stream/test-cw-logs
@@ -45,11 +44,11 @@ class TestUtils(TestCase):
                                           args:
                                             logstash_url: logstash_url
                             """
-            config = parse_config(config_yaml)
+            config = parse_config(config_yaml_cw)
             event_input = config.get_input_by_id("arn:aws:logs:eu-central-1:123456789:stream/test-cw-logs")
-            lambda_event = {}
+            assert event_input is not None
             shipper = get_shipper_from_input(
-                event_input=event_input, lambda_event=lambda_event, at_record=0, config_yaml=config_yaml
+                event_input=event_input, lambda_event={}, at_record=0, config_yaml=config_yaml_cw
             )
             assert len(shipper._shippers) == 1
             assert isinstance(shipper._shippers[0], LogstashShipper)
