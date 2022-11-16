@@ -53,6 +53,9 @@ class LogstashShipper:
         self._session.mount(self._logstash_url, HTTPAdapter(max_retries=retry_strategy))
 
     def send(self, event: dict[str, Any]) -> str:
+        if "_id" not in event and self._event_id_generator is not None:
+            event["_id"] = self._event_id_generator(event)
+
         self._events_batch.append(event)
         if len(self._events_batch) < self._max_batch_size:
             return _EVENT_BUFFERED
@@ -86,4 +89,4 @@ class LogstashShipper:
             )
             if self._replay_handler is not None:
                 for event in events:
-                    self._replay_handler("logstash shipper", self._replay_args, event)
+                    self._replay_handler("logstash", self._replay_args, event)

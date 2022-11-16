@@ -47,7 +47,7 @@ _dummy_event: dict[str, Any] = {
 
 
 def _dummy_replay_handler(output_type: str, output_args: dict[str, Any], event_payload: dict[str, Any]) -> None:
-    assert output_type == "logstash shipper"
+    assert output_type == "logstash"
     assert event_payload == _dummy_event
 
 
@@ -66,13 +66,19 @@ class TestLogstashShipper(TestCase):
             for event in events:
                 _payload.append(ujson.loads(event))
 
-            assert _payload == [_dummy_event, _dummy_event]
+            expected_event = _dummy_event
+            expected_event["_id"] = "_id"
+            assert _payload == [expected_event, expected_event]
 
             return 200, {}, "okay"
+
+        def event_id_generator(event: dict[str, Any]) -> str:
+            return "_id"
 
         url = "http://logstash_url"
         responses.add_callback(responses.PUT, url, callback=request_callback)
         logstash_shipper = LogstashShipper(logstash_url=url, max_batch_size=2)
+        logstash_shipper.set_event_id_generator(event_id_generator)
         logstash_shipper.send(_dummy_event)
         logstash_shipper.send(_dummy_event)
 
