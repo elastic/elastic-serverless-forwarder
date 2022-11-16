@@ -5,6 +5,7 @@
 from typing import Any, Optional
 
 from share import Config, ElasticsearchOutput, Input, Output, shared_logger
+from share.config import LogstashOutput
 from shippers import ProtocolShipper, ShipperFactory
 
 from .exceptions import InputConfigException, OutputConfigException, ReplayHandlerException
@@ -57,5 +58,13 @@ def get_shipper_for_replay_event(
         elasticsearch.set_replay_handler(replay_handler=replay_handler.replay_handler)
 
         return elasticsearch
+
+    if output_type == "logstash":
+        assert isinstance(output, LogstashOutput)
+        shared_logger.info("setting Logstash shipper")
+        logstash: ProtocolShipper = ShipperFactory.create_from_output(output_type=output_type, output=output)
+        logstash.set_replay_handler(replay_handler=replay_handler.replay_handler)
+
+        return logstash
 
     return None
