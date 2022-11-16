@@ -89,4 +89,4 @@ class LogstashShipper:
             )
             if self._replay_handler is not None:
                 for event in events:
-                    self._replay_handler("logstash", self._replay_args, event)
+                    self._replay_handler("logstash shipper", self._replay_args, event)

@@ -47,7 +47,7 @@ _dummy_event: dict[str, Any] = {
 
 
 def _dummy_replay_handler(output_type: str, output_args: dict[str, Any], event_payload: dict[str, Any]) -> None:
-    assert output_type == "logstash"
+    assert output_type == "logstash shipper"
     assert event_payload == _dummy_event
 
 
