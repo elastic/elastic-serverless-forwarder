@@ -7,11 +7,23 @@ from typing import Any, Optional
 
 import requests
 import ujson
+from requests.adapters import HTTPAdapter
+from requests.exceptions import RequestException
+from urllib3.util.retry import Retry
 
+from share import shared_logger
 from shippers.shipper import EventIdGeneratorCallable, ReplayHandlerCallable
 
 _EVENT_SENT = "_EVENT_SENT"
 _EVENT_BUFFERED = "_EVENT_BUFFERED"
+
+_TIMEOUT = 10
+_MAX_RETRIES = 4
+_STATUS_FORCE_LIST = [429, 500, 502, 503, 504]
+# A backoff factor to apply between attempts after the second try. urllib3 will sleep for:
+# {backoff factor} * (2 ** ({number of total retries} - 1))
+# seconds. If the backoff_factor is 1, then sleep() will sleep for [0s, 2s, 4s, …] between retries.
+_BACKOFF_FACTOR = 1
 
 
 class LogstashShipper:
@@ -34,9 +46,16 @@ class LogstashShipper:
             self._compression_level = compression_level
         else:
             raise ValueError("compression_level must be an integer value between 0 and 9")
+        self._replay_args: dict[str, Any] = {}
+
         self._session = requests.Session()
+        retry_strategy = Retry(total=_MAX_RETRIES, backoff_factor=_BACKOFF_FACTOR, status_forcelist=_STATUS_FORCE_LIST)
+        self._session.mount(self._logstash_url, HTTPAdapter(max_retries=retry_strategy))
 
     def send(self, event: dict[str, Any]) -> str:
+        if "_id" not in event and self._event_id_generator is not None:
+            event["_id"] = self._event_id_generator(event)
+
         self._events_batch.append(event)
         if len(self._events_batch) < self._max_batch_size:
             return _EVENT_BUFFERED
@@ -57,11 +76,17 @@ class LogstashShipper:
 
     def _send(self, logstash_url: str, events: list[dict[str, Any]], compression_level: int) -> None:
         ndjson = "\n".join(ujson.dumps(event) for event in events)
-        response = self._session.put(
-            logstash_url,
-            data=gzip.compress(ndjson.encode("utf-8"), compression_level),
-            headers={"Content-Encoding": "gzip", "Content-Type": "application/x-ndjson"},
-        )
-        if response.status_code != 200:
-            # TODO: Change with actual handling
-            raise RuntimeError(f"Errors while sending data to Logstash. Return code {response.status_code}")
+        try:
+            self._session.put(
+                logstash_url,
+                data=gzip.compress(ndjson.encode("utf-8"), compression_level),
+                headers={"Content-Encoding": "gzip", "Content-Type": "application/x-ndjson"},
+                timeout=_TIMEOUT,
+            )
+        except RequestException as e:
+            shared_logger.error(
+                f"logstash shipper encountered an error while publishing events to logstash. Error: {str(e)}"
+            )
+            if self._replay_handler is not None:
+                for event in events:
+                    self._replay_handler("logstash", self._replay_args, event)
