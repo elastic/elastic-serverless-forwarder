@@ -99,14 +99,13 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
         lst.with_services("s3", "logs", "sqs")
         self.localstack = lst.start()
 
-        session = boto3.Session(region_name="us-east-1")
+        session = boto3.Session(region_name="eu-west-1")
         self.s3_client = session.client("s3", endpoint_url=self.localstack.get_url())
         self.logs_client = session.client("logs", endpoint_url=self.localstack.get_url())
         self.sqs_client = session.client("sqs", endpoint_url=self.localstack.get_url())
 
         self.logstash_http_port = 5043
-        lgc = LogstashContainer()
-        lgc.with_exposed_ports(self.logstash_http_port)
+        lgc = LogstashContainer(port=self.logstash_http_port)
         lgc.with_env("CONFIG_STRING", '''\
             input {{
               http {{
@@ -128,7 +127,7 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
         stream_name = f"{type(self).__name__}-source-stream"
 
         _create_cloudwatch_logs_group(self.logs_client, group_name=group_name)
-        g = _create_cloudwatch_logs_stream(self.logs_client, 
+        g = _create_cloudwatch_logs_stream(self.logs_client,
             group_name=group_name, stream_name=stream_name)
         cloudwatch_group_arn = g['arn']
 
@@ -159,12 +158,13 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
 
         def _create_sqs_queue(client, name:string):
             q = client.create_queue(QueueName=name)
+            print(q["QueueUrl"])
             return q["QueueUrl"]
 
         os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
         os.environ["S3_CONFIG_FILE"] = f"s3://{type(self).__name__}-config-bucket/folder/config.yaml"
         os.environ["SQS_CONTINUE_URL"] = _create_sqs_queue(self.sqs_client, f"{type(self).__name__}-continuing")
-        os.environ["SQS_REPLAY_URL"] = _create_sqs_queue(self.sqs_client, f"{type(self).__name__}-continuing")
+        os.environ["SQS_REPLAY_URL"] = _create_sqs_queue(self.sqs_client, f"{type(self).__name__}-replay")
 
         mock.patch("storage.S3Storage._s3_client", new=self.s3_client).start()
         mock.patch("handlers.aws.utils.get_cloudwatch_logs_client", lambda: self.logs_client).start()
@@ -180,8 +180,8 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
             group_name=self.group_name, stream_name=self.stream_name
         )
         print(event_cloudwatch_logs, event_ids_cloudwatch_logs)
-        
-        ctx = ContextMock()
+
+        ctx = ContextMock(1000*60*5)
         third_call = handler(event_cloudwatch_logs, ctx)
         print(third_call)
         # test new input => output to stdout
