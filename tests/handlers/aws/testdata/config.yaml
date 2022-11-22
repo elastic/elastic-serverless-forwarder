@@ -1,0 +1,9 @@
+inputs:
+  - type: "cloudwatch-logs"
+    id: "$CloudwatchLogStreamARN"
+    outputs:
+      - type: "logstash"
+        args:
+          logstash_url: "$LogstashURL"
+          # username: "{self._secret_arn}:username"
+          # password: "{self._secret_arn}:password"

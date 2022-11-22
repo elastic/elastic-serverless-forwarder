@@ -1,0 +1,16 @@
+{
+  "ecs": {
+    "version": "1.6.0"
+  },
+  "log": {
+    "logger": "root",
+    "origin": {
+      "file": {
+        "line": 30,
+        "name": "handler.py"
+      },
+      "function": "lambda_handler"
+    },
+    "original": "trigger"
+  }
+}
