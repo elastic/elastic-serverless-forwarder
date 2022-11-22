@@ -168,7 +168,7 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
 
         mock.patch("storage.S3Storage._s3_client", new=self.s3_client).start()
         mock.patch("handlers.aws.utils.get_cloudwatch_logs_client", lambda: self.logs_client).start()
-        mock.patch("handlers.aws.utils.get_cloudwatch_logs_client", lambda: self.sqs_client).start()
+        mock.patch("handlers.aws.utils.get_sqs_client", lambda: self.sqs_client).start()
 
     def tearDown(self):
         self.localstack.stop()
