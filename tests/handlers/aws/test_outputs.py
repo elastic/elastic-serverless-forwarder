@@ -86,7 +86,7 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
             client=self.s3_client,
             content=self.config,
             content_type="text/plain",
-            bucket_name=f"{type(self).__name__}-config-bucket",
+            bucket_name=f"{type(self).__name__}-config-bucket".lower(),
             key="folder/config.yaml",
         )
 
