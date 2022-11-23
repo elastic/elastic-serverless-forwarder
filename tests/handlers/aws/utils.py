@@ -30,9 +30,9 @@ def _load_file_fixture(name: str) -> str:
 
 
 def _class_based_id(klass, prefix: str = "", suffix: str = "") -> str:
-    if not prefix:
+    if prefix:
         prefix = f"{prefix}-"
-    if not suffix:
+    if suffix:
         suffix = f"-{suffix}"
 
     return f"{prefix}{type(klass).__name__}{suffix}"
