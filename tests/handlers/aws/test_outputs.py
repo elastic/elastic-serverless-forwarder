@@ -178,8 +178,7 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
 
     def test_foo(self):
         event_cloudwatch_logs, event_ids_cloudwatch_logs = _event_from_cloudwatch_logs(
-                self.logs_client,
-            group_name=self.group_name, stream_name=self.stream_name
+                self.logs_client, group_name=self.group_name, stream_name=self.stream_name
         )
         print(event_cloudwatch_logs, event_ids_cloudwatch_logs)
 
@@ -187,6 +186,10 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
         third_call = handler(event_cloudwatch_logs, ctx)
         print(third_call)
         # test new input => output to stdout
+
+
+        msgs = self.logstash.get_messages()
+        assert len(msgs) == 2
 
         # import time; time.sleep(9999)
 
