@@ -1,12 +1,5 @@
-import base64
-import datetime
-import gzip
 import os
-import os.path
-import random
-import string
 from string import Template
-from typing import Any
 from unittest import TestCase
 
 import boto3
@@ -15,83 +8,17 @@ import pytest
 from testcontainers.localstack import LocalStackContainer
 
 from main_aws import handler
-from share import json_dumper
 from tests.handlers.aws.test_handler import ContextMock
+from tests.handlers.aws.utils import (
+    _class_based_id,
+    _load_file_fixture,
+    _logs_create_cloudwatch_logs_group,
+    _logs_create_cloudwatch_logs_stream,
+    _logs_retrieve_event_from_cloudwatch_logs,
+    _logs_upload_event_to_cloudwatch_logs,
+    _s3_upload_content_to_bucket,
+)
 from tests.testcontainers.logstash import LogstashContainer
-
-
-def load_file_fixture(name: str) -> str:
-    filepath = os.path.join(os.path.dirname(__file__), "testdata", name)
-
-    res = ""
-    with open(filepath) as f:
-        res = f.read()
-
-    return res
-
-
-def _upload_content_to_bucket(
-    client, content, key: str, bucket_name: str, content_type: str, acl: str = "public-read-write"
-) -> None:
-    client.create_bucket(Bucket=bucket_name, ACL=acl)
-    client.put_object(Bucket=bucket_name, Key=key, Body=content, ContentType=content_type)
-
-
-def _create_cloudwatch_logs_stream(client, group_name: str, stream_name: str) -> Any:
-    client.create_log_stream(logGroupName=group_name, logStreamName=stream_name)
-
-    return client.describe_log_streams(logGroupName=group_name, logStreamNamePrefix=stream_name)["logStreams"][0]
-
-
-def _create_cloudwatch_logs_group(client, group_name: str) -> Any:
-    client.create_log_group(logGroupName=group_name)
-    return client.describe_log_groups(logGroupNamePrefix=group_name)
-
-
-def _event_to_cloudwatch_logs(client, group_name: str, stream_name: str, messages_body: list[str]) -> None:
-    now = int(datetime.datetime.utcnow().strftime("%s")) * 1000
-    client.put_log_events(
-        logGroupName=group_name,
-        logStreamName=stream_name,
-        logEvents=[
-            {"timestamp": now + (n * 1000), "message": message_body} for n, message_body in enumerate(messages_body)
-        ],
-    )
-
-
-def _event_from_cloudwatch_logs(client, group_name: str, stream_name: str) -> tuple[dict[str, Any], list[str]]:
-    collected_log_event_ids: list[str] = []
-    collected_log_events: list[dict[str, Any]] = []
-
-    events = client.get_log_events(logGroupName=group_name, logStreamName=stream_name)
-
-    assert "events" in events
-    for event in events["events"]:
-        event_id = "".join(random.choices(string.digits, k=56))
-        log_event = {
-            "id": event_id,
-            "timestamp": event["timestamp"],
-            "message": event["message"],
-        }
-
-        collected_log_events.append(log_event)
-        collected_log_event_ids.append(event_id)
-
-    data_json = json_dumper(
-        {
-            "messageType": "DATA_MESSAGE",
-            "owner": "000000000000",
-            "logGroup": group_name,
-            "logStream": stream_name,
-            "subscriptionFilters": ["a-subscription-filter"],
-            "logEvents": collected_log_events,
-        }
-    )
-
-    data_gzip = gzip.compress(data_json.encode("UTF-8"))
-    data_base64encoded = base64.b64encode(data_gzip)
-
-    return {"awslogs": {"data": data_base64encoded}}, collected_log_event_ids
 
 
 @pytest.mark.integration
@@ -127,18 +54,19 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
         self.logstash = lgc.start()
 
         self.fixtures = {
-            "cw_log_1": load_file_fixture("cloudwatch-log-1.json"),
-            "cw_log_2": load_file_fixture("cloudwatch-log-2.json"),
+            "cw_log_1": _load_file_fixture("cloudwatch-log-1.json"),
+            "cw_log_2": _load_file_fixture("cloudwatch-log-2.json"),
         }
 
         group_name = f"{type(self).__name__}-source-group"
+        print(_class_based_id(self, suffix="source-group"))
         stream_name = f"{type(self).__name__}-source-stream"
 
-        _create_cloudwatch_logs_group(self.logs_client, group_name=group_name)
-        g = _create_cloudwatch_logs_stream(self.logs_client, group_name=group_name, stream_name=stream_name)
+        _logs_create_cloudwatch_logs_group(self.logs_client, group_name=group_name)
+        g = _logs_create_cloudwatch_logs_stream(self.logs_client, group_name=group_name, stream_name=stream_name)
         cloudwatch_group_arn = g["arn"]
 
-        _event_to_cloudwatch_logs(
+        _logs_upload_event_to_cloudwatch_logs(
             self.logs_client,
             group_name=group_name,
             stream_name=stream_name,
@@ -148,13 +76,13 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
         self.group_name = group_name
         self.stream_name = stream_name
 
-        config_content = load_file_fixture("config.yaml")
+        config_content = _load_file_fixture("config.yaml")
         self.config = Template(config_content).substitute(
             dict(CloudwatchLogStreamARN=cloudwatch_group_arn, LogstashURL=self.logstash.get_url())
         )
         print(self.config)
 
-        _upload_content_to_bucket(
+        _s3_upload_content_to_bucket(
             client=self.s3_client,
             content=self.config,
             content_type="text/plain",
@@ -181,7 +109,7 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
         self.logstash.stop()
 
     def test_foo(self):
-        event_cloudwatch_logs, event_ids_cloudwatch_logs = _event_from_cloudwatch_logs(
+        event_cloudwatch_logs, event_ids_cloudwatch_logs = _logs_retrieve_event_from_cloudwatch_logs(
             self.logs_client, group_name=self.group_name, stream_name=self.stream_name
         )
         print(event_cloudwatch_logs, event_ids_cloudwatch_logs)
