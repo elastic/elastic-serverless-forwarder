@@ -58,9 +58,8 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
             "cw_log_2": _load_file_fixture("cloudwatch-log-2.json"),
         }
 
-        group_name = f"{type(self).__name__}-source-group"
-        print(_class_based_id(self, suffix="source-group"))
-        stream_name = f"{type(self).__name__}-source-stream"
+        group_name = _class_based_id(self, suffix="source-group")
+        stream_name = _class_based_id(self, suffix="source-stream")
 
         _logs_create_cloudwatch_logs_group(self.logs_client, group_name=group_name)
         g = _logs_create_cloudwatch_logs_stream(self.logs_client, group_name=group_name, stream_name=stream_name)
@@ -86,7 +85,7 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
             client=self.s3_client,
             content=self.config,
             content_type="text/plain",
-            bucket_name=f"{type(self).__name__}-config-bucket".lower(),
+            bucket_name=_class_based_id(self, suffix="config-bucket").lower(),
             key="folder/config.yaml",
         )
 
