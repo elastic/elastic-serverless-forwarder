@@ -106,7 +106,7 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
 
         self.logstash_http_port = 5043
         lgc = LogstashContainer(port=self.logstash_http_port)
-        lgc.with_env("CONFIG_STRING", '''\
+        logstash_config = '''\
             input {{
               http {{
                 port => {logstash_http_port}
@@ -114,8 +114,10 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
               }}
             }}
 
-            output {{ stdout {{}} }}
-            '''.format(logstash_http_port=self.logstash_http_port))
+            output {{ stdout {{ codec => json_lines }} }}
+            '''.format(logstash_http_port=self.logstash_http_port)
+        print(logstash_config)
+        lgc.with_env("CONFIG_STRING", logstash_config)
         self.logstash = lgc.start()
 
         self.fixtures = {
