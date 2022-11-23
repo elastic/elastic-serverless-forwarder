@@ -1,11 +1,11 @@
+import json
 import os
+import time
+
 import requests
 from testcontainers.core.container import DockerContainer
 from testcontainers.core.waiting_utils import wait_container_is_ready
-import json
-import time
 
-from typing import Optional
 
 class LogstashContainer(DockerContainer):
     """
@@ -16,14 +16,39 @@ class LogstashContainer(DockerContainer):
     ::
 
         with LogstashContainer() as lc:
+            # NOTE: container will terminate once out of this with statement
             url = lc.get_url()
+
+    With custom config
+    ------------------
+    ::
+
+        lgc = LogstashContainer(port=self.logstash_http_port)
+        logstash_config = '''\
+            input {{
+              http {{
+                port => {logstash_http_port}
+                codec => json_lines
+              }}
+            }}
+
+            output {{ stdout {{ codec => json_lines }} }}
+            '''.format(logstash_http_port=self.logstash_http_port)
+        lgc.with_env("CONFIG_STRING", logstash_config)
     """
+
     _DEFAULT_IMAGE = "docker.elastic.co/logstash/logstash"
     _DEFAULT_VERSION = "8.5.0"
     _DEFAULT_PORT = 5044
     _DEFAULT_API_PORT = 9600
 
-    def __init__(self, image:str=_DEFAULT_IMAGE, version:str=_DEFAULT_VERSION, port:int=_DEFAULT_PORT, api_port:int=_DEFAULT_API_PORT):
+    def __init__(
+        self,
+        image: str = _DEFAULT_IMAGE,
+        version: str = _DEFAULT_VERSION,
+        port: int = _DEFAULT_PORT,
+        api_port: int = _DEFAULT_API_PORT,
+    ):
         image = f"{image}:{version}"
         super(LogstashContainer, self).__init__(image=image)
 
@@ -41,7 +66,6 @@ class LogstashContainer(DockerContainer):
         self.with_env("LOG_LEVEL", os.environ.get("LOGSTASH_LOG_LEVEL", "warn"))
         self.with_env("CONFIG_STRING", "input { stdin {} } output { stdout {} }")
         self.with_env("XPACK_MONITORING_ENABLED", "false")
-
 
     def get_url(self):
         host = self.get_container_host_ip()
@@ -64,7 +88,7 @@ class LogstashContainer(DockerContainer):
         self._connect()
         return self
 
-    def get_messages(self, retry:int=2, timeout:int=1) -> list[dict]:
+    def get_messages(self, retry: int = 2, timeout: int = 1) -> list[dict]:
         """
         Extract JSON messages from stdout as printed by Logstash with codec json or json_lines.
 
@@ -80,22 +104,22 @@ class LogstashContainer(DockerContainer):
         stdout, stderr = self.get_logs()
         lines = stdout.decode().split("\n")
         messages = []
-        for l in lines:
+        for line in lines:
             try:
-                msg = json.loads(l)
+                msg = json.loads(line)
                 messages.append(msg)
             except json.decoder.JSONDecodeError:
                 # NOTE: if a line is not valid JSON is not a message sent to stdout,
                 # so we can safely ignore it
                 pass
 
-        # NOTE: a delay has been observed between data beign sent to Logstash and it 
-        # being available in the Docker stdout. To accout for this delay without 
+        # NOTE: a delay has been observed between data beign sent to Logstash and it
+        # being available in the Docker stdout. To accout for this delay without
         # the need to add sleeps in other areas leverage this retry logic (enabled
         # by default)
         if len(messages) == 0 and retry > 0:
             if timeout > 0:
                 time.sleep(timeout)
-            return self.get_messages(retry-1, timeout)
+            return self.get_messages(retry - 1, timeout)
 
         return messages

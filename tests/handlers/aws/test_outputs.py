@@ -1,28 +1,27 @@
-
+import base64
+import datetime
 import gzip
-from share import json_dumper, json_parser
-import boto3
-import os, os.path
-
-from main_aws import handler
-
+import os
+import os.path
+import random
+import string
+from string import Template
 from typing import Any
+from unittest import TestCase
 
+import boto3
 import mock
 import pytest
-from unittest import TestCase
 from testcontainers.localstack import LocalStackContainer
-from tests.testcontainers.logstash import LogstashContainer
-from string import Template
-# main test facilities
-from tests.handlers.aws.test_handler import ContextMock
-# test helpers
-from tests.handlers.aws.test_handler import _s3_event_to_sqs_message, _event_from_sqs_message
-import datetime
-import botocore
 
-def load_file_fixture(name:str) -> str:
-    filepath = os.path.join(os.path.dirname(__file__), 'testdata', name)
+from main_aws import handler
+from share import json_dumper
+from tests.handlers.aws.test_handler import ContextMock
+from tests.testcontainers.logstash import LogstashContainer
+
+
+def load_file_fixture(name: str) -> str:
+    filepath = os.path.join(os.path.dirname(__file__), "testdata", name)
 
     res = ""
     with open(filepath) as f:
@@ -30,9 +29,13 @@ def load_file_fixture(name:str) -> str:
 
     return res
 
-def _upload_content_to_bucket(client, content, key:str, bucket_name:str, content_type:str, acl:str="public-read-write") -> None:
+
+def _upload_content_to_bucket(
+    client, content, key: str, bucket_name: str, content_type: str, acl: str = "public-read-write"
+) -> None:
     client.create_bucket(Bucket=bucket_name, ACL=acl)
     client.put_object(Bucket=bucket_name, Key=key, Body=content, ContentType=content_type)
+
 
 def _create_cloudwatch_logs_stream(client, group_name: str, stream_name: str) -> Any:
     client.create_log_stream(logGroupName=group_name, logStreamName=stream_name)
@@ -44,6 +47,7 @@ def _create_cloudwatch_logs_group(client, group_name: str) -> Any:
     client.create_log_group(logGroupName=group_name)
     return client.describe_log_groups(logGroupNamePrefix=group_name)
 
+
 def _event_to_cloudwatch_logs(client, group_name: str, stream_name: str, messages_body: list[str]) -> None:
     now = int(datetime.datetime.utcnow().strftime("%s")) * 1000
     client.put_log_events(
@@ -54,7 +58,7 @@ def _event_to_cloudwatch_logs(client, group_name: str, stream_name: str, message
         ],
     )
 
-import random, string, base64
+
 def _event_from_cloudwatch_logs(client, group_name: str, stream_name: str) -> tuple[dict[str, Any], list[str]]:
     collected_log_event_ids: list[str] = []
     collected_log_events: list[dict[str, Any]] = []
@@ -106,7 +110,7 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
 
         self.logstash_http_port = 5043
         lgc = LogstashContainer(port=self.logstash_http_port)
-        logstash_config = '''\
+        logstash_config = """\
             input {{
               http {{
                 port => {logstash_http_port}
@@ -115,23 +119,24 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
             }}
 
             output {{ stdout {{ codec => json_lines }} }}
-            '''.format(logstash_http_port=self.logstash_http_port)
+            """.format(
+            logstash_http_port=self.logstash_http_port
+        )
         print(logstash_config)
         lgc.with_env("CONFIG_STRING", logstash_config)
         self.logstash = lgc.start()
 
         self.fixtures = {
-                "cw_log_1": load_file_fixture('cloudwatch-log-1.json'),
-                "cw_log_2": load_file_fixture('cloudwatch-log-2.json')
+            "cw_log_1": load_file_fixture("cloudwatch-log-1.json"),
+            "cw_log_2": load_file_fixture("cloudwatch-log-2.json"),
         }
 
         group_name = f"{type(self).__name__}-source-group"
         stream_name = f"{type(self).__name__}-source-stream"
 
         _create_cloudwatch_logs_group(self.logs_client, group_name=group_name)
-        g = _create_cloudwatch_logs_stream(self.logs_client,
-            group_name=group_name, stream_name=stream_name)
-        cloudwatch_group_arn = g['arn']
+        g = _create_cloudwatch_logs_stream(self.logs_client, group_name=group_name, stream_name=stream_name)
+        cloudwatch_group_arn = g["arn"]
 
         _event_to_cloudwatch_logs(
             self.logs_client,
@@ -143,11 +148,10 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
         self.group_name = group_name
         self.stream_name = stream_name
 
-        config_content = load_file_fixture('config.yaml')
-        self.config = Template(config_content).substitute(dict(
-            CloudwatchLogStreamARN=cloudwatch_group_arn,
-            LogstashURL=self.logstash.get_url()
-        ))
+        config_content = load_file_fixture("config.yaml")
+        self.config = Template(config_content).substitute(
+            dict(CloudwatchLogStreamARN=cloudwatch_group_arn, LogstashURL=self.logstash.get_url())
+        )
         print(self.config)
 
         _upload_content_to_bucket(
@@ -158,7 +162,7 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
             key="folder/config.yaml",
         )
 
-        def _create_sqs_queue(client, name:string):
+        def _create_sqs_queue(client, name: str):
             q = client.create_queue(QueueName=name)
             print(q["QueueUrl"])
             return q["QueueUrl"]
@@ -178,18 +182,14 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
 
     def test_foo(self):
         event_cloudwatch_logs, event_ids_cloudwatch_logs = _event_from_cloudwatch_logs(
-                self.logs_client, group_name=self.group_name, stream_name=self.stream_name
+            self.logs_client, group_name=self.group_name, stream_name=self.stream_name
         )
         print(event_cloudwatch_logs, event_ids_cloudwatch_logs)
 
-        ctx = ContextMock(1000*60*5)
+        ctx = ContextMock(1000 * 60 * 5)
         third_call = handler(event_cloudwatch_logs, ctx)
         print(third_call)
         # test new input => output to stdout
 
-
         msgs = self.logstash.get_messages()
         assert len(msgs) == 2
-
-        # import time; time.sleep(9999)
-
