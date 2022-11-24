@@ -11,7 +11,9 @@ import gzip
 import os.path
 import random
 import string
-from typing import Any
+from typing import Any, Text
+
+from botocore.client import BaseClient as BotoBaseClient
 
 from share import json_dumper
 
@@ -29,7 +31,7 @@ def _load_file_fixture(name: str) -> str:
     return res
 
 
-def _class_based_id(klass, prefix: str = "", suffix: str = "") -> str:
+def _class_based_id(klass: object, prefix: str = "", suffix: str = "") -> str:
     if prefix:
         prefix = f"{prefix}-"
     if suffix:
@@ -38,18 +40,20 @@ def _class_based_id(klass, prefix: str = "", suffix: str = "") -> str:
     return f"{prefix}{type(klass).__name__}{suffix}"
 
 
-def _logs_create_cloudwatch_logs_group(client, group_name: str) -> Any:
+def _logs_create_cloudwatch_logs_group(client: BotoBaseClient, group_name: str) -> Any:
     client.create_log_group(logGroupName=group_name)
     return client.describe_log_groups(logGroupNamePrefix=group_name)
 
 
-def _logs_create_cloudwatch_logs_stream(client, group_name: str, stream_name: str) -> Any:
+def _logs_create_cloudwatch_logs_stream(client: BotoBaseClient, group_name: str, stream_name: str) -> Any:
     client.create_log_stream(logGroupName=group_name, logStreamName=stream_name)
 
     return client.describe_log_streams(logGroupName=group_name, logStreamNamePrefix=stream_name)["logStreams"][0]
 
 
-def _logs_upload_event_to_cloudwatch_logs(client, group_name: str, stream_name: str, messages_body: list[str]) -> None:
+def _logs_upload_event_to_cloudwatch_logs(
+    client: BotoBaseClient, group_name: str, stream_name: str, messages_body: list[str]
+) -> None:
     now = int(datetime.datetime.utcnow().strftime("%s")) * 1000
     client.put_log_events(
         logGroupName=group_name,
@@ -61,7 +65,7 @@ def _logs_upload_event_to_cloudwatch_logs(client, group_name: str, stream_name: 
 
 
 def _logs_retrieve_event_from_cloudwatch_logs(
-    client, group_name: str, stream_name: str
+    client: BotoBaseClient, group_name: str, stream_name: str
 ) -> tuple[dict[str, Any], list[str]]:
     collected_log_event_ids: list[str] = []
     collected_log_events: list[dict[str, Any]] = []
@@ -98,7 +102,7 @@ def _logs_retrieve_event_from_cloudwatch_logs(
 
 
 def _s3_upload_content_to_bucket(
-    client, content, key: str, bucket_name: str, content_type: str, acl: str = "public-read-write"
+    client: BotoBaseClient, content: Text, key: str, bucket_name: str, content_type: str, acl: str = "public-read-write"
 ) -> None:
     client.create_bucket(Bucket=bucket_name, ACL=acl)
     client.put_object(Bucket=bucket_name, Key=key, Body=content, ContentType=content_type)

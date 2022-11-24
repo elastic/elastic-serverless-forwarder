@@ -1,13 +1,14 @@
 import json
 import os
 import time
+from typing import Any
 
 import requests
-from testcontainers.core.container import DockerContainer
-from testcontainers.core.waiting_utils import wait_container_is_ready
+from testcontainers.core.container import DockerContainer  # type: ignore
+from testcontainers.core.waiting_utils import wait_container_is_ready  # type: ignore
 
 
-class LogstashContainer(DockerContainer):
+class LogstashContainer(DockerContainer):  # type: ignore
     """
     Logstash container.
 
@@ -59,7 +60,7 @@ class LogstashContainer(DockerContainer):
         self.with_exposed_ports(self.api_port)
         self._configure()
 
-    def _configure(self):
+    def _configure(self) -> None:
         """
         You can override any value set here by calling <instance>.with_env(...) after initializing this class
         """
@@ -67,28 +68,28 @@ class LogstashContainer(DockerContainer):
         self.with_env("CONFIG_STRING", "input { stdin {} } output { stdout {} }")
         self.with_env("XPACK_MONITORING_ENABLED", "false")
 
-    def get_url(self):
+    def get_url(self) -> str:
         host = self.get_container_host_ip()
         port = self.get_exposed_port(self.port)
         return "http://{}:{}".format(host, port)
 
-    def get_apiurl(self):
+    def get_apiurl(self) -> str:
         host = self.get_container_host_ip()
         port = self.get_exposed_port(self.api_port)
         return "http://{}:{}".format(host, port)
 
-    @wait_container_is_ready(requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout)
-    def _connect(self):
+    @wait_container_is_ready(requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout)  # type: ignore
+    def _connect(self) -> None:
         url = self.get_apiurl()
         response = requests.get("{}/?pretty".format(url), timeout=1)
         response.raise_for_status()
 
-    def start(self):
+    def start(self) -> "LogstashContainer":
         super().start()
         self._connect()
         return self
 
-    def get_messages(self, retry: int = 2, timeout: int = 1) -> list[dict]:
+    def get_messages(self, retry: int = 2, timeout: int = 1) -> list[dict[str, Any]]:
         """
         Extract JSON messages from stdout as printed by Logstash with codec json or json_lines.
 

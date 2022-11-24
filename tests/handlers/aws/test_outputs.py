@@ -1,11 +1,13 @@
 import os
 from string import Template
+from typing import Any
 from unittest import TestCase
 
 import boto3
 import mock
 import pytest
-from testcontainers.localstack import LocalStackContainer
+from botocore.client import BaseClient as BotoBaseClient
+from testcontainers.localstack import LocalStackContainer  # type: ignore
 
 from main_aws import handler
 from tests.handlers.aws.test_handler import ContextMock
@@ -18,7 +20,7 @@ from tests.handlers.aws.utils import (
     _logs_upload_event_to_cloudwatch_logs,
     _s3_upload_content_to_bucket,
 )
-from tests.testcontainers.logstash import LogstashContainer
+from tests.testcontainers.logstash import LogstashContainer  # type: ignore
 
 
 @pytest.mark.integration
@@ -89,7 +91,7 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
             key="folder/config.yaml",
         )
 
-        def _create_sqs_queue(client, name: str):
+        def _create_sqs_queue(client: BotoBaseClient, name: str) -> Any:
             q = client.create_queue(QueueName=name)
             print(q["QueueUrl"])
             return q["QueueUrl"]
@@ -103,18 +105,18 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
         mock.patch("handlers.aws.utils.get_cloudwatch_logs_client", lambda: self.logs_client).start()
         mock.patch("handlers.aws.utils.get_sqs_client", lambda: self.sqs_client).start()
 
-    def tearDown(self):
+    def tearDown(self) -> None:
         self.localstack.stop()
         self.logstash.stop()
 
-    def test_foo(self):
+    def test_foo(self) -> None:
         event_cloudwatch_logs, event_ids_cloudwatch_logs = _logs_retrieve_event_from_cloudwatch_logs(
             self.logs_client, group_name=self.group_name, stream_name=self.stream_name
         )
         print(event_cloudwatch_logs, event_ids_cloudwatch_logs)
 
         ctx = ContextMock(1000 * 60 * 5)
-        third_call = handler(event_cloudwatch_logs, ctx)
+        third_call = handler(event_cloudwatch_logs, ctx)  # type: ignore
         print(third_call)
         # test new input => output to stdout
 
