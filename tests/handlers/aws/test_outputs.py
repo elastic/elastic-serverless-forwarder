@@ -20,7 +20,7 @@ from tests.handlers.aws.utils import (
     _logs_upload_event_to_cloudwatch_logs,
     _s3_upload_content_to_bucket,
 )
-from tests.testcontainers.logstash import LogstashContainer  # type: ignore
+from tests.testcontainers.logstash import LogstashContainer
 
 
 @pytest.mark.integration
