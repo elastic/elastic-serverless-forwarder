@@ -462,6 +462,32 @@ class TestLogstashOutput(TestCase):
                     compression_level="string",  # type: ignore
                 )
 
+        with self.subTest("empty password"):
+            with self.assertRaisesRegex(ValueError, "`password` must be set when using `username`"):
+                LogstashOutput(logstash_url="http://localhost:8080", username="username")
+
+        with self.subTest("username not str"):
+            with self.assertRaisesRegex(ValueError, "`username` must be provided as string"):
+                LogstashOutput(
+                    logstash_url="http://localhost:8080",
+                    username=0,  # type:ignore
+                    password="password",
+                )
+
+        with self.subTest("password not str"):
+            with self.assertRaisesRegex(ValueError, "`password` must be provided as string"):
+                LogstashOutput(
+                    logstash_url="http://localhost:8080",
+                    username="username",
+                    password=0,  # type:ignore
+                )
+        with self.subTest("ssl_assert_fingerprint not str"):
+            with self.assertRaisesRegex(ValueError, "`ssl_assert_fingerprint` must be provided as string"):
+                LogstashOutput(
+                    logstash_url="http://localhost:8080",
+                    ssl_assert_fingerprint=0,  # type:ignore
+                )
+
 
 @pytest.mark.unit
 class TestInput(TestCase):
@@ -601,6 +627,9 @@ class TestInput(TestCase):
             input_sqs.add_output(
                 output_type="logstash",
                 logstash_url="logstash_url",
+                username="username",
+                password="password",
+                ssl_assert_fingerprint="fingerprint",
             )
 
             assert isinstance(input_sqs.get_output_by_type(output_type="logstash"), LogstashOutput)

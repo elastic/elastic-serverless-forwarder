@@ -4,8 +4,14 @@
 
 import datetime
 import gzip
+import http
+import http.server
+import os
+import ssl
+import threading
 from typing import Any
 from unittest import TestCase
+from unittest.mock import MagicMock
 
 import pytest
 import responses
@@ -97,14 +103,46 @@ class TestLogstashShipper(TestCase):
                 responses.put(url=url, status=429)
             responses.put(url=url, status=429)
             logstash_shipper = LogstashShipper(logstash_url=url)
-            logstash_shipper.set_replay_handler(_dummy_replay_handler)
+            replay_handler = MagicMock(side_effect=_dummy_replay_handler)
+            logstash_shipper.set_replay_handler(replay_handler)
             assert logstash_shipper.send(_dummy_event) == _EVENT_SENT
+            replay_handler.assert_called_once_with("logstash", {}, _dummy_event)
         with self.subTest("Exceeds max retries, replay handler not set"):
             for i in range(_MAX_RETRIES):
                 responses.put(url=url, status=429)
             responses.put(url=url, status=429)
+            replay_handler = MagicMock(side_effect=_dummy_replay_handler)
             logstash_shipper = LogstashShipper(logstash_url=url)
             assert logstash_shipper.send(_dummy_event) == _EVENT_SENT
+            replay_handler.assert_not_called()
+        with self.subTest("Authentication error, request is not retried"):
+            responses.put(url=url, status=401)
+            logstash_shipper = LogstashShipper(logstash_url=url)
+            replay_handler = MagicMock(side_effect=_dummy_replay_handler)
+            logstash_shipper.set_replay_handler(replay_handler)
+            assert logstash_shipper.send(_dummy_event) == _EVENT_SENT
+            replay_handler.assert_called_once_with("logstash", {}, _dummy_event)
+
+    def test_send_https_auth(self) -> None:
+        certpath = os.path.join(os.path.dirname(__file__), "ssl", "localhost.crt")
+        keypath = os.path.join(os.path.dirname(__file__), "ssl", "localhost.pkcs8.key")
+        server_address = ("localhost", 8080)
+        httpd = http.server.HTTPServer(server_address, http.server.SimpleHTTPRequestHandler)
+        httpd.socket = ssl.wrap_socket(
+            httpd.socket, server_side=True, certfile=certpath, keyfile=keypath, ssl_version=ssl.PROTOCOL_TLS
+        )
+        httpd_thread = threading.Thread(target=httpd.serve_forever)
+        httpd_thread.daemon = True
+        httpd_thread.start()
+        logstash_shipper = LogstashShipper(
+            logstash_url="https://localhost:8080",
+            ssl_assert_fingerprint="22:F7:FB:84" ":1D:43:3E" ":E7:BB:F9" ":72:F3:D8:97:AD:7C:86:E3:07:42",
+        )
+        replay_handler = MagicMock(side_effect=_dummy_replay_handler)
+        logstash_shipper.set_replay_handler(replay_handler)
+        assert logstash_shipper.send(_dummy_event) == _EVENT_SENT
+        replay_handler.assert_not_called()
+        httpd.shutdown()
 
     @responses.activate
     def test_flush(self) -> None:
