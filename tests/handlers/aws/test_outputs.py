@@ -35,7 +35,8 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
         lst.with_services("s3", "logs", "sqs")
         self.localstack = lst.start()
 
-        session = boto3.Session(region_name="us-east-1")
+        aws_default_region = "us-east-1"
+        session = boto3.Session(region_name=aws_default_region)
         self.s3_client = session.client("s3", endpoint_url=self.localstack.get_url())
         self.logs_client = session.client("logs", endpoint_url=self.localstack.get_url())
         self.sqs_client = session.client("sqs", endpoint_url=self.localstack.get_url())
@@ -99,7 +100,7 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
             print(q["QueueUrl"])
             return q["QueueUrl"]
 
-        os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
+        os.environ["AWS_DEFAULT_REGION"] = aws_default_region
         os.environ["S3_CONFIG_FILE"] = f"s3://{type(self).__name__}-config-bucket/folder/config.yaml".lower()
         os.environ["SQS_CONTINUE_URL"] = _create_sqs_queue(self.sqs_client, f"{type(self).__name__}-continuing")
         os.environ["SQS_REPLAY_URL"] = _create_sqs_queue(self.sqs_client, f"{type(self).__name__}-replay")
