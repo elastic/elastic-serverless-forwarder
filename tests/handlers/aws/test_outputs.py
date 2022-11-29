@@ -30,9 +30,8 @@ from tests.testcontainers.logstash import LogstashContainer
 @pytest.mark.integration
 class TestLambdaHandlerLogstashOutputSuccess(TestCase):
     def setUp(self) -> None:
-        LocalStackContainer.IMAGE = "localstack/localstack:1.1.0"
-        lst = LocalStackContainer()
-        lst.with_env("EAGER_SERVICE_LOADING", 1)
+        lst = LocalStackContainer(image="localstack/localstack:1.1.0")
+        lst.with_env("EAGER_SERVICE_LOADING", "1")
         lst.with_services("s3", "logs", "sqs")
         self.localstack = lst.start()
 
