@@ -35,7 +35,7 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
         lst.with_services("s3", "logs", "sqs")
         self.localstack = lst.start()
 
-        session = boto3.Session(region_name="eu-west-1")
+        session = boto3.Session(region_name="us-east-1")
         self.s3_client = session.client("s3", endpoint_url=self.localstack.get_url())
         self.logs_client = session.client("logs", endpoint_url=self.localstack.get_url())
         self.sqs_client = session.client("sqs", endpoint_url=self.localstack.get_url())
