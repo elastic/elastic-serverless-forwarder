@@ -104,13 +104,20 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
         os.environ["SQS_CONTINUE_URL"] = _create_sqs_queue(self.sqs_client, f"{type(self).__name__}-continuing")
         os.environ["SQS_REPLAY_URL"] = _create_sqs_queue(self.sqs_client, f"{type(self).__name__}-replay")
 
-        mock.patch("storage.S3Storage._s3_client", new=self.s3_client).start()
-        mock.patch("handlers.aws.utils.get_cloudwatch_logs_client", lambda: self.logs_client).start()
-        mock.patch("handlers.aws.utils.get_sqs_client", lambda: self.sqs_client).start()
+        self.mocks = {
+            "s3client": mock.patch("storage.S3Storage._s3_client", new=self.s3_client),
+            "cloudwatchclient": mock.patch("handlers.aws.utils.get_cloudwatch_logs_client", lambda: self.logs_client),
+            "sqsclient": mock.patch("handlers.aws.utils.get_sqs_client", lambda: self.sqs_client),
+        }
+        for k, m in self.mocks.items():
+            m.start()
 
     def tearDown(self) -> None:
         self.localstack.stop()
         self.logstash.stop()
+
+        for k, m in self.mocks.items():
+            m.stop()
 
     def test_foo(self) -> None:
         event_cloudwatch_logs, event_ids_cloudwatch_logs = _logs_retrieve_event_from_cloudwatch_logs(
