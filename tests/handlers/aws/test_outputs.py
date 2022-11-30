@@ -23,6 +23,7 @@ from tests.handlers.aws.utils import (
     _logs_retrieve_event_from_cloudwatch_logs,
     _logs_upload_event_to_cloudwatch_logs,
     _s3_upload_content_to_bucket,
+    _sqs_create_queue,
 )
 from tests.testcontainers.logstash import LogstashContainer
 
@@ -94,15 +95,10 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
             key="folder/config.yaml",
         )
 
-        def _create_sqs_queue(client: BotoBaseClient, name: str) -> Any:
-            q = client.create_queue(QueueName=name)
-            print(q["QueueUrl"])
-            return q["QueueUrl"]
-
         os.environ["AWS_DEFAULT_REGION"] = aws_default_region
         os.environ["S3_CONFIG_FILE"] = f"s3://{type(self).__name__}-config-bucket/folder/config.yaml".lower()
-        os.environ["SQS_CONTINUE_URL"] = _create_sqs_queue(self.sqs_client, f"{type(self).__name__}-continuing")
-        os.environ["SQS_REPLAY_URL"] = _create_sqs_queue(self.sqs_client, f"{type(self).__name__}-replay")
+        os.environ["SQS_CONTINUE_URL"] = _sqs_create_queue(self.sqs_client, f"{type(self).__name__}-continuing")
+        os.environ["SQS_REPLAY_URL"] = _sqs_create_queue(self.sqs_client, f"{type(self).__name__}-replay")
 
         self.mocks = {
             "s3client": mock.patch("storage.S3Storage._s3_client", new=self.s3_client),

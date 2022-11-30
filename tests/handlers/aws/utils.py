@@ -110,3 +110,8 @@ def _s3_upload_content_to_bucket(
 ) -> None:
     client.create_bucket(Bucket=bucket_name, ACL=acl)
     client.put_object(Bucket=bucket_name, Key=key, Body=content, ContentType=content_type)
+
+
+def _sqs_create_queue(client: BotoBaseClient, name: str) -> Any:
+    queue = client.create_queue(QueueName=name)
+    return queue["QueueUrl"]
