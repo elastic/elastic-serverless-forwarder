@@ -87,18 +87,20 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
         )
         print(self.config)
 
+        config_bucket_name = _class_based_id(self, suffix="config-bucket").lower()
+        config_file_path = "folder/config.yaml"
         _s3_upload_content_to_bucket(
             client=self.s3_client,
             content=self.config,
             content_type="text/plain",
-            bucket_name=_class_based_id(self, suffix="config-bucket").lower(),
-            key="folder/config.yaml",
+            bucket_name=config_bucket_name,
+            key=config_file_path ,
         )
 
         os.environ["AWS_DEFAULT_REGION"] = aws_default_region
-        os.environ["S3_CONFIG_FILE"] = f"s3://{type(self).__name__}-config-bucket/folder/config.yaml".lower()
-        os.environ["SQS_CONTINUE_URL"] = _sqs_create_queue(self.sqs_client, f"{type(self).__name__}-continuing")
-        os.environ["SQS_REPLAY_URL"] = _sqs_create_queue(self.sqs_client, f"{type(self).__name__}-replay")
+        os.environ["S3_CONFIG_FILE"] = f"{config_bucket_name}/{config_file_path}"
+        os.environ["SQS_CONTINUE_URL"] = _sqs_create_queue(self.sqs_client, _class_based_id(self, suffix="-continuing"))
+        os.environ["SQS_REPLAY_URL"] = _sqs_create_queue(self.sqs_client, _class_based_id(self, suffix="-replay"))
 
         self.mocks = {
             "s3client": mock.patch("storage.S3Storage._s3_client", new=self.s3_client),
