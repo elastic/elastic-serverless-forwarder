@@ -43,18 +43,17 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
 
         self.logstash_http_port = 5043
         lgc = LogstashContainer(port=self.logstash_http_port)
-        logstash_config = """\
+        # NOTE: plain curly brackets must be escaped in this string (double them)
+        logstash_config = f"""\
             input {{
               http {{
-                port => {logstash_http_port}
+                port => {self.logstash_http_port}
                 codec => json_lines
               }}
             }}
 
             output {{ stdout {{ codec => json_lines }} }}
-            """.format(
-            logstash_http_port=self.logstash_http_port
-        )
+            """
         print(logstash_config)
         lgc.with_env("CONFIG_STRING", logstash_config)
         self.logstash = lgc.start()

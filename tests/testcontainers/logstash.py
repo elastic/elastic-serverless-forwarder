@@ -75,17 +75,17 @@ class LogstashContainer(DockerContainer):  # type: ignore
     def get_url(self) -> str:
         host = self.get_container_host_ip()
         port = self.get_exposed_port(self.port)
-        return "http://{}:{}".format(host, port)
+        return f"http://{host}:{port}"
 
     def get_apiurl(self) -> str:
         host = self.get_container_host_ip()
         port = self.get_exposed_port(self.api_port)
-        return "http://{}:{}".format(host, port)
+        return f"http://{host}:{port}"
 
     @wait_container_is_ready(requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout)  # type: ignore
     def _connect(self) -> None:
         url = self.get_apiurl()
-        response = requests.get("{}/?pretty".format(url), timeout=1)
+        response = requests.get(f"{url}/?pretty", timeout=1)
         response.raise_for_status()
 
     def start(self) -> "LogstashContainer":
