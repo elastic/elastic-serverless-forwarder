@@ -4,13 +4,11 @@
 
 import os
 from string import Template
-from typing import Any
 from unittest import TestCase
 
 import boto3
 import mock
 import pytest
-from botocore.client import BaseClient as BotoBaseClient
 from testcontainers.localstack import LocalStackContainer  # type: ignore
 
 from main_aws import handler
@@ -92,7 +90,7 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
             content=self.config,
             content_type="text/plain",
             bucket_name=config_bucket_name,
-            key=config_file_path ,
+            key=config_file_path,
         )
 
         os.environ["AWS_DEFAULT_REGION"] = aws_default_region
@@ -121,7 +119,7 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
         )
 
         ctx = ContextMock(1000 * 60 * 5)
-        third_call = handler(event_cloudwatch_logs, ctx)  # type: ignore
+        handler(event_cloudwatch_logs, ctx)  # type: ignore
         # test new input => output to stdout
 
         msgs = self.logstash.get_messages()
