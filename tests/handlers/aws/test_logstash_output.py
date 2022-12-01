@@ -55,7 +55,6 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
 
             output {{ stdout {{ codec => json_lines }} }}
             """
-        print(logstash_config)
         lgc.with_env("CONFIG_STRING", logstash_config)
         self.logstash = lgc.start()
 
@@ -85,7 +84,6 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
         self.config = Template(config_content).substitute(
             dict(CloudwatchLogStreamARN=cloudwatch_group_arn, LogstashURL=self.logstash.get_url())
         )
-        print(self.config)
 
         config_bucket_name = _class_based_id(self, suffix="config-bucket").lower()
         config_file_path = "folder/config.yaml"
@@ -121,11 +119,9 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
         event_cloudwatch_logs, event_ids_cloudwatch_logs = _logs_retrieve_event_from_cloudwatch_logs(
             self.logs_client, group_name=self.group_name, stream_name=self.stream_name
         )
-        print(event_cloudwatch_logs, event_ids_cloudwatch_logs)
 
         ctx = ContextMock(1000 * 60 * 5)
         third_call = handler(event_cloudwatch_logs, ctx)  # type: ignore
-        print(third_call)
         # test new input => output to stdout
 
         msgs = self.logstash.get_messages()
