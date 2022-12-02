@@ -94,7 +94,7 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
         )
 
         os.environ["AWS_DEFAULT_REGION"] = aws_default_region
-        os.environ["S3_CONFIG_FILE"] = f"{config_bucket_name}/{config_file_path}"
+        os.environ["S3_CONFIG_FILE"] = f"s3://{config_bucket_name}/{config_file_path}"
         os.environ["SQS_CONTINUE_URL"] = _sqs_create_queue(self.sqs_client, _class_based_id(self, suffix="-continuing"))
         os.environ["SQS_REPLAY_URL"] = _sqs_create_queue(self.sqs_client, _class_based_id(self, suffix="-replay"))
 
