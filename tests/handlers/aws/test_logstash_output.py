@@ -25,6 +25,8 @@ from tests.handlers.aws.utils import (
 )
 from tests.testcontainers.logstash import LogstashContainer
 
+TIMEOUT_15m = 1000 * 60 * 15
+
 
 @pytest.mark.integration
 class TestLambdaHandlerLogstashOutputSuccess(TestCase):
@@ -120,7 +122,7 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
             self.logs_client, group_name=self.group_name, stream_name=self.stream_name
         )
 
-        ctx = ContextMock(1000 * 60 * 5)
+        ctx = ContextMock(TIMEOUT_15m)
         handler(event_cloudwatch_logs, ctx)  # type: ignore
         # test new input => output to stdout
 
