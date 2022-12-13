@@ -115,7 +115,7 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
         for k, m in self.mocks.items():
             m.stop()
 
-    def test_foo(self) -> None:
+    def test_sent_messages(self) -> None:
         event_cloudwatch_logs, event_ids_cloudwatch_logs = _logs_retrieve_event_from_cloudwatch_logs(
             self.logs_client, group_name=self.group_name, stream_name=self.stream_name
         )
