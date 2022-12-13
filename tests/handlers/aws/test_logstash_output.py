@@ -65,8 +65,10 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
         stream_name = _class_based_id(self, suffix="source-stream")
 
         _logs_create_cloudwatch_logs_group(self.logs_client, group_name=group_name)
-        g = _logs_create_cloudwatch_logs_stream(self.logs_client, group_name=group_name, stream_name=stream_name)
-        cloudwatch_group_arn = g["arn"]
+        cw_logstream = _logs_create_cloudwatch_logs_stream(
+            self.logs_client, group_name=group_name, stream_name=stream_name
+        )
+        cloudwatch_group_arn = cw_logstream["arn"]
 
         _logs_upload_event_to_cloudwatch_logs(
             self.logs_client,
