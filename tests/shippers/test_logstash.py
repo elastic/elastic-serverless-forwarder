@@ -1,7 +1,7 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
-
+import base64
 import datetime
 import gzip
 import http
@@ -12,6 +12,7 @@ import threading
 from typing import Any
 from unittest import TestCase
 from unittest.mock import MagicMock
+from base64 import b64encode
 
 import pytest
 import responses
@@ -50,6 +51,9 @@ _dummy_event: dict[str, Any] = {
     },
     "meta": {},
 }
+
+_username = "admin"
+_password = "password"
 
 
 def _dummy_replay_handler(output_type: str, output_args: dict[str, Any], event_payload: dict[str, Any]) -> None:
@@ -123,7 +127,7 @@ class TestLogstashShipper(TestCase):
             assert logstash_shipper.send(_dummy_event) == _EVENT_SENT
             replay_handler.assert_called_once_with("logstash", {}, _dummy_event)
 
-    def test_send_https_auth(self) -> None:
+    def test_send_https_ssl_fingerprint(self) -> None:
         certpath = os.path.join(os.path.dirname(__file__), "ssl", "localhost.crt")
         keypath = os.path.join(os.path.dirname(__file__), "ssl", "localhost.pkcs8.key")
         server_address = ("localhost", 8080)
@@ -143,6 +147,40 @@ class TestLogstashShipper(TestCase):
         assert logstash_shipper.send(_dummy_event) == _EVENT_SENT
         replay_handler.assert_not_called()
         httpd.shutdown()
+
+    @responses.activate
+    def test_send_basic_auth(self) -> None:
+        def request_callback(request: PreparedRequest) -> tuple[int, dict[Any, Any], str]:
+            _payload = []
+            usr_bytes = _username.encode("latin1")
+            pwd_bytes = _password.encode("latin1")
+            auth_string = b64encode(b":".join((usr_bytes, pwd_bytes))).decode("latin1")
+            assert request.headers["Content-Encoding"] == "gzip"
+            assert request.headers["Content-Type"] == "application/x-ndjson"
+            print(auth_string)
+            assert request.headers["Authorization"] == f"Basic {auth_string}"
+            assert request.body is not None
+            assert isinstance(request.body, bytes)
+
+            events = gzip.decompress(request.body).decode("utf-8").split("\n")
+            for event in events:
+                _payload.append(ujson.loads(event))
+
+            expected_event = _dummy_event
+            expected_event["_id"] = "_id"
+            assert _payload == [expected_event, expected_event]
+
+            return 200, {}, "okay"
+
+        def event_id_generator(event: dict[str, Any]) -> str:
+            return "_id"
+
+        url = "http://logstash_url"
+        responses.add_callback(responses.PUT, url, callback=request_callback)
+        logstash_shipper = LogstashShipper(logstash_url=url, max_batch_size=2, username=_username, password=_password)
+        logstash_shipper.set_event_id_generator(event_id_generator)
+        logstash_shipper.send(_dummy_event)
+        logstash_shipper.send(_dummy_event)
 
     @responses.activate
     def test_flush(self) -> None:
