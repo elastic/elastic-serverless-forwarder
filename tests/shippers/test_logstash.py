@@ -1,7 +1,6 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
-import base64
 import datetime
 import gzip
 import http
@@ -9,10 +8,10 @@ import http.server
 import os
 import ssl
 import threading
+from base64 import b64encode
 from typing import Any
 from unittest import TestCase
 from unittest.mock import MagicMock
-from base64 import b64encode
 
 import pytest
 import responses
