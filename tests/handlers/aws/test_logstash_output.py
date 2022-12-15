@@ -5,6 +5,7 @@
 import os
 from string import Template
 from unittest import TestCase
+from typing import Any
 
 import boto3
 import mock
@@ -28,7 +29,7 @@ from tests.testcontainers.logstash import LogstashContainer
 TIMEOUT_15m = 1000 * 60 * 15
 
 
-def _prepare_config_file(klass, conffixture, confdict, config_file_path):
+def _prepare_config_file(klass: Any, conffixture: str, confdict: dict, config_file_path: str):
     config_content = _load_file_fixture(conffixture)
     klass.config = Template(config_content).substitute(confdict)
 
