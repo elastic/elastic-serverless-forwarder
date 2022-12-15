@@ -28,6 +28,22 @@ from tests.testcontainers.logstash import LogstashContainer
 TIMEOUT_15m = 1000 * 60 * 15
 
 
+def _prepare_config_file(klass, conffixture, confdict, config_file_path):
+    config_content = _load_file_fixture(conffixture)
+    klass.config = Template(config_content).substitute(confdict)
+
+    config_bucket_name = _class_based_id(klass, suffix="config-bucket").lower()
+    _s3_upload_content_to_bucket(
+        client=klass.s3_client,
+        content=klass.config,
+        content_type="text/plain",
+        bucket_name=config_bucket_name,
+        key=config_file_path,
+    )
+
+    return f"s3://{config_bucket_name}/{config_file_path}"
+
+
 @pytest.mark.integration
 class TestLambdaHandlerLogstashOutputSuccess(TestCase):
     def setUp(self) -> None:
@@ -70,7 +86,7 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
         cw_logstream = _logs_create_cloudwatch_logs_stream(
             self.logs_client, group_name=group_name, stream_name=stream_name
         )
-        cloudwatch_group_arn = cw_logstream["arn"]
+        self.cloudwatch_group_arn = cw_logstream["arn"]
 
         _logs_upload_event_to_cloudwatch_logs(
             self.logs_client,
@@ -82,23 +98,8 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
         self.group_name = group_name
         self.stream_name = stream_name
 
-        config_content = _load_file_fixture("config.yaml")
-        self.config = Template(config_content).substitute(
-            dict(CloudwatchLogStreamARN=cloudwatch_group_arn, LogstashURL=self.logstash.get_url())
-        )
-
-        config_bucket_name = _class_based_id(self, suffix="config-bucket").lower()
-        config_file_path = "folder/config.yaml"
-        _s3_upload_content_to_bucket(
-            client=self.s3_client,
-            content=self.config,
-            content_type="text/plain",
-            bucket_name=config_bucket_name,
-            key=config_file_path,
-        )
 
         os.environ["AWS_DEFAULT_REGION"] = aws_default_region
-        os.environ["S3_CONFIG_FILE"] = f"s3://{config_bucket_name}/{config_file_path}"
         os.environ["SQS_CONTINUE_URL"] = _sqs_create_queue(self.sqs_client, _class_based_id(self, suffix="-continuing"))
         os.environ["SQS_REPLAY_URL"] = _sqs_create_queue(self.sqs_client, _class_based_id(self, suffix="-replay"))
 
@@ -118,6 +119,11 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
             m.stop()
 
     def test_sent_messages(self) -> None:
+        os.environ["S3_CONFIG_FILE"] = _prepare_config_file(self, "config.yaml",
+            dict(CloudwatchLogStreamARN=self.cloudwatch_group_arn, LogstashURL=self.logstash.get_url()),
+            "folder/config.yaml"
+        )
+
         event_cloudwatch_logs, event_ids_cloudwatch_logs = _logs_retrieve_event_from_cloudwatch_logs(
             self.logs_client, group_name=self.group_name, stream_name=self.stream_name
         )
