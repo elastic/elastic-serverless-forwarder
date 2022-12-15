@@ -29,7 +29,7 @@ from tests.testcontainers.logstash import LogstashContainer
 TIMEOUT_15m = 1000 * 60 * 15
 
 
-def _prepare_config_file(klass: Any, conffixture: str, confdict: dict, config_file_path: str):
+def _prepare_config_file(klass: Any, conffixture: str, confdict: dict[str, Any], config_file_path: str) -> str:
     config_content = _load_file_fixture(conffixture)
     klass.config = Template(config_content).substitute(confdict)
 
