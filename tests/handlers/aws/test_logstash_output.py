@@ -4,8 +4,8 @@
 
 import os
 from string import Template
-from unittest import TestCase
 from typing import Any
+from unittest import TestCase
 
 import boto3
 import mock
