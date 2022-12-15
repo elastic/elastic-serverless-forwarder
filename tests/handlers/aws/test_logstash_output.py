@@ -119,9 +119,11 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
             m.stop()
 
     def test_sent_messages(self) -> None:
-        os.environ["S3_CONFIG_FILE"] = _prepare_config_file(self, "config.yaml",
+        os.environ["S3_CONFIG_FILE"] = _prepare_config_file(
+            self,
+            "config.yaml",
             dict(CloudwatchLogStreamARN=self.cloudwatch_group_arn, LogstashURL=self.logstash.get_url()),
-            "folder/config.yaml"
+            "folder/config.yaml",
         )
 
         event_cloudwatch_logs, event_ids_cloudwatch_logs = _logs_retrieve_event_from_cloudwatch_logs(
@@ -136,9 +138,11 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
         assert len(msgs) == 2
 
     def test_failure_sending_messages(self) -> None:
-        os.environ["S3_CONFIG_FILE"] = _prepare_config_file(self, "config.yaml",
+        os.environ["S3_CONFIG_FILE"] = _prepare_config_file(
+            self,
+            "config.yaml",
             dict(CloudwatchLogStreamARN=self.cloudwatch_group_arn, LogstashURL="http://fake.url"),
-            "folder/config2.yaml"
+            "folder/config2.yaml",
         )
 
         event_cloudwatch_logs, event_ids_cloudwatch_logs = _logs_retrieve_event_from_cloudwatch_logs(
