@@ -55,6 +55,7 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
 
         aws_default_region = "us-east-1"
         session = boto3.Session(region_name=aws_default_region)
+        self.aws_session = session
         self.s3_client = session.client("s3", endpoint_url=self.localstack.get_url())
         self.logs_client = session.client("logs", endpoint_url=self.localstack.get_url())
         self.sqs_client = session.client("sqs", endpoint_url=self.localstack.get_url())
@@ -155,3 +156,13 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
 
         msgs = self.logstash.get_messages()
         assert len(msgs) == 0
+
+        sqs = self.aws_session.resource("sqs", endpoint_url=self.localstack.get_url())
+        queue = sqs.Queue(os.environ["SQS_REPLAY_URL"])
+        count = 0
+        for message in queue.receive_messages():
+            print(message)
+            count += 1
+            message.delete()
+
+        assert count == 2
