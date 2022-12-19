@@ -78,7 +78,6 @@ sam publish --template "${TMPDIR}/.aws-sam/build/macro/packaged.yaml" --region "
 sam build --debug --use-container --build-dir "${TMPDIR}/.aws-sam/build/application" --template-file "${TMPDIR}/application.yaml" --region "${REGION}"
 sam package --template-file "${TMPDIR}/.aws-sam/build/application/template.yaml" --output-template-file "${TMPDIR}/.aws-sam/build/application/packaged.yaml" --s3-bucket "${BUCKET}" --region "${REGION}"
 sam publish --template "${TMPDIR}/.aws-sam/build/application/packaged.yaml" --region "${REGION}"
-aws s3 cp "${TMPDIR}/.aws-sam/build/application/packaged.yaml" "s3://${BUCKET}/application.yaml"
 
 sam build --debug --use-container --build-dir "${TMPDIR}/.aws-sam/build/template" --template-file "${TMPDIR}/template.yaml" --region "${REGION}"
 sam package --template-file "${TMPDIR}/.aws-sam/build/template/template.yaml" --output-template-file "${TMPDIR}/.aws-sam/build/template/packaged.yaml" --s3-bucket "${BUCKET}" --region "${REGION}"

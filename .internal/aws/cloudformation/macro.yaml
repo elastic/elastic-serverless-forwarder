@@ -21,6 +21,23 @@ Resources:
         def create_events(event):
             events_fragment = {}
             parameters = event["templateParameterValues"]
+
+            kinesis_batch_size = 10
+            if parameters["ElasticServerlessForwarderKinesisBatchSize"]:
+                kinesis_batch_size = int(parameters["ElasticServerlessForwarderKinesisBatchSize"])
+
+            kinesis_starting_position = "TRIM_HORIZON"
+            if parameters["ElasticServerlessForwarderKinesisStartingPosition"]:
+                kinesis_starting_position = parameters["ElasticServerlessForwarderKinesisStartingPosition"]
+
+            kinesis_batch_window = 0
+            if parameters["ElasticServerlessForwarderKinesisMaximumBatchingWindowInSeconds"]:
+                kinesis_batch_window = int(parameters["ElasticServerlessForwarderKinesisMaximumBatchingWindowInSeconds"])
+
+            kinesis_parallelization_factor = 1
+            if parameters["ElasticServerlessForwarderKinesisParallelizationFactor"]:
+                kinesis_parallelization_factor = int(parameters["ElasticServerlessForwarderKinesisParallelizationFactor"])
+
             if "ElasticServerlessForwarderKinesisEvents" in parameters:
                 for kinesis_event in parameters["ElasticServerlessForwarderKinesisEvents"]:
                     kinesis_event = kinesis_event.strip()
@@ -32,11 +49,17 @@ Resources:
                         "Type": "Kinesis",
                         "Properties": {
                             "Stream": kinesis_event,
-                            "StartingPosition": "TRIM_HORIZON",
-                            "BatchSize": 10,
+                            "StartingPosition": kinesis_starting_position,
+                            "BatchSize": kinesis_batch_size,
+                            "MaximumBatchingWindowInSeconds": kinesis_batch_window,
+                            "ParallelizationFactor": kinesis_parallelization_factor,
                             "Enabled": True,
                         }
                     }
+
+            sqs_batch_size = 10
+            if parameters["ElasticServerlessForwarderSQSBatchSize"]:
+                sqs_batch_size = int(parameters["ElasticServerlessForwarderSQSBatchSize"])
 
             if "ElasticServerlessForwarderSQSEvents" in parameters:
                 for sqs_event in parameters["ElasticServerlessForwarderSQSEvents"]:
@@ -49,10 +72,14 @@ Resources:
                         "Type": "SQS",
                         "Properties": {
                             "Queue": sqs_event,
-                            "BatchSize": 10,
+                            "BatchSize": sqs_batch_size,
                             "Enabled": True,
                         }
                     }
+
+            sqs_s3_batch_size = 10
+            if parameters["ElasticServerlessForwarderS3SQSBatchSize"]:
+                sqs_s3_batch_size = int(parameters["ElasticServerlessForwarderS3SQSBatchSize"])
 
             if "ElasticServerlessForwarderS3SQSEvents" in parameters:
                 for s3_sqs_event in parameters["ElasticServerlessForwarderS3SQSEvents"]:
@@ -65,7 +92,7 @@ Resources:
                         "Type": "SQS",
                         "Properties": {
                             "Queue": s3_sqs_event,
-                            "BatchSize": 10,
+                            "BatchSize": sqs_s3_batch_size,
                             "Enabled": True,
                         }
                     }
@@ -224,13 +251,45 @@ Resources:
             return policy_fragment
 
 
+        def create_vpc_config(event):
+            parameters = event["templateParameterValues"]
+            vpc_config_fragment = {}
+
+            security_groups = []
+            if "ElasticServerlessForwarderSecurityGroups" in parameters:
+                security_groups = [x for x in parameters["ElasticServerlessForwarderSecurityGroups"] if len(x.strip()) > 0]
+
+            subnets = []
+            if "ElasticServerlessForwarderSubnets" in parameters:
+                subnets = [x for x in parameters["ElasticServerlessForwarderSubnets"] if len(x.strip()) > 0]
+
+            if len(security_groups) > 0:
+                vpc_config_fragment["SecurityGroupIds"] = security_groups
+
+            if len(subnets) > 0:
+                vpc_config_fragment["SubnetIds"] = subnets
+
+            if "SubnetIds" in vpc_config_fragment and "SecurityGroupIds" not in vpc_config_fragment:
+                vpc_config_fragment["SecurityGroupIds"] = []
+
+            if "SecurityGroupIds" in vpc_config_fragment and "SubnetIds" not in vpc_config_fragment:
+                vpc_config_fragment["SubnetIds"] = []
+
+            return vpc_config_fragment
+
         def handler(event, context):
+            vpc_config = create_vpc_config(event)
+            if vpc_config:
+                event["fragment"]["ApplicationElasticServerlessForwarder"]["Properties"]["VpcConfig"] = vpc_config
+
             created_events = create_events(event)
             for created_event in created_events:
                 event["fragment"]["ApplicationElasticServerlessForwarder"]["Properties"]["Events"][created_event] = created_events[created_event]
 
             created_policy = create_policy(event)
             event["fragment"]["ElasticServerlessForwarderPolicy"] = created_policy
+            event["fragment"]["ApplicationElasticServerlessForwarder"]["DependsOn"] = "ElasticServerlessForwarderPolicy"
+
 
             return {"status": "SUCCESS", "requestId": event["requestId"], "fragment": event["fragment"]}
       Handler: index.handler

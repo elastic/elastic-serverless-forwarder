@@ -14,13 +14,33 @@ Parameters:
     Type: CommaDelimitedList
   ElasticServerlessForwarderSQSEvents:
     Type: CommaDelimitedList
+  ElasticServerlessForwarderSQSBatchSize:
+    Type: Number
   ElasticServerlessForwarderS3SQSEvents:
     Type: CommaDelimitedList
+  ElasticServerlessForwarderS3SQSBatchSize:
+    Type: Number
   ElasticServerlessForwarderKinesisEvents:
     Type: CommaDelimitedList
+  ElasticServerlessForwarderKinesisBatchSize:
+    Type: Number
+  ElasticServerlessForwarderKinesisStartingPosition:
+    Type: String
+  ElasticServerlessForwarderKinesisMaximumBatchingWindowInSeconds:
+    Type: Number
+  ElasticServerlessForwarderKinesisParallelizationFactor:
+    Type: Number
   ElasticServerlessForwarderCloudWatchLogsEvents:
     Type: CommaDelimitedList
+  ElasticServerlessForwarderContinuingQueueBatchSize:
+    Type: Number
+  ElasticServerlessForwarderContinuingMaximumBatchingWindowInSeconds:
+    Type: Number
   ElasticServerlessForwarderS3Buckets:
+    Type: CommaDelimitedList
+  ElasticServerlessForwarderSecurityGroups:
+    Type: CommaDelimitedList
+  ElasticServerlessForwarderSubnets:
     Type: CommaDelimitedList
 Resources:
   ElasticServerlessForwarderContinuingDLQ:
@@ -69,7 +89,8 @@ Resources:
           Type: SQS
           Properties:
             Queue: !GetAtt ElasticServerlessForwarderContinuingQueue.Arn
-            BatchSize: 10
+            BatchSize:  !Ref ElasticServerlessForwarderContinuingQueueBatchSize
+            MaximumBatchingWindowInSeconds: !Ref ElasticServerlessForwarderContinuingMaximumBatchingWindowInSeconds
             Enabled: true
   Fn::Transform:
     Type: AWS::CloudFormation::Macro
