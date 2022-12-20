@@ -13,6 +13,7 @@ import pytest
 from testcontainers.localstack import LocalStackContainer  # type: ignore
 
 from main_aws import handler
+from share import json_parser
 from tests.handlers.aws.test_handler import ContextMock
 from tests.handlers.aws.utils import (
     _class_based_id,
@@ -23,6 +24,7 @@ from tests.handlers.aws.utils import (
     _logs_upload_event_to_cloudwatch_logs,
     _s3_upload_content_to_bucket,
     _sqs_create_queue,
+    _sqs_get_messages,
 )
 from tests.testcontainers.logstash import LogstashContainer
 
@@ -157,12 +159,11 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
         msgs = self.logstash.get_messages()
         assert len(msgs) == 0
 
-        sqs = self.aws_session.resource("sqs", endpoint_url=self.localstack.get_url())
-        queue = sqs.Queue(os.environ["SQS_REPLAY_URL"])
-        count = 0
-        for message in queue.receive_messages():
-            print(message)
-            count += 1
-            message.delete()
+        messages = _sqs_get_messages(self.sqs_client, os.environ["SQS_REPLAY_URL"])
+        assert len(messages) == 2
 
-        assert count == 2
+        event1 = json_parser(messages[0]["Body"])
+        assert event1["event_payload"]["fields"]["message"] == self.fixtures["cw_log_1"].rstrip("\n")
+
+        event2 = json_parser(messages[1]["Body"])
+        assert event2["event_payload"]["fields"]["message"] == self.fixtures["cw_log_2"].rstrip("\n")

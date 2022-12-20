@@ -115,3 +115,25 @@ def _s3_upload_content_to_bucket(
 def _sqs_create_queue(client: BotoBaseClient, name: str) -> Any:
     queue = client.create_queue(QueueName=name)
     return queue["QueueUrl"]
+
+
+def _sqs_get_messages(client: BotoBaseClient, queue_url: str) -> list[Any]:
+    """
+    A function to extract all messages from a SQS queue, specified by URL.
+    """
+    collected_messages: list[Any] = []
+    while True:
+        try:
+            messages = client.receive_message(QueueUrl=queue_url, MessageAttributeNames=["All"])
+            # NOTE: asserts are used to check if messages are present.
+            # On AssertionError the collected messages are returned.
+            assert "Messages" in messages
+            assert len(messages["Messages"]) == 1
+            message = messages["Messages"][0]
+            collected_messages.append(message)
+        except client.exceptions.OverLimit:
+            break
+        except AssertionError:
+            break
+
+    return collected_messages
