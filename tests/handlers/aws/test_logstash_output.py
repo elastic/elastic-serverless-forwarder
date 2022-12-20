@@ -135,10 +135,12 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
 
         ctx = ContextMock(TIMEOUT_15m)
         handler(event_cloudwatch_logs, ctx)  # type: ignore
-        # test new input => output to stdout
 
         msgs = self.logstash.get_messages()
         assert len(msgs) == 2
+
+        assert msgs[0]["fields"]["message"] == self.fixtures["cw_log_1"].rstrip("\n")
+        assert msgs[1]["fields"]["message"] == self.fixtures["cw_log_2"].rstrip("\n")
 
     def test_failure_sending_messages(self) -> None:
         os.environ["S3_CONFIG_FILE"] = _prepare_config_file(
@@ -154,7 +156,6 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
 
         ctx = ContextMock(TIMEOUT_15m)
         handler(event_cloudwatch_logs, ctx)  # type: ignore
-        # test new input => output to stdout
 
         msgs = self.logstash.get_messages()
         assert len(msgs) == 0
