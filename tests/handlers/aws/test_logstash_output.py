@@ -168,3 +168,29 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
 
         event2 = json_parser(messages[1]["Body"])
         assert event2["event_payload"]["fields"]["message"] == self.fixtures["cw_log_2"].rstrip("\n")
+
+    def test_send_timeout(self) -> None:
+        """
+        This test verify that if a timeout happens in progress events are correctly sent to the continuing queue.
+        """
+        os.environ["S3_CONFIG_FILE"] = _prepare_config_file(
+            self,
+            "config.yaml",
+            dict(CloudwatchLogStreamARN=self.cloudwatch_group_arn, LogstashURL=self.logstash.get_url()),
+            "folder/config2.yaml",
+        )
+
+        event_cloudwatch_logs, event_ids_cloudwatch_logs = _logs_retrieve_event_from_cloudwatch_logs(
+            self.logs_client, group_name=self.group_name, stream_name=self.stream_name
+        )
+
+        # NOTE: 0 triggers sending to the continuing queue as it mimics imminent timeout
+        ctx = ContextMock(0)
+        result = handler(event_cloudwatch_logs, ctx)  # type: ignore
+        assert result == "continuing"
+
+        msgs = self.logstash.get_messages()
+        assert len(msgs) == 0
+
+        messages = _sqs_get_messages(self.sqs_client, os.environ["SQS_CONTINUE_URL"])
+        print(messages)
