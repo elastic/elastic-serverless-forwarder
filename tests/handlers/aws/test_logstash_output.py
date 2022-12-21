@@ -146,6 +146,7 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
         os.environ["S3_CONFIG_FILE"] = _prepare_config_file(
             self,
             "config.yaml",
+            # NOTE: using a bogus URL to mimic sending failure
             dict(CloudwatchLogStreamARN=self.cloudwatch_group_arn, LogstashURL="http://fake.url"),
             "folder/config2.yaml",
         )
