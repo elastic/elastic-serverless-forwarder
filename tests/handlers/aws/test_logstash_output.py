@@ -110,6 +110,7 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
             "s3client": mock.patch("storage.S3Storage._s3_client", new=self.s3_client),
             "cloudwatchclient": mock.patch("handlers.aws.utils.get_cloudwatch_logs_client", lambda: self.logs_client),
             "sqsclient": mock.patch("handlers.aws.utils.get_sqs_client", lambda: self.sqs_client),
+            "sqsclient2": mock.patch("handlers.aws.handler.get_sqs_client", lambda: self.sqs_client),
         }
         for k, m in self.mocks.items():
             m.start()
