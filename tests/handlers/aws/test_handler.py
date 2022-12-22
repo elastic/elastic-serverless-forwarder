@@ -1679,16 +1679,22 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
     def setUp(self) -> None:
         # Given I start localstack with the following service: "logs", "s3", "sqs", "secretsmanager"
         self._services = ["logs", "s3", "sqs", "secretsmanager"]
-        # And I create the sqs queue with name "source-s3-sqs-queue" and I set an entry in the forwarder config yaml with it as input type "s3-sqs"
-        # And I create the sqs queue with name "source-sqs-queue" and I set an entry in the forwarder config yaml with it as input type "sqs"
-        # And I create the sqs queue with name "source-no-conf-queue" and with no entry in the forwarder config yaml for it
+        # And I create the sqs queue with name "source-s3-sqs-queue"
+        #   and I set an entry in the forwarder config yaml with it as input type "s3-sqs"
+        # And I create the sqs queue with name "source-sqs-queue"
+        #   and I set an entry in the forwarder config yaml with it as input type "sqs"
+        # And I create the sqs queue with name "source-no-conf-queue"
+        #   and with no entry in the forwarder config yaml for it
         self._queues = [
             {"name": "source-s3-sqs-queue", "type": "s3-sqs"},
             {"name": "source-sqs-queue", "type": "sqs"},
             {"name": "source-no-conf-queue"},
         ]
 
-        # And I create the cloudwatch logs group with name "source-group" and a stream in the group with name "source-stream" and I set an entry in the forwarder config yaml with it as input type "cloudwatch-logs" using the ARN of the group
+        # And I create the cloudwatch logs group with name "source-group"
+        #   and a stream in the group with name "source-stream"
+        #   and I set an entry in the forwarder config yaml with it as input type "cloudwatch-logs"
+        #   using the ARN of the group
         # And a stream in the group with name "source-stream-different" is created as well
         self._cloudwatch_logs_groups = [
             {"group_name": "source-group", "stream_name": "source-stream", "input_id_type": "group_arn"}
@@ -1733,7 +1739,9 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         self._first_s3_log: str = self._first_log_entry + self._second_log_entry
         self._second_s3_log: str = self._third_log_entry
 
-        # And I create an s3 object in the bucket "test-bucket" with key "exportedlog/uuid/yyyy-mm-dd-[$LATEST]hash/000000.gz" having as content self._first_s3_log gzip compressed
+        # And I create an s3 object in the bucket "test-bucket"
+        #   with key "exportedlog/uuid/yyyy-mm-dd-[$LATEST]hash/000000.gz"
+        #   having as content self._first_s3_log gzip compressed
         _upload_content_to_bucket(
             content=gzip.compress(self._first_s3_log.encode("UTF-8")),
             content_type="application/x-gzip",
@@ -1741,7 +1749,9 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             key_name="exportedlog/uuid/yyyy-mm-dd-[$LATEST]hash/000000.gz",
         )
 
-        # And I create an s3 object in the bucket "test-bucket" with key "exportedlog/uuid/yyyy-mm-dd-[$LATEST]hash/000001.gz" having as content self._second_s3_log gzip compressed
+        # And I create an s3 object in the bucket "test-bucket"
+        #   with key "exportedlog/uuid/yyyy-mm-dd-[$LATEST]hash/000001.gz"
+        #   having as content self._second_s3_log gzip compressed
         _upload_content_to_bucket(
             content=gzip.compress(self._second_s3_log.encode("UTF-8")),
             content_type="application/x-gzip",
@@ -1768,14 +1778,17 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         first_filename: str = "exportedlog/uuid/yyyy-mm-dd-[$LATEST]hash/000000.gz"
         second_filename: str = "exportedlog/uuid/yyyy-mm-dd-[$LATEST]hash/000001.gz"
 
-        # Giving I send a message to the sqs queue with name "source-s3-sqs-queue" containing the s3 notification for the s3 objects referred in first_filename and second_filename
+        # Giving I send a message to the sqs queue with name "source-s3-sqs-queue"
+        #   containing the s3 notification for the s3 objects referred in first_filename and second_filename
         _s3_event_to_sqs_message(
             queue_attributes=self._queues_info["source-s3-sqs-queue"], filenames=[first_filename, second_filename]
         )
-        # And I read back the sqs message from the queue with name "source-s3-sqs-queue" in the format of a lambda trigger
+        # And I read back the sqs message from the queue with name "source-s3-sqs-queue"
+        #   in the format of a lambda trigger
         event_s3 = _event_from_sqs_message(queue_attributes=self._queues_info["source-s3-sqs-queue"])
 
-        # Giving I send a message to the sqs queue with name "source-sqs-queue" with self._cloudwatch_log as body of the message
+        # Giving I send a message to the sqs queue with name "source-sqs-queue"
+        #   with self._cloudwatch_log as body of the message
         _event_to_sqs_message(queue_attributes=self._queues_info["source-sqs-queue"], message_body=self._cloudwatch_log)
         # And I read back the sqs message from the queue with name "source-sqs-queue" in the format of a lambda trigger
         event_sqs = _event_from_sqs_message(queue_attributes=self._queues_info["source-sqs-queue"])
@@ -1784,23 +1797,28 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         src: str = f"source-sqs-queue{message_id}"
         hex_prefix_sqs = hashlib.sha256(src.encode("UTF-8")).hexdigest()[:10]
 
-        # Giving I send a message to the cloudwatch logs group with name "source-group" in the stream with name "source-strema" with self._first_log_entry + self._second_log_entry as body of the message
+        # Giving I send a message to the cloudwatch logs group with name "source-group"
+        #   in the stream with name "source-strema"
+        #   with self._first_log_entry + self._second_log_entry as body of the message
         _event_to_cloudwatch_logs(
             group_name="source-group",
             stream_name="source-stream",
             messages_body=[self._first_log_entry + self._second_log_entry],
         )
 
-        # And I read back the cloudwatch logs message and its event id from the cloudwatch logs group with name "source-group" in the stream with name "source-stream" in the format of a lambda trigger
+        # And I read back the cloudwatch logs message and its event id from the cloudwatch logs group
+        #   with name "source-group" in the stream with name "source-stream" in the format of a lambda trigger
         event_cloudwatch_logs, event_ids_cloudwatch_logs = _event_from_cloudwatch_logs(
             group_name="source-group", stream_name="source-stream"
         )
 
-        # Giving I send a message to the cloudwatch logs group with name "source-group" in the stream with name "source-stream-different" with self._third_log_entry
+        # Giving I send a message to the cloudwatch logs group with name "source-group" in the stream
+        #   with name "source-stream-different" with self._third_log_entry
         _event_to_cloudwatch_logs(
             group_name="source-group", stream_name="source-stream-different", messages_body=[self._third_log_entry]
         )
-        # And I read back the cloudwatch logs message and its event id from the cloudwatch logs group with name "source-group" in the stream with name "source-stream-different" in the format of a lambda trigger
+        # And I read back the cloudwatch logs message and its event id from the cloudwatch logs group
+        #   with name "source-group" in the stream with name "source-stream-different" in the format of a lambda trigger
         event_cloudwatch_logs_different, event_ids_cloudwatch_logs_different = _event_from_cloudwatch_logs(
             group_name="source-group", stream_name="source-stream-different"
         )
@@ -1812,7 +1830,9 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         hex_prefix_cloudwatch_logs_different = hashlib.sha256(src.encode("UTF-8")).hexdigest()[:10]
 
         # Create an expected id for s3-sqs so that es.send will fail
-        # Giving I create a document in the index with name "logs-generic-default" with an id that matches the event id that will be created by the log entry stored in the s3 object with s3 key first_filename at offset 0
+        # Giving I create a document in the index with name "logs-generic-default" with an id
+        #   that matches the event id that will be created by the log entry
+        #   stored in the s3 object with s3 key first_filename at offset 0
         self._es_client.index(
             index="logs-generic-default",
             op_type="create",
@@ -1821,7 +1841,9 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         )
 
         # Create an expected id for sqs so that es.send will fail
-        # Giving I create a document in the index with name "logs-generic-default" with an id that matches the event id that will be created by the log entry stored in the sqs message in the sqs queue with name "source-sqs-queue" at offset 0
+        # Giving I create a document in the index with name "logs-generic-default" with an id
+        #   that matches the event id that will be created by the log entry
+        #   stored in the sqs message in the sqs queue with name "source-sqs-queue" at offset 0
         self._es_client.index(
             index="logs-generic-default",
             op_type="create",
@@ -1830,7 +1852,10 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         )
 
         # Create an expected id for cloudwatch-logs so that es.send will fail
-        # Giving I create a document in the index with name "logs-generic-default" with an id that matches the event id that will be created by the log entry stored in the cloudwatch logs message in the cloudwatch logs group with name "source-group" in stream with name "source-stream" at offset 0
+        # Giving I create a document in the index with name "logs-generic-default" with an id
+        #   that matches the event id that will be created by the log entry
+        #   stored in the cloudwatch logs message in the cloudwatch logs group with name "source-group"
+        #   in stream with name "source-stream" at offset 0
         self._es_client.index(
             index="logs-generic-default",
             op_type="create",
@@ -1841,9 +1866,13 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         self._es_client.indices.refresh(index="logs-generic-default")
 
         # Giving that I fetch following event ids:
-        # the one that matches the event id that will be created by the log entry stored in the s3 object with s3 key first_filename at offset 98
-        # and the one that matches the event id that will be created by the log entry stored in the sqs message in the sqs queue with name "source-sqs-queue" at offset 90
-        # and the one that matches the event id that will be created by the log entry stored in the cloudwatch logs message in the cloudwatch logs group with name "source-group" in stream with name "source-stream" at offset 98
+        # the one that matches the event id that will be created by the log entry
+        #   stored in the s3 object with s3 key first_filename at offset 98
+        # and the one that matches the event id that will be created by the log entry
+        #   stored in the sqs message in the sqs queue with name "source-sqs-queue" at offset 90
+        # and the one that matches the event id that will be created by the log entry
+        #   stored in the cloudwatch logs message in the cloudwatch logs group
+        #   with name "source-group" in stream with name "source-stream" at offset 98
         res = self._es_client.search(
             index="logs-generic-default",
             query={
@@ -1870,7 +1899,8 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         assert first_call == "completed"
 
         self._es_client.indices.refresh(index="logs-generic-default")
-        # Giving I fetch the event with the id that matches the event id that was by the log entry stored in the s3 object with s3 key first_filename at offset 98
+        # Giving I fetch the event with the id that matches the event id that was by the log entry
+        #   stored in the s3 object with s3 key first_filename at offset 98
         res = self._es_client.search(
             index="logs-generic-default", query={"ids": {"values": ["17b2d3c934-000000000098"]}}
         )
@@ -1900,7 +1930,8 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         # And I assert the event is present and matches the correct tags payload
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
-        # Giving I fetch the event with the id that matches the event id that was created by the log entry stored in the s3 object with s3 key second_filename at offset 0
+        # Giving I fetch the event with the id that matches the event id that was created by the log entry
+        #   stored in the s3 object with s3 key second_filename at offset 0
         res = self._es_client.search(
             index="logs-generic-default", query={"ids": {"values": ["f627fc186f-000000000000"]}}
         )
@@ -1939,7 +1970,8 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         assert second_call == "completed"
 
         self._es_client.indices.refresh(index="logs-generic-default")
-        # Giving I fetch the event with the id that matches the event id that was created by the log entry stored in the sqs message in the sqs queue with name "source-sqs-queue" at offset 98
+        # Giving I fetch the event with the id that matches the event id that was created by the log entry
+        #   stored in the sqs message in the sqs queue with name "source-sqs-queue" at offset 98
         res = self._es_client.search(
             index="logs-generic-default", query={"ids": {"values": [f"{hex_prefix_sqs}-000000000098"]}}
         )
@@ -1968,7 +2000,8 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         # And I assert the event is present and matches the correct tags payload
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
-        # Giving I fetch the event with the id that matches the event id that was created by the log entry stored  in the sqs message in the sqs queue with name "source-sqs-queue" at offset 399
+        # Giving I fetch the event with the id that matches the event id that was created by the log entry
+        #   stored in the sqs message in the sqs queue with name "source-sqs-queue" at offset 399
         res = self._es_client.search(
             index="logs-generic-default", query={"ids": {"values": [f"{hex_prefix_sqs}-000000000399"]}}
         )
@@ -1997,14 +2030,17 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         # And I assert the event is present and matches the correct tags payload
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
-        # Giving I run the lambda forwarder with the payload of the cloudwatch logs messages in the cloudwatch logs group with name "source-group" in stream with name "source-stream"
+        # Giving I run the lambda forwarder with the payload of the cloudwatch logs messages
+        #   in the cloudwatch logs group with name "source-group" in stream with name "source-stream"
         third_call = handler(event_cloudwatch_logs, ctx)  # type:ignore
 
         # And I assert the lambda forwarder didn't trigger any continuation
         assert third_call == "completed"
 
         self._es_client.indices.refresh(index="logs-generic-default")
-        # Giving I fetch the event with the id that matches the event id that was created by the log entry stored stored in the cloudwatch logs message in the cloudwatch logs group with name "source-group" in stream with name "source-stream" at offset 98
+        # Giving I fetch the event with the id that matches the event id that was created by the log entry
+        #   stored stored in the cloudwatch logs message in the cloudwatch logs group
+        #   with name "source-group" in stream with name "source-stream" at offset 98
         res = self._es_client.search(
             index="logs-generic-default", query={"ids": {"values": [f"{hex_prefix_cloudwatch_logs}-000000000098"]}}
         )
@@ -2037,14 +2073,17 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         # And I assert the event is present and matches the correct tags payload
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
-        # Giving I run the lambda forwarder with the payload of the cloudwatch logs messages in the cloudwatch logs group with name "source-group" in stream with name "source-stream-different"
+        # Giving I run the lambda forwarder with the payload of the cloudwatch logs messages
+        #   in the cloudwatch logs group with name "source-group" in stream with name "source-stream-different"
         fourth_call = handler(event_cloudwatch_logs_different, ctx)  # type:ignore
 
         # And I assert the lambda forwarder didn't trigger any continuation
         assert fourth_call == "completed"
 
         self._es_client.indices.refresh(index="logs-generic-default")
-        # Giving I fetch the event with the id that matches the event id that was created by the log entry stored stored in the cloudwatch logs message in the cloudwatch logs group with name "source-group" in stream with name "source-stream-different" at offset 0
+        # Giving I fetch the event with the id that matches the event id that was created by the log entry
+        #   stored stored in the cloudwatch logs message in the cloudwatch logs group
+        #   with name "source-group" in stream with name "source-stream-different" at offset 0
         res = self._es_client.search(
             index="logs-generic-default",
             query={"ids": {"values": [f"{hex_prefix_cloudwatch_logs_different}-000000000000"]}},
@@ -2080,26 +2119,31 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
 
         # Giving I read the messages from the replay queue in the format of a lambda trigger
         replayed_events = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
-        # and I run the lambda forwarder with the payload of the messages in the replay queue and the lambda raise a ReplayHandlerException
+        # and I run the lambda forwarder with the payload of the messages in the replay queue
+        #   and the lambda raise a ReplayHandlerException
         with self.assertRaises(ReplayHandlerException):
             handler(replayed_events, ctx)  # type:ignore
 
         self._es_client.indices.refresh(index="logs-generic-default")
 
         # Remove the expected id for s3-sqs so that it can be replayed
-        # Giving I remove the event that matches the event id that will be created by the log entry stored in the s3 object with s3 key first_filename at offset 0
+        # Giving I remove the event that matches the event id that will be created by the log entry
+        #   stored in the s3 object with s3 key first_filename at offset 0
         self._es_client.delete_by_query(
             index="logs-generic-default", body={"query": {"ids": {"values": ["17b2d3c934-000000000000"]}}}
         )
 
         # Remove the expected id for sqs so that it can be replayed
-        # Giving I remove the event that matches the event id that will be created by the log entry stored in the sqs message in the sqs queue with name "source-sqs-queue" at offset 0
+        # Giving I remove the event that matches the event id that will be created by the log entry
+        #   stored in the sqs message in the sqs queue with name "source-sqs-queue" at offset 0
         self._es_client.delete_by_query(
             index="logs-generic-default", body={"query": {"ids": {"values": [f"{hex_prefix_sqs}-000000000000"]}}}
         )
 
         # Remove the expected id for cloudwatch logs so that it can be replayed
-        # Giving I remove the event that matches the event id that will be created by the log entry stored in the cloudwatch logs message in the cloudwatch logs group with name "source-group" in stream with name "source-stream" at offset 0
+        # Giving I remove the event that matches the event id that will be created by the log entry
+        #   stored in the cloudwatch logs message in the cloudwatch logs group
+        #   with name "source-group" in stream with name "source-stream" at offset 0
         self._es_client.delete_by_query(
             index="logs-generic-default",
             body={"query": {"ids": {"values": [f"{hex_prefix_cloudwatch_logs}-000000000000"]}}},
@@ -2125,7 +2169,8 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         # And I assert that there are 7 events in the index with name "logs-generic-default"
         assert self._es_client.count(index="logs-generic-default")["count"] == 7
 
-        # Giving I fetch the event with the id that matches the event id that was created by the log entry stored in the s3 object with s3 key first_filename at offset 0
+        # Giving I fetch the event with the id that matches the event id that was created by the log entry stored
+        #   in the s3 object with s3 key first_filename at offset 0
         res = self._es_client.search(
             index="logs-generic-default", query={"ids": {"values": ["17b2d3c934-000000000000"]}}
         )
@@ -2175,7 +2220,8 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         # And I assert that there are 9 events in the index with name "logs-generic-default"
         assert self._es_client.count(index="logs-generic-default")["count"] == 9
 
-        # Giving I fetch the event with the id that matches the event id that was created by the log entry stored in the sqs message in the sqs queue with name "source-sqs-queue" at offset 0
+        # Giving I fetch the event with the id that matches the event id that was created by the log entry
+        #   stored in the sqs message in the sqs queue with name "source-sqs-queue" at offset 0
         res = self._es_client.search(
             index="logs-generic-default", query={"ids": {"values": [f"{hex_prefix_sqs}-000000000000"]}}
         )
@@ -2204,7 +2250,9 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         # And I assert the event is present and matches the correct tags payload
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
-        # Giving I fetch the event with the id that matches the event id that was created by the log entry stored in the cloudwatch logs message in the cloudwatch logs group with name "source-group" in stream with name "source-stream" at offset 0
+        # Giving I fetch the event with the id that matches the event id that was created by the log entry
+        #   stored in the cloudwatch logs message in the cloudwatch logs group
+        #   with name "source-group" in stream with name "source-stream" at offset 0
         res = self._es_client.search(
             index="logs-generic-default", query={"ids": {"values": [f"{hex_prefix_cloudwatch_logs}-000000000000"]}}
         )
@@ -2242,48 +2290,58 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         # Giving I mock the lambda context so that the lambda times out
         ctx = ContextMock()
 
-        # Giving I send a message to the sqs queue with name "source-s3-sqs-queue" containing the s3 notification for the s3 objects referred in first_filename and second_filename
+        # Giving I send a message to the sqs queue with name "source-s3-sqs-queue" containing the s3 notification
+        #   for the s3 objects referred in first_filename and second_filename
         _s3_event_to_sqs_message(
             queue_attributes=self._queues_info["source-s3-sqs-queue"],
             filenames=[first_filename, second_filename],
             single_message=False,
         )
 
-        # And I read back the sqs message from the queue with name "source-s3-sqs-queue" in the format of a lambda trigger
+        # And I read back the sqs message from the queue with name "source-s3-sqs-queue"
+        #   in the format of a lambda trigger
         s3_events = _event_from_sqs_message(queue_attributes=self._queues_info["source-s3-sqs-queue"])
 
-        # Giving I send a message to the sqs queue with name "source-sqs-queue" with self._cloudwatch_log as body of the message
+        # Giving I send a message to the sqs queue with name "source-sqs-queue"
+        #   with self._cloudwatch_log as body of the message
         _event_to_sqs_message(queue_attributes=self._queues_info["source-sqs-queue"], message_body=self._cloudwatch_log)
         # And I read back the sqs message from the queue with name "source-sqs-queue" in the format of a lambda trigger
         event_sqs = _event_from_sqs_message(queue_attributes=self._queues_info["source-sqs-queue"])
 
-        # Giving I send a message to the sqs queue with name "source-no-conf-queue" with self._cloudwatch_log as body of the message
+        # Giving I send a message to the sqs queue with name "source-no-conf-queue"
+        #   with self._cloudwatch_log as body of the message
         _event_to_sqs_message(
             queue_attributes=self._queues_info["source-no-conf-queue"], message_body=self._cloudwatch_log
         )
-        # And I read back the sqs message from the queue with name "source-no-conf-queue" in the format of a lambda trigger
+        # And I read back the sqs message from the queue with name "source-no-conf-queue"
+        #   in the format of a lambda trigger
         event_no_config = _event_from_sqs_message(queue_attributes=self._queues_info["source-no-conf-queue"])
 
         message_id = event_sqs["Records"][0]["messageId"]
         src: str = f"source-sqs-queue{message_id}"
         hex_prefix_sqs = hashlib.sha256(src.encode("UTF-8")).hexdigest()[:10]
 
-        # Giving I send a message to the cloudwatch logs group with name "source-group" in the stream with name "source-strema" with self._first_log_entry + self._second_log_entry as body of the message
+        # Giving I send a message to the cloudwatch logs group with name "source-group"
+        #   in the stream with name "source-strema"
+        #       with self._first_log_entry + self._second_log_entry as body of the message
         _event_to_cloudwatch_logs(
             group_name="source-group",
             stream_name="source-stream",
             messages_body=[self._first_log_entry + self._second_log_entry],
         )
-        # And I read back the cloudwatch logs message and its event id from the cloudwatch logs group with name "source-group" in the stream with name "source-stream" in the format of a lambda trigger
+        # And I read back the cloudwatch logs message and its event id from the cloudwatch logs group
+        #   with name "source-group" in the stream with name "source-stream" in the format of a lambda trigger
         event_cloudwatch_logs, event_ids_cloudwatch_logs = _event_from_cloudwatch_logs(
             group_name="source-group", stream_name="source-stream"
         )
 
-        # Giving I send a message to the cloudwatch logs group with name "source-group" in the stream with name "source-stream-different" with self._third_log_entry
+        # Giving I send a message to the cloudwatch logs group with name "source-group"
+        #   in the stream with name "source-stream-different" with self._third_log_entry
         _event_to_cloudwatch_logs(
             group_name="source-group", stream_name="source-stream-different", messages_body=[self._third_log_entry]
         )
-        # And I read back the cloudwatch logs message and its event id from the cloudwatch logs group with name "source-group" in the stream with name "source-stream-different" in the format of a lambda trigger
+        # And I read back the cloudwatch logs message and its event id from the cloudwatch logs group
+        #   with name "source-group" in the stream with name "source-stream-different" in the format of a lambda trigger
         event_cloudwatch_logs_different, event_ids_cloudwatch_logs_different = _event_from_cloudwatch_logs(
             group_name="source-group", stream_name="source-stream-different"
         )
@@ -2304,7 +2362,8 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         # And I assert that there is 1 event in the index with name "logs-generic-default"
         assert self._es_client.count(index="logs-generic-default")["count"] == 1
 
-        # Giving I fetch the event with the id that matches the event id that was created by the log entry stored in the s3 object with s3 key first_filename at offset 0
+        # Giving I fetch the event with the id that matches the event id that was created by the log entry stored
+        #   in the s3 object with s3 key first_filename at offset 0
         res = self._es_client.search(
             index="logs-generic-default", query={"ids": {"values": ["17b2d3c934-000000000000"]}}
         )
@@ -2346,7 +2405,8 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         # And I assert that there are 2 events in the index with name "logs-generic-default"
         assert self._es_client.count(index="logs-generic-default")["count"] == 2
 
-        # Giving I fetch the event with the id that matches the event id that was created by the log entry stored in the sqs message in the sqs queue with name "source-sqs-queue" at offset 0
+        # Giving I fetch the event with the id that matches the event id that was created by the log entry stored
+        #   in the sqs message in the sqs queue with name "source-sqs-queue" at offset 0
         res = self._es_client.search(
             index="logs-generic-default", query={"ids": {"values": [f"{hex_prefix_sqs}-000000000000"]}}
         )
@@ -2375,7 +2435,8 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         # And I assert the event is present and matches the correct tags payload
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
-        # Giving I run the lambda forwarder with the payload of the cloudwatch logs messages in the cloudwatch logs group with name "source-group" in stream with name "source-stream"
+        # Giving I run the lambda forwarder with the payload of the cloudwatch logs messages
+        # in the cloudwatch logs group with name "source-group" in stream with name "source-stream"
         third_call = handler(event_cloudwatch_logs, ctx)  # type:ignore
 
         # And I assert the lambda forwarder triggered a continuation
@@ -2385,7 +2446,9 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         # And I assert that there are 3 events in the index with name "logs-generic-default"
         assert self._es_client.count(index="logs-generic-default")["count"] == 3
 
-        # Giving I fetch the event with the id that matches the event id that was created by the log entry stored in the cloudwatch logs message in the cloudwatch logs group with name "source-group" in stream with name "source-stream" at offset 0
+        # Giving I fetch the event with the id that matches the event id that was created by the log entry stored
+        #   in the cloudwatch logs message in the cloudwatch logs group with name "source-group"
+        #   in stream with name "source-stream" at offset 0
         res = self._es_client.search(
             index="logs-generic-default", query={"ids": {"values": [f"{hex_prefix_cloudwatch_logs}-000000000000"]}}
         )
@@ -2415,7 +2478,8 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         # And I assert the event is present and matches the correct tags payload
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
-        # Giving I run the lambda forwarder with the payload of the cloudwatch logs messages in the cloudwatch logs group with name "source-group" in stream with name "source-stream-different"
+        # Giving I run the lambda forwarder with the payload of the cloudwatch logs messages
+        #   in the cloudwatch logs group with name "source-group" in stream with name "source-stream-different"
         fourth_call = handler(event_cloudwatch_logs_different, ctx)  # type:ignore
 
         # And I assert the lambda forwarder triggered a continuation
@@ -2425,7 +2489,9 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         # And I assert that there are 4 events in the index with name "logs-generic-default"
         assert self._es_client.count(index="logs-generic-default")["count"] == 4
 
-        # Giving I fetch the event with the id that matches the event id that was created by the log entry stored stored in the cloudwatch logs message in the cloudwatch logs group with name "source-group" in stream with name "source-stream-different" at offset 0
+        # Giving I fetch the event with the id that matches the event id that was created by the log entry stored
+        #   in the cloudwatch logs message in the cloudwatch logs group with name "source-group"
+        #   in stream with name "source-stream-different" at offset 0
         res = self._es_client.search(
             index="logs-generic-default",
             query={"ids": {"values": [f"{hex_prefix_cloudwatch_logs_different}-000000000000"]}},
@@ -2486,7 +2552,8 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         # And I assert that there are 5 events in the index with name "logs-generic-default"
         assert self._es_client.count(index="logs-generic-default")["count"] == 5
 
-        # Giving I fetch the event with the id that matches the event id that was created by the log entry stored in the s3 object with s3 key first_filename at offset 98
+        # Giving I fetch the event with the id that matches the event id that was created by the log entry stored
+        #   in the s3 object with s3 key first_filename at offset 98
         res = self._es_client.search(
             index="logs-generic-default", query={"ids": {"values": ["17b2d3c934-000000000098"]}}
         )
@@ -2533,7 +2600,8 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         # And I assert that there are 9 events in the index with name "logs-generic-default"
         assert self._es_client.count(index="logs-generic-default")["count"] == 9
 
-        # Giving I fetch the event with the id that matches the event id that was created by the log entry stored in the sqs message in the sqs queue with name "source-sqs-queue" at offset 98
+        # Giving I fetch the event with the id that matches the event id that was created by the log entry stored
+        #   in the sqs message in the sqs queue with name "source-sqs-queue" at offset 98
         res = self._es_client.search(
             index="logs-generic-default", query={"ids": {"values": [f"{hex_prefix_sqs}-000000000098"]}}
         )
@@ -2562,7 +2630,9 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         # And I assert the event is present and matches the correct tags payload
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
-        # Giving I fetch the event with the id that matches the event id that was created by the log entry stored stored in the cloudwatch logs message in the cloudwatch logs group with name "source-group" in stream with name "source-stream" at offset 98
+        # Giving I fetch the event with the id that matches the event id that was created by the log entry stored
+        #   in the cloudwatch logs message in the cloudwatch logs group with name "source-group"
+        #   in stream with name "source-stream" at offset 98
         res = self._es_client.search(
             index="logs-generic-default", query={"ids": {"values": [f"{hex_prefix_cloudwatch_logs}-000000000098"]}}
         )
@@ -2595,7 +2665,8 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         # And I assert the event is present and matches the correct tags payload
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
-        # Giving I fetch the event with the id that matches the event id that was created by the log entry stored in the s3 object with s3 key second_filename at offset 0
+        # Giving I fetch the event with the id that matches the event id that was created by the log entry stored
+        #   in the s3 object with s3 key second_filename at offset 0
         res = self._es_client.search(
             index="logs-generic-default", query={"ids": {"values": ["f627fc186f-000000000000"]}}
         )
@@ -2627,7 +2698,8 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         # And I assert the event is present and matches the correct tags payload
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
-        # Giving I fetch the event with the id that matches the event id that was created by the log entry stored  in the sqs message in the sqs queue with name "source-sqs-queue" at offset 399
+        # Giving I fetch the event with the id that matches the event id that was created by the log entry stored
+        #   in the sqs message in the sqs queue with name "source-sqs-queue" at offset 399
         res = self._es_client.search(
             index="logs-generic-default", query={"ids": {"values": [f"{hex_prefix_sqs}-000000000399"]}}
         )
