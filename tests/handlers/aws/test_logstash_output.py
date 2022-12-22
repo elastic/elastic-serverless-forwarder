@@ -192,7 +192,9 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
         assert result == "continuing"
 
         msgs = self.logstash.get_messages()
-        assert len(msgs) == 0
+        assert len(msgs) == 1
+        assert msgs[0]["fields"]["message"] == self.fixtures["cw_log_1"].rstrip("\n")
 
         messages = _sqs_get_messages(self.sqs_client, os.environ["SQS_CONTINUE_URL"])
-        print(messages)
+        assert messages[0]["Body"] == self.fixtures["cw_log_1"] + self.fixtures["cw_log_2"]
+
