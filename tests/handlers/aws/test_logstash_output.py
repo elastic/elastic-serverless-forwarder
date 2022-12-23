@@ -197,4 +197,3 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
 
         messages = _sqs_get_messages(self.sqs_client, os.environ["SQS_CONTINUE_URL"])
         assert messages[0]["Body"] == self.fixtures["cw_log_1"] + self.fixtures["cw_log_2"]
-
