@@ -25,6 +25,8 @@ from tests.handlers.aws.utils import (
     _s3_upload_content_to_bucket,
     _sqs_create_queue,
     _sqs_get_messages,
+    _sqs_get_queue_arn,
+    _sqs_patch_messages,
 )
 from tests.testcontainers.logstash import LogstashContainer
 
@@ -173,7 +175,8 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
 
     def test_send_timeout(self) -> None:
         """
-        This test verify that if a timeout happens in progress events are correctly sent to the continuing queue.
+        This test verify that if a timeout happens events still to be sent are correctly
+        sent to the continuing queue.
         """
         os.environ["S3_CONFIG_FILE"] = _prepare_config_file(
             self,
@@ -188,12 +191,91 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
 
         # NOTE: 0 triggers sending to the continuing queue as it mimics imminent timeout
         ctx = ContextMock(0)
+
+        # Run handler with inputs, check that resulting action is continue and messages are
+        # flushed to output and sent to continuing queue
         result = handler(event_cloudwatch_logs, ctx)  # type: ignore
         assert result == "continuing"
-
         msgs = self.logstash.get_messages()
         assert len(msgs) == 1
         assert msgs[0]["fields"]["message"] == self.fixtures["cw_log_1"].rstrip("\n")
-
         messages = _sqs_get_messages(self.sqs_client, os.environ["SQS_CONTINUE_URL"])
         assert messages[0]["Body"] == self.fixtures["cw_log_1"] + self.fixtures["cw_log_2"]
+
+    def test_after_timeout_continuation(self) -> None:
+        """
+        This test verify that the offset management logic after a timeout do not replay
+        already sent events.
+        """
+        os.environ["S3_CONFIG_FILE"] = _prepare_config_file(
+            self,
+            "config.yaml",
+            dict(CloudwatchLogStreamARN=self.cloudwatch_group_arn, LogstashURL=self.logstash.get_url()),
+            "folder/config2.yaml",
+        )
+
+        event_cloudwatch_logs, event_ids_cloudwatch_logs = _logs_retrieve_event_from_cloudwatch_logs(
+            self.logs_client, group_name=self.group_name, stream_name=self.stream_name
+        )
+
+        # NOTE: 0 triggers sending to the continuing queue as it mimics imminent timeout
+        ctx = ContextMock(0)
+
+        # Run handler, check sends data to continuing queue. Check on this behaviour is
+        # done by test_send_timeout.
+        result = handler(event_cloudwatch_logs, ctx)  # type: ignore
+        assert result == "continuing"
+
+        # Run handler again, check that execution completes and the second message is sent
+        # to output.
+        messages = _sqs_get_messages(self.sqs_client, os.environ["SQS_CONTINUE_URL"])
+        queue_arn = _sqs_get_queue_arn(self.sqs_client, os.environ["SQS_CONTINUE_URL"])
+        continued_messages = _sqs_patch_messages(messages, queue_arn)
+        result = handler(continued_messages, ContextMock(TIMEOUT_15m))  # type: ignore
+        assert result == "completed"
+        msgs = self.logstash.get_messages()
+        assert len(msgs) == 2
+        # NOTE: state is retained, so all messages are present in the returned data
+        assert msgs[1]["fields"]["message"] == self.fixtures["cw_log_2"].rstrip("\n")
+
+    def test_message_content(self) -> None:
+
+        os.environ["S3_CONFIG_FILE"] = _prepare_config_file(
+            self,
+            "config.yaml",
+            dict(CloudwatchLogStreamARN=self.cloudwatch_group_arn, LogstashURL=self.logstash.get_url()),
+            "folder/config2.yaml",
+        )
+
+        event_cloudwatch_logs, event_ids_cloudwatch_logs = _logs_retrieve_event_from_cloudwatch_logs(
+            self.logs_client, group_name=self.group_name, stream_name=self.stream_name
+        )
+
+        ctx = ContextMock(TIMEOUT_15m)
+
+        # Run handler with inputs, check that resulting action is continue and messages are
+        # flushed to output and sent to continuing queue
+        result = handler(event_cloudwatch_logs, ctx)  # type: ignore
+        assert result == "completed"
+        msgs = self.logstash.get_messages()
+        assert len(msgs) == 2
+
+        group_name = _class_based_id(self, suffix="source-group")
+        stream_name = _class_based_id(self, suffix="source-stream")
+        assert msgs[0]["fields"]["aws"]["cloudwatch"]["log_group"] == group_name
+        assert msgs[0]["fields"]["aws"]["cloudwatch"]["log_stream"] == stream_name
+        assert msgs[0]["fields"]["cloud"]["provider"] == "aws"
+        assert msgs[0]["fields"]["cloud"]["region"] == os.environ["AWS_DEFAULT_REGION"]
+        assert msgs[0]["fields"]["cloud"]["account"]["id"] == "000000000000"
+        assert msgs[0]["fields"]["log"]["offset"] == 0
+        assert msgs[0]["fields"]["log"]["file"]["path"] == f"{group_name}/{stream_name}"
+        assert msgs[0]["fields"]["message"] == self.fixtures["cw_log_1"].rstrip("\n")
+
+        assert msgs[1]["fields"]["aws"]["cloudwatch"]["log_group"] == group_name
+        assert msgs[1]["fields"]["aws"]["cloudwatch"]["log_stream"] == stream_name
+        assert msgs[1]["fields"]["cloud"]["provider"] == "aws"
+        assert msgs[1]["fields"]["cloud"]["region"] == os.environ["AWS_DEFAULT_REGION"]
+        assert msgs[1]["fields"]["cloud"]["account"]["id"] == "000000000000"
+        assert msgs[1]["fields"]["log"]["offset"] == 94
+        assert msgs[1]["fields"]["log"]["file"]["path"] == f"{group_name}/{stream_name}"
+        assert msgs[1]["fields"]["message"] == self.fixtures["cw_log_2"].rstrip("\n")
