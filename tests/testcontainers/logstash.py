@@ -64,6 +64,8 @@ class LogstashContainer(DockerContainer):  # type: ignore
         self.with_exposed_ports(self.api_port)
         self._configure()
 
+        self._previous_message_count = 0
+
     def _configure(self) -> None:
         """
         You can override any value set here by calling <instance>.with_env(...) after initializing this class
@@ -121,10 +123,13 @@ class LogstashContainer(DockerContainer):  # type: ignore
         # NOTE: a delay has been observed between data beign sent to Logstash and it
         # being available in the Docker stdout. To accout for this delay without
         # the need to add sleeps in other areas leverage this retry logic (enabled
-        # by default)
-        if len(messages) == 0 and retry > 0:
+        # by default) has been added.
+        # Using the previous message count allows subsequent calls to this function
+        # to properly trigger replay logic.
+        if len(messages) == self._previous_message_count and retry > 0:
             if timeout > 0:
                 time.sleep(timeout)
             return self.get_messages(retry - 1, timeout)
 
+        self._previous_message_count = len(messages)
         return messages
