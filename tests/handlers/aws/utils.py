@@ -15,6 +15,7 @@ import gzip
 import os.path
 import random
 import string
+from copy import deepcopy
 from typing import Any, Text
 
 from botocore.client import BaseClient as BotoBaseClient
@@ -137,3 +138,34 @@ def _sqs_get_messages(client: BotoBaseClient, queue_url: str) -> list[Any]:
             break
 
     return collected_messages
+
+
+def _sqs_get_queue_arn(sqs_client: BotoBaseClient, queue_url: str) -> str:
+    return str(
+        sqs_client.get_queue_attributes(QueueUrl=queue_url, AttributeNames=["QueueArn"])["Attributes"]["QueueArn"]
+    )
+
+
+def _sqs_patch_messages(messages: list[Any], queueArn: str) -> dict[str, Any]:
+    patched = []
+    for original_message in messages:
+        message: dict[str, Any] = {}
+        for key in original_message:
+            new_value = deepcopy(original_message[key])
+            camel_case_key = "".join([key[0].lower(), key[1:]])
+            message[camel_case_key] = new_value
+
+        if "messageAttributes" in message:
+            for attribute in message["messageAttributes"]:
+                new_attribute = deepcopy(message["messageAttributes"][attribute])
+                for attribute_key in message["messageAttributes"][attribute]:
+                    camel_case_key = "".join([attribute_key[0].lower(), attribute_key[1:]])
+                    new_attribute[camel_case_key] = new_attribute[attribute_key]
+
+                message["messageAttributes"][attribute] = new_attribute
+
+        message["eventSource"] = "aws:sqs"
+        message["eventSourceARN"] = queueArn
+        patched.append(message)
+
+    return dict(Records=patched)
