@@ -16,9 +16,13 @@ Parameters:
     Type: CommaDelimitedList
   ElasticServerlessForwarderSQSBatchSize:
     Type: Number
+  ElasticServerlessForwarderSQSMaximumBatchingWindowInSeconds:
+    Type: Number
   ElasticServerlessForwarderS3SQSEvents:
     Type: CommaDelimitedList
   ElasticServerlessForwarderS3SQSBatchSize:
+    Type: Number
+  ElasticServerlessForwarderS3SQSMaximumBatchingWindowInSeconds:
     Type: Number
   ElasticServerlessForwarderKinesisEvents:
     Type: CommaDelimitedList
