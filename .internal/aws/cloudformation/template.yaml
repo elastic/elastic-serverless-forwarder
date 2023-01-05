@@ -25,10 +25,13 @@ Parameters:
   ElasticServerlessForwarderSQSBatchSize:
     Type: Number
     Default: "10"
+    MinValue: "1"
+    MaxValue: "10000"
     Description: Batch size for the Direct SQS queues event triggers for the Lambda
   ElasticServerlessForwarderSQSMaximumBatchingWindowInSeconds:
     Type: Number
     Default: "0"
+    MinValue: "0"
     Description: Batch window for the Direct SQS queues event triggers for the Lambda
   ElasticServerlessForwarderS3SQSEvents:
     Type: CommaDelimitedList
@@ -37,9 +40,12 @@ Parameters:
   ElasticServerlessForwarderS3SQSBatchSize:
     Type: Number
     Default: "10"
+    MinValue: "1"
+    MaxValue: "10000"
     Description: Batch size for the S3 SQS Event Notifications event triggers for the Lambda
   ElasticServerlessForwarderS3SQSMaximumBatchingWindowInSeconds:
     Type: Number
+    MinValue: "0"
     Default: "0"
     Description: Batch window for the S3 SQS Event Notifications event triggers for the Lambda
   ElasticServerlessForwarderKinesisEvents:
@@ -49,18 +55,25 @@ Parameters:
   ElasticServerlessForwarderKinesisBatchSize:
     Type: Number
     Default: "10"
+    MinValue: "1"
+    MaxValue: "10000"
     Description: Batch size for the Kinesis Data Stream event triggers for the Lambda
   ElasticServerlessForwarderKinesisStartingPosition:
     Type: String
     Default: "TRIM_HORIZON"
     Description: Starting position for Kinesis Data Stream event triggers for the Lambda
+  ElasticServerlessForwarderKinesisStartingPositionTimestamp:
+    Type: Number
+    Description: Starting position timestamp for Kinesis Data Stream event triggers for the Lambda. Only valid if `ElasticServerlessForwarderKinesisStartingPosition` is set to AT_TIMESTAMP. The time from which to start reading, in Unix time seconds
   ElasticServerlessForwarderKinesisMaximumBatchingWindowInSeconds:
     Type: Number
     Default: "0"
+    MinValue: "0"
     Description: Batch window for the Kinesis Data Stream event triggers for the Lambda
   ElasticServerlessForwarderKinesisParallelizationFactor:
     Type: Number
     Default: "1"
+    MinValue: "1"
     Description: Parallelization factor for the Kinesis Data Stream event triggers for the Lambda
   ElasticServerlessForwarderCloudWatchLogsEvents:
     Type: CommaDelimitedList
@@ -69,10 +82,13 @@ Parameters:
   ElasticServerlessForwarderContinuingQueueBatchSize:
     Type: Number
     Default: "10"
+    MinValue: "1"
+    MaxValue: "10000"
     Description: Batch size for the Continuing SQS queue event trigger for the Lambda
   ElasticServerlessForwarderContinuingMaximumBatchingWindowInSeconds:
     Type: Number
     Default: "0"
+    MinValue: "0"
     Description: Batch window for the Continuing SQS queue event trigger for the Lambda
   ElasticServerlessForwarderS3Buckets:
     Type: CommaDelimitedList
@@ -112,6 +128,7 @@ Resources:
         ElasticServerlessForwarderKinesisEvents: !Join [",", !Ref ElasticServerlessForwarderKinesisEvents]
         ElasticServerlessForwarderKinesisBatchSize: !Ref ElasticServerlessForwarderKinesisBatchSize
         ElasticServerlessForwarderKinesisStartingPosition: !Ref ElasticServerlessForwarderKinesisStartingPosition
+        ElasticServerlessForwarderKinesisStartingPositionTimestamp: !Ref ElasticServerlessForwarderKinesisStartingPositionTimestamp
         ElasticServerlessForwarderKinesisMaximumBatchingWindowInSeconds: !Ref ElasticServerlessForwarderKinesisMaximumBatchingWindowInSeconds
         ElasticServerlessForwarderKinesisParallelizationFactor: !Ref ElasticServerlessForwarderKinesisParallelizationFactor
         ElasticServerlessForwarderCloudWatchLogsEvents: !Join [",", !Ref ElasticServerlessForwarderCloudWatchLogsEvents]
@@ -144,6 +161,7 @@ Metadata:
           - ElasticServerlessForwarderKinesisEvents
           - ElasticServerlessForwarderKinesisBatchSize
           - ElasticServerlessForwarderKinesisStartingPosition
+          - ElasticServerlessForwarderKinesisStartingPositionTimestamp
           - ElasticServerlessForwarderKinesisMaximumBatchingWindowInSeconds
           - ElasticServerlessForwarderKinesisParallelizationFactor
           - ElasticServerlessForwarderCloudWatchLogsEvents
@@ -171,6 +189,8 @@ Metadata:
         default: "Batch size for the Kinesis Data Stream event triggers"
       ElasticServerlessForwarderKinesisStartingPosition:
         default: "Starting position for the Kinesis Data Stream event triggers"
+      ElasticServerlessForwarderKinesisStartingPositionTimestamp:
+        default: "Starting position timestamp for Kinesis Data Stream event triggers for the Lambda. Only valid if `ElasticServerlessForwarderKinesisStartingPosition` is set to AT_TIMESTAMP. The time from which to start reading, in Unix time seconds"
       ElasticServerlessForwarderKinesisMaximumBatchingWindowInSeconds:
         default: "Batch window for the Kinesis Data Stream event triggers"
       ElasticServerlessForwarderKinesisParallelizationFactor:

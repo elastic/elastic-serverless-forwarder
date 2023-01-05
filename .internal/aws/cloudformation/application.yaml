@@ -30,6 +30,8 @@ Parameters:
     Type: Number
   ElasticServerlessForwarderKinesisStartingPosition:
     Type: String
+  ElasticServerlessForwarderKinesisStartingPositionTimestamp:
+    Type: Number
   ElasticServerlessForwarderKinesisMaximumBatchingWindowInSeconds:
     Type: Number
   ElasticServerlessForwarderKinesisParallelizationFactor:

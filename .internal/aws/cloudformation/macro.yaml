@@ -26,17 +26,30 @@ Resources:
             if "ElasticServerlessForwarderKinesisBatchSize" in parameters:
                 kinesis_batch_size = int(parameters["ElasticServerlessForwarderKinesisBatchSize"])
 
+            if kinesis_batch_size < 1:
+                kinesis_batch_size = 1
+
             kinesis_starting_position = "TRIM_HORIZON"
             if "ElasticServerlessForwarderKinesisStartingPosition" in parameters:
                 kinesis_starting_position = parameters["ElasticServerlessForwarderKinesisStartingPosition"]
+
+            kinesis_starting_position_timestamp = 0
+            if "ElasticServerlessForwarderKinesisStartingPositionTimestamp" in parameters and kinesis_starting_position == "AT_TIMESTAMP":
+                kinesis_starting_position_timestamp = int(parameters["ElasticServerlessForwarderKinesisStartingPositionTimestamp"])
 
             kinesis_batch_window = 0
             if "ElasticServerlessForwarderKinesisMaximumBatchingWindowInSeconds" in parameters:
                 kinesis_batch_window = int(parameters["ElasticServerlessForwarderKinesisMaximumBatchingWindowInSeconds"])
 
+            if kinesis_batch_window < 0:
+                kinesis_batch_window = 0
+
             kinesis_parallelization_factor = 1
             if "ElasticServerlessForwarderKinesisParallelizationFactor" in parameters:
                 kinesis_parallelization_factor = int(parameters["ElasticServerlessForwarderKinesisParallelizationFactor"])
+
+            if kinesis_parallelization_factor < 1:
+                kinesis_parallelization_factor = 1
 
             if "ElasticServerlessForwarderKinesisEvents" in parameters:
                 for kinesis_event in parameters["ElasticServerlessForwarderKinesisEvents"]:
@@ -57,13 +70,23 @@ Resources:
                         }
                     }
 
+                    if kinesis_starting_position_timestamp > 0:
+                        events_fragment[kinesis_event_name]["Properties"]["StartingPositionTimestamp"] = kinesis_starting_position_timestamp
+
+
             sqs_batch_size = 10
             if "ElasticServerlessForwarderSQSBatchSize" in parameters:
                 sqs_batch_size = int(parameters["ElasticServerlessForwarderSQSBatchSize"])
 
+            if sqs_batch_size < 1:
+                sqs_batch_size = 1
+
             sqs_batch_window = 0
             if "ElasticServerlessForwarderSQSMaximumBatchingWindowInSeconds" in parameters:
                 sqs_batch_window = int(parameters["ElasticServerlessForwarderSQSMaximumBatchingWindowInSeconds"])
+
+            if sqs_batch_window < 0:
+                sqs_batch_window = 0
 
             if "ElasticServerlessForwarderSQSEvents" in parameters:
                 for sqs_event in parameters["ElasticServerlessForwarderSQSEvents"]:
@@ -86,9 +109,15 @@ Resources:
             if parameters["ElasticServerlessForwarderS3SQSBatchSize"]:
                 sqs_s3_batch_size = int(parameters["ElasticServerlessForwarderS3SQSBatchSize"])
 
+            if sqs_s3_batch_size < 1:
+                sqs_s3_batch_size = 1
+
             sqs_s3_batch_window = 0
             if "ElasticServerlessForwarderS3SQSMaximumBatchingWindowInSeconds" in parameters:
                 sqs_s3_batch_window = int(parameters["ElasticServerlessForwarderS3SQSMaximumBatchingWindowInSeconds"])
+
+            if sqs_s3_batch_window < 0:
+                sqs_s3_batch_window = 0
 
             if "ElasticServerlessForwarderS3SQSEvents" in parameters:
                 for s3_sqs_event in parameters["ElasticServerlessForwarderS3SQSEvents"]:
