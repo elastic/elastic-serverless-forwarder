@@ -57,8 +57,11 @@ class ShipperFactory:
             return ShipperFactory.create(
                 output_type="logstash",
                 logstash_url=output.logstash_url,
+                username=output.username,
+                password=output.password,
                 max_batch_size=output.max_batch_size,
                 compression_level=output.compression_level,
+                ssl_assert_fingerprint=output.ssl_assert_fingerprint,
             )
 
         raise ValueError(

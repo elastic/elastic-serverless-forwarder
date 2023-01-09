@@ -5,8 +5,8 @@
 import gzip
 from typing import Any, Optional
 
-import requests
 import ujson
+from requests import Session
 from requests.adapters import HTTPAdapter
 from requests.exceptions import RequestException
 from urllib3.util.retry import Retry
@@ -26,13 +26,38 @@ _STATUS_FORCE_LIST = [429, 500, 502, 503, 504]
 _BACKOFF_FACTOR = 1
 
 
+class LogstashAdapter(HTTPAdapter):
+    """
+    An HTTP adapter specific for Logstash that encapsulates the retry/backoff parameters and allows to verify
+    certificates by SSL fingerprint
+    """
+
+    def __init__(self, fingerprint: str, *args, **kwargs):  # type: ignore
+        self._fingerprint = fingerprint
+        retry_strategy = Retry(total=_MAX_RETRIES, backoff_factor=_BACKOFF_FACTOR, status_forcelist=_STATUS_FORCE_LIST)
+        HTTPAdapter.__init__(self, max_retries=retry_strategy, *args, **kwargs)  # type: ignore
+
+    def init_poolmanager(self, *args, **kwargs):  # type: ignore
+        if self._fingerprint:
+            kwargs["assert_fingerprint"] = self._fingerprint
+        return super().init_poolmanager(*args, **kwargs)  # type: ignore
+
+
 class LogstashShipper:
     """
     Logstash Shipper.
     This class implements concrete Logstash Shipper
     """
 
-    def __init__(self, logstash_url: str = "", max_batch_size: int = 1, compression_level: int = 9) -> None:
+    def __init__(
+        self,
+        logstash_url: str = "",
+        username: str = "",
+        password: str = "",
+        max_batch_size: int = 1,
+        compression_level: int = 9,
+        ssl_assert_fingerprint: str = "",
+    ) -> None:
         if logstash_url:
             self._logstash_url = logstash_url
         else:
@@ -48,9 +73,17 @@ class LogstashShipper:
             raise ValueError("compression_level must be an integer value between 0 and 9")
         self._replay_args: dict[str, Any] = {}
 
-        self._session = requests.Session()
-        retry_strategy = Retry(total=_MAX_RETRIES, backoff_factor=_BACKOFF_FACTOR, status_forcelist=_STATUS_FORCE_LIST)
-        self._session.mount(self._logstash_url, HTTPAdapter(max_retries=retry_strategy))
+        self._session = self._get_session(self._logstash_url, username, password, ssl_assert_fingerprint)
+
+    @staticmethod
+    def _get_session(url: str, username: str, password: str, ssl_assert_fingerprint: str) -> Session:
+        session = Session()
+        if username:
+            session.auth = (username, password)
+        if ssl_assert_fingerprint:
+            session.verify = False
+        session.mount(url, LogstashAdapter(ssl_assert_fingerprint))
+        return session
 
     def send(self, event: dict[str, Any]) -> str:
         if "_id" not in event and self._event_id_generator is not None:
@@ -77,12 +110,14 @@ class LogstashShipper:
     def _send(self, logstash_url: str, events: list[dict[str, Any]], compression_level: int) -> None:
         ndjson = "\n".join(ujson.dumps(event) for event in events)
         try:
-            self._session.put(
+            response = self._session.put(
                 logstash_url,
                 data=gzip.compress(ndjson.encode("utf-8"), compression_level),
                 headers={"Content-Encoding": "gzip", "Content-Type": "application/x-ndjson"},
                 timeout=_TIMEOUT,
             )
+            if response.status_code == 401:
+                raise RequestException("Authentication error")
         except RequestException as e:
             shared_logger.error(
                 f"logstash shipper encountered an error while publishing events to logstash. Error: {str(e)}"
