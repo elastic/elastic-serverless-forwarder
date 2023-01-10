@@ -274,7 +274,7 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
 
         assert msgs[1]["fields"]["aws"]["cloudwatch"]["log_group"] == group_name
         assert msgs[1]["fields"]["aws"]["cloudwatch"]["log_stream"] == stream_name
-        assert msgs[1]["fields"]["aws"]["cloudwatch"]["event_id"] == event_ids_cloudwatch_logs[1]
+        assert msgs[1]["fields"]["aws"]["cloudwatch"]["event_id"] == event_ids_cloudwatch_logs[0]
         assert msgs[1]["fields"]["cloud"]["provider"] == "aws"
         assert msgs[1]["fields"]["cloud"]["region"] == os.environ["AWS_DEFAULT_REGION"]
         assert msgs[1]["fields"]["cloud"]["account"]["id"] == "000000000000"
