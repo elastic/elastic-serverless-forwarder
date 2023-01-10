@@ -11,4 +11,4 @@ pysimdjson>=5.0.2,<5.1
 python-rapidjson>=1.9,<1.10
 cysimdjson>=21.11,<21.12
 pyopenssl==22.0.0 # Required pinned version by localstack
-cryptography==38.0.4 # See https://github.com/pyca/pyopenssl/issues/1177
+cryptography==39.0.0 # See https://github.com/pyca/pyopenssl/issues/1177
