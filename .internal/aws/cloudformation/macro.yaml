@@ -21,36 +21,6 @@ Resources:
         def create_events(event):
             events_fragment = {}
             parameters = event["templateParameterValues"]
-
-            kinesis_batch_size = 10
-            if "ElasticServerlessForwarderKinesisBatchSize" in parameters:
-                kinesis_batch_size = int(parameters["ElasticServerlessForwarderKinesisBatchSize"])
-
-            if kinesis_batch_size < 1:
-                kinesis_batch_size = 1
-
-            kinesis_starting_position = "TRIM_HORIZON"
-            if "ElasticServerlessForwarderKinesisStartingPosition" in parameters:
-                kinesis_starting_position = parameters["ElasticServerlessForwarderKinesisStartingPosition"]
-
-            kinesis_starting_position_timestamp = 0
-            if "ElasticServerlessForwarderKinesisStartingPositionTimestamp" in parameters and kinesis_starting_position == "AT_TIMESTAMP":
-                kinesis_starting_position_timestamp = int(parameters["ElasticServerlessForwarderKinesisStartingPositionTimestamp"])
-
-            kinesis_batch_window = 0
-            if "ElasticServerlessForwarderKinesisMaximumBatchingWindowInSeconds" in parameters:
-                kinesis_batch_window = int(parameters["ElasticServerlessForwarderKinesisMaximumBatchingWindowInSeconds"])
-
-            if kinesis_batch_window < 0:
-                kinesis_batch_window = 0
-
-            kinesis_parallelization_factor = 1
-            if "ElasticServerlessForwarderKinesisParallelizationFactor" in parameters:
-                kinesis_parallelization_factor = int(parameters["ElasticServerlessForwarderKinesisParallelizationFactor"])
-
-            if kinesis_parallelization_factor < 1:
-                kinesis_parallelization_factor = 1
-
             if "ElasticServerlessForwarderKinesisEvents" in parameters:
                 for kinesis_event in parameters["ElasticServerlessForwarderKinesisEvents"]:
                     kinesis_event = kinesis_event.strip()
@@ -62,31 +32,11 @@ Resources:
                         "Type": "Kinesis",
                         "Properties": {
                             "Stream": kinesis_event,
-                            "StartingPosition": kinesis_starting_position,
-                            "BatchSize": kinesis_batch_size,
-                            "MaximumBatchingWindowInSeconds": kinesis_batch_window,
-                            "ParallelizationFactor": kinesis_parallelization_factor,
+                            "StartingPosition": "TRIM_HORIZON",
+                            "BatchSize": 10,
                             "Enabled": True,
                         }
                     }
-
-                    if kinesis_starting_position_timestamp > 0:
-                        events_fragment[kinesis_event_name]["Properties"]["StartingPositionTimestamp"] = kinesis_starting_position_timestamp
-
-
-            sqs_batch_size = 10
-            if "ElasticServerlessForwarderSQSBatchSize" in parameters:
-                sqs_batch_size = int(parameters["ElasticServerlessForwarderSQSBatchSize"])
-
-            if sqs_batch_size < 1:
-                sqs_batch_size = 1
-
-            sqs_batch_window = 0
-            if "ElasticServerlessForwarderSQSMaximumBatchingWindowInSeconds" in parameters:
-                sqs_batch_window = int(parameters["ElasticServerlessForwarderSQSMaximumBatchingWindowInSeconds"])
-
-            if sqs_batch_window < 0:
-                sqs_batch_window = 0
 
             if "ElasticServerlessForwarderSQSEvents" in parameters:
                 for sqs_event in parameters["ElasticServerlessForwarderSQSEvents"]:
@@ -99,25 +49,10 @@ Resources:
                         "Type": "SQS",
                         "Properties": {
                             "Queue": sqs_event,
-                            "BatchSize": sqs_batch_size,
-                            "MaximumBatchingWindowInSeconds": sqs_batch_window,
+                            "BatchSize": 10,
                             "Enabled": True,
                         }
                     }
-
-            sqs_s3_batch_size = 10
-            if parameters["ElasticServerlessForwarderS3SQSBatchSize"]:
-                sqs_s3_batch_size = int(parameters["ElasticServerlessForwarderS3SQSBatchSize"])
-
-            if sqs_s3_batch_size < 1:
-                sqs_s3_batch_size = 1
-
-            sqs_s3_batch_window = 0
-            if "ElasticServerlessForwarderS3SQSMaximumBatchingWindowInSeconds" in parameters:
-                sqs_s3_batch_window = int(parameters["ElasticServerlessForwarderS3SQSMaximumBatchingWindowInSeconds"])
-
-            if sqs_s3_batch_window < 0:
-                sqs_s3_batch_window = 0
 
             if "ElasticServerlessForwarderS3SQSEvents" in parameters:
                 for s3_sqs_event in parameters["ElasticServerlessForwarderS3SQSEvents"]:
@@ -130,8 +65,7 @@ Resources:
                         "Type": "SQS",
                         "Properties": {
                             "Queue": s3_sqs_event,
-                            "BatchSize": sqs_s3_batch_size,
-                            "MaximumBatchingWindowInSeconds": sqs_s3_batch_window,
+                            "BatchSize": 10,
                             "Enabled": True,
                         }
                     }
@@ -222,7 +156,7 @@ Resources:
 
             if "ElasticServerlessForwarderAssumeRoles" in parameters:
                 iam_roles_arn = [x for x in parameters["ElasticServerlessForwarderAssumeRoles"] if len(x.strip()) > 0]
-                if len(kms_keys_arn) > 0:
+                if len(iam_roles_arn) > 0:
                     policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
                         {
                             "Effect": "Allow",

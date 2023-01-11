@@ -26,74 +26,18 @@ Parameters:
     Type: CommaDelimitedList
     Default: ""
     Description: Comma delimited list of Direct SQS queues ARNs to set as event triggers for the Lambda
-  ElasticServerlessForwarderSQSBatchSize:
-    Type: Number
-    Default: "10"
-    MinValue: "1"
-    MaxValue: "10000"
-    Description: Batch size for the Direct SQS queues event triggers for the Lambda
-  ElasticServerlessForwarderSQSMaximumBatchingWindowInSeconds:
-    Type: Number
-    Default: "0"
-    MinValue: "0"
-    Description: Batch window for the Direct SQS queues event triggers for the Lambda
   ElasticServerlessForwarderS3SQSEvents:
     Type: CommaDelimitedList
     Default: ""
     Description: Comma delimited list of S3 SQS Event Notifications ARNs to set as event triggers for the Lambda
-  ElasticServerlessForwarderS3SQSBatchSize:
-    Type: Number
-    Default: "10"
-    MinValue: "1"
-    MaxValue: "10000"
-    Description: Batch size for the S3 SQS Event Notifications event triggers for the Lambda
-  ElasticServerlessForwarderS3SQSMaximumBatchingWindowInSeconds:
-    Type: Number
-    MinValue: "0"
-    Default: "0"
-    Description: Batch window for the S3 SQS Event Notifications event triggers for the Lambda
   ElasticServerlessForwarderKinesisEvents:
     Type: CommaDelimitedList
     Default: ""
     Description: Comma delimited list of Kinesis Data Stream ARNs to set as event triggers for the Lambda
-  ElasticServerlessForwarderKinesisBatchSize:
-    Type: Number
-    Default: "10"
-    MinValue: "1"
-    MaxValue: "10000"
-    Description: Batch size for the Kinesis Data Stream event triggers for the Lambda
-  ElasticServerlessForwarderKinesisStartingPosition:
-    Type: String
-    Default: "TRIM_HORIZON"
-    Description: Starting position for Kinesis Data Stream event triggers for the Lambda
-  ElasticServerlessForwarderKinesisStartingPositionTimestamp:
-    Type: Number
-    Description: Starting position timestamp for Kinesis Data Stream event triggers for the Lambda. Only valid if `ElasticServerlessForwarderKinesisStartingPosition` is set to AT_TIMESTAMP. The time from which to start reading, in Unix time seconds
-  ElasticServerlessForwarderKinesisMaximumBatchingWindowInSeconds:
-    Type: Number
-    Default: "0"
-    MinValue: "0"
-    Description: Batch window for the Kinesis Data Stream event triggers for the Lambda
-  ElasticServerlessForwarderKinesisParallelizationFactor:
-    Type: Number
-    Default: "1"
-    MinValue: "1"
-    Description: Parallelization factor for the Kinesis Data Stream event triggers for the Lambda
   ElasticServerlessForwarderCloudWatchLogsEvents:
     Type: CommaDelimitedList
     Default: ""
     Description: Comma delimited list of Cloudwatch Logs Log Groups ARNs to set subscription filters on the Lambda for
-  ElasticServerlessForwarderContinuingQueueBatchSize:
-    Type: Number
-    Default: "10"
-    MinValue: "1"
-    MaxValue: "10000"
-    Description: Batch size for the Continuing SQS queue event trigger for the Lambda
-  ElasticServerlessForwarderContinuingMaximumBatchingWindowInSeconds:
-    Type: Number
-    Default: "0"
-    MinValue: "0"
-    Description: Batch window for the Continuing SQS queue event trigger for the Lambda
   ElasticServerlessForwarderS3Buckets:
     Type: CommaDelimitedList
     Default: ""
@@ -125,20 +69,9 @@ Resources:
         ElasticServerlessForwarderKMSKeys: !Join [",", !Ref ElasticServerlessForwarderKMSKeys]
         ElasticServerlessForwarderAssumeRoles: !Join [",", !Ref ElasticServerlessForwarderAssumeRoles]
         ElasticServerlessForwarderSQSEvents: !Join [",", !Ref ElasticServerlessForwarderSQSEvents]
-        ElasticServerlessForwarderSQSBatchSize: !Ref ElasticServerlessForwarderSQSBatchSize
-        ElasticServerlessForwarderSQSMaximumBatchingWindowInSeconds: !Ref ElasticServerlessForwarderSQSMaximumBatchingWindowInSeconds
         ElasticServerlessForwarderS3SQSEvents: !Join [",", !Ref ElasticServerlessForwarderS3SQSEvents]
-        ElasticServerlessForwarderS3SQSBatchSize: !Ref ElasticServerlessForwarderS3SQSBatchSize
-        ElasticServerlessForwarderS3SQSMaximumBatchingWindowInSeconds: !Ref ElasticServerlessForwarderS3SQSMaximumBatchingWindowInSeconds
         ElasticServerlessForwarderKinesisEvents: !Join [",", !Ref ElasticServerlessForwarderKinesisEvents]
-        ElasticServerlessForwarderKinesisBatchSize: !Ref ElasticServerlessForwarderKinesisBatchSize
-        ElasticServerlessForwarderKinesisStartingPosition: !Ref ElasticServerlessForwarderKinesisStartingPosition
-        ElasticServerlessForwarderKinesisStartingPositionTimestamp: !Ref ElasticServerlessForwarderKinesisStartingPositionTimestamp
-        ElasticServerlessForwarderKinesisMaximumBatchingWindowInSeconds: !Ref ElasticServerlessForwarderKinesisMaximumBatchingWindowInSeconds
-        ElasticServerlessForwarderKinesisParallelizationFactor: !Ref ElasticServerlessForwarderKinesisParallelizationFactor
         ElasticServerlessForwarderCloudWatchLogsEvents: !Join [",", !Ref ElasticServerlessForwarderCloudWatchLogsEvents]
-        ElasticServerlessForwarderContinuingQueueBatchSize: !Ref ElasticServerlessForwarderContinuingQueueBatchSize
-        ElasticServerlessForwarderContinuingMaximumBatchingWindowInSeconds: !Ref ElasticServerlessForwarderContinuingMaximumBatchingWindowInSeconds
         ElasticServerlessForwarderS3Buckets: !Join [",", !Ref ElasticServerlessForwarderS3Buckets]
         ElasticServerlessForwarderSecurityGroups: !Join [",", !Ref ElasticServerlessForwarderSecurityGroups]
         ElasticServerlessForwarderSubnets: !Join [",", !Ref ElasticServerlessForwarderSubnets]
@@ -150,8 +83,6 @@ Metadata:
           default: Elastic Serverless Forwarder Configuration options
         Parameters:
           - ElasticServerlessForwarderS3ConfigFile
-          - ElasticServerlessForwarderContinuingQueueBatchSize
-          - ElasticServerlessForwarderContinuingMaximumBatchingWindowInSeconds
           - ElasticServerlessForwarderSSMSecrets
           - ElasticServerlessForwarderKMSKeys
           - ElasticServerlessForwarderAssumeRoles
@@ -159,17 +90,8 @@ Metadata:
           default: Elastic Serverless Forwarder Events options
         Parameters:
           - ElasticServerlessForwarderSQSEvents
-          - ElasticServerlessForwarderSQSBatchSize
-          - ElasticServerlessForwarderSQSMaximumBatchingWindowInSeconds
           - ElasticServerlessForwarderS3SQSEvents
-          - ElasticServerlessForwarderS3SQSBatchSize
-          - ElasticServerlessForwarderS3SQSMaximumBatchingWindowInSeconds
           - ElasticServerlessForwarderKinesisEvents
-          - ElasticServerlessForwarderKinesisBatchSize
-          - ElasticServerlessForwarderKinesisStartingPosition
-          - ElasticServerlessForwarderKinesisStartingPositionTimestamp
-          - ElasticServerlessForwarderKinesisMaximumBatchingWindowInSeconds
-          - ElasticServerlessForwarderKinesisParallelizationFactor
           - ElasticServerlessForwarderCloudWatchLogsEvents
       - Label:
           default: Elastic Serverless Forwarder S3 Buckets Permissions options
@@ -193,32 +115,10 @@ Metadata:
         default: "Cloudwatch Logs subscription filters"
       ElasticServerlessForwarderKinesisEvents:
         default: "Kinesis Data Stream event triggers"
-      ElasticServerlessForwarderKinesisBatchSize:
-        default: "Batch size for the Kinesis Data Stream event triggers"
-      ElasticServerlessForwarderKinesisStartingPosition:
-        default: "Starting position for the Kinesis Data Stream event triggers"
-      ElasticServerlessForwarderKinesisStartingPositionTimestamp:
-        default: "Starting position timestamp for Kinesis Data Stream event triggers for the Lambda. Only valid if `ElasticServerlessForwarderKinesisStartingPosition` is set to AT_TIMESTAMP. The time from which to start reading, in Unix time seconds"
-      ElasticServerlessForwarderKinesisMaximumBatchingWindowInSeconds:
-        default: "Batch window for the Kinesis Data Stream event triggers"
-      ElasticServerlessForwarderKinesisParallelizationFactor:
-        default: "Parallelization factor for the Kinesis Data Stream event triggers"
       ElasticServerlessForwarderS3SQSEvents:
         default: "S3 SQS Event Notifications event triggers"
-      ElasticServerlessForwarderS3SQSBatchSize:
-        default: "Batch size for the S3 SQS Event Notifications event triggers"
-      ElasticServerlessForwarderS3SQSBatchingWindowInSeconds:
-        default: "Batch window for the S3 SQS Event Notifications event trigger"
       ElasticServerlessForwarderSQSEvents:
         default: "Direct SQS queues event triggers"
-      ElasticServerlessForwarderSQSBatchSize:
-        default: "Batch size for the Direct SQS queues event triggers"
-      ElasticServerlessForwarderSQSMaximumBatchingWindowInSeconds:
-        default: "Batch window for the Direct SQS queues event trigger"
-      ElasticServerlessForwarderContinuingQueueBatchSize:
-        default: "Batch size for the Continuing queue event trigger"
-      ElasticServerlessForwarderContinuingMaximumBatchingWindowInSeconds:
-        default: "Batch window for the Continuing queue event trigger"
       ElasticServerlessForwarderS3Buckets:
         default: "S3 buckets of S3 SQS Event Notifications"
       ElasticServerlessForwarderSecurityGroups:
