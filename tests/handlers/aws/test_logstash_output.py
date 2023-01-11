@@ -78,8 +78,10 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
             output {{ stdout {{ codec => json_lines }} }}
             """
         lgc.with_env("CONFIG_STRING", logstash_config)
-        lgc.with_command("bash -c \"/opt/logstash/bin/logstash-plugin install "
-                         "logstash-input-elastic_serverless_forwarder && /opt/logstash/bin/logstash\"")
+        lgc.with_command(
+            'bash -c "/opt/logstash/bin/logstash-plugin install '
+            'logstash-input-elastic_serverless_forwarder && /opt/logstash/bin/logstash"'
+        )
         self.logstash = lgc.start()
 
         self.fixtures = {
