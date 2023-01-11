@@ -69,15 +69,17 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
         # NOTE: plain curly brackets must be escaped in this string (double them)
         logstash_config = f"""\
             input {{
-              http {{
+              elastic_serverless_forwarder {{
                 port => {self.logstash_http_port}
-                codec => json_lines
+                ssl => false
               }}
             }}
 
             output {{ stdout {{ codec => json_lines }} }}
             """
         lgc.with_env("CONFIG_STRING", logstash_config)
+        lgc.with_command("bash -c \"/opt/logstash/bin/logstash-plugin install "
+                         "logstash-input-elastic_serverless_forwarder && /opt/logstash/bin/logstash\"")
         self.logstash = lgc.start()
 
         self.fixtures = {
