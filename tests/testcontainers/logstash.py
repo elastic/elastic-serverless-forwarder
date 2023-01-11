@@ -43,7 +43,7 @@ class LogstashContainer(DockerContainer):  # type: ignore
     """
 
     _DEFAULT_IMAGE = "docker.elastic.co/logstash/logstash"
-    _DEFAULT_VERSION = "8.5.0"
+    _DEFAULT_VERSION = "8.6.0"
     _DEFAULT_PORT = 5044
     _DEFAULT_API_PORT = 9600
 
