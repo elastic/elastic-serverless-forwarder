@@ -5,8 +5,8 @@
 
 set -e
 
-echo "    AWS CLI (https://aws.amazon.com/cli/) SAM (https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.htm and Python3.9 with pip3 required"
-echo "    Please, execute from root folder of the repo"
+echo "    AWS CLI (https://aws.amazon.com/cli/) SAM (https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html) and Python3.9 with pip3 required"
+echo "    Please, before launching the tool execute \"$ pip3 install ruamel.yaml\""
 
 if [[ $# -ne 5 ]]
 then
