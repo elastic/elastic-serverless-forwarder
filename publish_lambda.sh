@@ -10,11 +10,11 @@ echo "    Please, execute from root folder of the repo"
 
 if [[ $# -ne 5 ]]
 then
-    echo "Usage: $0 config-path lambda-name tag-name bucket-name region"
+    echo "Usage: $0 config-path lambda-name forwarder-tag bucket-name region"
     echo "    Arguments:"
     echo "    config-path: full path to the publish configuration"
     echo "    lambda-name: name of the lambda to be published in the account"
-    echo "    tag-name: tag of the lambda to publis"
+    echo "    forwarder-tag: tag of the elastic serverless forwarder to publish"
     echo "    bucket-name: bucket name where to store the zip artifact for the lambda"
     echo "                 (it will be created if it doesn't exists, otherwise "
     echo "                  you need already to have proper access to it)"
@@ -51,6 +51,62 @@ cp -v docs/README-AWS.md "${PACKAGE_FOLDER}/README.md"
 
 popd
 
+cat <<EOF > "${TMPDIR}/publish-before-sed.yaml"
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Elastic Serverless Forwarder
+
+  SAM Template for publishing
+
+Resources:
+  ElasticServerlessForwarderContinuingDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      DelaySeconds: 0
+      QueueName: !Join [ "-", ["elastic-serverless-forwarder-continuing-dlq", !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
+      VisibilityTimeout: 910
+  ElasticServerlessForwarderContinuingQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      DelaySeconds: 0
+      QueueName: !Join [ "-", ["elastic-serverless-forwarder-continuing-queue", !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
+      RedrivePolicy: { "deadLetterTargetArn" : !GetAtt ElasticServerlessForwarderContinuingDLQ.Arn, "maxReceiveCount" : 1 }
+      VisibilityTimeout: 910
+  ElasticServerlessForwarderReplayDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      DelaySeconds: 0
+      QueueName: !Join [ "-", ["elastic-serverless-forwarder-replay-dlq", !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
+      VisibilityTimeout: 910
+  ElasticServerlessForwarderReplayQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      DelaySeconds: 0
+      QueueName: !Join [ "-", ["elastic-serverless-forwarder-replay-queue", !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
+      RedrivePolicy: { "deadLetterTargetArn" : !GetAtt ElasticServerlessForwarderReplayDLQ.Arn, "maxReceiveCount" : 3 }
+      VisibilityTimeout: 910
+  ApplicationElasticServerlessForwarder:
+    Type: AWS::Serverless::Function
+    Properties:
+      Timeout: 900
+      MemorySize: 512
+      CodeUri: %codeUri%
+      Runtime: python3.9
+      Architectures:
+        - x86_64
+      Handler: main_aws.handler
+      Environment:
+          Variables:
+              SQS_CONTINUE_URL: !Ref ElasticServerlessForwarderContinuingQueue
+              SQS_REPLAY_URL: !Ref ElasticServerlessForwarderReplayQueue
+      Events:
+        SQSContinuingEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt ElasticServerlessForwarderContinuingQueue.Arn
+            Enabled: true
+EOF
 
 cat <<EOF > "${TMPDIR}/publish.py"
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
@@ -458,7 +514,7 @@ if __name__ == "__main__":
         yaml.dump(cloudformation_yaml, f)
 EOF
 
-sed -e "s|%codeUri%|${PACKAGE_FOLDER}|g" .internal/aws/cloudformation/publish.yaml > "${TMPDIR}/publish.yaml"
+sed -e "s|%codeUri%|${PACKAGE_FOLDER}|g" "${TMPDIR}/publish-before-sed.yaml" > "${TMPDIR}/publish.yaml"
 python "${TMPDIR}/publish.py" "${PUBLISH_CONFIG}" "${TMPDIR}/publish.yaml"
 
 sam build --debug --use-container --build-dir "${TMPDIR}/.aws-sam/build/publish" --template-file "${TMPDIR}/publish.yaml" --region "${REGION}"
