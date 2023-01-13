@@ -5,13 +5,12 @@
 import gzip
 from typing import Any, Optional
 
-import ujson
 from requests import Session
 from requests.adapters import HTTPAdapter
 from requests.exceptions import RequestException
 from urllib3.util.retry import Retry
 
-from share import shared_logger
+from share import json_dumper, shared_logger
 from shippers.shipper import EventIdGeneratorCallable, ReplayHandlerCallable
 
 _EVENT_SENT = "_EVENT_SENT"
@@ -108,7 +107,7 @@ class LogstashShipper:
         return
 
     def _send(self, logstash_url: str, events: list[dict[str, Any]], compression_level: int) -> None:
-        ndjson = "\n".join(ujson.dumps(event) for event in events)
+        ndjson = "\n".join(json_dumper(event) for event in events)
         try:
             response = self._session.put(
                 logstash_url,
