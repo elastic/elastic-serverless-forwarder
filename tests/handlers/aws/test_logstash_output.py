@@ -146,8 +146,8 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
         msgs = self.logstash.get_messages()
         assert len(msgs) == 2
 
-        assert msgs[0]["fields"]["message"] == self.fixtures["cw_log_1"].rstrip("\n")
-        assert msgs[1]["fields"]["message"] == self.fixtures["cw_log_2"].rstrip("\n")
+        assert msgs[0]["message"] == self.fixtures["cw_log_1"].rstrip("\n")
+        assert msgs[1]["message"] == self.fixtures["cw_log_2"].rstrip("\n")
 
     def test_failure_sending_messages(self) -> None:
         os.environ["S3_CONFIG_FILE"] = _prepare_config_file(
@@ -172,10 +172,10 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
         assert len(messages) == 2
 
         event1 = json_parser(messages[0]["Body"])
-        assert event1["event_payload"]["fields"]["message"] == self.fixtures["cw_log_1"].rstrip("\n")
+        assert event1["event_payload"]["message"] == self.fixtures["cw_log_1"].rstrip("\n")
 
         event2 = json_parser(messages[1]["Body"])
-        assert event2["event_payload"]["fields"]["message"] == self.fixtures["cw_log_2"].rstrip("\n")
+        assert event2["event_payload"]["message"] == self.fixtures["cw_log_2"].rstrip("\n")
 
     def test_send_timeout(self) -> None:
         """
@@ -202,7 +202,7 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
         assert result == "continuing"
         msgs = self.logstash.get_messages()
         assert len(msgs) == 1
-        assert msgs[0]["fields"]["message"] == self.fixtures["cw_log_1"].rstrip("\n")
+        assert msgs[0]["message"] == self.fixtures["cw_log_1"].rstrip("\n")
         messages = _sqs_get_messages(self.sqs_client, os.environ["SQS_CONTINUE_URL"])
         assert messages[0]["Body"] == self.fixtures["cw_log_1"] + self.fixtures["cw_log_2"]
 
@@ -240,7 +240,7 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
         msgs = self.logstash.get_messages()
         assert len(msgs) == 2
         # NOTE: state is retained, so all messages are present in the returned data
-        assert msgs[1]["fields"]["message"] == self.fixtures["cw_log_2"].rstrip("\n")
+        assert msgs[1]["message"] == self.fixtures["cw_log_2"].rstrip("\n")
 
     def test_message_content(self) -> None:
 
@@ -266,22 +266,24 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
 
         group_name = _class_based_id(self, suffix="source-group")
         stream_name = _class_based_id(self, suffix="source-stream")
-        assert msgs[0]["fields"]["aws"]["cloudwatch"]["log_group"] == group_name
-        assert msgs[0]["fields"]["aws"]["cloudwatch"]["log_stream"] == stream_name
-        assert msgs[0]["fields"]["aws"]["cloudwatch"]["event_id"] == event_ids_cloudwatch_logs[0]
-        assert msgs[0]["fields"]["cloud"]["provider"] == "aws"
-        assert msgs[0]["fields"]["cloud"]["region"] == os.environ["AWS_DEFAULT_REGION"]
-        assert msgs[0]["fields"]["cloud"]["account"]["id"] == "000000000000"
-        assert msgs[0]["fields"]["log"]["offset"] == 0
-        assert msgs[0]["fields"]["log"]["file"]["path"] == f"{group_name}/{stream_name}"
-        assert msgs[0]["fields"]["message"] == self.fixtures["cw_log_1"].rstrip("\n")
+        assert msgs[0]["aws"]["cloudwatch"]["log_group"] == group_name
+        assert msgs[0]["aws"]["cloudwatch"]["log_stream"] == stream_name
+        assert msgs[0]["aws"]["cloudwatch"]["event_id"] == event_ids_cloudwatch_logs[0]
+        assert msgs[0]["cloud"]["provider"] == "aws"
+        assert msgs[0]["cloud"]["region"] == os.environ["AWS_DEFAULT_REGION"]
+        assert msgs[0]["cloud"]["account"]["id"] == "000000000000"
+        assert msgs[0]["log"]["offset"] == 0
+        assert msgs[0]["log"]["file"]["path"] == f"{group_name}/{stream_name}"
+        assert msgs[0]["message"] == self.fixtures["cw_log_1"].rstrip("\n")
+        assert msgs[0]["tags"] == ["forwarded", "test_tag"]
 
-        assert msgs[1]["fields"]["aws"]["cloudwatch"]["log_group"] == group_name
-        assert msgs[1]["fields"]["aws"]["cloudwatch"]["log_stream"] == stream_name
-        assert msgs[1]["fields"]["aws"]["cloudwatch"]["event_id"] == event_ids_cloudwatch_logs[0]
-        assert msgs[1]["fields"]["cloud"]["provider"] == "aws"
-        assert msgs[1]["fields"]["cloud"]["region"] == os.environ["AWS_DEFAULT_REGION"]
-        assert msgs[1]["fields"]["cloud"]["account"]["id"] == "000000000000"
-        assert msgs[1]["fields"]["log"]["offset"] == 94
-        assert msgs[1]["fields"]["log"]["file"]["path"] == f"{group_name}/{stream_name}"
-        assert msgs[1]["fields"]["message"] == self.fixtures["cw_log_2"].rstrip("\n")
+        assert msgs[1]["aws"]["cloudwatch"]["log_group"] == group_name
+        assert msgs[1]["aws"]["cloudwatch"]["log_stream"] == stream_name
+        assert msgs[1]["aws"]["cloudwatch"]["event_id"] == event_ids_cloudwatch_logs[0]
+        assert msgs[1]["cloud"]["provider"] == "aws"
+        assert msgs[1]["cloud"]["region"] == os.environ["AWS_DEFAULT_REGION"]
+        assert msgs[1]["cloud"]["account"]["id"] == "000000000000"
+        assert msgs[1]["log"]["offset"] == 94
+        assert msgs[1]["log"]["file"]["path"] == f"{group_name}/{stream_name}"
+        assert msgs[1]["message"] == self.fixtures["cw_log_2"].rstrip("\n")
+        assert msgs[1]["tags"] == ["forwarded", "test_tag"]

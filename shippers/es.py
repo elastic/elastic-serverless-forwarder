@@ -11,6 +11,7 @@ from elasticsearch.helpers import bulk as es_bulk
 from elasticsearch.serializer import Serializer
 
 from share import json_dumper, json_parser, shared_logger
+from share.events import normalise_event
 
 from .shipper import EventIdGeneratorCallable, ReplayHandlerCallable
 
@@ -123,21 +124,21 @@ class ElasticsearchShipper:
 
         return Elasticsearch(**es_client_kwargs)
 
-    @staticmethod
-    def _normalise_event(event_payload: dict[str, Any]) -> None:
-        """
-        This method move fields payload in the event at root level and then removes it with meta payload
-        It has to be called as last step after any operation on the event payload just before sending to the cluster
-        """
-        if "fields" in event_payload:
-            fields: dict[str, Any] = event_payload["fields"]
-            for field_key in fields.keys():
-                event_payload[field_key] = fields[field_key]
-
-            del event_payload["fields"]
-
-        if "meta" in event_payload:
-            del event_payload["meta"]
+    # @staticmethod
+    # def _normalise_event(event_payload: dict[str, Any]) -> None:
+    #     """
+    #     This method move fields payload in the event at root level and then removes it with meta payload
+    #     It has to be called as last step after any operation on the event payload just before sending to the cluster
+    #     """
+    #     if "fields" in event_payload:
+    #         fields: dict[str, Any] = event_payload["fields"]
+    #         for field_key in fields.keys():
+    #             event_payload[field_key] = fields[field_key]
+    #
+    #         del event_payload["fields"]
+    #
+    #     if "meta" in event_payload:
+    #         del event_payload["meta"]
 
     def _enrich_event(self, event_payload: dict[str, Any]) -> None:
         """
@@ -206,7 +207,7 @@ class ElasticsearchShipper:
         if "_id" not in event and self._event_id_generator is not None:
             event["_id"] = self._event_id_generator(event)
 
-        self._normalise_event(event_payload=event)
+        event = normalise_event(event_payload=event)
 
         self._bulk_actions.append(event)
 

@@ -11,6 +11,7 @@ from requests.exceptions import RequestException
 from urllib3.util.retry import Retry
 
 from share import json_dumper, shared_logger
+from share.events import normalise_event
 from shippers.shipper import EventIdGeneratorCallable, ReplayHandlerCallable
 
 _EVENT_SENT = "_EVENT_SENT"
@@ -56,7 +57,9 @@ class LogstashShipper:
         max_batch_size: int = 1,
         compression_level: int = 9,
         ssl_assert_fingerprint: str = "",
+        tags: list[str] = [],
     ) -> None:
+
         if logstash_url:
             self._logstash_url = logstash_url
         else:
@@ -66,6 +69,7 @@ class LogstashShipper:
         self._event_id_generator: Optional[EventIdGeneratorCallable] = None
         self._events_batch: list[dict[str, Any]] = []
         self._max_batch_size = max_batch_size
+        self._tags = tags
         if 0 <= compression_level <= 9:
             self._compression_level = compression_level
         else:
@@ -87,6 +91,10 @@ class LogstashShipper:
     def send(self, event: dict[str, Any]) -> str:
         if "_id" not in event and self._event_id_generator is not None:
             event["_id"] = self._event_id_generator(event)
+
+        event["tags"] = ["forwarded"]
+        event["tags"] += self._tags
+        event = normalise_event(event)
 
         self._events_batch.append(event)
         if len(self._events_batch) < self._max_batch_size:
