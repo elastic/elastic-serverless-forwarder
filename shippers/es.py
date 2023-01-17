@@ -124,22 +124,6 @@ class ElasticsearchShipper:
 
         return Elasticsearch(**es_client_kwargs)
 
-    # @staticmethod
-    # def _normalise_event(event_payload: dict[str, Any]) -> None:
-    #     """
-    #     This method move fields payload in the event at root level and then removes it with meta payload
-    #     It has to be called as last step after any operation on the event payload just before sending to the cluster
-    #     """
-    #     if "fields" in event_payload:
-    #         fields: dict[str, Any] = event_payload["fields"]
-    #         for field_key in fields.keys():
-    #             event_payload[field_key] = fields[field_key]
-    #
-    #         del event_payload["fields"]
-    #
-    #     if "meta" in event_payload:
-    #         del event_payload["meta"]
-
     def _enrich_event(self, event_payload: dict[str, Any]) -> None:
         """
         This method enrich with default metadata the ES event payload.
