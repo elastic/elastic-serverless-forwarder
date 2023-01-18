@@ -62,6 +62,7 @@ class ShipperFactory:
                 max_batch_size=output.max_batch_size,
                 compression_level=output.compression_level,
                 ssl_assert_fingerprint=output.ssl_assert_fingerprint,
+                tags=output.tags,
             )
 
         raise ValueError(

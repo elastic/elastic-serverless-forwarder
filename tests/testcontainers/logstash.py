@@ -71,6 +71,11 @@ class LogstashContainer(DockerContainer):  # type: ignore
         You can override any value set here by calling <instance>.with_env(...) after initializing this class
         """
         self.with_env("LOG_LEVEL", os.environ.get("LOGSTASH_LOG_LEVEL", "warn"))
+        self.with_env("PIPELINE_WORKERS", "1")
+        # By design and by default, Logstash does not guarantee event order. The following setting ensures that
+        # events are processed in the order they are received.
+        # Ref: https://www.elastic.co/guide/en/logstash/current/processing.html
+        self.with_env("PIPELINE_ORDERED", "true")
         self.with_env("CONFIG_STRING", "input { stdin {} } output { stdout {} }")
         self.with_env("XPACK_MONITORING_ENABLED", "false")
 
