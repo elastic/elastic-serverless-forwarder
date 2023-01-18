@@ -5,5 +5,3 @@ isort
 mypy
 types-PyYAML
 types-mock
-amazon-kclpy==2.0.6
-

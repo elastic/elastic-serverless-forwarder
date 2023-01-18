@@ -8,3 +8,4 @@ ujson>=5.5.0,<5.6
 requests==2.25.1
 responses>=0.22.0
 testcontainers==3.7.0
+amazon-kclpy==2.0.6
