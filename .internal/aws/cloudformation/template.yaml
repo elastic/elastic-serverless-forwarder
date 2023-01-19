@@ -18,10 +18,6 @@ Parameters:
     Type: CommaDelimitedList
     Default: ""
     Description: Comma delimited list of AWS KMS Keys ARNs to be used for decrypting AWS SSM Secrets referenced in the config yaml file
-  ElasticServerlessForwarderAssumeRoles:
-    Type: CommaDelimitedList
-    Default: ""
-    Description: Comma delimited list of AWS IAM Roles ARNs to be given should be given permission for "sts:AssumeRole" action
   ElasticServerlessForwarderSQSEvents:
     Type: CommaDelimitedList
     Default: ""
@@ -67,7 +63,6 @@ Resources:
         ElasticServerlessForwarderS3ConfigFile: !Ref ElasticServerlessForwarderS3ConfigFile
         ElasticServerlessForwarderSSMSecrets: !Join [",", !Ref ElasticServerlessForwarderSSMSecrets]
         ElasticServerlessForwarderKMSKeys: !Join [",", !Ref ElasticServerlessForwarderKMSKeys]
-        ElasticServerlessForwarderAssumeRoles: !Join [",", !Ref ElasticServerlessForwarderAssumeRoles]
         ElasticServerlessForwarderSQSEvents: !Join [",", !Ref ElasticServerlessForwarderSQSEvents]
         ElasticServerlessForwarderS3SQSEvents: !Join [",", !Ref ElasticServerlessForwarderS3SQSEvents]
         ElasticServerlessForwarderKinesisEvents: !Join [",", !Ref ElasticServerlessForwarderKinesisEvents]
@@ -85,7 +80,6 @@ Metadata:
           - ElasticServerlessForwarderS3ConfigFile
           - ElasticServerlessForwarderSSMSecrets
           - ElasticServerlessForwarderKMSKeys
-          - ElasticServerlessForwarderAssumeRoles
       - Label:
           default: Elastic Serverless Forwarder Events options
         Parameters:
@@ -109,8 +103,6 @@ Metadata:
         default: "AWS SSM Secrets"
       ElasticServerlessForwarderKMSKeys:
         default: "AWS KMS Keys"
-      ElasticServerlessForwarderAssumeRoles:
-        default: "AWS IAM Roles"
       ElasticServerlessForwarderCloudWatchLogsEvents:
         default: "Cloudwatch Logs subscription filters"
       ElasticServerlessForwarderKinesisEvents:

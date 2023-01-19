@@ -154,17 +154,6 @@ Resources:
                         }
                     )
 
-            if "ElasticServerlessForwarderAssumeRoles" in parameters:
-                iam_roles_arn = [x for x in parameters["ElasticServerlessForwarderAssumeRoles"] if len(x.strip()) > 0]
-                if len(iam_roles_arn) > 0:
-                    policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
-                        {
-                            "Effect": "Allow",
-                            "Action": "sts:AssumeRole",
-                            "Resource": iam_roles_arn
-                        }
-                    )
-
             if "ElasticServerlessForwarderCloudWatchLogsEvents" in parameters:
                 cloudwatch_logs_group_arn = {}
                 cloudwatch_logs_stream_arn = {}

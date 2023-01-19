@@ -5,7 +5,7 @@
 
 set -e
 
-echo "    AWS CLI (https://aws.amazon.com/cli/) SAM (https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html) and Python3.9 with pip3 required"
+echo "    AWS CLI (https://aws.amazon.com/cli/), SAM (https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html) and Python3.9 with pip3 required"
 echo "    Please, before launching the tool execute \"$ pip3 install ruamel.yaml\""
 
 if [[ $# -ne 5 ]]
@@ -127,9 +127,9 @@ def hex_suffix(src):
 def create_events(publish_config: dict[str, Any]):
     events_fragment = {}
 
-    if "kinesis_data_stream" in publish_config:
-        assert isinstance(publish_config["kinesis_data_stream"], list)
-        for kinesis_data_stream_event in publish_config["kinesis_data_stream"]:
+    if "kinesis-data-stream" in publish_config:
+        assert isinstance(publish_config["kinesis-data-stream"], list)
+        for kinesis_data_stream_event in publish_config["kinesis-data-stream"]:
             assert isinstance(kinesis_data_stream_event, dict)
 
             kinesis_batch_size = 10
@@ -224,9 +224,9 @@ def create_events(publish_config: dict[str, Any]):
                     },
                 }
 
-    if "s3_sqs" in publish_config:
-        assert isinstance(publish_config["s3_sqs"], list)
-        for s3_sqs_event in publish_config["s3_sqs"]:
+    if "s3-sqs" in publish_config:
+        assert isinstance(publish_config["s3-sqs"], list)
+        for s3_sqs_event in publish_config["s3-sqs"]:
             assert isinstance(s3_sqs_event, dict)
 
             sqs_s3_batch_size = 10
@@ -259,9 +259,9 @@ def create_events(publish_config: dict[str, Any]):
                     },
                 }
 
-    if "cloudwatch_logs" in publish_config:
-        assert isinstance(publish_config["cloudwatch_logs"], list)
-        for cloudwatch_logs_event in publish_config["cloudwatch_logs"]:
+    if "cloudwatch-logs" in publish_config:
+        assert isinstance(publish_config["cloudwatch-logs"], list)
+        for cloudwatch_logs_event in publish_config["cloudwatch-logs"]:
             assert isinstance(cloudwatch_logs_event, dict)
 
             if "arn" in cloudwatch_logs_event:
@@ -322,40 +322,31 @@ def create_policy(publish_config: dict[str, Any]):
                 {"Effect": "Allow", "Action": "s3:GetObject", "Resource": resource}
             )
 
-    if "ssm_secrets" in publish_config:
-        assert isinstance(publish_config["ssm_secrets"], list)
+    if "ssm-secrets" in publish_config:
+        assert isinstance(publish_config["ssm-secrets"], list)
 
-        ssm_secrets_arn = [x for x in publish_config["ssm_secrets"] if len(x.strip()) > 0]
+        ssm_secrets_arn = [x for x in publish_config["ssm-secrets"] if len(x.strip()) > 0]
 
         if len(ssm_secrets_arn) > 0:
             policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
                 {"Effect": "Allow", "Action": "secretsmanager:GetSecretValue", "Resource": ssm_secrets_arn}
             )
 
-    if "kms_keys" in publish_config:
-        assert isinstance(publish_config["kms_keys"], list)
+    if "kms-keys" in publish_config:
+        assert isinstance(publish_config["kms-keys"], list)
 
-        kms_keys_arn = [x for x in publish_config["kms_keys"] if len(x.strip()) > 0]
+        kms_keys_arn = [x for x in publish_config["kms-keys"] if len(x.strip()) > 0]
         if len(kms_keys_arn) > 0:
             policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
                 {"Effect": "Allow", "Action": "kms:Decrypt", "Resource": kms_keys_arn}
             )
 
-    if "assume_roles" in publish_config:
-        assert isinstance(publish_config["assume_roles"], list)
-
-        iam_roles_arn = [x for x in publish_config["assume_roles"] if len(x.strip()) > 0]
-        if len(iam_roles_arn) > 0:
-            policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
-                {"Effect": "Allow", "Action": "sts:AssumeRole", "Resource": iam_roles_arn}
-            )
-
-    if "cloudwatch_logs" in publish_config:
+    if "cloudwatch-logs" in publish_config:
         cloudwatch_logs_group_arn = {}
         cloudwatch_logs_stream_arn = {}
 
-        assert isinstance(publish_config["cloudwatch_logs"], list)
-        for cloudwatch_logs_event in publish_config["cloudwatch_logs"]:
+        assert isinstance(publish_config["cloudwatch-logs"], list)
+        for cloudwatch_logs_event in publish_config["cloudwatch-logs"]:
             assert isinstance(cloudwatch_logs_event, dict)
 
             if "arn" in cloudwatch_logs_event:
@@ -389,10 +380,10 @@ def create_policy(publish_config: dict[str, Any]):
                     }
                 )
 
-    if "s3_buckets" in publish_config:
-        assert isinstance(publish_config["s3_buckets"], list)
+    if "s3-buckets" in publish_config:
+        assert isinstance(publish_config["s3-buckets"], list)
 
-        s3_buckets_arn = [x for x in publish_config["s3_buckets"] if len(x.strip()) > 0]
+        s3_buckets_arn = [x for x in publish_config["s3-buckets"] if len(x.strip()) > 0]
         if len(s3_buckets_arn) > 0:
             policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
                 {"Effect": "Allow", "Action": "s3:ListBucket", "Resource": s3_buckets_arn}
@@ -425,9 +416,9 @@ def create_vpc_config(publish_config: dict[str, Any]):
     vpc_config_fragment = {}
 
     security_groups = []
-    if "security_groups" in publish_config:
-        assert isinstance(publish_config["security_groups"], list)
-        security_groups = [x for x in publish_config["security_groups"] if len(x.strip()) > 0]
+    if "security-groups" in publish_config:
+        assert isinstance(publish_config["security-groups"], list)
+        security_groups = [x for x in publish_config["security-groups"] if len(x.strip()) > 0]
 
     subnets = []
     if "subnets" in publish_config:
@@ -488,27 +479,29 @@ if __name__ == "__main__":
         "DependsOn"
     ] = "ElasticServerlessForwarderPolicy"
 
-    if "s3_config_file" in publish_config_yaml:
-        assert isinstance(publish_config_yaml["s3_config_file"], str)
+    if "s3-config-file" in publish_config_yaml:
+        assert isinstance(publish_config_yaml["s3-config-file"], str)
         cloudformation_yaml["Resources"]["ApplicationElasticServerlessForwarder"]["Properties"]["Environment"][
             "Variables"
-        ]["S3_CONFIG_FILE"] = publish_config_yaml["s3_config_file"]
+        ]["S3_CONFIG_FILE"] = publish_config_yaml["s3-config-file"]
 
-    if "continuing_queue_batch_size" in publish_config_yaml:
-        cloudformation_yaml["Resources"]["ApplicationElasticServerlessForwarder"]["Properties"]["Events"][
-            "SQSContinuingEvent"
-        ]["Properties"]["BatchSize"] = publish_config_yaml["continuing_queue_batch_size"]
-    else:
-        cloudformation_yaml["Resources"]["ApplicationElasticServerlessForwarder"]["Properties"]["Events"][
-            "SQSContinuingEvent"
-        ]["Properties"]["BatchSize"] = 10
+    if "continuing-queue" in publish_config_yaml:
+        assert isinstance(publish_config_yaml["continuing-queue"], dict)
+        if "batch_size" in publish_config_yaml["continuing-queue"]:
+            cloudformation_yaml["Resources"]["ApplicationElasticServerlessForwarder"]["Properties"]["Events"][
+                "SQSContinuingEvent"
+            ]["Properties"]["BatchSize"] = publish_config_yaml["continuing-queue"]["batch_size"]
+        else:
+            cloudformation_yaml["Resources"]["ApplicationElasticServerlessForwarder"]["Properties"]["Events"][
+                "SQSContinuingEvent"
+            ]["Properties"]["BatchSize"] = 10
 
-    if "continuing_queue_batching_window_in_second" in publish_config_yaml:
-        cloudformation_yaml["Resources"]["ApplicationElasticServerlessForwarder"]["Properties"]["Events"][
-            "SQSContinuingEvent"
-        ]["Properties"]["MaximumBatchingWindowInSeconds"] = publish_config_yaml[
-            "continuing_queue_batching_window_in_second"
-        ]
+        if "batching_window_in_second" in publish_config_yaml["continuing-queue"]:
+            cloudformation_yaml["Resources"]["ApplicationElasticServerlessForwarder"]["Properties"]["Events"][
+                "SQSContinuingEvent"
+            ]["Properties"]["MaximumBatchingWindowInSeconds"] = publish_config_yaml["continuing-queue"][
+                "batching_window_in_second"
+            ]
 
     with open(cloudformation_template_path, "w") as f:
         yaml.dump(cloudformation_yaml, f)

@@ -12,8 +12,6 @@ Parameters:
     Type: CommaDelimitedList
   ElasticServerlessForwarderKMSKeys:
     Type: CommaDelimitedList
-  ElasticServerlessForwarderAssumeRoles:
-    Type: CommaDelimitedList
   ElasticServerlessForwarderSQSEvents:
     Type: CommaDelimitedList
   ElasticServerlessForwarderS3SQSEvents:
