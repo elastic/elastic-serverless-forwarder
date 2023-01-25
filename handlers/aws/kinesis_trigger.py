@@ -87,7 +87,6 @@ def _handle_kinesis_record(
     account_id = get_account_id_from_arn(input_id)
 
     for kinesis_record_n, kinesis_record in enumerate(event["Records"]):
-        shared_logger.info(kinesis_record)
         storage: ProtocolStorage = StorageFactory.create(
             storage_type="payload",
             payload=kinesis_record["kinesis"]["data"],

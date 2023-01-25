@@ -479,7 +479,6 @@ def kinesis_record_id(event_payload: dict[str, Any]) -> str:
     """
     Generates a unique event id given the payload of an event from a kinesis stream
     """
-    shared_logger.info(event_payload)
     offset: int = event_payload["fields"]["log"]["offset"]
     stream_type: str = event_payload["fields"]["aws"]["kinesis"]["type"]
     stream_name: str = event_payload["fields"]["aws"]["kinesis"]["name"]
