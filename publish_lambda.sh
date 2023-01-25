@@ -312,10 +312,10 @@ def create_policy(publish_config: dict[str, Any]):
         },
     }
 
-    if "s3_config_file" in publish_config:
-        assert isinstance(publish_config["s3_config_file"], str)
+    if "s3-config-file" in publish_config:
+        assert isinstance(publish_config["s3-config-file"], str)
 
-        bucket_name_and_object_key = publish_config["s3_config_file"].replace("s3://", "")
+        bucket_name_and_object_key = publish_config["s3-config-file"].replace("s3://", "")
         resource = f"arn:aws:s3:::{bucket_name_and_object_key}"
         if len(resource) > 0:
             policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
