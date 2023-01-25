@@ -5,7 +5,6 @@
 import base64
 import datetime
 import gzip
-import hashlib
 import importlib
 import os
 import random
@@ -1763,13 +1762,16 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             queue_attributes=self._queues_info["source-s3-sqs-queue"], filenames=[first_filename, second_filename]
         )
         event_s3 = _event_from_sqs_message(queue_attributes=self._queues_info["source-s3-sqs-queue"])
+        bucket_arn: str = "arn:aws:s3:::test-bucket"
+
+        prefix_s3_first = f"{bucket_arn}-{first_filename}"
+        prefix_s3_second = f"{bucket_arn}-{second_filename}"
 
         _event_to_sqs_message(queue_attributes=self._queues_info["source-sqs-queue"], message_body=self._cloudwatch_log)
         event_sqs = _event_from_sqs_message(queue_attributes=self._queues_info["source-sqs-queue"])
 
         message_id = event_sqs["Records"][0]["messageId"]
-        src: str = f"source-sqs-queue{message_id}"
-        hex_prefix_sqs = hashlib.sha256(src.encode("UTF-8")).hexdigest()[:10]
+        prefix_sqs: str = f"source-sqs-queue-{message_id}"
 
         _event_to_cloudwatch_logs(
             group_name="source-group",
@@ -1787,17 +1789,17 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             group_name="source-group", stream_name="source-stream-different"
         )
 
-        src = f"source-groupsource-stream{event_ids_cloudwatch_logs[0]}"
-        hex_prefix_cloudwatch_logs = hashlib.sha256(src.encode("UTF-8")).hexdigest()[:10]
+        prefix_cloudwatch_logs = f"source-group-source-stream-{event_ids_cloudwatch_logs[0]}"
 
-        src = f"source-groupsource-stream-different{event_ids_cloudwatch_logs_different[0]}"
-        hex_prefix_cloudwatch_logs_different = hashlib.sha256(src.encode("UTF-8")).hexdigest()[:10]
+        prefix_cloudwatch_logs_different = (
+            f"source-group-source-stream-different-{event_ids_cloudwatch_logs_different[0]}"
+        )
 
         # Create an expected id for s3-sqs so that es.send will fail
         self._es_client.index(
             index="logs-generic-default",
             op_type="create",
-            id="17b2d3c934-000000000000",
+            id=f"{prefix_s3_first}-000000000000",
             document={"@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
         )
 
@@ -1805,7 +1807,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         self._es_client.index(
             index="logs-generic-default",
             op_type="create",
-            id=f"{hex_prefix_sqs}-000000000000",
+            id=f"{prefix_sqs}-000000000000",
             document={"@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
         )
 
@@ -1813,7 +1815,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         self._es_client.index(
             index="logs-generic-default",
             op_type="create",
-            id=f"{hex_prefix_cloudwatch_logs}-000000000000",
+            id=f"{prefix_cloudwatch_logs}-000000000000",
             document={"@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
         )
 
@@ -1824,9 +1826,9 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             query={
                 "ids": {
                     "values": [
-                        "17b2d3c934-000000000098",
-                        f"{hex_prefix_sqs}-000000000098",
-                        f"{hex_prefix_cloudwatch_logs}-000000000098",
+                        f"{prefix_s3_first}-000000000098",
+                        f"{prefix_sqs}-000000000098",
+                        f"{prefix_cloudwatch_logs}-000000000098",
                     ]
                 }
             },
@@ -1841,7 +1843,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
 
         self._es_client.indices.refresh(index="logs-generic-default")
         res = self._es_client.search(
-            index="logs-generic-default", query={"ids": {"values": ["17b2d3c934-000000000098"]}}
+            index="logs-generic-default", query={"ids": {"values": [f"{prefix_s3_first}-000000000098"]}}
         )
 
         assert res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry.rstrip("\n")
@@ -1865,7 +1867,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
         res = self._es_client.search(
-            index="logs-generic-default", query={"ids": {"values": ["f627fc186f-000000000000"]}}
+            index="logs-generic-default", query={"ids": {"values": [f"{prefix_s3_second}-000000000000"]}}
         )
 
         assert res["hits"]["hits"][0]["_source"]["message"] == self._third_log_entry.rstrip("\n")
@@ -1894,7 +1896,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
 
         self._es_client.indices.refresh(index="logs-generic-default")
         res = self._es_client.search(
-            index="logs-generic-default", query={"ids": {"values": [f"{hex_prefix_sqs}-000000000098"]}}
+            index="logs-generic-default", query={"ids": {"values": [f"{prefix_sqs}-000000000098"]}}
         )
 
         assert res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry.rstrip("\n")
@@ -1915,7 +1917,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
         res = self._es_client.search(
-            index="logs-generic-default", query={"ids": {"values": [f"{hex_prefix_sqs}-000000000399"]}}
+            index="logs-generic-default", query={"ids": {"values": [f"{prefix_sqs}-000000000399"]}}
         )
 
         assert res["hits"]["hits"][0]["_source"]["message"] == self._third_log_entry.rstrip("\n")
@@ -1941,7 +1943,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
 
         self._es_client.indices.refresh(index="logs-generic-default")
         res = self._es_client.search(
-            index="logs-generic-default", query={"ids": {"values": [f"{hex_prefix_cloudwatch_logs}-000000000098"]}}
+            index="logs-generic-default", query={"ids": {"values": [f"{prefix_cloudwatch_logs}-000000000098"]}}
         )
 
         assert res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry.rstrip("\n")
@@ -1972,7 +1974,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         self._es_client.indices.refresh(index="logs-generic-default")
         res = self._es_client.search(
             index="logs-generic-default",
-            query={"ids": {"values": [f"{hex_prefix_cloudwatch_logs_different}-000000000000"]}},
+            query={"ids": {"values": [f"{prefix_cloudwatch_logs_different}-000000000000"]}},
         )
 
         assert res["hits"]["hits"][0]["_source"]["message"] == self._third_log_entry.rstrip("\n")
@@ -2004,18 +2006,18 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
 
         # Remove the expected id for s3-sqs so that it can be replayed
         self._es_client.delete_by_query(
-            index="logs-generic-default", body={"query": {"ids": {"values": ["17b2d3c934-000000000000"]}}}
+            index="logs-generic-default", body={"query": {"ids": {"values": [f"{prefix_s3_first}-000000000000"]}}}
         )
 
         # Remove the expected id for sqs so that it can be replayed
         self._es_client.delete_by_query(
-            index="logs-generic-default", body={"query": {"ids": {"values": [f"{hex_prefix_sqs}-000000000000"]}}}
+            index="logs-generic-default", body={"query": {"ids": {"values": [f"{prefix_sqs}-000000000000"]}}}
         )
 
         # Remove the expected id for cloudwatch logs so that it can be replayed
         self._es_client.delete_by_query(
             index="logs-generic-default",
-            body={"query": {"ids": {"values": [f"{hex_prefix_cloudwatch_logs}-000000000000"]}}},
+            body={"query": {"ids": {"values": [f"{prefix_cloudwatch_logs}-000000000000"]}}},
         )
 
         self._es_client.indices.refresh(index="logs-generic-default")
@@ -2033,7 +2035,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         assert self._es_client.count(index="logs-generic-default")["count"] == 7
 
         res = self._es_client.search(
-            index="logs-generic-default", query={"ids": {"values": ["17b2d3c934-000000000000"]}}
+            index="logs-generic-default", query={"ids": {"values": [f"{prefix_s3_first}-000000000000"]}}
         )
 
         assert res["hits"]["hits"][0]["_source"]["message"] == self._first_log_entry.rstrip("\n")
@@ -2069,7 +2071,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         assert self._es_client.count(index="logs-generic-default")["count"] == 9
 
         res = self._es_client.search(
-            index="logs-generic-default", query={"ids": {"values": [f"{hex_prefix_sqs}-000000000000"]}}
+            index="logs-generic-default", query={"ids": {"values": [f"{prefix_sqs}-000000000000"]}}
         )
         assert res["hits"]["hits"][0]["_source"]["message"] == self._first_log_entry.rstrip("\n")
 
@@ -2089,7 +2091,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
         res = self._es_client.search(
-            index="logs-generic-default", query={"ids": {"values": [f"{hex_prefix_cloudwatch_logs}-000000000000"]}}
+            index="logs-generic-default", query={"ids": {"values": [f"{prefix_cloudwatch_logs}-000000000000"]}}
         )
         assert res["hits"]["hits"][0]["_source"]["message"] == self._first_log_entry.rstrip("\n")
 
@@ -2122,6 +2124,10 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         )
 
         s3_events = _event_from_sqs_message(queue_attributes=self._queues_info["source-s3-sqs-queue"])
+        bucket_arn: str = "arn:aws:s3:::test-bucket"
+
+        prefix_s3_first = f"{bucket_arn}-{first_filename}"
+        prefix_s3_second = f"{bucket_arn}-{second_filename}"
 
         _event_to_sqs_message(queue_attributes=self._queues_info["source-sqs-queue"], message_body=self._cloudwatch_log)
         event_sqs = _event_from_sqs_message(queue_attributes=self._queues_info["source-sqs-queue"])
@@ -2132,8 +2138,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         event_no_config = _event_from_sqs_message(queue_attributes=self._queues_info["source-no-conf-queue"])
 
         message_id = event_sqs["Records"][0]["messageId"]
-        src: str = f"source-sqs-queue{message_id}"
-        hex_prefix_sqs = hashlib.sha256(src.encode("UTF-8")).hexdigest()[:10]
+        prefix_sqs: str = f"source-sqs-queue-{message_id}"
 
         _event_to_cloudwatch_logs(
             group_name="source-group",
@@ -2151,11 +2156,11 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             group_name="source-group", stream_name="source-stream-different"
         )
 
-        src = f"source-groupsource-stream{event_ids_cloudwatch_logs[0]}"
-        hex_prefix_cloudwatch_logs = hashlib.sha256(src.encode("UTF-8")).hexdigest()[:10]
+        prefix_cloudwatch_logs = f"source-group-source-stream-{event_ids_cloudwatch_logs[0]}"
 
-        src = f"source-groupsource-stream-different{event_ids_cloudwatch_logs_different[0]}"
-        hex_prefix_cloudwatch_logs_different = hashlib.sha256(src.encode("UTF-8")).hexdigest()[:10]
+        prefix_cloudwatch_logs_different = (
+            f"source-group-source-stream-different-{event_ids_cloudwatch_logs_different[0]}"
+        )
 
         first_call = handler(s3_events, ctx)  # type:ignore
 
@@ -2165,7 +2170,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         assert self._es_client.count(index="logs-generic-default")["count"] == 1
 
         res = self._es_client.search(
-            index="logs-generic-default", query={"ids": {"values": ["17b2d3c934-000000000000"]}}
+            index="logs-generic-default", query={"ids": {"values": [f"{prefix_s3_first}-000000000000"]}}
         )
 
         assert res["hits"]["hits"][0]["_source"]["message"] == self._first_log_entry.rstrip("\n")
@@ -2196,7 +2201,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         assert self._es_client.count(index="logs-generic-default")["count"] == 2
 
         res = self._es_client.search(
-            index="logs-generic-default", query={"ids": {"values": [f"{hex_prefix_sqs}-000000000000"]}}
+            index="logs-generic-default", query={"ids": {"values": [f"{prefix_sqs}-000000000000"]}}
         )
         assert res["hits"]["hits"][0]["_source"]["message"] == self._first_log_entry.rstrip("\n")
 
@@ -2223,7 +2228,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         assert self._es_client.count(index="logs-generic-default")["count"] == 3
 
         res = self._es_client.search(
-            index="logs-generic-default", query={"ids": {"values": [f"{hex_prefix_cloudwatch_logs}-000000000000"]}}
+            index="logs-generic-default", query={"ids": {"values": [f"{prefix_cloudwatch_logs}-000000000000"]}}
         )
 
         assert res["hits"]["hits"][0]["_source"]["message"] == self._first_log_entry.rstrip("\n")
@@ -2253,7 +2258,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
 
         res = self._es_client.search(
             index="logs-generic-default",
-            query={"ids": {"values": [f"{hex_prefix_cloudwatch_logs_different}-000000000000"]}},
+            query={"ids": {"values": [f"{prefix_cloudwatch_logs_different}-000000000000"]}},
         )
 
         assert res["hits"]["hits"][0]["_source"]["message"] == self._third_log_entry.rstrip("\n")
@@ -2296,7 +2301,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         assert self._es_client.count(index="logs-generic-default")["count"] == 5
 
         res = self._es_client.search(
-            index="logs-generic-default", query={"ids": {"values": ["17b2d3c934-000000000098"]}}
+            index="logs-generic-default", query={"ids": {"values": [f"{prefix_s3_first}-000000000098"]}}
         )
 
         assert res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry.rstrip("\n")
@@ -2330,7 +2335,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         assert self._es_client.count(index="logs-generic-default")["count"] == 9
 
         res = self._es_client.search(
-            index="logs-generic-default", query={"ids": {"values": [f"{hex_prefix_sqs}-000000000098"]}}
+            index="logs-generic-default", query={"ids": {"values": [f"{prefix_sqs}-000000000098"]}}
         )
 
         assert res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry.rstrip("\n")
@@ -2351,7 +2356,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
         res = self._es_client.search(
-            index="logs-generic-default", query={"ids": {"values": [f"{hex_prefix_cloudwatch_logs}-000000000098"]}}
+            index="logs-generic-default", query={"ids": {"values": [f"{prefix_cloudwatch_logs}-000000000098"]}}
         )
 
         assert res["hits"]["hits"][0]["_source"]["message"] == self._second_log_entry.rstrip("\n")
@@ -2376,7 +2381,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
         res = self._es_client.search(
-            index="logs-generic-default", query={"ids": {"values": ["f627fc186f-000000000000"]}}
+            index="logs-generic-default", query={"ids": {"values": [f"{prefix_s3_second}-000000000000"]}}
         )
 
         assert res["hits"]["hits"][0]["_source"]["message"] == self._third_log_entry.rstrip("\n")
@@ -2400,7 +2405,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
         res = self._es_client.search(
-            index="logs-generic-default", query={"ids": {"values": [f"{hex_prefix_sqs}-000000000399"]}}
+            index="logs-generic-default", query={"ids": {"values": [f"{prefix_sqs}-000000000399"]}}
         )
 
         assert res["hits"]["hits"][0]["_source"]["message"] == self._third_log_entry.rstrip("\n")
@@ -2548,6 +2553,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
         assert res["hits"]["hits"][0]["_source"]["aws"] == {
             "kinesis": {
                 "type": "stream",
+                "partition_key": "PartitionKey",
                 "name": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
                 "sequence_number": kinesis_event["Records"][0]["kinesis"]["sequenceNumber"],
             }
@@ -2580,6 +2586,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
         assert res["hits"]["hits"][1]["_source"]["aws"] == {
             "kinesis": {
                 "type": "stream",
+                "partition_key": "PartitionKey",
                 "name": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
                 "sequence_number": kinesis_event["Records"][0]["kinesis"]["sequenceNumber"],
             }
@@ -2620,6 +2627,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
         assert res["hits"]["hits"][2]["_source"]["aws"] == {
             "kinesis": {
                 "type": "stream",
+                "partition_key": "PartitionKey",
                 "name": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
                 "sequence_number": kinesis_event["Records"][1]["kinesis"]["sequenceNumber"],
             }
@@ -2647,10 +2655,11 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
 
     @mock.patch("handlers.aws.handler._completion_grace_period", 1)
     def test_lambda_handler_replay(self) -> None:
+        partition_key: str = "PartitionKey"
         self._kinesis_client.put_records(
             Records=[
                 {
-                    "PartitionKey": "PartitionKey",
+                    "PartitionKey": partition_key,
                     "Data": base64.b64encode(
                         json_dumper(
                             {
@@ -2665,7 +2674,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
                     ),
                 },
                 {
-                    "PartitionKey": "PartitionKey",
+                    "PartitionKey": partition_key,
                     "Data": base64.b64encode(
                         json_dumper(
                             {
@@ -2720,24 +2729,22 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
         stream_name: str = self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"]
 
         sequence_number_first_record = event["Records"][0]["kinesis"]["sequenceNumber"]
-        src_first_record: str = f"stream{stream_name}{sequence_number_first_record}"
-        hex_prefix_first_record = hashlib.sha256(src_first_record.encode("UTF-8")).hexdigest()[:10]
+        prefix_first_record: str = f"stream-{stream_name}-{partition_key}-{sequence_number_first_record}"
 
         sequence_number_second_record = event["Records"][1]["kinesis"]["sequenceNumber"]
-        src_second_record: str = f"stream{stream_name}{sequence_number_second_record}"
-        hex_prefix_second_record = hashlib.sha256(src_second_record.encode("UTF-8")).hexdigest()[:10]
+        prefix_second_record: str = f"stream-{stream_name}-{partition_key}-{sequence_number_second_record}"
 
         # Create an expected id so that es.send will fail
         self._es_client.index(
             index="logs-generic-default",
             op_type="create",
-            id=f"{hex_prefix_first_record}-000000000285",
+            id=f"{prefix_first_record}-000000000285",
             document={"@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
         )
         self._es_client.indices.refresh(index="logs-generic-default")
 
         res = self._es_client.search(
-            index="logs-generic-default", query={"ids": {"values": [f"{hex_prefix_first_record}-000000000000"]}}
+            index="logs-generic-default", query={"ids": {"values": [f"{prefix_first_record}-000000000000"]}}
         )
 
         assert res["hits"]["total"] == {"value": 0, "relation": "eq"}
@@ -2749,11 +2756,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
         self._es_client.indices.refresh(index="logs-generic-default")
         res = self._es_client.search(
             index="logs-generic-default",
-            query={
-                "ids": {
-                    "values": [f"{hex_prefix_first_record}-000000000000", f"{hex_prefix_second_record}-000000000160"]
-                }
-            },
+            query={"ids": {"values": [f"{prefix_first_record}-000000000000", f"{prefix_second_record}-000000000160"]}},
         )
 
         assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
@@ -2767,6 +2770,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
         assert res["hits"]["hits"][0]["_source"]["aws"] == {
             "kinesis": {
                 "type": "stream",
+                "partition_key": partition_key,
                 "name": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
                 "sequence_number": event["Records"][0]["kinesis"]["sequenceNumber"],
             }
@@ -2788,6 +2792,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
         assert res["hits"]["hits"][1]["_source"]["aws"] == {
             "kinesis": {
                 "type": "stream",
+                "partition_key": partition_key,
                 "name": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
                 "sequence_number": event["Records"][1]["kinesis"]["sequenceNumber"],
             }
@@ -2813,7 +2818,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
         # Remove the expected id so that it can be replayed
         self._es_client.delete_by_query(
             index="logs-generic-default",
-            body={"query": {"ids": {"values": [f"{hex_prefix_first_record}-000000000285"]}}},
+            body={"query": {"ids": {"values": [f"{prefix_first_record}-000000000285"]}}},
         )
         self._es_client.indices.refresh(index="logs-generic-default")
 
@@ -2839,6 +2844,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
         assert res["hits"]["hits"][2]["_source"]["aws"] == {
             "kinesis": {
                 "type": "stream",
+                "partition_key": partition_key,
                 "name": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
                 "sequence_number": event["Records"][0]["kinesis"]["sequenceNumber"],
             }
@@ -3066,17 +3072,18 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
             "aws-account-id_CloudTrail-Digest_region_end-time_random-string.log.gz"
         )
 
+        prefix_s3: str = f"arn:aws:s3:::test-bucket-{filename}"
         # Create an expected id so that es.send will fail
         self._es_client.index(
             index="logs-aws.cloudtrail-default",
             op_type="create",
-            id="c2fe2a3df7-000000000000",
+            id=f"{prefix_s3}-000000000000",
             document={"@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
         )
         self._es_client.index(
             index="logs-aws.cloudtrail-default",
             op_type="create",
-            id="c2fe2a3df7-000000000345",
+            id=f"{prefix_s3}-000000000345",
             document={"@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
         )
         self._es_client.indices.refresh(index="logs-aws.cloudtrail-default")
@@ -3094,7 +3101,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
 
         res = self._es_client.search(
             index="logs-aws.cloudtrail-default",
-            query={"ids": {"values": ["c2fe2a3df7-000000000113", "c2fe2a3df7-000000000279"]}},
+            query={"ids": {"values": [f"{prefix_s3}-000000000113", f"{prefix_s3}-000000000279"]}},
         )
         assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
 
@@ -3152,7 +3159,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         # Remove the expected ids so that they can be replayed
         self._es_client.delete_by_query(
             index="logs-aws.cloudtrail-default",
-            body={"query": {"ids": {"values": ["c2fe2a3df7-000000000000", "c2fe2a3df7-000000000345"]}}},
+            body={"query": {"ids": {"values": [f"{prefix_s3}-000000000000", f"{prefix_s3}-000000000345"]}}},
         )
         self._es_client.indices.refresh(index="logs-aws.cloudtrail-default")
 
@@ -3395,14 +3402,13 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
         event = _event_from_sqs_message(queue_attributes=self._queues_info["source-queue"])
 
         message_id = event["Records"][0]["messageId"]
-        src: str = f"source-queue{message_id}"
-        hex_prefix = hashlib.sha256(src.encode("UTF-8")).hexdigest()[:10]
+        prefix: str = f"source-queue-{message_id}"
 
         # Create an expected id so that es.send will fail
         self._es_client.index(
             index="logs-generic-default",
             op_type="create",
-            id=f"{hex_prefix}-000000000000",
+            id=f"{prefix}-000000000000",
             document={"@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
         )
         self._es_client.indices.refresh(index="logs-generic-default")
@@ -3417,7 +3423,7 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
 
         res = self._es_client.search(
             index="logs-generic-default",
-            query={"ids": {"values": [f"{hex_prefix}-000000000113", f"{hex_prefix}-000000000279"]}},
+            query={"ids": {"values": [f"{prefix}-000000000113", f"{prefix}-000000000279"]}},
         )
         assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
 
@@ -3465,7 +3471,7 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
 
         # Remove the expected id so that it can be replayed
         self._es_client.delete_by_query(
-            index="logs-generic-default", body={"query": {"ids": {"values": [f"{hex_prefix}-000000000000"]}}}
+            index="logs-generic-default", body={"query": {"ids": {"values": [f"{prefix}-000000000000"]}}}
         )
         self._es_client.indices.refresh(index="logs-generic-default")
 
@@ -3659,14 +3665,13 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
 
         event, event_ids = _event_from_cloudwatch_logs(group_name="source-group", stream_name="source-stream")
 
-        src: str = f"source-groupsource-stream{event_ids[0]}"
-        hex_prefix = hashlib.sha256(src.encode("UTF-8")).hexdigest()[:10]
+        prefix: str = f"source-group-source-stream-{event_ids[0]}"
 
         # Create an expected id so that es.send will fail
         self._es_client.index(
             index="logs-generic-default",
             op_type="create",
-            id=f"{hex_prefix}-000000000000",
+            id=f"{prefix}-000000000000",
             document={"@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
         )
         self._es_client.indices.refresh(index="logs-generic-default")
@@ -3681,7 +3686,7 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
 
         res = self._es_client.search(
             index="logs-generic-default",
-            query={"ids": {"values": [f"{hex_prefix}-000000000113", f"{hex_prefix}-000000000279"]}},
+            query={"ids": {"values": [f"{prefix}-000000000113", f"{prefix}-000000000279"]}},
         )
         assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
 
@@ -3737,7 +3742,7 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
 
         # Remove the expected id so that it can be replayed
         self._es_client.delete_by_query(
-            index="logs-generic-default", body={"query": {"ids": {"values": [f"{hex_prefix}-000000000000"]}}}
+            index="logs-generic-default", body={"query": {"ids": {"values": [f"{prefix}-000000000000"]}}}
         )
         self._es_client.indices.refresh(index="logs-generic-default")
 

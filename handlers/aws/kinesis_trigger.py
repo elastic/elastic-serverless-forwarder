@@ -31,12 +31,14 @@ def _handle_kinesis_continuation(
     """
 
     sequence_number = kinesis_record["kinesis"]["sequenceNumber"]
+    partition_key = kinesis_record["kinesis"]["partitionKey"]
     stream_type, stream_name, _ = get_kinesis_stream_name_type_and_region_from_arn(event_input_id)
 
     message_attributes = {
         "config": {"StringValue": config_yaml, "DataType": "String"},
         "originalStreamType": {"StringValue": stream_type, "DataType": "String"},
         "originalStreamName": {"StringValue": stream_name, "DataType": "String"},
+        "originalPartitionKey": {"StringValue": partition_key, "DataType": "String"},
         "originalSequenceNumber": {"StringValue": sequence_number, "DataType": "String"},
         "originalEventSourceARN": {"StringValue": event_input_id, "DataType": "String"},
     }
@@ -85,6 +87,7 @@ def _handle_kinesis_record(
     account_id = get_account_id_from_arn(input_id)
 
     for kinesis_record_n, kinesis_record in enumerate(event["Records"]):
+        shared_logger.info(kinesis_record)
         storage: ProtocolStorage = StorageFactory.create(
             storage_type="payload",
             payload=kinesis_record["kinesis"]["data"],
@@ -118,6 +121,7 @@ def _handle_kinesis_record(
                         "kinesis": {
                             "type": stream_type,
                             "name": stream_name,
+                            "partition_key": kinesis_record["kinesis"]["partitionKey"],
                             "sequence_number": kinesis_record["kinesis"]["sequenceNumber"],
                         }
                     },

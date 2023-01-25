@@ -169,6 +169,9 @@ def _handle_sqs_event(
             assert "originalStreamName" in payload
             stream_name = payload["originalStreamName"]["stringValue"]
 
+            assert "originalPartitionKey" in payload
+            partition_key = payload["originalPartitionKey"]["stringValue"]
+
             assert "originalSequenceNumber" in payload
             sequence_number = payload["originalSequenceNumber"]["stringValue"]
 
@@ -178,6 +181,7 @@ def _handle_sqs_event(
                 "kinesis": {
                     "type": stream_type,
                     "name": stream_name,
+                    "partition_key": partition_key,
                     "sequence_number": sequence_number,
                 }
             }
