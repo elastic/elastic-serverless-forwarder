@@ -1,3 +1,7 @@
+### v1.6.0 - 2023/01/25
+##### Features
+* Changed ID generation logic to use AWS-provided ids: [#214](https://github.com/elastic/elastic-serverless-forwarder/pull/214)
+
 ### v1.5.0 - 2022/10/20
 ##### Features
 * Allow to connect to ES with self-signed certificate through certificate fingerprint assertion: [#173](https://github.com/elastic/elastic-serverless-forwarder/pull/173)
