@@ -201,8 +201,8 @@ def _handle_sqs_event(
                     "name": stream_name,
                     "partition_key": partition_key,
                     "sequence_number": sequence_number,
-                    "approximate_arrival_timestamp": approximate_arrival_timestamp,
                 }
             }
+            es_event["meta"]["approximate_arrival_timestamp"] = approximate_arrival_timestamp
 
         yield es_event, ending_offset, event_expanded_offset

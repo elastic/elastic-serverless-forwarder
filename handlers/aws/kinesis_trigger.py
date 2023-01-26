@@ -128,9 +128,6 @@ def _handle_kinesis_record(
                             "name": stream_name,
                             "partition_key": kinesis_record["kinesis"]["partitionKey"],
                             "sequence_number": kinesis_record["kinesis"]["sequenceNumber"],
-                            "approximate_arrival_timestamp": int(
-                                kinesis_record["kinesis"]["approximateArrivalTimestamp"]
-                            ),
                         }
                     },
                     "cloud": {
@@ -139,7 +136,11 @@ def _handle_kinesis_record(
                         "account": {"id": account_id},
                     },
                 },
-                "meta": {},
+                "meta": {
+                    "approximate_arrival_timestamp": int(
+                        float(kinesis_record["kinesis"]["approximateArrivalTimestamp"]) * 1000
+                    ),
+                },
             }
 
             yield es_event, ending_offset, event_expanded_offset, kinesis_record_n

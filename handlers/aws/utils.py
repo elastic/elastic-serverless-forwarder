@@ -487,7 +487,7 @@ def kinesis_record_id(event_payload: dict[str, Any]) -> str:
     stream_name: str = event_payload["fields"]["aws"]["kinesis"]["name"]
     partition_key: str = event_payload["fields"]["aws"]["kinesis"]["partition_key"]
     sequence_number: str = event_payload["fields"]["aws"]["kinesis"]["sequence_number"]
-    approximate_arrival_timestamp: int = event_payload["fields"]["aws"]["kinesis"]["approximate_arrival_timestamp"]
+    approximate_arrival_timestamp: int = event_payload["meta"]["approximate_arrival_timestamp"]
 
     src: str = f"{approximate_arrival_timestamp}-{stream_type}-{stream_name}-{partition_key}-{sequence_number}"
 

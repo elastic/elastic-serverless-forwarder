@@ -2593,7 +2593,6 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
                 "partition_key": "PartitionKey",
                 "name": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
                 "sequence_number": kinesis_event["Records"][0]["kinesis"]["sequenceNumber"],
-                "approximate_arrival_timestamp": int(timestamp_first),
             }
         }
         assert res["hits"]["hits"][0]["_source"]["cloud"] == {
@@ -2627,7 +2626,6 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
                 "partition_key": "PartitionKey",
                 "name": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
                 "sequence_number": kinesis_event["Records"][0]["kinesis"]["sequenceNumber"],
-                "approximate_arrival_timestamp": int(timestamp_first),
             }
         }
         assert res["hits"]["hits"][1]["_source"]["cloud"] == {
@@ -2669,7 +2667,6 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
                 "partition_key": "PartitionKey",
                 "name": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
                 "sequence_number": kinesis_event["Records"][1]["kinesis"]["sequenceNumber"],
-                "approximate_arrival_timestamp": int(timestamp_second),
             }
         }
         assert res["hits"]["hits"][2]["_source"]["cloud"] == {
@@ -2774,12 +2771,12 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
 
         sequence_number_first_record = event["Records"][0]["kinesis"]["sequenceNumber"]
         prefix_first_record: str = (
-            f"{int(timestamp_first)}-stream-{stream_name}-{partition_key}-{sequence_number_first_record}"
+            f"{int(timestamp_first*1000)}-stream-{stream_name}-{partition_key}-{sequence_number_first_record}"
         )
 
         sequence_number_second_record = event["Records"][1]["kinesis"]["sequenceNumber"]
         prefix_second_record: str = (
-            f"{int(timestamp_second)}-stream-{stream_name}-{partition_key}-{sequence_number_second_record}"
+            f"{int(timestamp_second*1000)}-stream-{stream_name}-{partition_key}-{sequence_number_second_record}"
         )
 
         # Create an expected id so that es.send will fail
@@ -2821,7 +2818,6 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
                 "partition_key": partition_key,
                 "name": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
                 "sequence_number": event["Records"][0]["kinesis"]["sequenceNumber"],
-                "approximate_arrival_timestamp": int(timestamp_first),
             }
         }
         assert res["hits"]["hits"][0]["_source"]["cloud"] == {
@@ -2844,7 +2840,6 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
                 "partition_key": partition_key,
                 "name": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
                 "sequence_number": event["Records"][1]["kinesis"]["sequenceNumber"],
-                "approximate_arrival_timestamp": int(timestamp_second),
             }
         }
         assert res["hits"]["hits"][1]["_source"]["cloud"] == {
@@ -2897,7 +2892,6 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
                 "partition_key": partition_key,
                 "name": self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"],
                 "sequence_number": event["Records"][0]["kinesis"]["sequenceNumber"],
-                "approximate_arrival_timestamp": int(timestamp_first),
             }
         }
         assert res["hits"]["hits"][2]["_source"]["cloud"] == {
