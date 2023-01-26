@@ -43,6 +43,10 @@ def _handle_sqs_continuation(
         message_attributes = {
             "config": {"StringValue": config_yaml, "DataType": "String"},
             "originalMessageId": {"StringValue": sqs_record["messageId"], "DataType": "String"},
+            "originalSentTimestamp": {
+                "StringValue": str(sqs_record["attributes"]["SentTimestamp"]),
+                "DataType": "Number",
+            },
             "originalEventSourceARN": {"StringValue": event_input_id, "DataType": "String"},
         }
 
@@ -85,7 +89,6 @@ def _handle_sqs_event(
     It iterates through sqs records in the sqs trigger and process
     content of body payload in the record.
     """
-
     account_id = get_account_id_from_arn(input_id)
 
     queue_name, aws_region = get_sqs_queue_name_and_region_from_arn(input_id)
@@ -137,12 +140,19 @@ def _handle_sqs_event(
             if "originalMessageId" in payload:
                 message_id = payload["originalMessageId"]["stringValue"]
 
+            if "originalSentTimestamp" in payload:
+                sent_timestamp = int(payload["originalSentTimestamp"]["stringValue"])
+            else:
+                sent_timestamp = sqs_record["attributes"]["SentTimestamp"]
+
             es_event["fields"]["aws"] = {
                 "sqs": {
                     "name": queue_name,
                     "message_id": message_id,
                 }
             }
+
+            es_event["meta"]["sent_timestamp"] = sent_timestamp
         elif continuing_original_input_type == "cloudwatch-logs":
             assert "originalEventId" in payload
             event_id = payload["originalEventId"]["stringValue"]

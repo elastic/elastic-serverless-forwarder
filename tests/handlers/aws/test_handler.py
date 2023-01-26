@@ -1252,6 +1252,10 @@ def _event_from_sqs_message(queue_attributes: dict[str, Any]) -> dict[str, Any]:
 
                     message["messageAttributes"][attribute] = new_attribute
 
+            if "sent_timestamp" in queue_attributes:
+                message["attributes"] = {}
+                message["attributes"]["SentTimestamp"] = queue_attributes["sent_timestamp"]
+
             message["eventSource"] = "aws:sqs"
             message["eventSourceARN"] = queue_attributes["QueueArn"]
 
@@ -1774,10 +1778,13 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         prefix_s3_second = f"{event_time}-{bucket_arn}-{second_filename}"
 
         _event_to_sqs_message(queue_attributes=self._queues_info["source-sqs-queue"], message_body=self._cloudwatch_log)
-        event_sqs = _event_from_sqs_message(queue_attributes=self._queues_info["source-sqs-queue"])
+        timestamp = str(int(datetime.datetime.utcnow().timestamp()))
+        queue_attributes = self._queues_info["source-sqs-queue"]
+        queue_attributes["sent_timestamp"] = timestamp
+        event_sqs = _event_from_sqs_message(queue_attributes=queue_attributes)
 
         message_id = event_sqs["Records"][0]["messageId"]
-        prefix_sqs: str = f"source-sqs-queue-{message_id}"
+        prefix_sqs: str = f"{timestamp}-source-sqs-queue-{message_id}"
 
         _event_to_cloudwatch_logs(
             group_name="source-group",
@@ -2146,7 +2153,10 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         prefix_s3_second = f"{event_time}-{bucket_arn}-{second_filename}"
 
         _event_to_sqs_message(queue_attributes=self._queues_info["source-sqs-queue"], message_body=self._cloudwatch_log)
-        event_sqs = _event_from_sqs_message(queue_attributes=self._queues_info["source-sqs-queue"])
+        timestamp = str(int(datetime.datetime.utcnow().timestamp()))
+        queue_attributes = self._queues_info["source-sqs-queue"]
+        queue_attributes["sent_timestamp"] = timestamp
+        event_sqs = _event_from_sqs_message(queue_attributes=queue_attributes)
 
         _event_to_sqs_message(
             queue_attributes=self._queues_info["source-no-conf-queue"], message_body=self._cloudwatch_log
@@ -2154,7 +2164,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         event_no_config = _event_from_sqs_message(queue_attributes=self._queues_info["source-no-conf-queue"])
 
         message_id = event_sqs["Records"][0]["messageId"]
-        prefix_sqs: str = f"source-sqs-queue-{message_id}"
+        prefix_sqs: str = f"{timestamp}-source-sqs-queue-{message_id}"
 
         _event_to_cloudwatch_logs(
             group_name="source-group",
@@ -3444,10 +3454,13 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
 
         _event_to_sqs_message(queue_attributes=self._queues_info["source-queue"], message_body=cloudwatch_log)
 
-        event = _event_from_sqs_message(queue_attributes=self._queues_info["source-queue"])
+        timestamp = str(int(datetime.datetime.utcnow().timestamp()))
+        queue_attributes = self._queues_info["source-queue"]
+        queue_attributes["sent_timestamp"] = timestamp
+        event = _event_from_sqs_message(queue_attributes=queue_attributes)
 
         message_id = event["Records"][0]["messageId"]
-        prefix: str = f"source-queue-{message_id}"
+        prefix: str = f"{timestamp}-source-queue-{message_id}"
 
         # Create an expected id so that es.send will fail
         self._es_client.index(
@@ -3562,7 +3575,10 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
 
         _event_to_sqs_message(queue_attributes=self._queues_info["source-queue"], message_body=cloudwatch_log)
 
-        event = _event_from_sqs_message(queue_attributes=self._queues_info["source-queue"])
+        timestamp = str(int(datetime.datetime.utcnow().timestamp()))
+        queue_attributes = self._queues_info["source-queue"]
+        queue_attributes["sent_timestamp"] = timestamp
+        event = _event_from_sqs_message(queue_attributes=queue_attributes)
 
         first_call = handler(event, ctx)  # type:ignore
 
@@ -3988,7 +4004,10 @@ class TestLambdaHandlerFailureSSLFingerprint(IntegrationTestCase):
 
         _event_to_sqs_message(queue_attributes=self._queues_info["source-queue"], message_body=cloudwatch_log)
 
-        event = _event_from_sqs_message(queue_attributes=self._queues_info["source-queue"])
+        timestamp = str(int(datetime.datetime.utcnow().timestamp()))
+        queue_attributes = self._queues_info["source-queue"]
+        queue_attributes["sent_timestamp"] = timestamp
+        event = _event_from_sqs_message(queue_attributes=queue_attributes)
 
         first_call = handler(event, ctx)  # type:ignore
 

@@ -471,8 +471,9 @@ def sqs_object_id(event_payload: dict[str, Any]) -> str:
     offset: int = event_payload["fields"]["log"]["offset"]
     queue_name: str = event_payload["fields"]["aws"]["sqs"]["name"]
     message_id: str = event_payload["fields"]["aws"]["sqs"]["message_id"]
+    sent_timestamp: int = event_payload["meta"]["sent_timestamp"]
 
-    src: str = f"{queue_name}-{message_id}"
+    src: str = f"{sent_timestamp}-{queue_name}-{message_id}"
 
     return f"{src}-{offset:012d}"
 
