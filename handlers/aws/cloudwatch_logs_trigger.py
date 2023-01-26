@@ -54,6 +54,7 @@ def _handle_cloudwatch_logs_continuation(
             "originalEventSourceARN": {"StringValue": event_input_id, "DataType": "String"},
             "originalLogGroup": {"StringValue": log_group_name, "DataType": "String"},
             "originalLogStream": {"StringValue": log_stream_name, "DataType": "String"},
+            "originalEventTimestamp": {"StringValue": str(log_event["timestamp"]), "DataType": "Number"},
         }
 
         if last_ending_offset is not None:
@@ -81,6 +82,7 @@ def _handle_cloudwatch_logs_continuation(
                 "last_ending_offset": last_ending_offset,
                 "last_event_expanded_offset": last_event_expanded_offset,
                 "event_id": log_event["id"],
+                "event_timestamp": log_event["timestamp"],
             },
         )
 
@@ -108,6 +110,7 @@ def _handle_cloudwatch_logs_event(
 
     for cloudwatch_log_event_n, cloudwatch_log_event in enumerate(event["logEvents"]):
         event_id = cloudwatch_log_event["id"]
+        event_timestamp = cloudwatch_log_event["timestamp"]
 
         storage_message: ProtocolStorage = StorageFactory.create(
             storage_type="payload",
@@ -145,7 +148,7 @@ def _handle_cloudwatch_logs_event(
                         "account": {"id": account_id},
                     },
                 },
-                "meta": {},
+                "meta": {"event_timestamp": event_timestamp},
             }
 
             yield es_event, ending_offset, event_expanded_offset, cloudwatch_log_event_n

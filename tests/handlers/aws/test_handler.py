@@ -1286,9 +1286,10 @@ def _event_to_cloudwatch_logs(group_name: str, stream_name: str, messages_body: 
     )
 
 
-def _event_from_cloudwatch_logs(group_name: str, stream_name: str) -> tuple[dict[str, Any], list[str]]:
+def _event_from_cloudwatch_logs(group_name: str, stream_name: str) -> tuple[dict[str, Any], list[str], list[int]]:
     logs_client = aws_stack.connect_to_service("logs")
     collected_log_event_ids: list[str] = []
+    collected_log_event_timestamp: list[int] = []
     collected_log_events: list[dict[str, Any]] = []
 
     events = logs_client.get_log_events(logGroupName=group_name, logStreamName=stream_name)
@@ -1304,6 +1305,7 @@ def _event_from_cloudwatch_logs(group_name: str, stream_name: str) -> tuple[dict
 
         collected_log_events.append(log_event)
         collected_log_event_ids.append(event_id)
+        collected_log_event_timestamp.append(int(float(event["timestamp"])))
 
     data_json = json_dumper(
         {
@@ -1319,7 +1321,7 @@ def _event_from_cloudwatch_logs(group_name: str, stream_name: str) -> tuple[dict
     data_gzip = gzip.compress(data_json.encode("UTF-8"))
     data_base64encoded = base64.b64encode(data_gzip)
 
-    return {"awslogs": {"data": data_base64encoded}}, collected_log_event_ids
+    return {"awslogs": {"data": data_base64encoded}}, collected_log_event_ids, collected_log_event_timestamp
 
 
 def _event_from_kinesis_records(records: dict[str, Any], stream_attribute: dict[str, Any]) -> dict[str, Any]:
@@ -1782,21 +1784,28 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             stream_name="source-stream",
             messages_body=[self._first_log_entry + self._second_log_entry],
         )
-        event_cloudwatch_logs, event_ids_cloudwatch_logs = _event_from_cloudwatch_logs(
-            group_name="source-group", stream_name="source-stream"
-        )
+        (
+            event_cloudwatch_logs,
+            event_ids_cloudwatch_logs,
+            event_timestamps_cloudwatch_logs,
+        ) = _event_from_cloudwatch_logs(group_name="source-group", stream_name="source-stream")
 
         _event_to_cloudwatch_logs(
             group_name="source-group", stream_name="source-stream-different", messages_body=[self._third_log_entry]
         )
-        event_cloudwatch_logs_different, event_ids_cloudwatch_logs_different = _event_from_cloudwatch_logs(
-            group_name="source-group", stream_name="source-stream-different"
+        (
+            event_cloudwatch_logs_different,
+            event_ids_cloudwatch_logs_different,
+            event_timestamps_cloudwatch_logs_different,
+        ) = _event_from_cloudwatch_logs(group_name="source-group", stream_name="source-stream-different")
+
+        prefix_cloudwatch_logs = (
+            f"{event_timestamps_cloudwatch_logs[0]}-source-group-source-stream-{event_ids_cloudwatch_logs[0]}"
         )
 
-        prefix_cloudwatch_logs = f"source-group-source-stream-{event_ids_cloudwatch_logs[0]}"
-
         prefix_cloudwatch_logs_different = (
-            f"source-group-source-stream-different-{event_ids_cloudwatch_logs_different[0]}"
+            f"{event_timestamps_cloudwatch_logs_different[0]}-source-group-"
+            f"source-stream-different-{event_ids_cloudwatch_logs_different[0]}"
         )
 
         # Create an expected id for s3-sqs so that es.send will fail
@@ -2152,21 +2161,28 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             stream_name="source-stream",
             messages_body=[self._first_log_entry + self._second_log_entry],
         )
-        event_cloudwatch_logs, event_ids_cloudwatch_logs = _event_from_cloudwatch_logs(
-            group_name="source-group", stream_name="source-stream"
-        )
+        (
+            event_cloudwatch_logs,
+            event_ids_cloudwatch_logs,
+            event_timestamps_cloudwatch_logs,
+        ) = _event_from_cloudwatch_logs(group_name="source-group", stream_name="source-stream")
 
         _event_to_cloudwatch_logs(
             group_name="source-group", stream_name="source-stream-different", messages_body=[self._third_log_entry]
         )
-        event_cloudwatch_logs_different, event_ids_cloudwatch_logs_different = _event_from_cloudwatch_logs(
-            group_name="source-group", stream_name="source-stream-different"
+        (
+            event_cloudwatch_logs_different,
+            event_ids_cloudwatch_logs_different,
+            event_timestamps_cloudwatch_logs_different,
+        ) = _event_from_cloudwatch_logs(group_name="source-group", stream_name="source-stream-different")
+
+        prefix_cloudwatch_logs = (
+            f"{event_timestamps_cloudwatch_logs[0]}-source-group-source-stream-{event_ids_cloudwatch_logs[0]}"
         )
 
-        prefix_cloudwatch_logs = f"source-group-source-stream-{event_ids_cloudwatch_logs[0]}"
-
         prefix_cloudwatch_logs_different = (
-            f"source-group-source-stream-different-{event_ids_cloudwatch_logs_different[0]}"
+            f"{event_timestamps_cloudwatch_logs_different[0]}-source-group-"
+            f"source-stream-different-{event_ids_cloudwatch_logs_different[0]}"
         )
 
         first_call = handler(s3_events, ctx)  # type:ignore
@@ -3692,9 +3708,11 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
             group_name="source-group", stream_name="source-stream", messages_body=[cloudwatch_log]
         )
 
-        event, event_ids = _event_from_cloudwatch_logs(group_name="source-group", stream_name="source-stream")
+        event, event_ids, event_timestamps = _event_from_cloudwatch_logs(
+            group_name="source-group", stream_name="source-stream"
+        )
 
-        prefix: str = f"source-group-source-stream-{event_ids[0]}"
+        prefix: str = f"{event_timestamps[0]}-source-group-source-stream-{event_ids[0]}"
 
         # Create an expected id so that es.send will fail
         self._es_client.index(
@@ -3828,7 +3846,7 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
             group_name="source-group", stream_name="source-stream", messages_body=[cloudwatch_log, "excluded"]
         )
 
-        event, event_ids = _event_from_cloudwatch_logs(group_name="source-group", stream_name="source-stream")
+        event, event_ids, _ = _event_from_cloudwatch_logs(group_name="source-group", stream_name="source-stream")
         first_call = handler(event, ctx)  # type:ignore
 
         assert first_call == "continuing"

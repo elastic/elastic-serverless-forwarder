@@ -456,8 +456,9 @@ def cloudwatch_logs_object_id(event_payload: dict[str, Any]) -> str:
     group_name: str = event_payload["fields"]["aws"]["cloudwatch"]["log_group"]
     stream_name: str = event_payload["fields"]["aws"]["cloudwatch"]["log_stream"]
     event_id: str = event_payload["fields"]["aws"]["cloudwatch"]["event_id"]
+    event_timestamp: int = event_payload["meta"]["event_timestamp"]
 
-    src: str = f"{group_name}-{stream_name}-{event_id}"
+    src: str = f"{event_timestamp}-{group_name}-{stream_name}-{event_id}"
 
     return f"{src}-{offset:012d}"
 

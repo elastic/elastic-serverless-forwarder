@@ -153,6 +153,9 @@ def _handle_sqs_event(
             assert "originalLogStream" in payload
             log_stream_name = payload["originalLogStream"]["stringValue"]
 
+            assert "originalEventTimestamp" in payload
+            event_timestamp = int(float(payload["originalEventTimestamp"]["stringValue"]))
+
             es_event["fields"]["log"]["file"]["path"] = f"{log_group_name}/{log_stream_name}"
 
             es_event["fields"]["aws"] = {
@@ -162,6 +165,8 @@ def _handle_sqs_event(
                     "event_id": event_id,
                 }
             }
+
+            es_event["meta"]["event_timestamp"] = event_timestamp
         else:
             assert "originalStreamType" in payload
             stream_type = payload["originalStreamType"]["stringValue"]
