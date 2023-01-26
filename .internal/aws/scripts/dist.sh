@@ -33,7 +33,7 @@ SAR_AUTHOR_NAME="${6:-Elastic}"
 TMPDIR=$(mktemp -d /tmp/dist.XXXXXXXXXX)
 CODE_URI="${TMPDIR}/sources"
 
-#trap "rm -rf ${TMPDIR}" EXIT
+trap "rm -rf ${TMPDIR}" EXIT
 
 aws s3api get-bucket-location --bucket "${BUCKET}" || aws s3api create-bucket --acl private --bucket "${BUCKET}" --region "${REGION}" --create-bucket-configuration LocationConstraint="${REGION}"
 
@@ -78,7 +78,6 @@ sam publish --template "${TMPDIR}/.aws-sam/build/macro/packaged.yaml" --region "
 sam build --debug --use-container --build-dir "${TMPDIR}/.aws-sam/build/application" --template-file "${TMPDIR}/application.yaml" --region "${REGION}"
 sam package --template-file "${TMPDIR}/.aws-sam/build/application/template.yaml" --output-template-file "${TMPDIR}/.aws-sam/build/application/packaged.yaml" --s3-bucket "${BUCKET}" --region "${REGION}"
 sam publish --template "${TMPDIR}/.aws-sam/build/application/packaged.yaml" --region "${REGION}"
-aws s3 cp "${TMPDIR}/.aws-sam/build/application/packaged.yaml" "s3://${BUCKET}/application.yaml"
 
 sam build --debug --use-container --build-dir "${TMPDIR}/.aws-sam/build/template" --template-file "${TMPDIR}/template.yaml" --region "${REGION}"
 sam package --template-file "${TMPDIR}/.aws-sam/build/template/template.yaml" --output-template-file "${TMPDIR}/.aws-sam/build/template/packaged.yaml" --s3-bucket "${BUCKET}" --region "${REGION}"
