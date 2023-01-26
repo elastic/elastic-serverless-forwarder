@@ -84,6 +84,7 @@ def _handle_s3_sqs_event(
         aws_region = s3_record["awsRegion"]
         bucket_arn = unquote_plus(s3_record["s3"]["bucket"]["arn"], "utf-8")
         object_key = unquote_plus(s3_record["s3"]["object"]["key"], "utf-8")
+        event_time = int(datetime.datetime.strptime(s3_record["eventTime"], "%Y-%m-%dT%H:%M:%S.%fZ").timestamp() * 1000)
         last_ending_offset = s3_record["last_ending_offset"] if "last_ending_offset" in s3_record else 0
 
         assert len(bucket_arn) > 0
@@ -132,7 +133,7 @@ def _handle_s3_sqs_event(
                         "account": {"id": account_id},
                     },
                 },
-                "meta": {},
+                "meta": {"event_time": event_time},
             }
 
             yield es_event, ending_offset, event_expanded_offset, s3_record_n

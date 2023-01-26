@@ -1764,9 +1764,12 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         )
         event_s3 = _event_from_sqs_message(queue_attributes=self._queues_info["source-s3-sqs-queue"])
         bucket_arn: str = "arn:aws:s3:::test-bucket"
+        event_time = int(
+            datetime.datetime.strptime("2021-09-08T18:34:25.042Z", "%Y-%m-%dT%H:%M:%S.%fZ").timestamp() * 1000
+        )
 
-        prefix_s3_first = f"{bucket_arn}-{first_filename}"
-        prefix_s3_second = f"{bucket_arn}-{second_filename}"
+        prefix_s3_first = f"{event_time}-{bucket_arn}-{first_filename}"
+        prefix_s3_second = f"{event_time}-{bucket_arn}-{second_filename}"
 
         _event_to_sqs_message(queue_attributes=self._queues_info["source-sqs-queue"], message_body=self._cloudwatch_log)
         event_sqs = _event_from_sqs_message(queue_attributes=self._queues_info["source-sqs-queue"])
@@ -2126,9 +2129,12 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
 
         s3_events = _event_from_sqs_message(queue_attributes=self._queues_info["source-s3-sqs-queue"])
         bucket_arn: str = "arn:aws:s3:::test-bucket"
+        event_time = int(
+            datetime.datetime.strptime("2021-09-08T18:34:25.042Z", "%Y-%m-%dT%H:%M:%S.%fZ").timestamp() * 1000
+        )
 
-        prefix_s3_first = f"{bucket_arn}-{first_filename}"
-        prefix_s3_second = f"{bucket_arn}-{second_filename}"
+        prefix_s3_first = f"{event_time}-{bucket_arn}-{first_filename}"
+        prefix_s3_second = f"{event_time}-{bucket_arn}-{second_filename}"
 
         _event_to_sqs_message(queue_attributes=self._queues_info["source-sqs-queue"], message_body=self._cloudwatch_log)
         event_sqs = _event_from_sqs_message(queue_attributes=self._queues_info["source-sqs-queue"])
@@ -3091,7 +3097,11 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
             "aws-account-id_CloudTrail-Digest_region_end-time_random-string.log.gz"
         )
 
-        prefix_s3: str = f"arn:aws:s3:::test-bucket-{filename}"
+        event_time = int(
+            datetime.datetime.strptime("2021-09-08T18:34:25.042Z", "%Y-%m-%dT%H:%M:%S.%fZ").timestamp() * 1000
+        )
+
+        prefix_s3: str = f"{event_time}-arn:aws:s3:::test-bucket-{filename}"
         # Create an expected id so that es.send will fail
         self._es_client.index(
             index="logs-aws.cloudtrail-default",

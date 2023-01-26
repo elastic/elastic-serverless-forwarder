@@ -440,8 +440,9 @@ def s3_object_id(event_payload: dict[str, Any]) -> str:
     offset: int = event_payload["fields"]["log"]["offset"]
     bucket_arn: str = event_payload["fields"]["aws"]["s3"]["bucket"]["arn"]
     object_key: str = event_payload["fields"]["aws"]["s3"]["object"]["key"]
+    event_time: int = event_payload["meta"]["event_time"]
 
-    src: str = f"{bucket_arn}-{object_key}"
+    src: str = f"{event_time}-{bucket_arn}-{object_key}"
 
     return f"{src}-{offset:012d}"
 
