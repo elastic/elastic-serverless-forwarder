@@ -22,6 +22,10 @@ Parameters:
     Type: CommaDelimitedList
   ElasticServerlessForwarderS3Buckets:
     Type: CommaDelimitedList
+  ElasticServerlessForwarderSecurityGroups:
+    Type: CommaDelimitedList
+  ElasticServerlessForwarderSubnets:
+    Type: CommaDelimitedList
 Resources:
   ElasticServerlessForwarderContinuingDLQ:
     Type: AWS::SQS::Queue

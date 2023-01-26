@@ -27,6 +27,7 @@ from botocore.response import StreamingBody
 from docker.models.containers import Container
 from elasticsearch import Elasticsearch
 from localstack.utils.aws import aws_stack
+from localstack.utils.aws import resources as aws_resources
 from OpenSSL import crypto as OpenSSLCrypto
 
 from handlers.aws.exceptions import (
@@ -1537,7 +1538,7 @@ class IntegrationTestCase(TestCase):
         self._kinesis_client = aws_stack.connect_to_service("kinesis")
         for kinesis_stream in self._kinesis_streams:
             self._kinesis_streams_info[kinesis_stream] = self._kinesis_client.describe_stream(
-                StreamName=aws_stack.create_kinesis_stream(kinesis_stream).stream_name
+                StreamName=aws_resources.create_kinesis_stream(kinesis_stream).stream_name
             )
 
             self._config_yaml += f"""

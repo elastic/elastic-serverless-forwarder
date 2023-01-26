@@ -1,5 +1,7 @@
-### v1.6.0 - 2023/01/25
+### v1.6.0 - 2023/01/26
 ##### Features
+* Allow for extra customisation on event triggers and vpc at deployment: [#201](https://github.com/elastic/elastic-serverless-forwarder/pull/201)
+##### Bug fixes
 * Changed ID generation logic to use AWS-provided ids: [#214](https://github.com/elastic/elastic-serverless-forwarder/pull/214)
 
 ### v1.5.0 - 2022/10/20
