@@ -175,6 +175,9 @@ def _handle_sqs_event(
             assert "originalSequenceNumber" in payload
             sequence_number = payload["originalSequenceNumber"]["stringValue"]
 
+            assert "originalApproximateArrivalTimestamp" in payload
+            approximate_arrival_timestamp = int(float(payload["originalApproximateArrivalTimestamp"]["stringValue"]))
+
             es_event["fields"]["log"]["file"]["path"] = input_id
 
             es_event["fields"]["aws"] = {
@@ -183,6 +186,7 @@ def _handle_sqs_event(
                     "name": stream_name,
                     "partition_key": partition_key,
                     "sequence_number": sequence_number,
+                    "approximate_arrival_timestamp": approximate_arrival_timestamp,
                 }
             }
 
