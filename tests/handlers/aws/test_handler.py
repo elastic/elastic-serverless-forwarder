@@ -382,6 +382,32 @@ def revert_handlers_aws_handler() -> None:
 
 
 @pytest.mark.unit
+class TestTelemetry(TestCase):
+    @mock.patch("share.config._available_output_types", new=["elasticsearch", "output_type"])
+    @mock.patch(
+        "share.config._available_input_types", new=["cloudwatch-logs", "s3-sqs", "sqs", "kinesis-data-stream", "dummy"]
+    )
+    @mock.patch("handlers.aws.handler.get_sqs_client", lambda: _sqs_client_mock)
+    @mock.patch("storage.S3Storage._s3_client", _s3_client_mock)
+    @mock.patch("handlers.aws.utils.apm_capture_serverless", _apm_capture_serverless)
+    @mock.patch(
+        "handlers.aws.utils._available_triggers",
+        new={"aws:s3": "s3-sqs", "aws:sqs": "sqs", "aws:kinesis": "kinesis-data-stream", "dummy": "s3-sqs"},
+    )
+    def test_lambda_telemetry(self) -> None:
+        reload_handlers_aws_handler()
+
+        ctx = ContextMock()
+        os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
+        lambda_event = deepcopy(_dummy_lambda_event)
+        del lambda_event["Records"][0]["messageAttributes"]["originalEventSourceARN"]
+        assert handler(lambda_event, ctx) == "completed"  # type:ignore
+
+        # wait for the telemetry to propagate
+        time.sleep(3)
+
+
+@pytest.mark.unit
 class TestLambdaHandlerNoop(TestCase):
     @mock.patch("share.config._available_output_types", new=["elasticsearch", "logstash", "output_type"])
     @mock.patch(

@@ -4,6 +4,7 @@
 
 import datetime
 import hashlib
+import json
 import os
 import time
 from abc import ABCMeta
@@ -12,7 +13,11 @@ from queue import Empty, Queue
 from threading import Thread
 from typing import Any, Optional, Protocol, TypeVar
 
+import urllib3
 from aws_lambda_typing import context as context_
+
+from share import shared_logger
+
 
 def strtobool(val: str) -> bool:
     """Convert a string representation of truth to true (1) or false (0).
@@ -42,9 +47,11 @@ class WithExceptionTelemetryEnum(Enum):
 
 
 class TelemetryData:
-    lambda_id: str = ""
+    function_id: str = ""
+    function_version: str = ""
     execution_id: str = ""
-    lambda_region: str = ""
+    cloud_provider: str = ""
+    cloud_region: str = ""
     memory_limit_in_mb: str = ""
 
     start_time: str = ""
@@ -53,17 +60,17 @@ class TelemetryData:
     with_exception: Optional[WithExceptionTelemetryEnum] = None
     to_be_continued: bool = False
 
-    input_outputs_type: dict[str, set[str]] = {}
+    input_outputs_type: dict[str, list[str]] = {}
     input_is_continuing: dict[str, bool] = {}
-    events_forwarded: dict[str, int] = {"sent_events": 0, "empty_events": 0, "skipped_events": 0}
+    events_forwarded: dict[str, int] = {"sent": 0, "empty": 0, "skipped": 0}
 
     output_sent_to_replay: dict[str, int] = {}
 
     def add_output_type_for_input(self, input_id: str, output_type: str) -> None:
         if input_id not in self.input_outputs_type:
-            self.input_outputs_type[input_id] = set()
+            self.input_outputs_type[input_id] = list()
 
-        self.input_outputs_type[input_id].add(output_type)
+        self.input_outputs_type[input_id].append(output_type)
 
     def mark_input_is_continuing(self, input_id: str, is_continuing: bool) -> None:
         self.input_is_continuing[input_id] = is_continuing
@@ -75,9 +82,9 @@ class TelemetryData:
         self.output_sent_to_replay[output_type] += replayed_events
 
     def increase_events_forwarded(self, sent_events: int, empty_events: int, skipped_events: int) -> None:
-        self.events_forwarded["sent_events"] += sent_events
-        self.events_forwarded["empty_events"] += empty_events
-        self.events_forwarded["skipped_events"] += skipped_events
+        self.events_forwarded["sent"] += sent_events
+        self.events_forwarded["empty"] += empty_events
+        self.events_forwarded["skipped"] += skipped_events
 
 
 class ProtocolTelemetryCommand(Protocol):
@@ -204,17 +211,20 @@ class LambdaStartedCommand(CommonTelemetryCommand):
     """
 
     def __init__(self, lambda_arn: str, execution_id: str, memory_limit_in_mb: str, function_version: str) -> None:
-        self.lambda_id, self.lambda_region = self._from_lambda_arn_to_id(lambda_arn)
+        self.function_id, self.cloud_region = self._from_lambda_arn_to_id(lambda_arn)
         self.execution_id = hashlib.sha256(execution_id.encode("utf-8")).hexdigest()[:10]
         self.memory_limit_in_mb = memory_limit_in_mb
-        self.lambda_id += f":{function_version}"
+        self.function_id += f":{function_version}"
+        self.function_version = function_version
 
     def execute(self, telemetry_data: TelemetryData) -> TelemetryData:
-        telemetry_data.lambda_id = self.lambda_id
-        telemetry_data.lambda_region = self.lambda_region
+        telemetry_data.function_id = self.function_id
+        telemetry_data.function_version = self.function_version
+        telemetry_data.cloud_region = self.cloud_region
         telemetry_data.execution_id = self.execution_id
         telemetry_data.memory_limit_in_mb = self.memory_limit_in_mb
         telemetry_data.start_time = datetime.datetime.utcnow().strftime("%s.%f")
+        telemetry_data.end_time = None
 
         return telemetry_data
 
@@ -241,21 +251,34 @@ class TelemetryThread(Thread):
     def __init__(self, queue: Queue[ProtocolTelemetryCommand]) -> None:
         Thread.__init__(self)
         self.queue = queue
+        self.telemetry_endpoint = os.environ.get(
+            "TELEMETRY_ENDPOINT",
+            # "https://telemetry-staging.elastic.co/v3/send/esf",
+            "https://7p6anzoo1g.parrotbay.io",
+        )
         self.telemetry_data = TelemetryData()
+        self.telemetry_client = urllib3.PoolManager(
+            # @TODO: make connect/read timeouts customizable
+            timeout=urllib3.Timeout(
+                connect=2.0,
+                read=3.0,
+            ),
+            retries=False,
+        )
 
     def _send_telemetry(self) -> None:
         telemetry_data: dict[str, Any] = {
-            "lambda_id": self.telemetry_data.lambda_id,
+            "function_id": self.telemetry_data.function_id,
             "execution_id": self.telemetry_data.execution_id,
-            "lambda_region": self.telemetry_data.lambda_region,
+            "cloud_region": self.telemetry_data.cloud_region,
             "memory_limit_in_mb": self.telemetry_data.memory_limit_in_mb,
-            "start_time": self.telemetry_data.memory_limit_in_mb,
+            "start_time": self.telemetry_data.start_time,
         }
 
         if self.telemetry_data.end_time:
             telemetry_data.update(
                 {
-                    "end_time": self.telemetry_data.memory_limit_in_mb,
+                    "end_time": self.telemetry_data.end_time,
                     "with_exception": self.telemetry_data.with_exception,
                     "to_be_continued": self.telemetry_data.to_be_continued,
                     "input_outputs_type": self.telemetry_data.input_outputs_type,
@@ -266,6 +289,23 @@ class TelemetryThread(Thread):
             )
 
         # @TODO: send the data
+        try:
+            encoded_data = json.dumps(telemetry_data).encode('utf-8')
+
+            r = self.telemetry_client.request(
+                "POST",
+                self.telemetry_endpoint,
+                body=encoded_data,
+                headers={
+                    "X-Elastic-Cluster-ID": self.telemetry_data.function_id,
+                    "X-Elastic-Stack-Version": self.telemetry_data.function_version,
+                    'Content-Type': 'application/json',
+                }
+            )
+            shared_logger.info(f"telemetry data sent (http status: {r.status})")
+
+        except Exception as e:
+            shared_logger.info(f"telemetry data not sent: {e}")
 
     def _execute_command(self, command: ProtocolTelemetryCommand) -> None:
         self.telemetry_data = command.execute(self.telemetry_data)
@@ -284,7 +324,7 @@ class TelemetryThread(Thread):
 
 if is_telemetry_enabled():
     telemetry_thread = TelemetryThread(telemetry_queue)
-    telemetry_thread = True
+    telemetry_thread.daemon = True
     telemetry_thread.start()
 
 
