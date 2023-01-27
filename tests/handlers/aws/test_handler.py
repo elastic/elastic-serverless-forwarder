@@ -1227,12 +1227,14 @@ def _upload_content_to_bucket(content: Union[bytes, str], content_type: str, buc
     client.put_object(Bucket=bucket_name, Key=key_name, Body=content, ContentType=content_type)
 
 
-def _event_from_sqs_message(queue_attributes: dict[str, Any]) -> dict[str, Any]:
+def _event_from_sqs_message(queue_attributes: dict[str, Any]) -> tuple[dict[str, Any], str]:
     sqs_client = aws_stack.connect_to_service("sqs")
     collected_messages: list[dict[str, Any]] = []
     while True:
         try:
-            messages = sqs_client.receive_message(QueueUrl=queue_attributes["QueueUrl"], MessageAttributeNames=["All"])
+            messages = sqs_client.receive_message(
+                QueueUrl=queue_attributes["QueueUrl"], AttributeNames=["All"], MessageAttributeNames=["All"]
+            )
             assert "Messages" in messages
             assert len(messages["Messages"]) == 1
             original_message = messages["Messages"][0]
@@ -1252,9 +1254,7 @@ def _event_from_sqs_message(queue_attributes: dict[str, Any]) -> dict[str, Any]:
 
                     message["messageAttributes"][attribute] = new_attribute
 
-            if "sent_timestamp" in queue_attributes:
-                message["attributes"] = {}
-                message["attributes"]["SentTimestamp"] = queue_attributes["sent_timestamp"]
+            sent_timestamp = str(int(message["attributes"]["SentTimestamp"]))
 
             message["eventSource"] = "aws:sqs"
             message["eventSourceARN"] = queue_attributes["QueueArn"]
@@ -1263,7 +1263,7 @@ def _event_from_sqs_message(queue_attributes: dict[str, Any]) -> dict[str, Any]:
         except Exception:
             break
 
-    return dict(Records=collected_messages)
+    return dict(Records=collected_messages), sent_timestamp
 
 
 def _create_cloudwatch_logs_stream(group_name: str, stream_name: str) -> Any:
@@ -1768,7 +1768,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         _s3_event_to_sqs_message(
             queue_attributes=self._queues_info["source-s3-sqs-queue"], filenames=[first_filename, second_filename]
         )
-        event_s3 = _event_from_sqs_message(queue_attributes=self._queues_info["source-s3-sqs-queue"])
+        event_s3, _ = _event_from_sqs_message(queue_attributes=self._queues_info["source-s3-sqs-queue"])
         bucket_arn: str = "arn:aws:s3:::test-bucket"
         event_time = int(
             datetime.datetime.strptime("2021-09-08T18:34:25.042Z", "%Y-%m-%dT%H:%M:%S.%fZ").timestamp() * 1000
@@ -1778,10 +1778,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         prefix_s3_second = f"{event_time}-{bucket_arn}-{second_filename}"
 
         _event_to_sqs_message(queue_attributes=self._queues_info["source-sqs-queue"], message_body=self._cloudwatch_log)
-        timestamp = str(int(datetime.datetime.utcnow().timestamp()))
-        queue_attributes = self._queues_info["source-sqs-queue"]
-        queue_attributes["sent_timestamp"] = timestamp
-        event_sqs = _event_from_sqs_message(queue_attributes=queue_attributes)
+        event_sqs, timestamp = _event_from_sqs_message(queue_attributes=self._queues_info["source-sqs-queue"])
 
         message_id = event_sqs["Records"][0]["messageId"]
         prefix_sqs: str = f"{timestamp}-source-sqs-queue-{message_id}"
@@ -2018,7 +2015,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
-        replayed_events = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
+        replayed_events, _ = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
         with self.assertRaises(ReplayHandlerException):
             handler(replayed_events, ctx)  # type:ignore
 
@@ -2046,7 +2043,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
 
         # implicit wait for the message to be back on the queue
         time.sleep(35)
-        replayed_events = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
+        replayed_events, _ = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
         fifth_call = handler(replayed_events, ctx)  # type:ignore
 
         assert fifth_call == "replayed"
@@ -2082,7 +2079,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
 
         # implicit wait for the message to be back on the queue
         time.sleep(35)
-        replayed_events = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
+        replayed_events, _ = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
         sixth_call = handler(replayed_events, ctx)  # type:ignore
 
         assert sixth_call == "replayed"
@@ -2143,7 +2140,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             single_message=False,
         )
 
-        s3_events = _event_from_sqs_message(queue_attributes=self._queues_info["source-s3-sqs-queue"])
+        s3_events, _ = _event_from_sqs_message(queue_attributes=self._queues_info["source-s3-sqs-queue"])
         bucket_arn: str = "arn:aws:s3:::test-bucket"
         event_time = int(
             datetime.datetime.strptime("2021-09-08T18:34:25.042Z", "%Y-%m-%dT%H:%M:%S.%fZ").timestamp() * 1000
@@ -2153,15 +2150,12 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         prefix_s3_second = f"{event_time}-{bucket_arn}-{second_filename}"
 
         _event_to_sqs_message(queue_attributes=self._queues_info["source-sqs-queue"], message_body=self._cloudwatch_log)
-        timestamp = str(int(datetime.datetime.utcnow().timestamp()))
-        queue_attributes = self._queues_info["source-sqs-queue"]
-        queue_attributes["sent_timestamp"] = timestamp
-        event_sqs = _event_from_sqs_message(queue_attributes=queue_attributes)
+        event_sqs, timestamp = _event_from_sqs_message(queue_attributes=self._queues_info["source-sqs-queue"])
 
         _event_to_sqs_message(
             queue_attributes=self._queues_info["source-no-conf-queue"], message_body=self._cloudwatch_log
         )
-        event_no_config = _event_from_sqs_message(queue_attributes=self._queues_info["source-no-conf-queue"])
+        event_no_config, _ = _event_from_sqs_message(queue_attributes=self._queues_info["source-no-conf-queue"])
 
         message_id = event_sqs["Records"][0]["messageId"]
         prefix_sqs: str = f"{timestamp}-source-sqs-queue-{message_id}"
@@ -2315,7 +2309,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
-        continued_events = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        continued_events, _ = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
         continued_events["Records"].append(event_no_config["Records"][0])
 
         fifth_call = handler(continued_events, ctx)  # type:ignore
@@ -2325,7 +2319,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         self._es_client.indices.refresh(index="logs-generic-default")
         assert self._es_client.count(index="logs-generic-default")["count"] == 4
 
-        continued_events = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        continued_events, _ = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
         sixth_call = handler(continued_events, ctx)  # type:ignore
 
         assert sixth_call == "continuing"
@@ -2359,7 +2353,7 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
 
         ctx = ContextMock(remaining_time_in_millis=2)
 
-        continued_events = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        continued_events, _ = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
         seventh_call = handler(continued_events, ctx)  # type:ignore
 
         assert seventh_call == "completed"
@@ -2603,7 +2597,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
-        event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        event, _ = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
         second_call = handler(event, ctx)  # type:ignore
 
         assert second_call == "continuing"
@@ -2636,7 +2630,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
 
         assert res["hits"]["hits"][1]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
-        event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        event, _ = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
         third_call = handler(event, ctx)  # type:ignore
 
         assert third_call == "continuing"
@@ -2644,7 +2638,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
         self._es_client.indices.refresh(index="logs-generic-default")
         assert self._es_client.count(index="logs-generic-default")["count"] == 2
 
-        event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        event, _ = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
         fourth_call = handler(event, ctx)  # type:ignore
 
         assert fourth_call == "continuing"
@@ -2677,7 +2671,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
 
         assert res["hits"]["hits"][2]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
-        event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        event, _ = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
         fifth_call = handler(event, ctx)  # type:ignore
 
         assert fifth_call == "completed"
@@ -2771,12 +2765,12 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
 
         sequence_number_first_record = event["Records"][0]["kinesis"]["sequenceNumber"]
         prefix_first_record: str = (
-            f"{int(timestamp_first*1000)}-stream-{stream_name}-{partition_key}-{sequence_number_first_record}"
+            f"{int(timestamp_first * 1000)}-stream-{stream_name}-{partition_key}-{sequence_number_first_record}"
         )
 
         sequence_number_second_record = event["Records"][1]["kinesis"]["sequenceNumber"]
         prefix_second_record: str = (
-            f"{int(timestamp_second*1000)}-stream-{stream_name}-{partition_key}-{sequence_number_second_record}"
+            f"{int(timestamp_second * 1000)}-stream-{stream_name}-{partition_key}-{sequence_number_second_record}"
         )
 
         # Create an expected id so that es.send will fail
@@ -2855,7 +2849,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
             assert not records["Records"]
             break
 
-        replay_event = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
+        replay_event, _ = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
 
         with self.assertRaises(ReplayHandlerException):
             handler(replay_event, ctx)  # type:ignore
@@ -2869,7 +2863,7 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
 
         # implicit wait for the message to be back on the queue
         time.sleep(35)
-        replay_event = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
+        replay_event, _ = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
         third_call = handler(replay_event, ctx)  # type:ignore
 
         assert third_call == "replayed"
@@ -3140,7 +3134,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         ctx = ContextMock(remaining_time_in_millis=2)
 
         _s3_event_to_sqs_message(queue_attributes=self._queues_info["source-queue"], filenames=[filename])
-        event = _event_from_sqs_message(queue_attributes=self._queues_info["source-queue"])
+        event, _ = _event_from_sqs_message(queue_attributes=self._queues_info["source-queue"])
 
         first_call = handler(event, ctx)  # type:ignore
 
@@ -3201,7 +3195,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
 
         assert res["hits"]["hits"][1]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
 
-        event = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
+        event, _ = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
         with self.assertRaises(ReplayHandlerException):
             handler(event, ctx)  # type:ignore
 
@@ -3214,7 +3208,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
 
         # implicit wait for the message to be back on the queue
         time.sleep(35)
-        event = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
+        event, _ = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
         third_call = handler(event, ctx)  # type:ignore
 
         assert third_call == "replayed"
@@ -3275,7 +3269,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
 
         ctx = ContextMock()
         _s3_event_to_sqs_message(queue_attributes=self._queues_info["source-queue"], filenames=[filename])
-        event = _event_from_sqs_message(queue_attributes=self._queues_info["source-queue"])
+        event, _ = _event_from_sqs_message(queue_attributes=self._queues_info["source-queue"])
 
         first_call = handler(event, ctx)  # type:ignore
 
@@ -3307,7 +3301,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
 
-        event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        event, _ = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
         second_call = handler(event, ctx)  # type:ignore
 
         assert second_call == "continuing"
@@ -3338,7 +3332,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
 
         assert res["hits"]["hits"][1]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
 
-        event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        event, _ = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
         third_call = handler(event, ctx)  # type:ignore
 
         assert third_call == "continuing"
@@ -3369,7 +3363,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
 
         assert res["hits"]["hits"][2]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
 
-        event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        event, _ = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
         fourth_call = handler(event, ctx)  # type:ignore
 
         self._es_client.indices.refresh(index="logs-aws.cloudtrail-default")
@@ -3377,7 +3371,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
 
         assert fourth_call == "continuing"
 
-        event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        event, _ = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
         fifth_call = handler(event, ctx)  # type:ignore
 
         assert fifth_call == "continuing"
@@ -3408,7 +3402,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
 
         assert res["hits"]["hits"][3]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
 
-        event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        event, _ = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
         sixth_call = handler(event, ctx)  # type:ignore
 
         assert sixth_call == "completed"
@@ -3448,10 +3442,7 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
 
         _event_to_sqs_message(queue_attributes=self._queues_info["source-queue"], message_body=cloudwatch_log)
 
-        timestamp = str(int(datetime.datetime.utcnow().timestamp()))
-        queue_attributes = self._queues_info["source-queue"]
-        queue_attributes["sent_timestamp"] = timestamp
-        event = _event_from_sqs_message(queue_attributes=queue_attributes)
+        event, timestamp = _event_from_sqs_message(queue_attributes=self._queues_info["source-queue"])
 
         message_id = event["Records"][0]["messageId"]
         prefix: str = f"{timestamp}-source-queue-{message_id}"
@@ -3516,7 +3507,7 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
 
         assert res["hits"]["hits"][1]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
-        event = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
+        event, _ = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
 
         with self.assertRaises(ReplayHandlerException):
             handler(event, ctx)  # type:ignore
@@ -3529,7 +3520,7 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
 
         # implicit wait for the message to be back on the queue
         time.sleep(35)
-        event = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
+        event, _ = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
         third_call = handler(event, ctx)  # type:ignore
 
         assert third_call == "replayed"
@@ -3569,10 +3560,7 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
 
         _event_to_sqs_message(queue_attributes=self._queues_info["source-queue"], message_body=cloudwatch_log)
 
-        timestamp = str(int(datetime.datetime.utcnow().timestamp()))
-        queue_attributes = self._queues_info["source-queue"]
-        queue_attributes["sent_timestamp"] = timestamp
-        event = _event_from_sqs_message(queue_attributes=queue_attributes)
+        event, _ = _event_from_sqs_message(queue_attributes=self._queues_info["source-queue"])
 
         first_call = handler(event, ctx)  # type:ignore
 
@@ -3604,7 +3592,7 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
-        event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        event, _ = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
         second_call = handler(event, ctx)  # type:ignore
 
         assert second_call == "continuing"
@@ -3639,7 +3627,7 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
 
         assert res["hits"]["hits"][1]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
-        event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        event, _ = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
         third_call = handler(event, ctx)  # type:ignore
 
         assert third_call == "continuing"
@@ -3673,7 +3661,7 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
 
         assert res["hits"]["hits"][2]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
-        event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        event, _ = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
         fourth_call = handler(event, ctx)  # type:ignore
 
         assert fourth_call == "completed"
@@ -3792,7 +3780,7 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
 
         assert res["hits"]["hits"][1]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
-        event = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
+        event, _ = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
 
         with self.assertRaises(ReplayHandlerException):
             handler(event, ctx)  # type:ignore
@@ -3805,7 +3793,7 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
 
         # implicit wait for the message to be back on the queue
         time.sleep(35)
-        event = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
+        event, _ = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
         third_call = handler(event, ctx)  # type:ignore
 
         assert third_call == "replayed"
@@ -3886,7 +3874,7 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
-        event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        event, _ = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
         second_call = handler(event, ctx)  # type:ignore
 
         assert second_call == "continuing"
@@ -3918,7 +3906,7 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
 
         assert res["hits"]["hits"][1]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
-        event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        event, _ = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
         third_call = handler(event, ctx)  # type:ignore
 
         assert third_call == "continuing"
@@ -3949,7 +3937,7 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
 
         assert res["hits"]["hits"][2]["_source"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
 
-        event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        event, _ = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
         fourth_call = handler(event, ctx)  # type:ignore
 
         assert fourth_call == "continuing"
@@ -3957,7 +3945,7 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
         self._es_client.indices.refresh(index="logs-generic-default")
         assert self._es_client.count(index="logs-generic-default")["count"] == 3
 
-        event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        event, _ = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
         fifth_call = handler(event, ctx)  # type:ignore
 
         assert fifth_call == "completed"
@@ -3998,10 +3986,7 @@ class TestLambdaHandlerFailureSSLFingerprint(IntegrationTestCase):
 
         _event_to_sqs_message(queue_attributes=self._queues_info["source-queue"], message_body=cloudwatch_log)
 
-        timestamp = str(int(datetime.datetime.utcnow().timestamp()))
-        queue_attributes = self._queues_info["source-queue"]
-        queue_attributes["sent_timestamp"] = timestamp
-        event = _event_from_sqs_message(queue_attributes=queue_attributes)
+        event, timestamp = _event_from_sqs_message(queue_attributes=self._queues_info["source-queue"])
 
         first_call = handler(event, ctx)  # type:ignore
 
@@ -4009,28 +3994,28 @@ class TestLambdaHandlerFailureSSLFingerprint(IntegrationTestCase):
 
         assert self._es_client.indices.exists(index="logs-generic-default") is False
 
-        event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        event, _ = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
         second_call = handler(event, ctx)  # type:ignore
 
         assert second_call == "continuing"
 
         assert self._es_client.indices.exists(index="logs-generic-default") is False
 
-        event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        event, _ = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
         third_call = handler(event, ctx)  # type:ignore
 
         assert third_call == "continuing"
 
         assert self._es_client.indices.exists(index="logs-generic-default") is False
 
-        event = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        event, _ = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
         fourth_call = handler(event, ctx)  # type:ignore
 
         assert fourth_call == "completed"
 
         assert self._es_client.indices.exists(index="logs-generic-default") is False
 
-        events = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
+        events, _ = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
         assert len(events["Records"]) == 3
 
         first_body: dict[str, Any] = json_parser(events["Records"][0]["body"])
