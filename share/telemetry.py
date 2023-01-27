@@ -271,7 +271,7 @@ class TelemetryThread(Thread):
 
 if is_telemetry_enabled():
     telemetry_thread = TelemetryThread(telemetry_queue)
-    telemetry_thread.setDaemon(True)
+    telemetry_thread = True
     telemetry_thread.start()
 
 
