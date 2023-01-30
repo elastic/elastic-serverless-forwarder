@@ -2,7 +2,6 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
-import hashlib
 import os
 from typing import Any, Callable, Optional
 
@@ -435,18 +434,17 @@ def delete_sqs_record(sqs_arn: str, receipt_handle: str) -> None:
 
 def s3_object_id(event_payload: dict[str, Any]) -> str:
     """
-    Port of
-    https://github.com/elastic/beats/blob/21dca31b6296736fa90fae39bff71f063522420f/x-pack/filebeat/input/awss3/s3_objects.go#L364-L371
-    https://github.com/elastic/beats/blob/21dca31b6296736fa90fae39bff71f063522420f/x-pack/filebeat/input/awss3/s3_objects.go#L356-L358
+    Generates a unique event id given the payload of an event from an s3 bucket
     """
+
     offset: int = event_payload["fields"]["log"]["offset"]
     bucket_arn: str = event_payload["fields"]["aws"]["s3"]["bucket"]["arn"]
     object_key: str = event_payload["fields"]["aws"]["s3"]["object"]["key"]
+    event_time: int = event_payload["meta"]["event_time"]
 
-    src: str = f"{bucket_arn}{object_key}"
-    hex_prefix = hashlib.sha256(src.encode("UTF-8")).hexdigest()[:10]
+    src: str = f"{event_time}-{bucket_arn}-{object_key}"
 
-    return f"{hex_prefix}-{offset:012d}"
+    return f"{src}-{offset:012d}"
 
 
 def cloudwatch_logs_object_id(event_payload: dict[str, Any]) -> str:
@@ -458,11 +456,11 @@ def cloudwatch_logs_object_id(event_payload: dict[str, Any]) -> str:
     group_name: str = event_payload["fields"]["aws"]["cloudwatch"]["log_group"]
     stream_name: str = event_payload["fields"]["aws"]["cloudwatch"]["log_stream"]
     event_id: str = event_payload["fields"]["aws"]["cloudwatch"]["event_id"]
+    event_timestamp: int = event_payload["meta"]["event_timestamp"]
 
-    src: str = f"{group_name}{stream_name}{event_id}"
-    hex_prefix = hashlib.sha256(src.encode("UTF-8")).hexdigest()[:10]
+    src: str = f"{event_timestamp}-{group_name}-{stream_name}-{event_id}"
 
-    return f"{hex_prefix}-{offset:012d}"
+    return f"{src}-{offset:012d}"
 
 
 def sqs_object_id(event_payload: dict[str, Any]) -> str:
@@ -473,11 +471,11 @@ def sqs_object_id(event_payload: dict[str, Any]) -> str:
     offset: int = event_payload["fields"]["log"]["offset"]
     queue_name: str = event_payload["fields"]["aws"]["sqs"]["name"]
     message_id: str = event_payload["fields"]["aws"]["sqs"]["message_id"]
+    sent_timestamp: int = event_payload["meta"]["sent_timestamp"]
 
-    src: str = f"{queue_name}{message_id}"
-    hex_prefix = hashlib.sha256(src.encode("UTF-8")).hexdigest()[:10]
+    src: str = f"{sent_timestamp}-{queue_name}-{message_id}"
 
-    return f"{hex_prefix}-{offset:012d}"
+    return f"{src}-{offset:012d}"
 
 
 def kinesis_record_id(event_payload: dict[str, Any]) -> str:
@@ -487,12 +485,13 @@ def kinesis_record_id(event_payload: dict[str, Any]) -> str:
     offset: int = event_payload["fields"]["log"]["offset"]
     stream_type: str = event_payload["fields"]["aws"]["kinesis"]["type"]
     stream_name: str = event_payload["fields"]["aws"]["kinesis"]["name"]
+    partition_key: str = event_payload["fields"]["aws"]["kinesis"]["partition_key"]
     sequence_number: str = event_payload["fields"]["aws"]["kinesis"]["sequence_number"]
+    approximate_arrival_timestamp: int = event_payload["meta"]["approximate_arrival_timestamp"]
 
-    src: str = f"{stream_type}{stream_name}{sequence_number}"
-    hex_prefix = hashlib.sha256(src.encode("UTF-8")).hexdigest()[:10]
+    src: str = f"{approximate_arrival_timestamp}-{stream_type}-{stream_name}-{partition_key}-{sequence_number}"
 
-    return f"{hex_prefix}-{offset:012d}"
+    return f"{src}-{offset:012d}"
 
 
 # This is implementation specific to AWS and should not reside on share

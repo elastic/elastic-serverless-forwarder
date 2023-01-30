@@ -350,7 +350,7 @@ def create_policy(publish_config: dict[str, Any]):
             assert isinstance(cloudwatch_logs_event, dict)
 
             if "arn" in cloudwatch_logs_event:
-                cloudwatch_logs_event_arn = cloudwatch_logs_event["arn"]
+                cloudwatch_logs_event_arn = cloudwatch_logs_event["arn"].split(':')
 
                 if len(cloudwatch_logs_event_arn) == 7:
                     cloudwatch_logs_group_arn[f"{':'.join(cloudwatch_logs_event_arn[0:-1])}:*:*"] = True

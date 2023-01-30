@@ -31,14 +31,21 @@ def _handle_kinesis_continuation(
     """
 
     sequence_number = kinesis_record["kinesis"]["sequenceNumber"]
+    partition_key = kinesis_record["kinesis"]["partitionKey"]
+    approximate_arrival_timestamp = kinesis_record["kinesis"]["approximateArrivalTimestamp"]
     stream_type, stream_name, _ = get_kinesis_stream_name_type_and_region_from_arn(event_input_id)
 
     message_attributes = {
         "config": {"StringValue": config_yaml, "DataType": "String"},
         "originalStreamType": {"StringValue": stream_type, "DataType": "String"},
         "originalStreamName": {"StringValue": stream_name, "DataType": "String"},
+        "originalPartitionKey": {"StringValue": partition_key, "DataType": "String"},
         "originalSequenceNumber": {"StringValue": sequence_number, "DataType": "String"},
         "originalEventSourceARN": {"StringValue": event_input_id, "DataType": "String"},
+        "originalApproximateArrivalTimestamp": {
+            "StringValue": str(approximate_arrival_timestamp),
+            "DataType": "Number",
+        },
     }
 
     if last_ending_offset is not None:
@@ -65,6 +72,8 @@ def _handle_kinesis_continuation(
             "sqs_continuing_queue": sqs_continuing_queue,
             "last_ending_offset": last_ending_offset,
             "last_event_expanded_offset": last_event_expanded_offset,
+            "partition_key": partition_key,
+            "approximate_arrival_timestamp": approximate_arrival_timestamp,
             "sequence_number": sequence_number,
         },
     )
@@ -83,7 +92,6 @@ def _handle_kinesis_record(
     the content of kinesis.data payload
     """
     account_id = get_account_id_from_arn(input_id)
-
     for kinesis_record_n, kinesis_record in enumerate(event["Records"]):
         storage: ProtocolStorage = StorageFactory.create(
             storage_type="payload",
@@ -118,6 +126,7 @@ def _handle_kinesis_record(
                         "kinesis": {
                             "type": stream_type,
                             "name": stream_name,
+                            "partition_key": kinesis_record["kinesis"]["partitionKey"],
                             "sequence_number": kinesis_record["kinesis"]["sequenceNumber"],
                         }
                     },
@@ -127,7 +136,11 @@ def _handle_kinesis_record(
                         "account": {"id": account_id},
                     },
                 },
-                "meta": {},
+                "meta": {
+                    "approximate_arrival_timestamp": int(
+                        float(kinesis_record["kinesis"]["approximateArrivalTimestamp"]) * 1000
+                    ),
+                },
             }
 
             yield es_event, ending_offset, event_expanded_offset, kinesis_record_n
