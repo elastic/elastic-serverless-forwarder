@@ -38,6 +38,14 @@ Parameters:
     Type: CommaDelimitedList
     Default: ""
     Description: Comma delimited list of S3 buckets ARNs that are the sources of the S3 SQS Event Notifications
+  ElasticServerlessForwarderSecurityGroups:
+    Type: CommaDelimitedList
+    Default: ""
+    Description: Comma delimited list of the security group IDs to attach to the Lambda
+  ElasticServerlessForwarderSubnets:
+    Type: CommaDelimitedList
+    Default: ""
+    Description: Comma delimited list of the subnet IDs the Lambda should belong to
 Resources:
   ElasticServerlessForwarderEventMacro:
     Type: AWS::Serverless::Application
@@ -60,6 +68,8 @@ Resources:
         ElasticServerlessForwarderKinesisEvents: !Join [",", !Ref ElasticServerlessForwarderKinesisEvents]
         ElasticServerlessForwarderCloudWatchLogsEvents: !Join [",", !Ref ElasticServerlessForwarderCloudWatchLogsEvents]
         ElasticServerlessForwarderS3Buckets: !Join [",", !Ref ElasticServerlessForwarderS3Buckets]
+        ElasticServerlessForwarderSecurityGroups: !Join [",", !Ref ElasticServerlessForwarderSecurityGroups]
+        ElasticServerlessForwarderSubnets: !Join [",", !Ref ElasticServerlessForwarderSubnets]
     DependsOn: ElasticServerlessForwarderEventMacro
 Metadata:
   AWS::CloudFormation::Interface:
@@ -81,23 +91,32 @@ Metadata:
           default: Elastic Serverless Forwarder S3 Buckets Permissions options
         Parameters:
           - ElasticServerlessForwarderS3Buckets
+      - Label:
+          default: Elastic Serverless Forwarder Network options
+        Parameters:
+          - ElasticServerlessForwarderSecurityGroups
+          - ElasticServerlessForwarderSubnets
     ParameterLabels:
       ElasticServerlessForwarderS3ConfigFile:
-        default: Config File
+        default: "Config File"
       ElasticServerlessForwarderSSMSecrets:
-        default: AWS SSM Secrets
+        default: "AWS SSM Secrets"
       ElasticServerlessForwarderKMSKeys:
-        default: AWS KMS Keys
+        default: "AWS KMS Keys"
       ElasticServerlessForwarderCloudWatchLogsEvents:
-        default: Cloudwatch Logs subscription filters
+        default: "Cloudwatch Logs subscription filters"
       ElasticServerlessForwarderKinesisEvents:
-        default: Kinesis Data Stream event triggers
+        default: "Kinesis Data Stream event triggers"
       ElasticServerlessForwarderS3SQSEvents:
-        default: S3 SQS Event Notifications event triggers
+        default: "S3 SQS Event Notifications event triggers"
       ElasticServerlessForwarderSQSEvents:
-        default: Direct SQS queues event triggers
+        default: "Direct SQS queues event triggers"
       ElasticServerlessForwarderS3Buckets:
-        default: S3 buckets of S3 SQS Event Notifications
+        default: "S3 buckets of S3 SQS Event Notifications"
+      ElasticServerlessForwarderSecurityGroups:
+        default: "Security groups to attach to the Elastic Serverless Forwarder"
+      ElasticServerlessForwarderSubnets:
+        default: "Subnets for the Elastic Serverless Forwarder"
   AWS::ServerlessRepo::Application:
     Name: %sarAppName%
     Description: Send observability data from your AWS environment to Elastic.
