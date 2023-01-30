@@ -323,7 +323,7 @@ class TestAWSSecretsManager(TestCase):
 
             with self.assertRaisesRegex(
                 Exception,
-                "Expected String or Unicode while parsing "
+                "Expected string or C-contiguous bytes-like object while parsing "
                 "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret_not_str_in",
             ):
                 aws_sm_expander(config_yaml)
