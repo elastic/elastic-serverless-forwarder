@@ -1,6 +1,7 @@
 ### v1.6.0 - 2023/01/26
 ##### Features
 * Allow for extra customisation on event triggers and vpc at deployment: [#201](https://github.com/elastic/elastic-serverless-forwarder/pull/201)
+* Improve instrumented performance bumping elastic-apm to 6.14.0: [#220](https://github.com/elastic/elastic-serverless-forwarder/pull/220)
 ##### Bug fixes
 * Changed ID generation logic to use AWS-provided ids: [#214](https://github.com/elastic/elastic-serverless-forwarder/pull/214)
 
