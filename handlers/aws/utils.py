@@ -53,7 +53,7 @@ def capture_serverless(
     Decorator with logic regarding when to inject apm_capture_serverless
     decorator: apm_capture_serverless expects handler to be run in a lambda
     and bew always active. We inject apm_capture_serverless decorator only if
-    env variable ELASTIC_APM_ACTIVE is set and we are running in a real lambda:
+    env variable ELASTIC_APM_ACTIVE is set, and we are running in a real lambda:
     this allows us to run the handler locally or in different environment.
     """
     if "ELASTIC_APM_ACTIVE" not in os.environ or "AWS_LAMBDA_FUNCTION_NAME" not in os.environ:
@@ -64,7 +64,7 @@ def capture_serverless(
         return wrapper
 
     os.environ["ELASTIC_APM_COLLECT_LOCAL_VARIABLES"] = "off"
-    return apm_capture_serverless(func)  # type:ignore
+    return apm_capture_serverless()(func=func)  # type:ignore
 
 
 def wrap_try_except(
