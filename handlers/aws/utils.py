@@ -63,7 +63,6 @@ def capture_serverless(
 
         return wrapper
 
-    os.environ["ELASTIC_APM_COLLECT_LOCAL_VARIABLES"] = "off"
     return apm_capture_serverless()(func=func)  # type:ignore
 
 
