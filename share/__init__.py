@@ -16,7 +16,8 @@ from .telemetry import (
     events_forwarded_telemetry,
     input_has_output_type_telemetry,
     input_processed_telemetry,
-    lambda_ended_telemetry,
-    lambda_started_telemetry,
+    function_ended_telemetry,
+    function_started_telemetry,
     output_events_sent_to_replay_telemetry,
+    FunctionContext,
 )

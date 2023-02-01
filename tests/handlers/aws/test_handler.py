@@ -404,7 +404,8 @@ class TestTelemetry(TestCase):
         assert handler(lambda_event, ctx) == "completed"  # type:ignore
 
         # wait for the telemetry to propagate
-        time.sleep(3)
+        # @TODO: check timeouts with the integration tests
+        time.sleep(5)
 
 
 @pytest.mark.unit
