@@ -14,15 +14,15 @@ from elasticapm import get_client as get_apm_client
 from elasticapm.contrib.serverless.aws import capture_serverless as apm_capture_serverless  # noqa: F401
 from share import (
     Config,
+    FunctionContext,
     Input,
     Output,
     get_hex_prefix,
+    function_ended_telemetry,
     input_has_output_type_telemetry,
     json_dumper,
     json_parser,
-    function_ended_telemetry,
     shared_logger,
-    FunctionContext,
 )
 from shippers import CompositeShipper, ProtocolShipper, ShipperFactory
 from storage import ProtocolStorage, StorageFactory
@@ -158,7 +158,7 @@ def get_shipper_from_input(event_input: Input, config_yaml: str) -> CompositeShi
         input_has_output_type_telemetry(
             input_id=anonymized_arn.id,
             output_type=output_type,
-            )
+        )
 
         if output_type == "elasticsearch":
             shared_logger.debug("setting ElasticSearch shipper")
@@ -524,6 +524,7 @@ def expand_event_list_from_field_resolver(integration_scope: str, field_to_expan
 @dataclass
 class ARN(object):
     """The Amazon Resource Name (ARN) of an AWS resource."""
+
     id: str
     service: str
     region: str

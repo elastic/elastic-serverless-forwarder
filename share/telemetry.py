@@ -15,15 +15,13 @@ from threading import Thread
 from typing import Any, Optional, Protocol, TypeVar
 
 import urllib3
-from aws_lambda_typing import context as context_
 
 from share import shared_logger
-
-
 
 # -------------------------------------------------------
 # Helpers
 # -------------------------------------------------------
+
 
 def strtobool(val: str) -> bool:
     """Convert a string representation of truth to true (1) or false (0).
@@ -32,9 +30,9 @@ def strtobool(val: str) -> bool:
     'val' is anything else.
     """
     val = val.lower()
-    if val in ('y', 'yes', 't', 'true', 'on', '1'):
+    if val in ("y", "yes", "t", "true", "on", "1"):
         return True
-    elif val in ('n', 'no', 'f', 'false', 'off', '0'):
+    elif val in ("n", "no", "f", "false", "off", "0"):
         return False
     else:
         raise ValueError("invalid truth value {!r}".format(val))
@@ -46,12 +44,15 @@ def is_telemetry_enabled() -> bool:
     except (KeyError, ValueError):  # TELEMETRY_ENABLED not in env dict
         return False
 
+
 # -------------------------------------------------------
 # Models
 # -------------------------------------------------------
 
+
 class WithExceptionTelemetryEnum(Enum):
     """"""
+
     EXCEPTION_RAISED = "EXCEPTION_RAISED"
     EXCEPTION_IGNORED = "EXCEPTION_IGNORED"
 
@@ -59,15 +60,18 @@ class WithExceptionTelemetryEnum(Enum):
 @dataclass
 class FunctionContext(object):
     """The function execution context."""
+
     function_id: str
     function_version: str
     execution_id: str
     cloud_region: str
     cloud_provider: str
-    memory_limit_in_mb: int
+    memory_limit_in_mb: str
+
 
 class TelemetryData:
     """Telemetry data class"""
+
     function_id: str = ""
     function_version: str = ""
     execution_id: str = ""
@@ -116,6 +120,7 @@ class ProtocolTelemetryEvent(Protocol):
     """
     Protocol for Telemetry Command components
     """
+
     def merge_with(self, telemetry_data: TelemetryData) -> TelemetryData:
         pass  # pragma: no cover
 
@@ -127,6 +132,7 @@ TelemetryEventType = TypeVar("TelemetryEventType", bound=ProtocolTelemetryEvent)
 # Events
 # -------------------------------------------------------
 
+
 class CommonTelemetryEvent(metaclass=ABCMeta):
     """
     Common class for Telemetry Command components
@@ -134,6 +140,7 @@ class CommonTelemetryEvent(metaclass=ABCMeta):
     arn:partition:service:region:account-id:resource-type/resource-id
     arn:partition:service:region:account-id:resource-type:resource-id
     """
+
     pass
 
 
@@ -180,7 +187,7 @@ class FunctionStartedEvent(CommonTelemetryEvent):
         telemetry_data.execution_id = self.execution_id
         telemetry_data.memory_limit_in_mb = self.memory_limit_in_mb
         telemetry_data.start_time = datetime.datetime.utcnow().strftime("%s.%f")
-        telemetry_data.end_time = None
+        telemetry_data.end_time = ""
 
         return telemetry_data
 
@@ -252,6 +259,7 @@ class OutputEventsSentToReplayEvent(CommonTelemetryEvent):
 # Worker Thread
 # -------------------------------------------------------
 
+
 class TelemetryWorker(Thread):
     """The TelemetryWorker sends the telemetry data to the telemetry endpoint.
 
@@ -267,7 +275,7 @@ class TelemetryWorker(Thread):
             "TELEMETRY_ENDPOINT",
             "https://telemetry-staging.elastic.co/v3/send/esf",  # fallback to staging
         )
-        self.telemetry_client = urllib3.PoolManager(
+        self.telemetry_client: urllib3.PoolManager = urllib3.PoolManager(
             # @TODO: make connect/read timeouts customizable
             timeout=urllib3.Timeout(
                 connect=2.0,
@@ -303,16 +311,16 @@ class TelemetryWorker(Thread):
             )
 
         try:
-            encoded_data = json.dumps(telemetry_data).encode('utf-8')
-            r = self.telemetry_client.request(
+            encoded_data = json.dumps(telemetry_data).encode("utf-8")
+            r = self.telemetry_client.request(  # type: ignore
                 "POST",
                 self.telemetry_endpoint,
                 body=encoded_data,
                 headers={
                     "X-Elastic-Cluster-ID": self.telemetry_data.function_id,
                     "X-Elastic-Stack-Version": self.telemetry_data.function_version,
-                    'Content-Type': 'application/json',
-                }
+                    "Content-Type": "application/json",
+                },
             )
             shared_logger.info(f"telemetry data sent (http status: {r.status})")
 
@@ -329,7 +337,7 @@ class TelemetryWorker(Thread):
     def run(self) -> None:
         """The worker waits for events to be added to the queue and then sends
         the telemetry data to the telemetry endpoint."""
-        
+
         while True:
             try:
                 event: ProtocolTelemetryEvent = self.queue.get(block=False)
@@ -356,6 +364,7 @@ if is_telemetry_enabled():
 # Event triggers
 # -------------------------------------------------------
 
+
 def function_started_telemetry(ctx: FunctionContext) -> None:
     """Triggers the `FunctionStartedEvent` telemetry event."""
     if not is_telemetry_enabled():
@@ -364,7 +373,9 @@ def function_started_telemetry(ctx: FunctionContext) -> None:
     telemetry_queue.put(FunctionStartedEvent(ctx))
 
 
-def function_ended_telemetry(exception_ignored: bool = False, exception_raised: bool = False, to_be_continued: bool = False) -> None:
+def function_ended_telemetry(
+    exception_ignored: bool = False, exception_raised: bool = False, to_be_continued: bool = False
+) -> None:
     """Triggers the `FunctionEndedEvent` telemetry event."""
     if not is_telemetry_enabled():
         return
@@ -411,7 +422,5 @@ def events_forwarded_telemetry(sent: int, empty: int, skipped: int) -> None:
     if not is_telemetry_enabled():
         return
 
-    event = EventsForwardedEvent(
-        sent=sent, empty=empty, skipped=skipped
-    )
+    event = EventsForwardedEvent(sent=sent, empty=empty, skipped=skipped)
     telemetry_queue.put(event)

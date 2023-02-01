@@ -1,12 +1,10 @@
-from unittest import TestCase
-
 import pytest
 
 from share.telemetry import is_telemetry_enabled
 
 
 @pytest.mark.unit
-def test_is_telemetry_enabled_with_true_values(monkeypatch):
+def test_is_telemetry_enabled_with_true_values(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("TELEMETRY_ENABLED", "true")
     assert is_telemetry_enabled() is True
 
@@ -24,7 +22,7 @@ def test_is_telemetry_enabled_with_true_values(monkeypatch):
 
 
 @pytest.mark.unit
-def test_is_telemetry_enabled_with_false_values(monkeypatch):
+def test_is_telemetry_enabled_with_false_values(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("TELEMETRY_ENABLED", "false")
     assert is_telemetry_enabled() is False
 
@@ -42,7 +40,7 @@ def test_is_telemetry_enabled_with_false_values(monkeypatch):
 
 
 @pytest.mark.unit
-def test_is_telemetry_enabled_with_no_env(monkeypatch):
+def test_is_telemetry_enabled_with_no_env(monkeypatch: pytest.MonkeyPatch) -> None:
     # in there is not `TELEMETRY_ENABLED` env variable,
     # the telemetry should be disabled
     monkeypatch.delenv("TELEMETRY_ENABLED")
@@ -50,7 +48,7 @@ def test_is_telemetry_enabled_with_no_env(monkeypatch):
 
 
 @pytest.mark.unit
-def test_is_telemetry_enabled_with_invalid_value(monkeypatch):
+def test_is_telemetry_enabled_with_invalid_value(monkeypatch: pytest.MonkeyPatch) -> None:
     # in there is not `TELEMETRY_ENABLED` env variable,
     # the telemetry should be disabled
     monkeypatch.setenv("TELEMETRY_ENABLED", "hey")
