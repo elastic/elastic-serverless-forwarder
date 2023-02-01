@@ -27,6 +27,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
+    - name: Cleanup some tools from the workers to fix no space left
+      run: |-
+        sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt &
+
     - uses: actions/checkout@v3
 
     - name: Run
