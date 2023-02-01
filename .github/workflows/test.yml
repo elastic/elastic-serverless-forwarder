@@ -14,25 +14,23 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  lint:
-
+  ci_matrix:
+    strategy:
+      fail-fast: false
+      matrix:
+        goal:
+          - docker-coverage
+          - docker-integration-test
+          - docker-lint
+          - docker-unit-test
+          - license
     runs-on: ubuntu-latest
-
+    timeout-minutes: 60
     steps:
     - uses: actions/checkout@v3
 
-    - name: Lint
-      run: make docker-lint
-
-  test:
-
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: Test
-      run: make docker-coverage
+    - name: Run
+      run: make ${{ matrix.goal }}
 
     - name: Store test results
       if: success() || failure()
@@ -40,13 +38,3 @@ jobs:
       with:
         name: test-results
         path: '**/elastic-serverless-forwarder-junit.xml'
-
-  license:
-
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: license
-      run: make license
