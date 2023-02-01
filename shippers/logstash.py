@@ -59,7 +59,6 @@ class LogstashShipper:
         ssl_assert_fingerprint: str = "",
         tags: list[str] = [],
     ) -> None:
-
         if logstash_url:
             self._logstash_url = logstash_url
         else:

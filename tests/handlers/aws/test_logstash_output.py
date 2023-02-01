@@ -243,7 +243,6 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
         assert msgs[1]["message"] == self.fixtures["cw_log_2"].rstrip("\n")
 
     def test_message_content(self) -> None:
-
         os.environ["S3_CONFIG_FILE"] = _prepare_config_file(
             self,
             "config.yaml",

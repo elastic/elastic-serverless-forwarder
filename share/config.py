@@ -53,7 +53,6 @@ class ElasticsearchOutput(Output):
         batch_max_bytes: int = 10 * 1024 * 1024,
         ssl_assert_fingerprint: str = "",
     ):
-
         super().__init__(output_type="elasticsearch")
         self.elasticsearch_url = elasticsearch_url
         self.cloud_id = cloud_id
