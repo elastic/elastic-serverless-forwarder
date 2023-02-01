@@ -29,10 +29,8 @@ jobs:
     steps:
     - name: Cleanup some tools from the workers to fix no space left
       run: |-
-        df -h
-        ls -l /usr/local/lib
-        du -hc -d 2 /usr/local/lib
-        sudo rm -rf /usr/local/aws-cli /usr/share/apache-maven* /usr/share/apache2 /usr/share/php* /usr/local/lib/android /usr/share/dotnet /opt &
+        sudo rm -rf /usr/local/lib/android &
+        sudo rm -rf /usr/local/lib/heroku /usr/local/aws-cli /usr/share/apache-maven* /usr/share/apache2 /usr/share/php* /usr/share/dotnet /opt /usr/local/lib/node_modules &
 
     - uses: actions/checkout@v3
 
@@ -45,3 +43,8 @@ jobs:
       with:
         name: test-results
         path: '**/elastic-serverless-forwarder-junit.xml'
+
+    - if: failure()
+      name: debug errors
+      run: |-
+        df -h
