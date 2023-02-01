@@ -29,10 +29,9 @@ jobs:
     steps:
     - name: Cleanup some tools from the workers to fix no space left
       run: |-
-        ls -l /usr/local/
-        ls -l /usr/share/
-        ls -l /opt
-        sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt &
+        ls -l /usr/local/lib
+        du -hc -d 2 /usr/local/lib
+        sudo rm -rf /usr/local/aws-cli /usr/share/apache-maven* /usr/share/apache2 /usr/share/php* /usr/local/lib/android /usr/share/dotnet /opt &
 
     - uses: actions/checkout@v3
 
