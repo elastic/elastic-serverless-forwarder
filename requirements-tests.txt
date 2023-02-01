@@ -12,3 +12,6 @@ python-rapidjson>=1.9,<1.10
 cysimdjson>=21.11,<21.12
 pyopenssl==22.0.0 # Required pinned version by localstack
 cryptography==38.0.4 # See https://github.com/pyca/pyopenssl/issues/1177
+responses>=0.22.0
+testcontainers==3.7.0
+amazon-kclpy==2.0.6

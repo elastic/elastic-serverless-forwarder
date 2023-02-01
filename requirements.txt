@@ -6,6 +6,4 @@ PyYAML==6.0
 aws_lambda_typing==2.16.3
 ujson==5.6.0
 requests==2.25.1
-responses>=0.22.0
-testcontainers==3.7.0
-amazon-kclpy==2.0.6
+urllib3<2,>=1.21.1
