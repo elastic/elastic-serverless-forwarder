@@ -1057,7 +1057,7 @@ class TestLambdaHandlerFailure(TestCase):
         with self.subTest("invalid secretsmanager: json TypeError risen"):
             with self.assertRaisesRegex(
                 ConfigFileException,
-                "Expected String or Unicode while parsing "
+                "Expected string or C-contiguous bytes-like object while parsing "
                 "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret_not_str_int",
             ):
                 ctx = ContextMock()

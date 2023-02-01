@@ -15,7 +15,7 @@ Please refer to the official [Elastic documentation for Elastic Serverless Forwa
 
 ## Important - v1.6.0
 
-#### Version 1.6.0 introduces a new event ID format which is backwards incompatible with previously indexed events. Be aware that previously indexed events would be duplicated if they trigger the forwarder again after upgrading to this version. More information is available at [our troubleshooting documentation](https://www.elastic.co/guide/en/observability/master/aws-serverless-troubleshooting.html#aws-serverless-troubleshooting-1.6.0-id-changes).
+#### Version 1.6.0 introduces a new event ID format which is backwards incompatible with previously indexed events. Be aware that previously indexed events would be duplicated if they trigger the forwarder again after upgrading to this version. More information is available at [our troubleshooting documentation](https://www.elastic.co/guide/en/observability/master/aws-serverless-troubleshooting.html#aws-serverless-troubleshooting-event-id-format).
 
 ## Resources and links
 

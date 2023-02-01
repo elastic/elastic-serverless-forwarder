@@ -5,7 +5,7 @@
 
 set -e
 
-echo "    AWS CLI (https://aws.amazon.com/cli/), SAM (https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html) and Python3.9 with pip3 required"
+echo "    AWS CLI (https://aws.amazon.com/cli/), SAM (https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html), Docker and Python3.9 with pip3 required"
 echo "    Please, before launching the tool execute \"$ pip3 install ruamel.yaml\""
 
 if [[ $# -ne 5 ]]
@@ -362,23 +362,23 @@ def create_policy(publish_config: dict[str, Any]):
                     cloudwatch_logs_group_arn[f"{':'.join(cloudwatch_logs_event_arn[0:-3])}:*:*"] = True
                     cloudwatch_logs_stream_arn[f"{':'.join(cloudwatch_logs_event_arn[0:-2])}:log-stream:*"] = True
 
-            if len(cloudwatch_logs_group_arn) > 0:
-                policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
-                    {
-                        "Effect": "Allow",
-                        "Action": "logs:DescribeLogGroups",
-                        "Resource": [x for x in cloudwatch_logs_group_arn.keys()],
-                    }
-                )
+        if len(cloudwatch_logs_group_arn) > 0:
+            policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
+                {
+                    "Effect": "Allow",
+                    "Action": "logs:DescribeLogGroups",
+                    "Resource": [x for x in cloudwatch_logs_group_arn.keys()],
+                }
+            )
 
-            if len(cloudwatch_logs_stream_arn) > 0:
-                policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
-                    {
-                        "Effect": "Allow",
-                        "Action": "logs:DescribeLogStreams",
-                        "Resource": [x for x in cloudwatch_logs_stream_arn.keys()],
-                    }
-                )
+        if len(cloudwatch_logs_stream_arn) > 0:
+            policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
+                {
+                    "Effect": "Allow",
+                    "Action": "logs:DescribeLogStreams",
+                    "Resource": [x for x in cloudwatch_logs_stream_arn.keys()],
+                }
+            )
 
     if "s3-buckets" in publish_config:
         assert isinstance(publish_config["s3-buckets"], list)
@@ -512,4 +512,4 @@ python "${TMPDIR}/publish.py" "${PUBLISH_CONFIG}" "${TMPDIR}/publish.yaml"
 
 sam build --debug --use-container --build-dir "${TMPDIR}/.aws-sam/build/publish" --template-file "${TMPDIR}/publish.yaml" --region "${REGION}"
 sam package --template-file "${TMPDIR}/.aws-sam/build/publish/template.yaml" --output-template-file "${TMPDIR}/.aws-sam/build/publish/packaged.yaml" --s3-bucket "${BUCKET}" --region "${REGION}"
-sam deploy --stack-name "${LABDA_NAME}" --capabilities CAPABILITY_NAMED_IAM --template "${TMPDIR}/.aws-sam/build/publish/packaged.yaml" --region "${REGION}"
+sam deploy --stack-name "${LABDA_NAME}" --capabilities CAPABILITY_NAMED_IAM --template "${TMPDIR}/.aws-sam/build/publish/packaged.yaml" --s3-bucket "${BUCKET}" --region "${REGION}"
