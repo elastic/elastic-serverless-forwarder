@@ -29,6 +29,7 @@ jobs:
     steps:
     - name: Cleanup some tools from the workers to fix no space left
       run: |-
+        df -h
         ls -l /usr/local/lib
         du -hc -d 2 /usr/local/lib
         sudo rm -rf /usr/local/aws-cli /usr/share/apache-maven* /usr/share/apache2 /usr/share/php* /usr/local/lib/android /usr/share/dotnet /opt &
@@ -39,7 +40,7 @@ jobs:
       run: make ${{ matrix.goal }}
 
     - name: Store test results
-      if: success() || failure()
+      if: contains(matrix.goal, 'test') && (success() || failure())
       uses: actions/upload-artifact@v3
       with:
         name: test-results
