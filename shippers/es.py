@@ -59,7 +59,6 @@ class ElasticsearchShipper:
         batch_max_bytes: int = 10 * 1024 * 1024,
         ssl_assert_fingerprint: str = "",
     ):
-
         self._bulk_actions: list[dict[str, Any]] = []
 
         self._bulk_batch_size = batch_max_actions
