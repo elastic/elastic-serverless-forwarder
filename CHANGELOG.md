@@ -1,6 +1,7 @@
 ### v1.6.1 - 2023/02/02
 ##### Bug fixes
 * Changed event ID format to use a SHA3 384bit hash of AWS-provided ids: [#227](https://github.com/elastic/elastic-serverless-forwarder/pull/227)
+* Fix `kinesis-data-stream` data payload type decoding and empty fields in message attributes in `sqs` continuation: [#228](https://github.com/elastic/elastic-serverless-forwarder/pull/228)
 
 ### v1.6.0 - 2023/01/26
 ##### Features

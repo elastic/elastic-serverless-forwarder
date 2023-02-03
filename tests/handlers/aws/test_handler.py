@@ -1256,6 +1256,7 @@ def _event_from_sqs_message(queue_attributes: dict[str, Any]) -> tuple[dict[str,
                     for attribute_key in message["messageAttributes"][attribute]:
                         camel_case_key = "".join([attribute_key[0].lower(), attribute_key[1:]])
                         new_attribute[camel_case_key] = new_attribute[attribute_key]
+                        new_attribute[attribute_key] = ""
 
                     message["messageAttributes"][attribute] = new_attribute
 
@@ -1343,6 +1344,9 @@ def _event_from_kinesis_records(records: dict[str, Any], stream_attribute: dict[
         for key in original_record:
             new_value = deepcopy(original_record[key])
             camel_case_key = "".join([key[0].lower(), key[1:]])
+            if isinstance(new_value, bytes):
+                new_value = new_value.decode("utf-8")
+
             kinesis_record[camel_case_key] = new_value
 
         new_records.append(
