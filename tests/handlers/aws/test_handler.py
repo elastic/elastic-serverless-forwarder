@@ -1256,6 +1256,7 @@ def _event_from_sqs_message(queue_attributes: dict[str, Any]) -> tuple[dict[str,
                     for attribute_key in message["messageAttributes"][attribute]:
                         camel_case_key = "".join([attribute_key[0].lower(), attribute_key[1:]])
                         new_attribute[camel_case_key] = new_attribute[attribute_key]
+                        new_attribute[attribute_key] = ""
 
                     message["messageAttributes"][attribute] = new_attribute
 
