@@ -1235,6 +1235,8 @@ def _upload_content_to_bucket(content: Union[bytes, str], content_type: str, buc
 def _event_from_sqs_message(queue_attributes: dict[str, Any]) -> tuple[dict[str, Any], str]:
     sqs_client = aws_stack.connect_to_service("sqs")
     collected_messages: list[dict[str, Any]] = []
+    sent_timestamp: str = ""
+
     while True:
         try:
             messages = sqs_client.receive_message(
@@ -4051,3 +4053,78 @@ class TestLambdaHandlerFailureSSLFingerprint(IntegrationTestCase):
             third_body["event_payload"]["message"]
             == '{"another": "continuation", "from": "the", "continuing": "queue"}'
         )
+
+
+@pytest.mark.integration
+class TestLambdaHandlerFailureESNoMatchingActionFailed(IntegrationTestCase):
+    def setUp(self) -> None:
+        self._services = ["s3", "sqs", "secretsmanager"]
+        self._queues = [{"name": "source-queue", "type": "sqs"}]
+
+        super(TestLambdaHandlerFailureESNoMatchingActionFailed, self).setUp()
+
+        mock.patch("storage.S3Storage._s3_client", _mock_awsclient(service_name="s3")).start()
+        mock.patch("handlers.aws.handler.get_sqs_client", lambda: _mock_awsclient(service_name="sqs")).start()
+        mock.patch("handlers.aws.utils.get_sqs_client", lambda: _mock_awsclient(service_name="sqs")).start()
+        mock.patch(
+            "share.secretsmanager._get_aws_sm_client",
+            lambda region_name: _mock_awsclient(service_name="secretsmanager", region_name=region_name),
+        ).start()
+
+    def tearDown(self) -> None:
+        super(TestLambdaHandlerFailureESNoMatchingActionFailed, self).tearDown()
+
+    @mock.patch("handlers.aws.handler._completion_grace_period", 1)
+    def test_lambda_handler_no_es_matching_action_failed(self) -> None:
+        message: str = "a message"
+        fingerprint: str = "DUEwoALOve1Y9MtPCfT7IJGU3IQ="
+
+        # Create an expected id so that es.send will fail
+        self._es_client.index(
+            index="logs-generic-default",
+            op_type="create",
+            id=fingerprint,
+            document={"@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
+        )
+
+        processors = {
+            "processors": [
+                {
+                    "fingerprint": {
+                        "fields": ["message"],
+                        "target_field": "_id",
+                    }
+                }
+            ]
+        }
+
+        # Add a pipeline that will generate the same _id
+        self._es_client.ingest.put_pipeline(id="id_fingerprint_pipeline", body=processors)
+        self._es_client.indices.put_settings(
+            index="logs-generic-default", body={"index.default_pipeline": "id_fingerprint_pipeline"}
+        )
+
+        self._es_client.indices.refresh(index="logs-generic-default")
+
+        assert self._es_client.count(index="logs-generic-default")["count"] == 1
+
+        _event_to_sqs_message(queue_attributes=self._queues_info["source-queue"], message_body=message)
+
+        event, _ = _event_from_sqs_message(queue_attributes=self._queues_info["source-queue"])
+
+        ctx = ContextMock(remaining_time_in_millis=2)
+
+        first_call = handler(event, ctx)  # type:ignore
+
+        assert first_call == "completed"
+
+        self._es_client.indices.refresh(index="logs-generic-default")
+
+        assert self._es_client.count(index="logs-generic-default")["count"] == 1
+
+        res = self._es_client.search(index="logs-generic-default")
+        assert "message" not in res["hits"]["hits"][0]["_source"]
+
+        event, timestamp = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
+        assert not event["Records"]
+        assert not timestamp
