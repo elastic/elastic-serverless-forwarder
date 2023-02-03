@@ -1,3 +1,7 @@
+### v1.6.1 - 2023/02/02
+##### Bug fixes
+* Changed event ID format to use a SHA3 384bit hash of AWS-provided ids: [#227](https://github.com/elastic/elastic-serverless-forwarder/pull/227)
+
 ### v1.6.0 - 2023/01/26
 ##### Features
 * Allow for extra customisation on event triggers and vpc at deployment: [#201](https://github.com/elastic/elastic-serverless-forwarder/pull/201)

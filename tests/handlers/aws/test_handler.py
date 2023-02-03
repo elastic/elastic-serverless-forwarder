@@ -5,6 +5,7 @@
 import base64
 import datetime
 import gzip
+import hashlib
 import importlib
 import os
 import random
@@ -288,6 +289,10 @@ def _apm_capture_serverless() -> Any:
         return decorated
 
     return wrapper
+
+
+def _get_hex_prefix(src: str) -> str:
+    return hashlib.sha3_384(src.encode("UTF8")).hexdigest()
 
 
 def reload_handlers_aws_handler() -> None:
@@ -1774,14 +1779,17 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             datetime.datetime.strptime("2021-09-08T18:34:25.042Z", "%Y-%m-%dT%H:%M:%S.%fZ").timestamp() * 1000
         )
 
-        prefix_s3_first = f"{event_time}-{bucket_arn}-{first_filename}"
-        prefix_s3_second = f"{event_time}-{bucket_arn}-{second_filename}"
+        hash_first = _get_hex_prefix(f"{bucket_arn}-{first_filename}")
+        hash_second = _get_hex_prefix(f"{bucket_arn}-{second_filename}")
+        prefix_s3_first = f"{event_time}-{hash_first}"
+        prefix_s3_second = f"{event_time}-{hash_second}"
 
         _event_to_sqs_message(queue_attributes=self._queues_info["source-sqs-queue"], message_body=self._cloudwatch_log)
         event_sqs, timestamp = _event_from_sqs_message(queue_attributes=self._queues_info["source-sqs-queue"])
 
         message_id = event_sqs["Records"][0]["messageId"]
-        prefix_sqs: str = f"{timestamp}-source-sqs-queue-{message_id}"
+        hash_sqs = _get_hex_prefix(f"source-sqs-queue-{message_id}")
+        prefix_sqs: str = f"{timestamp}-{hash_sqs}"
 
         _event_to_cloudwatch_logs(
             group_name="source-group",
@@ -1803,14 +1811,13 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             event_timestamps_cloudwatch_logs_different,
         ) = _event_from_cloudwatch_logs(group_name="source-group", stream_name="source-stream-different")
 
-        prefix_cloudwatch_logs = (
-            f"{event_timestamps_cloudwatch_logs[0]}-source-group-source-stream-{event_ids_cloudwatch_logs[0]}"
-        )
+        hash_cw_logs = _get_hex_prefix(f"source-group-source-stream-{event_ids_cloudwatch_logs[0]}")
+        prefix_cloudwatch_logs = f"{event_timestamps_cloudwatch_logs[0]}-{hash_cw_logs}"
 
-        prefix_cloudwatch_logs_different = (
-            f"{event_timestamps_cloudwatch_logs_different[0]}-source-group-"
-            f"source-stream-different-{event_ids_cloudwatch_logs_different[0]}"
+        hash_cw_logs_different = _get_hex_prefix(
+            f"source-group-" f"source-stream-different-{event_ids_cloudwatch_logs_different[0]}"
         )
+        prefix_cloudwatch_logs_different = f"{event_timestamps_cloudwatch_logs_different[0]}-{hash_cw_logs_different}"
 
         # Create an expected id for s3-sqs so that es.send will fail
         self._es_client.index(
@@ -2146,8 +2153,10 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             datetime.datetime.strptime("2021-09-08T18:34:25.042Z", "%Y-%m-%dT%H:%M:%S.%fZ").timestamp() * 1000
         )
 
-        prefix_s3_first = f"{event_time}-{bucket_arn}-{first_filename}"
-        prefix_s3_second = f"{event_time}-{bucket_arn}-{second_filename}"
+        hash_s3_first = _get_hex_prefix(f"{bucket_arn}-{first_filename}")
+        hash_s3_second = _get_hex_prefix(f"{bucket_arn}-{second_filename}")
+        prefix_s3_first = f"{event_time}-{hash_s3_first}"
+        prefix_s3_second = f"{event_time}-{hash_s3_second}"
 
         _event_to_sqs_message(queue_attributes=self._queues_info["source-sqs-queue"], message_body=self._cloudwatch_log)
         event_sqs, timestamp = _event_from_sqs_message(queue_attributes=self._queues_info["source-sqs-queue"])
@@ -2158,7 +2167,8 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
         event_no_config, _ = _event_from_sqs_message(queue_attributes=self._queues_info["source-no-conf-queue"])
 
         message_id = event_sqs["Records"][0]["messageId"]
-        prefix_sqs: str = f"{timestamp}-source-sqs-queue-{message_id}"
+        hash_sqs = _get_hex_prefix(f"source-sqs-queue-{message_id}")
+        prefix_sqs: str = f"{timestamp}-{hash_sqs}"
 
         _event_to_cloudwatch_logs(
             group_name="source-group",
@@ -2180,14 +2190,13 @@ class TestLambdaHandlerSuccessMixedInput(IntegrationTestCase):
             event_timestamps_cloudwatch_logs_different,
         ) = _event_from_cloudwatch_logs(group_name="source-group", stream_name="source-stream-different")
 
-        prefix_cloudwatch_logs = (
-            f"{event_timestamps_cloudwatch_logs[0]}-source-group-source-stream-{event_ids_cloudwatch_logs[0]}"
-        )
+        hash_logs = _get_hex_prefix(f"source-group-source-stream-{event_ids_cloudwatch_logs[0]}")
+        prefix_cloudwatch_logs = f"{event_timestamps_cloudwatch_logs[0]}-{hash_logs}"
 
-        prefix_cloudwatch_logs_different = (
-            f"{event_timestamps_cloudwatch_logs_different[0]}-source-group-"
-            f"source-stream-different-{event_ids_cloudwatch_logs_different[0]}"
+        hash_logs_different = _get_hex_prefix(
+            f"source-group-" f"source-stream-different-{event_ids_cloudwatch_logs_different[0]}"
         )
+        prefix_cloudwatch_logs_different = f"{event_timestamps_cloudwatch_logs_different[0]}-{hash_logs_different}"
 
         first_call = handler(s3_events, ctx)  # type:ignore
 
@@ -2764,14 +2773,12 @@ class TestLambdaHandlerSuccessKinesisDataStream(IntegrationTestCase):
         stream_name: str = self._kinesis_streams_info["source-kinesis"]["StreamDescription"]["StreamName"]
 
         sequence_number_first_record = event["Records"][0]["kinesis"]["sequenceNumber"]
-        prefix_first_record: str = (
-            f"{int(timestamp_first * 1000)}-stream-{stream_name}-{partition_key}-{sequence_number_first_record}"
-        )
+        hash_first_record = _get_hex_prefix(f"stream-{stream_name}-{partition_key}-{sequence_number_first_record}")
+        prefix_first_record: str = f"{int(timestamp_first * 1000)}-{hash_first_record}"
 
         sequence_number_second_record = event["Records"][1]["kinesis"]["sequenceNumber"]
-        prefix_second_record: str = (
-            f"{int(timestamp_second * 1000)}-stream-{stream_name}-{partition_key}-{sequence_number_second_record}"
-        )
+        hash_second_record = _get_hex_prefix(f"stream-{stream_name}-{partition_key}-{sequence_number_second_record}")
+        prefix_second_record: str = f"{int(timestamp_second * 1000)}-{hash_second_record}"
 
         # Create an expected id so that es.send will fail
         self._es_client.index(
@@ -3115,7 +3122,8 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
             datetime.datetime.strptime("2021-09-08T18:34:25.042Z", "%Y-%m-%dT%H:%M:%S.%fZ").timestamp() * 1000
         )
 
-        prefix_s3: str = f"{event_time}-arn:aws:s3:::test-bucket-{filename}"
+        hash_s3 = _get_hex_prefix(f"arn:aws:s3:::test-bucket-{filename}")
+        prefix_s3: str = f"{event_time}-{hash_s3}"
         # Create an expected id so that es.send will fail
         self._es_client.index(
             index="logs-aws.cloudtrail-default",
@@ -3445,7 +3453,8 @@ class TestLambdaHandlerSuccessSQS(IntegrationTestCase):
         event, timestamp = _event_from_sqs_message(queue_attributes=self._queues_info["source-queue"])
 
         message_id = event["Records"][0]["messageId"]
-        prefix: str = f"{timestamp}-source-queue-{message_id}"
+        hash_sqs = _get_hex_prefix(f"source-queue-{message_id}")
+        prefix: str = f"{timestamp}-{hash_sqs}"
 
         # Create an expected id so that es.send will fail
         self._es_client.index(
@@ -3710,7 +3719,8 @@ class TestLambdaHandlerSuccessCloudWatchLogs(IntegrationTestCase):
             group_name="source-group", stream_name="source-stream"
         )
 
-        prefix: str = f"{event_timestamps[0]}-source-group-source-stream-{event_ids[0]}"
+        hash_logs = _get_hex_prefix(f"source-group-source-stream-{event_ids[0]}")
+        prefix: str = f"{event_timestamps[0]}-{hash_logs}"
 
         # Create an expected id so that es.send will fail
         self._es_client.index(

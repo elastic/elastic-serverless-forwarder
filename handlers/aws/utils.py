@@ -1,7 +1,7 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
-
+import hashlib
 import os
 from typing import Any, Callable, Optional
 
@@ -441,9 +441,10 @@ def s3_object_id(event_payload: dict[str, Any]) -> str:
     object_key: str = event_payload["fields"]["aws"]["s3"]["object"]["key"]
     event_time: int = event_payload["meta"]["event_time"]
 
-    src: str = f"{event_time}-{bucket_arn}-{object_key}"
+    src: str = f"{bucket_arn}-{object_key}"
+    hex_src = _get_hex_prefix(src)
 
-    return f"{src}-{offset:012d}"
+    return f"{event_time}-{hex_src}-{offset:012d}"
 
 
 def cloudwatch_logs_object_id(event_payload: dict[str, Any]) -> str:
@@ -457,9 +458,10 @@ def cloudwatch_logs_object_id(event_payload: dict[str, Any]) -> str:
     event_id: str = event_payload["fields"]["aws"]["cloudwatch"]["event_id"]
     event_timestamp: int = event_payload["meta"]["event_timestamp"]
 
-    src: str = f"{event_timestamp}-{group_name}-{stream_name}-{event_id}"
+    src: str = f"{group_name}-{stream_name}-{event_id}"
+    hex_src = _get_hex_prefix(src)
 
-    return f"{src}-{offset:012d}"
+    return f"{event_timestamp}-{hex_src}-{offset:012d}"
 
 
 def sqs_object_id(event_payload: dict[str, Any]) -> str:
@@ -472,9 +474,10 @@ def sqs_object_id(event_payload: dict[str, Any]) -> str:
     message_id: str = event_payload["fields"]["aws"]["sqs"]["message_id"]
     sent_timestamp: int = event_payload["meta"]["sent_timestamp"]
 
-    src: str = f"{sent_timestamp}-{queue_name}-{message_id}"
+    src: str = f"{queue_name}-{message_id}"
+    hex_src = _get_hex_prefix(src)
 
-    return f"{src}-{offset:012d}"
+    return f"{sent_timestamp}-{hex_src}-{offset:012d}"
 
 
 def kinesis_record_id(event_payload: dict[str, Any]) -> str:
@@ -488,9 +491,10 @@ def kinesis_record_id(event_payload: dict[str, Any]) -> str:
     sequence_number: str = event_payload["fields"]["aws"]["kinesis"]["sequence_number"]
     approximate_arrival_timestamp: int = event_payload["meta"]["approximate_arrival_timestamp"]
 
-    src: str = f"{approximate_arrival_timestamp}-{stream_type}-{stream_name}-{partition_key}-{sequence_number}"
+    src: str = f"{stream_type}-{stream_name}-{partition_key}-{sequence_number}"
+    hex_src = _get_hex_prefix(src)
 
-    return f"{src}-{offset:012d}"
+    return f"{approximate_arrival_timestamp}-{hex_src}-{offset:012d}"
 
 
 # This is implementation specific to AWS and should not reside on share
@@ -502,3 +506,7 @@ def expand_event_list_from_field_resolver(integration_scope: str, field_to_expan
         field_to_expand_event_list_from = "Records"
 
     return field_to_expand_event_list_from
+
+
+def _get_hex_prefix(src: str) -> str:
+    return hashlib.sha3_384(src.encode("UTF8")).hexdigest()
