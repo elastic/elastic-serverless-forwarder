@@ -1343,6 +1343,9 @@ def _event_from_kinesis_records(records: dict[str, Any], stream_attribute: dict[
         for key in original_record:
             new_value = deepcopy(original_record[key])
             camel_case_key = "".join([key[0].lower(), key[1:]])
+            if isinstance(new_value, bytes):
+                new_value = new_value.decode("utf-8")
+
             kinesis_record[camel_case_key] = new_value
 
         new_records.append(
