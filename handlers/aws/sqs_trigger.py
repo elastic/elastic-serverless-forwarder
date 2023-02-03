@@ -191,7 +191,9 @@ def _handle_sqs_event(
             sequence_number = payload["originalSequenceNumber"]["stringValue"]
 
             assert "originalApproximateArrivalTimestamp" in payload
-            approximate_arrival_timestamp = int(float(payload["originalApproximateArrivalTimestamp"]["stringValue"]))
+            approximate_arrival_timestamp = int(
+                float(payload["originalApproximateArrivalTimestamp"]["stringValue"]) * 1000
+            )
 
             es_event["fields"]["log"]["file"]["path"] = input_id
 
