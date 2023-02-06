@@ -14,10 +14,10 @@ from .secretsmanager import aws_sm_expander
 from .utils import get_hex_prefix
 from .telemetry import (
     FunctionContext,
-    events_forwarded_telemetry,
-    function_ended_telemetry,
+    # events_forwarded_telemetry,
+    # function_ended_telemetry,
     function_started_telemetry,
     input_has_output_type_telemetry,
-    input_processed_telemetry,
-    output_events_sent_to_replay_telemetry,
+    # input_processed_telemetry,
+    # output_events_sent_to_replay_telemetry,
 )

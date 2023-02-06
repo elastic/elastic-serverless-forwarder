@@ -18,7 +18,6 @@ from share import (
     Input,
     Output,
     get_hex_prefix,
-    function_ended_telemetry,
     input_has_output_type_telemetry,
     json_dumper,
     json_parser,
@@ -107,7 +106,7 @@ def wrap_try_except(
 
             shared_logger.exception("exception raised", exc_info=e)
 
-            function_ended_telemetry(exception_raised=True)
+            # function_ended_telemetry(exception_raised=True)
 
             raise e
 
@@ -120,7 +119,7 @@ def wrap_try_except(
 
             shared_logger.exception("exception raised", exc_info=e)
 
-            function_ended_telemetry(exception_ignored=True)
+            # function_ended_telemetry(exception_ignored=True)
 
             return f"exception raised: {e.__repr__()}"
 
@@ -157,6 +156,7 @@ def get_shipper_from_input(event_input: Input, config_yaml: str) -> CompositeShi
         anonymized_arn = anonymize_arn(event_input.id)
         input_has_output_type_telemetry(
             input_id=anonymized_arn.id,
+            input_type=event_input.type,
             output_type=output_type,
         )
 
