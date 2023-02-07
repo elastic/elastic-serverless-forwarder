@@ -152,7 +152,10 @@ class ElasticsearchShipper:
         failed = len(errors[1])
         for error in errors[1]:
             action_failed = [action for action in self._bulk_actions if action["_id"] == error["create"]["_id"]]
-            assert len(action_failed) == 1
+            # an ingestion pipeline might override the _id, we can only skip in this case
+            if len(action_failed) != 1:
+                continue
+
             shared_logger.warning(
                 "elasticsearch shipper", extra={"error": error["create"]["error"], "_id": error["create"]["_id"]}
             )

@@ -57,12 +57,11 @@ def _handle_kinesis_continuation(
             "DataType": "Number",
         }
 
-    kinesis_data: bytes = kinesis_record["kinesis"]["data"]
-    message_body: str = kinesis_data.decode("utf-8")
+    kinesis_data: str = kinesis_record["kinesis"]["data"]
 
     sqs_client.send_message(
         QueueUrl=sqs_continuing_queue,
-        MessageBody=message_body,
+        MessageBody=kinesis_data,
         MessageAttributes=message_attributes,
     )
 

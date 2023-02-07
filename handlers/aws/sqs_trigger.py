@@ -35,8 +35,9 @@ def _handle_sqs_continuation(
         for attribute in sqs_record["messageAttributes"]:
             new_attribute = {}
             for attribute_key in sqs_record["messageAttributes"][attribute]:
-                camel_case_key = "".join([attribute_key[0].upper(), attribute_key[1:]])
-                new_attribute[camel_case_key] = sqs_record["messageAttributes"][attribute][attribute_key]
+                if sqs_record["messageAttributes"][attribute][attribute_key]:
+                    camel_case_key = "".join([attribute_key[0].upper(), attribute_key[1:]])
+                    new_attribute[camel_case_key] = sqs_record["messageAttributes"][attribute][attribute_key]
 
             message_attributes[attribute] = new_attribute
     else:
@@ -191,7 +192,9 @@ def _handle_sqs_event(
             sequence_number = payload["originalSequenceNumber"]["stringValue"]
 
             assert "originalApproximateArrivalTimestamp" in payload
-            approximate_arrival_timestamp = int(float(payload["originalApproximateArrivalTimestamp"]["stringValue"]))
+            approximate_arrival_timestamp = int(
+                float(payload["originalApproximateArrivalTimestamp"]["stringValue"]) * 1000
+            )
 
             es_event["fields"]["log"]["file"]["path"] = input_id
 
