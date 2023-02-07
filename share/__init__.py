@@ -13,6 +13,7 @@ from .multiline import CollectBuffer, CountMultiline, PatternMultiline, Protocol
 from .secretsmanager import aws_sm_expander
 from .utils import get_hex_prefix
 from .telemetry import (
+    config_loaded_telemetry,
     FunctionContext,
     # events_forwarded_telemetry,
     # function_ended_telemetry,

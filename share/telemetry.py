@@ -12,11 +12,11 @@ from dataclasses import dataclass
 from enum import Enum
 from queue import Empty, Queue
 from threading import Thread
-from typing import Any, Optional, Protocol, TypeVar
+from typing import Any, List, Optional, Protocol, TypeVar
 
 import urllib3
 
-from share import shared_logger
+from share import Config, shared_logger
 
 # -------------------------------------------------------
 # Helpers
@@ -79,6 +79,8 @@ class TelemetryData:
     cloud_region: str = ""
     memory_limit_in_mb: str = ""
 
+    inputs: List[dict[str, List[str]]] = []
+
     start_time: str = ""
     end_time: str = ""
 
@@ -90,6 +92,13 @@ class TelemetryData:
     events_forwarded: dict[str, int] = {"sent": 0, "empty": 0, "skipped": 0}
 
     output_sent_to_replay: dict[str, int] = {}
+
+    def add_input(self, input_type: str, outputs: List[str]) -> None:
+        """Add the input to the telemetry."""
+        self.inputs.append({
+            "type": input_type,
+            "outputs": outputs,
+        })
 
     def set_output_type_for_input(self, input_id: str, input_type: str, output_type: str) -> None:
         """Add the output type for the input."""
@@ -138,6 +147,7 @@ TelemetryEventType = TypeVar("TelemetryEventType", bound=ProtocolTelemetryEvent)
 # Telemetry workflow
 #
 # - function started
+# - config loaded
 # - events forwarded, happens when the handler has sent events to the shipper
 # - input has output, happens when an output is identified for the input
 # - input processed, happens when the input is selected to process an incoming event
@@ -178,6 +188,20 @@ class FunctionStartedEvent(CommonTelemetryEvent):
 
         return telemetry_data
 
+
+class ConfigLoadedEvent(CommonTelemetryEvent):
+    """ConfigLoadedEvent represents the loading of the configuration."""
+
+    def __init__(self, config: Config) -> None:
+        self.config = config
+
+    def merge_with(self, telemetry_data: TelemetryData) -> TelemetryData:
+        """Merge the current event details with the telemetry data"""
+
+        for _input in self.config.inputs.values():
+            telemetry_data.add_input(_input.type, _input.get_output_types())
+
+        return telemetry_data
 
 # class FunctionEndedEvent(CommonTelemetryEvent):
 #     """FunctionEndedEvent represents the end of the function execution."""
@@ -305,25 +329,25 @@ class TelemetryWorker(Thread):
             "start_time": self.telemetry_data.start_time,
         }
 
-        if self.telemetry_data.input_outputs_type:
+        if self.telemetry_data.inputs:
             telemetry_data.update(
                 {
-                    "input_outputs_type": self.telemetry_data.input_outputs_type,
+                    "inputs": self.telemetry_data.inputs,
                 }
             )
 
-        if self.telemetry_data.end_time:
-            telemetry_data.update(
-                {
-                    "end_time": self.telemetry_data.end_time,
-                    "with_exception": self.telemetry_data.with_exception,
-                    "to_be_continued": self.telemetry_data.to_be_continued,
-                    # "input_outputs_type": self.telemetry_data.input_outputs_type,
-                    "input_is_continuing": self.telemetry_data.input_is_continuing,
-                    "events_forwarded": self.telemetry_data.events_forwarded,
-                    "output_sent_to_replay": self.telemetry_data.output_sent_to_replay,
-                }
-            )
+        # if self.telemetry_data.end_time:
+        #     telemetry_data.update(
+        #         {
+        #             "end_time": self.telemetry_data.end_time,
+        #             "with_exception": self.telemetry_data.with_exception,
+        #             "to_be_continued": self.telemetry_data.to_be_continued,
+        #             # "input_outputs_type": self.telemetry_data.input_outputs_type,
+        #             "input_is_continuing": self.telemetry_data.input_is_continuing,
+        #             "events_forwarded": self.telemetry_data.events_forwarded,
+        #             "output_sent_to_replay": self.telemetry_data.output_sent_to_replay,
+        #         }
+        #     )
 
         try:
             encoded_data = json.dumps(telemetry_data).encode("utf-8")
@@ -346,7 +370,7 @@ class TelemetryWorker(Thread):
         """Process telemetry event"""
 
         self.telemetry_data = event.merge_with(self.telemetry_data)
-        if isinstance(event, InputHasOutputTypeEvent):
+        if isinstance(event, ConfigLoadedEvent):
             self._send_telemetry()
 
     def run(self) -> None:
@@ -386,6 +410,14 @@ def function_started_telemetry(ctx: FunctionContext) -> None:
         return
 
     telemetry_queue.put(FunctionStartedEvent(ctx))
+
+
+def config_loaded_telemetry(config: Config) -> None:
+    """Triggers the `ConfigLoadedEvent` telemetry event."""
+    if not is_telemetry_enabled():
+        return
+
+    telemetry_queue.put(ConfigLoadedEvent(config))
 
 
 # def function_ended_telemetry(

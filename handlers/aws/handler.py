@@ -8,6 +8,7 @@ from typing import Any, Callable, Optional
 from aws_lambda_typing import context as context_
 
 from share import (
+    config_loaded_telemetry,
     ExpandEventListFromField,
     # events_forwarded_telemetry,
     # function_ended_telemetry,
@@ -88,6 +89,8 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         raise ConfigFileException(e)
 
     assert config is not None
+
+    config_loaded_telemetry(config)
 
     sqs_client = get_sqs_client()
 
