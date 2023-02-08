@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from enum import Enum
 from queue import Empty, Queue
 from threading import Thread
-from typing import Any, List, Optional, Protocol, TypeVar
+from typing import Any, List, Optional, Protocol, TypeVar, Union
 
 import urllib3
 
@@ -79,7 +79,7 @@ class TelemetryData:
     cloud_region: str = ""
     memory_limit_in_mb: str = ""
 
-    inputs: List[dict[str, List[str]]] = []
+    inputs: List[dict[str, Union[str, List[str]]]] = []
 
     start_time: str = ""
     end_time: str = ""
@@ -95,10 +95,7 @@ class TelemetryData:
 
     def add_input(self, input_type: str, outputs: List[str]) -> None:
         """Add the input to the telemetry."""
-        self.inputs.append({
-            "type": input_type,
-            "outputs": outputs,
-        })
+        self.inputs.append({"type": input_type, "outputs": outputs})
 
     def set_output_type_for_input(self, input_id: str, input_type: str, output_type: str) -> None:
         """Add the output type for the input."""
@@ -155,6 +152,7 @@ TelemetryEventType = TypeVar("TelemetryEventType", bound=ProtocolTelemetryEvent)
 # - function ended
 #
 
+
 class CommonTelemetryEvent(metaclass=ABCMeta):
     """
     Common class for Telemetry Command components
@@ -202,6 +200,7 @@ class ConfigLoadedEvent(CommonTelemetryEvent):
             telemetry_data.add_input(_input.type, _input.get_output_types())
 
         return telemetry_data
+
 
 # class FunctionEndedEvent(CommonTelemetryEvent):
 #     """FunctionEndedEvent represents the end of the function execution."""

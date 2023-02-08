@@ -12,7 +12,7 @@ from botocore.client import BaseClient as BotoBaseClient
 from elasticapm import Client
 from elasticapm import get_client as get_apm_client
 from elasticapm.contrib.serverless.aws import capture_serverless as apm_capture_serverless  # noqa: F401
-from share import (
+from share import (  # function_ended_telemetry,
     Config,
     FunctionContext,
     Input,
