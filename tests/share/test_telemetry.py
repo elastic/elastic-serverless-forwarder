@@ -47,7 +47,7 @@ def test_is_telemetry_enabled_with_false_values(monkeypatch: pytest.MonkeyPatch)
 def test_is_telemetry_enabled_with_no_env(monkeypatch: pytest.MonkeyPatch) -> None:
     # in there is not `TELEMETRY_ENABLED` env variable,
     # the telemetry should be disabled
-    monkeypatch.delenv("TELEMETRY_ENABLED")
+    monkeypatch.delenv("TELEMETRY_ENABLED", raising=False)
     assert is_telemetry_enabled() is False
 
 
