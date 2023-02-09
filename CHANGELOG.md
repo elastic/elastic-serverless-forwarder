@@ -1,6 +1,6 @@
 ### v1.7.0 - 2023/02/01
 ##### Features
-* Added support for Logstash as output [#210](https://github.com/elastic/elastic-serverless-forwarder/pull/210)
+* Added support for Logstash as output (Technical Preview) [#210](https://github.com/elastic/elastic-serverless-forwarder/pull/210)
 
 ### v1.6.1 - 2023/02/03
 ##### Bug fixes
