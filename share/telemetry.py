@@ -16,7 +16,7 @@ from typing import Any, List, Optional, Protocol, TypeVar, Union
 
 import urllib3
 
-from share import Config, shared_logger
+from share import Input, shared_logger
 
 # -------------------------------------------------------
 # Helpers
@@ -80,6 +80,7 @@ class TelemetryData:
     memory_limit_in_mb: str = ""
 
     inputs: List[dict[str, Union[str, List[str]]]] = []
+    input: dict[str, Union[str, List[str]]] = {}
 
     start_time: str = ""
     end_time: str = ""
@@ -96,6 +97,10 @@ class TelemetryData:
     def add_input(self, input_type: str, outputs: List[str]) -> None:
         """Add the input to the telemetry."""
         self.inputs.append({"type": input_type, "outputs": outputs})
+
+    def set_input(self, input_type: str, outputs: List[str]) -> None:
+        """Set the input to the telemetry."""
+        self.input = {"type": input_type, "outputs": outputs}
 
     def set_output_type_for_input(self, input_id: str, input_type: str, output_type: str) -> None:
         """Add the output type for the input."""
@@ -187,19 +192,19 @@ class FunctionStartedEvent(CommonTelemetryEvent):
         return telemetry_data
 
 
-class ConfigLoadedEvent(CommonTelemetryEvent):
-    """ConfigLoadedEvent represents the loading of the configuration."""
+# class ConfigLoadedEvent(CommonTelemetryEvent):
+#     """ConfigLoadedEvent represents the loading of the configuration."""
 
-    def __init__(self, config: Config) -> None:
-        self.config = config
+#     def __init__(self, config: Config) -> None:
+#         self.config = config
 
-    def merge_with(self, telemetry_data: TelemetryData) -> TelemetryData:
-        """Merge the current event details with the telemetry data"""
+#     def merge_with(self, telemetry_data: TelemetryData) -> TelemetryData:
+#         """Merge the current event details with the telemetry data"""
 
-        for _input in self.config.inputs.values():
-            telemetry_data.add_input(_input.type, _input.get_output_types())
+#         for _input in self.config.inputs.values():
+#             telemetry_data.add_input(_input.type, _input.get_output_types())
 
-        return telemetry_data
+#         return telemetry_data
 
 
 # class FunctionEndedEvent(CommonTelemetryEvent):
@@ -217,17 +222,30 @@ class ConfigLoadedEvent(CommonTelemetryEvent):
 #         return telemetry_data
 
 
-# class InputProcessedEvent(CommonTelemetryEvent):
-#     """Happens when the input is selected to process an incoming event."""
-#
-#     def __init__(self, input_id: str, is_continuing: bool) -> None:
-#         self.input_id = input_id
-#         self.is_continuing = is_continuing
-#
-#     def merge_with(self, telemetry_data: TelemetryData) -> TelemetryData:
-#         """Merge the current event details with the telemetry data"""
-#         telemetry_data.mark_input_is_continuing(input_id=self.input_id, is_continuing=self.is_continuing)
-#         return telemetry_data
+class InputSelectedEvent(CommonTelemetryEvent):
+    """Happens when the input is selected to process an incoming event."""
+
+    def __init__(self, input_type: str, outputs: List[str]) -> None:
+        self.input_type = input_type
+        self.outputs = outputs
+
+    def merge_with(self, telemetry_data: TelemetryData) -> TelemetryData:
+        """Merge the current event details with the telemetry data"""
+        telemetry_data.set_input(self.input_type, self.outputs)
+        return telemetry_data
+
+
+class InputProcessedEvent(CommonTelemetryEvent):
+    """Happens when the input is selected to process an incoming event."""
+
+    def __init__(self, input_id: str, is_continuing: bool) -> None:
+        self.input_id = input_id
+        self.is_continuing = is_continuing
+
+    def merge_with(self, telemetry_data: TelemetryData) -> TelemetryData:
+        """Merge the current event details with the telemetry data"""
+        telemetry_data.mark_input_is_continuing(input_id=self.input_id, is_continuing=self.is_continuing)
+        return telemetry_data
 
 
 # class OutputEventsSentToReplayEvent(CommonTelemetryEvent):
@@ -328,10 +346,10 @@ class TelemetryWorker(Thread):
             "start_time": self.telemetry_data.start_time,
         }
 
-        if self.telemetry_data.inputs:
+        if self.telemetry_data.input:
             telemetry_data.update(
                 {
-                    "inputs": self.telemetry_data.inputs,
+                    "input": self.telemetry_data.input,
                 }
             )
 
@@ -369,7 +387,7 @@ class TelemetryWorker(Thread):
         """Process telemetry event"""
 
         self.telemetry_data = event.merge_with(self.telemetry_data)
-        if isinstance(event, ConfigLoadedEvent):
+        if isinstance(event, InputSelectedEvent):
             self._send_telemetry()
 
     def run(self) -> None:
@@ -411,12 +429,12 @@ def function_started_telemetry(ctx: FunctionContext) -> None:
     telemetry_queue.put(FunctionStartedEvent(ctx))
 
 
-def config_loaded_telemetry(config: Config) -> None:
-    """Triggers the `ConfigLoadedEvent` telemetry event."""
-    if not is_telemetry_enabled():
-        return
+# def config_loaded_telemetry(config: Config) -> None:
+#     """Triggers the `ConfigLoadedEvent` telemetry event."""
+#     if not is_telemetry_enabled():
+#         return
 
-    telemetry_queue.put(ConfigLoadedEvent(config))
+#     telemetry_queue.put(ConfigLoadedEvent(config))
 
 
 # def function_ended_telemetry(
@@ -436,27 +454,39 @@ def config_loaded_telemetry(config: Config) -> None:
 #     telemetry_queue.put(telemetry_command)
 
 
-def input_has_output_type_telemetry(input_id: str, input_type: str, output_type: str) -> None:
-    """Triggers the `InputHasOutputTypeEvent` telemetry event."""
-    if not is_telemetry_enabled():
-        return
+# def input_has_output_type_telemetry(input_id: str, input_type: str, output_type: str) -> None:
+#     """Triggers the `InputHasOutputTypeEvent` telemetry event."""
+#     if not is_telemetry_enabled():
+#         return
 
-    telemetry_event = InputHasOutputTypeEvent(
-        input_id=input_id,
-        input_type=input_type,
-        output_type=output_type,
-    )
+#     telemetry_event = InputHasOutputTypeEvent(
+#         input_id=input_id,
+#         input_type=input_type,
+#         output_type=output_type,
+#     )
 
-    telemetry_queue.put(telemetry_event)
+#     telemetry_queue.put(telemetry_event)
 
 
 # def input_processed_telemetry(input_id: str, is_continuing: bool = False) -> None:
 #     """Triggers the `InputProcessedEvent` telemetry event."""
 #     if not is_telemetry_enabled():
 #         return
-#
+
 #     telemetry_event = InputProcessedEvent(input_id=input_id, is_continuing=is_continuing)
 #     telemetry_queue.put(telemetry_event)
+
+
+def input_selected_telemetry(_input: Input) -> None:
+    """Triggers the `InputSelectedEvent` telemetry event."""
+    if not is_telemetry_enabled():
+        return
+
+    telemetry_event = InputSelectedEvent(
+        _input.type,
+        _input.get_output_types(),
+    )
+    telemetry_queue.put(telemetry_event)
 
 
 # def output_events_sent_to_replay_telemetry(output_type: str, replayed_events: int) -> None:

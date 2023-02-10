@@ -14,7 +14,6 @@ from .secretsmanager import aws_sm_expander
 from .utils import get_hex_prefix
 from .telemetry import (
     FunctionContext,
-    config_loaded_telemetry,
     function_started_telemetry,
-    input_has_output_type_telemetry,
+    input_selected_telemetry,
 )
