@@ -343,7 +343,7 @@ class TelemetryWorker(Thread):
             "cloud_provider": self.telemetry_data.cloud_provider,
             "cloud_region": self.telemetry_data.cloud_region,
             "memory_limit_in_mb": self.telemetry_data.memory_limit_in_mb,
-            "start_time": self.telemetry_data.start_time,
+            # "start_time": self.telemetry_data.start_time,
         }
 
         if self.telemetry_data.input:
