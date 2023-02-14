@@ -404,7 +404,6 @@ class TestTelemetry:
         # The telemetry_endpoint variable is defined when the module is loaded,
         # so we need to patch this instead of the environment variable.
         with mock.patch("share.telemetry.telemetry_worker.telemetry_endpoint", httpserver.url_for("/v3/send/esf")):
-
             # Set up the expectaction for the telemetry request
             # to the telemetry endpoint.
             httpserver.expect_oneshot_request(
@@ -428,7 +427,6 @@ class TestTelemetry:
             # If the request is not sent within `timeout` seconds,
             # the test will fail.
             with httpserver.wait(timeout=5):
-
                 # Prepare the lambda environment
                 ctx = ContextMock()
                 os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
