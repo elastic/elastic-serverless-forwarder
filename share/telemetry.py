@@ -2,7 +2,6 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
-import datetime
 import hashlib
 import json
 import os
@@ -79,54 +78,11 @@ class TelemetryData:
     cloud_region: str = ""
     memory_limit_in_mb: str = ""
 
-    inputs: List[dict[str, Union[str, List[str]]]] = []
     input: dict[str, Union[str, List[str]]] = {}
-
-    start_time: str = ""
-    end_time: str = ""
-
-    with_exception: Optional[WithExceptionTelemetryEnum] = None
-    to_be_continued: bool = False
-
-    input_outputs_type: dict[str, dict[str, str]] = {}
-    input_is_continuing: dict[str, bool] = {}
-    events_forwarded: dict[str, int] = {"sent": 0, "empty": 0, "skipped": 0}
-
-    output_sent_to_replay: dict[str, int] = {}
-
-    def add_input(self, input_type: str, outputs: List[str]) -> None:
-        """Add the input to the telemetry."""
-        self.inputs.append({"type": input_type, "outputs": outputs})
 
     def set_input(self, input_type: str, outputs: List[str]) -> None:
         """Set the input to the telemetry."""
         self.input = {"type": input_type, "outputs": outputs}
-
-    def set_output_type_for_input(self, input_id: str, input_type: str, output_type: str) -> None:
-        """Add the output type for the input."""
-        if input_id not in self.input_outputs_type:
-            self.input_outputs_type[input_id] = {
-                "type": input_type,
-                "output": output_type,
-            }
-        # self.input_outputs_type[input_id].append(output_type)
-
-    def mark_input_is_continuing(self, input_id: str, is_continuing: bool) -> None:
-        """Mark the input as continuing or not."""
-        self.input_is_continuing[input_id] = is_continuing
-
-    def increase_output_sent_to_replay(self, output_type: str, replayed_events: int) -> None:
-        """Increase the stats for the output sent to replay."""
-        if output_type not in self.output_sent_to_replay:
-            self.output_sent_to_replay[output_type] = 0
-
-        self.output_sent_to_replay[output_type] += replayed_events
-
-    def increase_events_forwarded(self, sent: int, empty: int, skipped: int) -> None:
-        """Increase the stats for the events forwarded."""
-        self.events_forwarded["sent"] += sent
-        self.events_forwarded["empty"] += empty
-        self.events_forwarded["skipped"] += skipped
 
 
 class ProtocolTelemetryEvent(Protocol):
@@ -144,18 +100,6 @@ TelemetryEventType = TypeVar("TelemetryEventType", bound=ProtocolTelemetryEvent)
 # -------------------------------------------------------
 # Events
 # -------------------------------------------------------
-
-#
-# Telemetry workflow
-#
-# - function started
-# - config loaded
-# - events forwarded, happens when the handler has sent events to the shipper
-# - input has output, happens when an output is identified for the input
-# - input processed, happens when the input is selected to process an incoming event
-# - output sent to replay, IT LOOKS LIKE THIS IS NOT USED
-# - function ended
-#
 
 
 class CommonTelemetryEvent(metaclass=ABCMeta):
@@ -186,40 +130,8 @@ class FunctionStartedEvent(CommonTelemetryEvent):
         telemetry_data.cloud_region = self.cloud_region
         telemetry_data.execution_id = self.execution_id
         telemetry_data.memory_limit_in_mb = self.memory_limit_in_mb
-        telemetry_data.start_time = datetime.datetime.utcnow().strftime("%s.%f")
-        telemetry_data.end_time = ""
 
         return telemetry_data
-
-
-# class ConfigLoadedEvent(CommonTelemetryEvent):
-#     """ConfigLoadedEvent represents the loading of the configuration."""
-
-#     def __init__(self, config: Config) -> None:
-#         self.config = config
-
-#     def merge_with(self, telemetry_data: TelemetryData) -> TelemetryData:
-#         """Merge the current event details with the telemetry data"""
-
-#         for _input in self.config.inputs.values():
-#             telemetry_data.add_input(_input.type, _input.get_output_types())
-
-#         return telemetry_data
-
-
-# class FunctionEndedEvent(CommonTelemetryEvent):
-#     """FunctionEndedEvent represents the end of the function execution."""
-#
-#     def __init__(self, with_exception: Optional[WithExceptionTelemetryEnum], to_be_continued: bool) -> None:
-#         self.with_exception = with_exception
-#         self.to_be_continued = to_be_continued
-#
-#     def merge_with(self, telemetry_data: TelemetryData) -> TelemetryData:
-#         """Merge the current event details with the telemetry data"""
-#         telemetry_data.with_exception = self.with_exception
-#         telemetry_data.to_be_continued = self.to_be_continued
-#         telemetry_data.end_time = datetime.datetime.utcnow().strftime("%s.%f")
-#         return telemetry_data
 
 
 class InputSelectedEvent(CommonTelemetryEvent):
@@ -235,36 +147,6 @@ class InputSelectedEvent(CommonTelemetryEvent):
         return telemetry_data
 
 
-class InputProcessedEvent(CommonTelemetryEvent):
-    """Happens when the input is selected to process an incoming event."""
-
-    def __init__(self, input_id: str, is_continuing: bool) -> None:
-        self.input_id = input_id
-        self.is_continuing = is_continuing
-
-    def merge_with(self, telemetry_data: TelemetryData) -> TelemetryData:
-        """Merge the current event details with the telemetry data"""
-        telemetry_data.mark_input_is_continuing(input_id=self.input_id, is_continuing=self.is_continuing)
-        return telemetry_data
-
-
-# class OutputEventsSentToReplayEvent(CommonTelemetryEvent):
-#     """
-#     OutputEventsSentToReplay Command.
-#     This class implements concrete OutputEventsSentToReplay Command
-#     """
-
-#     def __init__(self, output_type: str, replayed_events: int) -> None:
-#         self.output_type = output_type
-#         self.replayed_events = replayed_events
-
-#     def merge_with(self, telemetry_data: TelemetryData) -> TelemetryData:
-#         """Merge the current event details with the telemetry data"""
-#         telemetry_data.increase_output_sent_to_replay(
-#             output_type=self.output_type, replayed_events=self.replayed_events
-#         )
-
-#         return telemetry_data
 
 
 class InputHasOutputTypeEvent(CommonTelemetryEvent):
@@ -286,23 +168,6 @@ class InputHasOutputTypeEvent(CommonTelemetryEvent):
         return telemetry_data
 
 
-# class EventsForwardedEvent(CommonTelemetryEvent):
-#     """EventsForwardedEvent contains the stats about the events forwarded to the output."""
-#
-#     def __init__(self, sent: int, empty: int, skipped: int) -> None:
-#         self.sent = sent
-#         self.empty = empty
-#         self.skipped = skipped
-#
-#     def merge_with(self, telemetry_data: TelemetryData) -> TelemetryData:
-#         """Merge the current event details with the telemetry data"""
-#         telemetry_data.increase_events_forwarded(
-#             sent=self.sent,
-#             empty=self.empty,
-#             skipped=self.skipped,
-#         )
-#
-#         return telemetry_data
 
 
 # -------------------------------------------------------
@@ -352,19 +217,6 @@ class TelemetryWorker(Thread):
                     "input": self.telemetry_data.input,
                 }
             )
-
-        # if self.telemetry_data.end_time:
-        #     telemetry_data.update(
-        #         {
-        #             "end_time": self.telemetry_data.end_time,
-        #             "with_exception": self.telemetry_data.with_exception,
-        #             "to_be_continued": self.telemetry_data.to_be_continued,
-        #             # "input_outputs_type": self.telemetry_data.input_outputs_type,
-        #             "input_is_continuing": self.telemetry_data.input_is_continuing,
-        #             "events_forwarded": self.telemetry_data.events_forwarded,
-        #             "output_sent_to_replay": self.telemetry_data.output_sent_to_replay,
-        #         }
-        #     )
 
         try:
             encoded_data = json.dumps(telemetry_data).encode("utf-8")
@@ -429,79 +281,10 @@ def function_started_telemetry(ctx: FunctionContext) -> None:
     telemetry_queue.put(FunctionStartedEvent(ctx))
 
 
-# def config_loaded_telemetry(config: Config) -> None:
-#     """Triggers the `ConfigLoadedEvent` telemetry event."""
-#     if not is_telemetry_enabled():
-#         return
-
-#     telemetry_queue.put(ConfigLoadedEvent(config))
 
 
-# def function_ended_telemetry(
-#     exception_ignored: bool = False, exception_raised: bool = False, to_be_continued: bool = False
-# ) -> None:
-#     """Triggers the `FunctionEndedEvent` telemetry event."""
-#     if not is_telemetry_enabled():
-#         return
 #
-#     with_exception = None
-#     if exception_ignored:
-#         with_exception = WithExceptionTelemetryEnum.EXCEPTION_IGNORED
-#     elif exception_raised:
-#         with_exception = WithExceptionTelemetryEnum.EXCEPTION_RAISED
-#
-#     telemetry_command = FunctionEndedEvent(with_exception=with_exception, to_be_continued=to_be_continued)
-#     telemetry_queue.put(telemetry_command)
 
 
-# def input_has_output_type_telemetry(input_id: str, input_type: str, output_type: str) -> None:
-#     """Triggers the `InputHasOutputTypeEvent` telemetry event."""
-#     if not is_telemetry_enabled():
-#         return
-
-#     telemetry_event = InputHasOutputTypeEvent(
-#         input_id=input_id,
-#         input_type=input_type,
-#         output_type=output_type,
-#     )
-
-#     telemetry_queue.put(telemetry_event)
 
 
-# def input_processed_telemetry(input_id: str, is_continuing: bool = False) -> None:
-#     """Triggers the `InputProcessedEvent` telemetry event."""
-#     if not is_telemetry_enabled():
-#         return
-
-#     telemetry_event = InputProcessedEvent(input_id=input_id, is_continuing=is_continuing)
-#     telemetry_queue.put(telemetry_event)
-
-
-def input_selected_telemetry(_input: Input) -> None:
-    """Triggers the `InputSelectedEvent` telemetry event."""
-    if not is_telemetry_enabled():
-        return
-
-    telemetry_event = InputSelectedEvent(
-        _input.type,
-        _input.get_output_types(),
-    )
-    telemetry_queue.put(telemetry_event)
-
-
-# def output_events_sent_to_replay_telemetry(output_type: str, replayed_events: int) -> None:
-#     """Triggers the `OutputEventsSentToReplayEvent` telemetry event."""
-#     if not is_telemetry_enabled():
-#         return
-
-#     event = OutputEventsSentToReplayEvent(output_type=output_type, replayed_events=replayed_events)
-#     telemetry_queue.put(event)
-
-
-# def events_forwarded_telemetry(sent: int, empty: int, skipped: int) -> None:
-#     """Triggers the `EventsForwardedEvent` telemetry event."""
-#     if not is_telemetry_enabled():
-#         return
-#
-#     event = EventsForwardedEvent(sent=sent, empty=empty, skipped=skipped)
-#     telemetry_queue.put(event)
