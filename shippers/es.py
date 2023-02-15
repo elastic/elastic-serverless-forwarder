@@ -10,8 +10,7 @@ from elasticsearch.exceptions import SerializationError
 from elasticsearch.helpers import bulk as es_bulk
 from elasticsearch.serializer import Serializer
 
-from share import json_dumper, json_parser, shared_logger
-from share.events import normalise_event
+from share import json_dumper, json_parser, normalise_event, shared_logger
 
 from .shipper import EventIdGeneratorCallable, ReplayHandlerCallable
 

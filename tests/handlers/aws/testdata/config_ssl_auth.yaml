@@ -7,3 +7,6 @@ inputs:
       - type: "logstash"
         args:
           logstash_url: "$LogstashURL"
+          username: "$Username"
+          password: "$Password"
+          ssl_assert_fingerprint: "$SSLAssertFingerprint"

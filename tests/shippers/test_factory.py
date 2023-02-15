@@ -5,10 +5,8 @@
 import re
 from unittest import TestCase
 
-from share import ElasticsearchOutput, Output
-from share.config import LogstashOutput
-from shippers import ElasticsearchShipper, ProtocolShipper, ShipperFactory
-from shippers.logstash import LogstashShipper
+from share import ElasticsearchOutput, LogstashOutput, Output
+from shippers import ElasticsearchShipper, LogstashShipper, ProtocolShipper, ShipperFactory
 
 
 class TestShipperFactory(TestCase):
@@ -63,7 +61,7 @@ class TestShipperFactory(TestCase):
 
             assert isinstance(shipper, LogstashShipper)
 
-        with self.subTest("create logstash shipper success with only logstash_url"):
+        with self.subTest("create logstash shipper success with logstash_url, batch size and compression level"):
             shipper = ShipperFactory.create(
                 output_type="logstash",
                 logstash_url="http://myhost:8080",

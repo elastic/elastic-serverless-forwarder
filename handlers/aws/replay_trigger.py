@@ -4,8 +4,7 @@
 
 from typing import Any, Optional
 
-from share import Config, ElasticsearchOutput, Input, Output, shared_logger
-from share.config import LogstashOutput
+from share import Config, ElasticsearchOutput, Input, LogstashOutput, Output, shared_logger
 from shippers import ProtocolShipper, ShipperFactory
 
 from .exceptions import InputConfigException, OutputConfigException, ReplayHandlerException

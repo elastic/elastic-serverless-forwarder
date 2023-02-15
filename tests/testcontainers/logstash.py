@@ -43,7 +43,7 @@ class LogstashContainer(DockerContainer):  # type: ignore
     """
 
     _DEFAULT_IMAGE = "docker.elastic.co/logstash/logstash"
-    _DEFAULT_VERSION = "8.6.0"
+    _DEFAULT_VERSION = "7.16.0"
     _DEFAULT_PORT = 5044
     _DEFAULT_API_PORT = 9600
 
@@ -79,10 +79,14 @@ class LogstashContainer(DockerContainer):  # type: ignore
         self.with_env("CONFIG_STRING", "input { stdin {} } output { stdout {} }")
         self.with_env("XPACK_MONITORING_ENABLED", "false")
 
-    def get_url(self) -> str:
+    def get_url(self, ssl: bool = False) -> str:
         host = self.get_container_host_ip()
         port = self.get_exposed_port(self.port)
-        return f"http://{host}:{port}"
+        if ssl:
+            http_protocol = "https"
+        else:
+            http_protocol = "http"
+        return f"{http_protocol}://{host}:{port}"
 
     def get_apiurl(self) -> str:
         host = self.get_container_host_ip()

@@ -164,18 +164,6 @@ def get_shipper_from_input(
                 output_type="elasticsearch", output=elasticsearch_output
             )
             composite_shipper.add_shipper(shipper=elasticsearch_shipper)
-            composite_shipper.set_integration_scope(integration_scope=integration_scope)
-            replay_handler = ReplayEventHandler(config_yaml=config_yaml, event_input=event_input)
-            composite_shipper.set_replay_handler(replay_handler=replay_handler.replay_handler)
-
-            if event_input.type == "cloudwatch-logs":
-                composite_shipper.set_event_id_generator(event_id_generator=cloudwatch_logs_object_id)
-            elif event_input.type == "sqs":
-                composite_shipper.set_event_id_generator(event_id_generator=sqs_object_id)
-            elif event_input.type == "s3-sqs":
-                composite_shipper.set_event_id_generator(event_id_generator=s3_object_id)
-            elif event_input.type == "kinesis-data-stream":
-                composite_shipper.set_event_id_generator(event_id_generator=kinesis_record_id)
 
         if output_type == "logstash":
             shared_logger.info("setting Logstash shipper")
@@ -187,18 +175,19 @@ def get_shipper_from_input(
             )
 
             composite_shipper.add_shipper(shipper=logstash_shipper)
-            composite_shipper.set_integration_scope(integration_scope=integration_scope)
-            replay_handler = ReplayEventHandler(config_yaml=config_yaml, event_input=event_input)
-            composite_shipper.set_replay_handler(replay_handler=replay_handler.replay_handler)
 
-            if event_input.type == "cloudwatch-logs":
-                composite_shipper.set_event_id_generator(event_id_generator=cloudwatch_logs_object_id)
-            elif event_input.type == "sqs":
-                composite_shipper.set_event_id_generator(event_id_generator=sqs_object_id)
-            elif event_input.type == "s3-sqs":
-                composite_shipper.set_event_id_generator(event_id_generator=s3_object_id)
-            elif event_input.type == "kinesis-data-stream":
-                composite_shipper.set_event_id_generator(event_id_generator=kinesis_record_id)
+        composite_shipper.set_integration_scope(integration_scope=integration_scope)
+        replay_handler = ReplayEventHandler(config_yaml=config_yaml, event_input=event_input)
+        composite_shipper.set_replay_handler(replay_handler=replay_handler.replay_handler)
+
+        if event_input.type == "cloudwatch-logs":
+            composite_shipper.set_event_id_generator(event_id_generator=cloudwatch_logs_object_id)
+        elif event_input.type == "sqs":
+            composite_shipper.set_event_id_generator(event_id_generator=sqs_object_id)
+        elif event_input.type == "s3-sqs":
+            composite_shipper.set_event_id_generator(event_id_generator=s3_object_id)
+        elif event_input.type == "kinesis-data-stream":
+            composite_shipper.set_event_id_generator(event_id_generator=kinesis_record_id)
 
     composite_shipper.add_include_exclude_filter(event_input.include_exclude_filter)
 

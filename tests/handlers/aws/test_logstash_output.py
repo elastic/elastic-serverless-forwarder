@@ -31,6 +31,9 @@ from tests.handlers.aws.utils import (
 from tests.testcontainers.logstash import LogstashContainer
 
 TIMEOUT_15m = 1000 * 60 * 15
+AWS_REGION = "us-east-1"
+USERNAME = "USERNAME"
+PASSWORD = "PASSWORD"
 
 
 def _prepare_config_file(klass: Any, conffixture: str, confdict: dict[str, Any], config_file_path: str) -> str:
@@ -52,13 +55,12 @@ def _prepare_config_file(klass: Any, conffixture: str, confdict: dict[str, Any],
 @pytest.mark.integration
 class TestLambdaHandlerLogstashOutputSuccess(TestCase):
     def setUp(self) -> None:
-        lst = LocalStackContainer(image="localstack/localstack:1.1.0")
+        lst = LocalStackContainer(image="localstack/localstack:1.4.0")
         lst.with_env("EAGER_SERVICE_LOADING", "1")
         lst.with_services("s3", "logs", "sqs")
         self.localstack = lst.start()
 
-        aws_default_region = "us-east-1"
-        session = boto3.Session(region_name=aws_default_region)
+        session = boto3.Session(region_name=AWS_REGION)
         self.aws_session = session
         self.s3_client = session.client("s3", endpoint_url=self.localstack.get_url())
         self.logs_client = session.client("logs", endpoint_url=self.localstack.get_url())
@@ -108,7 +110,6 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
         self.group_name = group_name
         self.stream_name = stream_name
 
-        os.environ["AWS_DEFAULT_REGION"] = aws_default_region
         os.environ["SQS_CONTINUE_URL"] = _sqs_create_queue(self.sqs_client, _class_based_id(self, suffix="-continuing"))
         os.environ["SQS_REPLAY_URL"] = _sqs_create_queue(self.sqs_client, _class_based_id(self, suffix="-replay"))
 
@@ -128,27 +129,6 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
         for k, m in self.mocks.items():
             m.stop()
 
-    def test_sent_messages(self) -> None:
-        os.environ["S3_CONFIG_FILE"] = _prepare_config_file(
-            self,
-            "config.yaml",
-            dict(CloudwatchLogStreamARN=self.cloudwatch_group_arn, LogstashURL=self.logstash.get_url()),
-            "folder/config.yaml",
-        )
-
-        event_cloudwatch_logs, event_ids_cloudwatch_logs = _logs_retrieve_event_from_cloudwatch_logs(
-            self.logs_client, group_name=self.group_name, stream_name=self.stream_name
-        )
-
-        ctx = ContextMock(TIMEOUT_15m)
-        handler(event_cloudwatch_logs, ctx)  # type: ignore
-
-        msgs = self.logstash.get_messages()
-        assert len(msgs) == 2
-
-        assert msgs[0]["message"] == self.fixtures["cw_log_1"].rstrip("\n")
-        assert msgs[1]["message"] == self.fixtures["cw_log_2"].rstrip("\n")
-
     def test_failure_sending_messages(self) -> None:
         os.environ["S3_CONFIG_FILE"] = _prepare_config_file(
             self,
@@ -163,7 +143,8 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
         )
 
         ctx = ContextMock(TIMEOUT_15m)
-        handler(event_cloudwatch_logs, ctx)  # type: ignore
+        result = handler(event_cloudwatch_logs, ctx)  # type: ignore
+        assert result == "completed"
 
         msgs = self.logstash.get_messages()
         assert len(msgs) == 0
@@ -172,10 +153,32 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
         assert len(messages) == 2
 
         event1 = json_parser(messages[0]["Body"])
+        group_name = _class_based_id(self, suffix="source-group")
+        stream_name = _class_based_id(self, suffix="source-stream")
         assert event1["event_payload"]["message"] == self.fixtures["cw_log_1"].rstrip("\n")
+        assert event1["event_payload"]["aws"]["cloudwatch"]["log_group"] == group_name
+        assert event1["event_payload"]["aws"]["cloudwatch"]["log_stream"] == stream_name
+        assert event1["event_payload"]["aws"]["cloudwatch"]["event_id"] == event_ids_cloudwatch_logs[0]
+        assert event1["event_payload"]["cloud"]["provider"] == "aws"
+        assert event1["event_payload"]["cloud"]["region"] == AWS_REGION
+        assert event1["event_payload"]["cloud"]["account"]["id"] == "000000000000"
+        assert event1["event_payload"]["log"]["offset"] == 0
+        assert event1["event_payload"]["log"]["file"]["path"] == f"{group_name}/{stream_name}"
+        assert event1["event_payload"]["message"] == self.fixtures["cw_log_1"].rstrip("\n")
+        assert event1["event_payload"]["tags"] == ["forwarded", "test_tag"]
 
         event2 = json_parser(messages[1]["Body"])
         assert event2["event_payload"]["message"] == self.fixtures["cw_log_2"].rstrip("\n")
+        assert event2["event_payload"]["aws"]["cloudwatch"]["log_group"] == group_name
+        assert event2["event_payload"]["aws"]["cloudwatch"]["log_stream"] == stream_name
+        assert event2["event_payload"]["aws"]["cloudwatch"]["event_id"] == event_ids_cloudwatch_logs[0]
+        assert event2["event_payload"]["cloud"]["provider"] == "aws"
+        assert event2["event_payload"]["cloud"]["region"] == AWS_REGION
+        assert event2["event_payload"]["cloud"]["account"]["id"] == "000000000000"
+        assert event2["event_payload"]["log"]["offset"] == 94
+        assert event2["event_payload"]["log"]["file"]["path"] == f"{group_name}/{stream_name}"
+        assert event2["event_payload"]["message"] == self.fixtures["cw_log_2"].rstrip("\n")
+        assert event2["event_payload"]["tags"] == ["forwarded", "test_tag"]
 
     def test_send_timeout(self) -> None:
         """
@@ -269,7 +272,7 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
         assert msgs[0]["aws"]["cloudwatch"]["log_stream"] == stream_name
         assert msgs[0]["aws"]["cloudwatch"]["event_id"] == event_ids_cloudwatch_logs[0]
         assert msgs[0]["cloud"]["provider"] == "aws"
-        assert msgs[0]["cloud"]["region"] == os.environ["AWS_DEFAULT_REGION"]
+        assert msgs[0]["cloud"]["region"] == AWS_REGION
         assert msgs[0]["cloud"]["account"]["id"] == "000000000000"
         assert msgs[0]["log"]["offset"] == 0
         assert msgs[0]["log"]["file"]["path"] == f"{group_name}/{stream_name}"
@@ -280,9 +283,259 @@ class TestLambdaHandlerLogstashOutputSuccess(TestCase):
         assert msgs[1]["aws"]["cloudwatch"]["log_stream"] == stream_name
         assert msgs[1]["aws"]["cloudwatch"]["event_id"] == event_ids_cloudwatch_logs[0]
         assert msgs[1]["cloud"]["provider"] == "aws"
-        assert msgs[1]["cloud"]["region"] == os.environ["AWS_DEFAULT_REGION"]
+        assert msgs[1]["cloud"]["region"] == AWS_REGION
         assert msgs[1]["cloud"]["account"]["id"] == "000000000000"
         assert msgs[1]["log"]["offset"] == 94
         assert msgs[1]["log"]["file"]["path"] == f"{group_name}/{stream_name}"
         assert msgs[1]["message"] == self.fixtures["cw_log_2"].rstrip("\n")
         assert msgs[1]["tags"] == ["forwarded", "test_tag"]
+
+
+@pytest.mark.integration
+class TestLambdaHandlerLogstashOutputBasicAuthSSL(TestCase):
+    def setUp(self) -> None:
+        lst = LocalStackContainer(image="localstack/localstack:1.4.0")
+        lst.with_env("EAGER_SERVICE_LOADING", "1")
+        lst.with_services("s3", "logs", "sqs")
+        self.localstack = lst.start()
+
+        session = boto3.Session(region_name=AWS_REGION)
+        self.aws_session = session
+        self.s3_client = session.client("s3", endpoint_url=self.localstack.get_url())
+        self.logs_client = session.client("logs", endpoint_url=self.localstack.get_url())
+        self.sqs_client = session.client("sqs", endpoint_url=self.localstack.get_url())
+
+        self.logstash_http_port = 5043
+        lgc = LogstashContainer(port=self.logstash_http_port)
+        local_ssl_path = os.path.join(os.path.dirname(__file__), "ssl")
+
+        # NOTE: plain curly brackets must be escaped in this string (double them)
+        logstash_config = f"""\
+            input {{
+              elastic_serverless_forwarder {{
+                port => {self.logstash_http_port}
+                ssl_certificate => "/ssl/localhost.crt"
+                ssl_key => "/ssl/localhost.pkcs8.key"
+                auth_basic_username => {USERNAME}
+                auth_basic_password => {PASSWORD}
+              }}
+            }}
+
+            output {{ stdout {{ codec => json_lines }} }}
+            """
+        lgc.with_env("CONFIG_STRING", logstash_config)
+        lgc.with_volume_mapping(local_ssl_path, "/ssl")
+        lgc.with_command(
+            'bash -c "/opt/logstash/bin/logstash-plugin install '
+            'logstash-input-elastic_serverless_forwarder && /opt/logstash/bin/logstash"'
+        )
+        self.logstash = lgc.start()
+
+        self.fixtures = {
+            "cw_log_1": _load_file_fixture("cloudwatch-log-1.json"),
+            "cw_log_2": _load_file_fixture("cloudwatch-log-2.json"),
+        }
+
+        group_name = _class_based_id(self, suffix="source-group")
+        stream_name = _class_based_id(self, suffix="source-stream")
+
+        _logs_create_cloudwatch_logs_group(self.logs_client, group_name=group_name)
+        cw_logstream = _logs_create_cloudwatch_logs_stream(
+            self.logs_client, group_name=group_name, stream_name=stream_name
+        )
+        self.cloudwatch_group_arn = cw_logstream["arn"]
+
+        _logs_upload_event_to_cloudwatch_logs(
+            self.logs_client,
+            group_name=group_name,
+            stream_name=stream_name,
+            messages_body=[self.fixtures["cw_log_1"] + self.fixtures["cw_log_2"]],
+        )
+
+        self.group_name = group_name
+        self.stream_name = stream_name
+
+        os.environ["SQS_CONTINUE_URL"] = _sqs_create_queue(self.sqs_client, _class_based_id(self, suffix="-continuing"))
+        os.environ["SQS_REPLAY_URL"] = _sqs_create_queue(self.sqs_client, _class_based_id(self, suffix="-replay"))
+
+        self.mocks = {
+            "s3client": mock.patch("storage.S3Storage._s3_client", new=self.s3_client),
+            "cloudwatchclient": mock.patch("handlers.aws.utils.get_cloudwatch_logs_client", lambda: self.logs_client),
+            "sqsclient": mock.patch("handlers.aws.utils.get_sqs_client", lambda: self.sqs_client),
+            "sqsclient2": mock.patch("handlers.aws.handler.get_sqs_client", lambda: self.sqs_client),
+        }
+        for k, m in self.mocks.items():
+            m.start()
+
+    def tearDown(self) -> None:
+        self.localstack.stop()
+        self.logstash.stop()
+
+        for k, m in self.mocks.items():
+            m.stop()
+
+    def test_correct_credentials(self) -> None:
+        ssl_assert_fingerprint = "22:F7:FB:84" ":1D:43:3E" ":E7:BB:F9" ":72:F3:D8:97:AD:7C:86:E3:07:42"
+        os.environ["S3_CONFIG_FILE"] = _prepare_config_file(
+            self,
+            "config_ssl_auth.yaml",
+            dict(
+                CloudwatchLogStreamARN=self.cloudwatch_group_arn,
+                LogstashURL=self.logstash.get_url(ssl=True),
+                Username=USERNAME,
+                Password=PASSWORD,
+                SSLAssertFingerprint=ssl_assert_fingerprint,
+            ),
+            "folder/config2.yaml",
+        )
+
+        event_cloudwatch_logs, event_ids_cloudwatch_logs = _logs_retrieve_event_from_cloudwatch_logs(
+            self.logs_client, group_name=self.group_name, stream_name=self.stream_name
+        )
+
+        ctx = ContextMock(TIMEOUT_15m)
+
+        # Run handler with inputs, check that resulting action is continue and messages are
+        # flushed to output and sent to continuing queue
+        result = handler(event_cloudwatch_logs, ctx)  # type: ignore
+        assert result == "completed"
+        msgs = self.logstash.get_messages()
+        assert len(msgs) == 2
+
+        group_name = _class_based_id(self, suffix="source-group")
+        stream_name = _class_based_id(self, suffix="source-stream")
+        assert msgs[0]["aws"]["cloudwatch"]["log_group"] == group_name
+        assert msgs[0]["aws"]["cloudwatch"]["log_stream"] == stream_name
+        assert msgs[0]["aws"]["cloudwatch"]["event_id"] == event_ids_cloudwatch_logs[0]
+        assert msgs[0]["cloud"]["provider"] == "aws"
+        assert msgs[0]["cloud"]["region"] == AWS_REGION
+        assert msgs[0]["cloud"]["account"]["id"] == "000000000000"
+        assert msgs[0]["log"]["offset"] == 0
+        assert msgs[0]["log"]["file"]["path"] == f"{group_name}/{stream_name}"
+        assert msgs[0]["message"] == self.fixtures["cw_log_1"].rstrip("\n")
+        assert msgs[0]["tags"] == ["forwarded", "test_tag"]
+
+        assert msgs[1]["aws"]["cloudwatch"]["log_group"] == group_name
+        assert msgs[1]["aws"]["cloudwatch"]["log_stream"] == stream_name
+        assert msgs[1]["aws"]["cloudwatch"]["event_id"] == event_ids_cloudwatch_logs[0]
+        assert msgs[1]["cloud"]["provider"] == "aws"
+        assert msgs[1]["cloud"]["region"] == AWS_REGION
+        assert msgs[1]["cloud"]["account"]["id"] == "000000000000"
+        assert msgs[1]["log"]["offset"] == 94
+        assert msgs[1]["log"]["file"]["path"] == f"{group_name}/{stream_name}"
+        assert msgs[1]["message"] == self.fixtures["cw_log_2"].rstrip("\n")
+        assert msgs[1]["tags"] == ["forwarded", "test_tag"]
+
+    def test_failure_wrong_ssl_fingerprint(self) -> None:
+        ssl_assert_fingerprint = "22:F7:FB:84" ":1D:43:3E" ":E7:BB:F9" ":72:F3:D8:97:AD:7C:DD:CC:BB:AA"
+        os.environ["S3_CONFIG_FILE"] = _prepare_config_file(
+            self,
+            "config_ssl_auth.yaml",
+            dict(
+                CloudwatchLogStreamARN=self.cloudwatch_group_arn,
+                LogstashURL=self.logstash.get_url(ssl=True),
+                Username=USERNAME,
+                Password=PASSWORD,
+                SSLAssertFingerprint=ssl_assert_fingerprint,
+            ),
+            "folder/config2.yaml",
+        )
+
+        event_cloudwatch_logs, event_ids_cloudwatch_logs = _logs_retrieve_event_from_cloudwatch_logs(
+            self.logs_client, group_name=self.group_name, stream_name=self.stream_name
+        )
+
+        ctx = ContextMock(TIMEOUT_15m)
+        result = handler(event_cloudwatch_logs, ctx)  # type: ignore
+        assert result == "completed"
+
+        msgs = self.logstash.get_messages()
+        assert len(msgs) == 0
+
+        messages = _sqs_get_messages(self.sqs_client, os.environ["SQS_REPLAY_URL"])
+        assert len(messages) == 2
+
+        event1 = json_parser(messages[0]["Body"])
+        group_name = _class_based_id(self, suffix="source-group")
+        stream_name = _class_based_id(self, suffix="source-stream")
+        assert event1["event_payload"]["message"] == self.fixtures["cw_log_1"].rstrip("\n")
+        assert event1["event_payload"]["aws"]["cloudwatch"]["log_group"] == group_name
+        assert event1["event_payload"]["aws"]["cloudwatch"]["log_stream"] == stream_name
+        assert event1["event_payload"]["aws"]["cloudwatch"]["event_id"] == event_ids_cloudwatch_logs[0]
+        assert event1["event_payload"]["cloud"]["provider"] == "aws"
+        assert event1["event_payload"]["cloud"]["region"] == AWS_REGION
+        assert event1["event_payload"]["cloud"]["account"]["id"] == "000000000000"
+        assert event1["event_payload"]["log"]["offset"] == 0
+        assert event1["event_payload"]["log"]["file"]["path"] == f"{group_name}/{stream_name}"
+        assert event1["event_payload"]["message"] == self.fixtures["cw_log_1"].rstrip("\n")
+        assert event1["event_payload"]["tags"] == ["forwarded", "test_tag"]
+
+        event2 = json_parser(messages[1]["Body"])
+        assert event2["event_payload"]["message"] == self.fixtures["cw_log_2"].rstrip("\n")
+        assert event2["event_payload"]["aws"]["cloudwatch"]["log_group"] == group_name
+        assert event2["event_payload"]["aws"]["cloudwatch"]["log_stream"] == stream_name
+        assert event2["event_payload"]["aws"]["cloudwatch"]["event_id"] == event_ids_cloudwatch_logs[0]
+        assert event2["event_payload"]["cloud"]["provider"] == "aws"
+        assert event2["event_payload"]["cloud"]["region"] == AWS_REGION
+        assert event2["event_payload"]["cloud"]["account"]["id"] == "000000000000"
+        assert event2["event_payload"]["log"]["offset"] == 94
+        assert event2["event_payload"]["log"]["file"]["path"] == f"{group_name}/{stream_name}"
+        assert event2["event_payload"]["message"] == self.fixtures["cw_log_2"].rstrip("\n")
+        assert event2["event_payload"]["tags"] == ["forwarded", "test_tag"]
+
+    def test_failure_wrong_auth_creds(self) -> None:
+        ssl_assert_fingerprint = "22:F7:FB:84" ":1D:43:3E" ":E7:BB:F9" ":72:F3:D8:97:AD:7C:DD:CC:BB:AA"
+        os.environ["S3_CONFIG_FILE"] = _prepare_config_file(
+            self,
+            "config_ssl_auth.yaml",
+            dict(
+                CloudwatchLogStreamARN=self.cloudwatch_group_arn,
+                LogstashURL=self.logstash.get_url(ssl=True),
+                Username="wrong_username",
+                Password="wrong_password",
+                SSLAssertFingerprint=ssl_assert_fingerprint,
+            ),
+            "folder/config2.yaml",
+        )
+
+        event_cloudwatch_logs, event_ids_cloudwatch_logs = _logs_retrieve_event_from_cloudwatch_logs(
+            self.logs_client, group_name=self.group_name, stream_name=self.stream_name
+        )
+
+        ctx = ContextMock(TIMEOUT_15m)
+        result = handler(event_cloudwatch_logs, ctx)  # type: ignore
+        assert result == "completed"
+
+        msgs = self.logstash.get_messages()
+        assert len(msgs) == 0
+
+        messages = _sqs_get_messages(self.sqs_client, os.environ["SQS_REPLAY_URL"])
+        assert len(messages) == 2
+
+        event1 = json_parser(messages[0]["Body"])
+        group_name = _class_based_id(self, suffix="source-group")
+        stream_name = _class_based_id(self, suffix="source-stream")
+        assert event1["event_payload"]["message"] == self.fixtures["cw_log_1"].rstrip("\n")
+        assert event1["event_payload"]["aws"]["cloudwatch"]["log_group"] == group_name
+        assert event1["event_payload"]["aws"]["cloudwatch"]["log_stream"] == stream_name
+        assert event1["event_payload"]["aws"]["cloudwatch"]["event_id"] == event_ids_cloudwatch_logs[0]
+        assert event1["event_payload"]["cloud"]["provider"] == "aws"
+        assert event1["event_payload"]["cloud"]["region"] == AWS_REGION
+        assert event1["event_payload"]["cloud"]["account"]["id"] == "000000000000"
+        assert event1["event_payload"]["log"]["offset"] == 0
+        assert event1["event_payload"]["log"]["file"]["path"] == f"{group_name}/{stream_name}"
+        assert event1["event_payload"]["message"] == self.fixtures["cw_log_1"].rstrip("\n")
+        assert event1["event_payload"]["tags"] == ["forwarded", "test_tag"]
+
+        event2 = json_parser(messages[1]["Body"])
+        assert event2["event_payload"]["message"] == self.fixtures["cw_log_2"].rstrip("\n")
+        assert event2["event_payload"]["aws"]["cloudwatch"]["log_group"] == group_name
+        assert event2["event_payload"]["aws"]["cloudwatch"]["log_stream"] == stream_name
+        assert event2["event_payload"]["aws"]["cloudwatch"]["event_id"] == event_ids_cloudwatch_logs[0]
+        assert event2["event_payload"]["cloud"]["provider"] == "aws"
+        assert event2["event_payload"]["cloud"]["region"] == AWS_REGION
+        assert event2["event_payload"]["cloud"]["account"]["id"] == "000000000000"
+        assert event2["event_payload"]["log"]["offset"] == 94
+        assert event2["event_payload"]["log"]["file"]["path"] == f"{group_name}/{stream_name}"
+        assert event2["event_payload"]["message"] == self.fixtures["cw_log_2"].rstrip("\n")
+        assert event2["event_payload"]["tags"] == ["forwarded", "test_tag"]

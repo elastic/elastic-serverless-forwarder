@@ -10,8 +10,7 @@ from requests.adapters import HTTPAdapter
 from requests.exceptions import RequestException
 from urllib3.util.retry import Retry
 
-from share import json_dumper, shared_logger
-from share.events import normalise_event
+from share import json_dumper, normalise_event, shared_logger
 from shippers.shipper import EventIdGeneratorCallable, ReplayHandlerCallable
 
 _EVENT_SENT = "_EVENT_SENT"
@@ -98,7 +97,7 @@ class LogstashShipper:
         self._events_batch.append(event)
         if len(self._events_batch) < self._max_batch_size:
             return _EVENT_BUFFERED
-        self._send(self._logstash_url, self._events_batch, self._compression_level)
+        self._send()
         return _EVENT_SENT
 
     def set_event_id_generator(self, event_id_generator: EventIdGeneratorCallable) -> None:
@@ -109,16 +108,16 @@ class LogstashShipper:
 
     def flush(self) -> None:
         if len(self._events_batch) > 0:
-            self._send(self._logstash_url, self._events_batch, self._compression_level)
+            self._send()
         self._events_batch = []
         return
 
-    def _send(self, logstash_url: str, events: list[dict[str, Any]], compression_level: int) -> None:
-        ndjson = "\n".join(json_dumper(event) for event in events)
+    def _send(self) -> None:
+        ndjson = "\n".join(json_dumper(event) for event in self._events_batch)
         try:
             response = self._session.put(
-                logstash_url,
-                data=gzip.compress(ndjson.encode("utf-8"), compression_level),
+                self._logstash_url,
+                data=gzip.compress(ndjson.encode("utf-8"), self._compression_level),
                 headers={"Content-Encoding": "gzip", "Content-Type": "application/x-ndjson"},
                 timeout=_TIMEOUT,
             )
@@ -129,5 +128,5 @@ class LogstashShipper:
                 f"logstash shipper encountered an error while publishing events to logstash. Error: {str(e)}"
             )
             if self._replay_handler is not None:
-                for event in events:
+                for event in self._events_batch:
                     self._replay_handler("logstash", self._replay_args, event)

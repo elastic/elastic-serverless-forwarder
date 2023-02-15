@@ -3,12 +3,7 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 import datetime
 import gzip
-import http
-import http.server
-import os
-import ssl
-import threading
-from base64 import b64encode
+from copy import deepcopy
 from typing import Any
 from unittest import TestCase
 from unittest.mock import MagicMock
@@ -51,13 +46,37 @@ _dummy_event: dict[str, Any] = {
     "meta": {},
 }
 
-_username = "admin"
-_password = "password"
+_dummy_expected_event: dict[str, Any] = {
+    "@timestamp": _now,
+    "_id": "_id",
+    "message": "A dummy message",
+    "log": {
+        "offset": 10,
+        "file": {
+            "path": "https://bucket_name.s3.aws-region.amazonaws.com/file.key",
+        },
+    },
+    "aws": {
+        "s3": {
+            "bucket": {
+                "name": "arn:aws:s3:::bucket_name",
+                "arn": "bucket_name",
+            },
+            "object": {
+                "key": "file.key",
+            },
+        },
+    },
+    "cloud": {
+        "provider": "aws",
+        "region": "aws-region",
+    },
+    "tags": ["forwarded"],
+}
 
 
 def _dummy_replay_handler(output_type: str, output_args: dict[str, Any], event_payload: dict[str, Any]) -> None:
-    assert output_type == "logstash"
-    assert event_payload == _dummy_event
+    pass
 
 
 @pytest.mark.unit
@@ -75,7 +94,7 @@ class TestLogstashShipper(TestCase):
             for event in events:
                 _payload.append(ujson.loads(event))
 
-            expected_event = _dummy_event
+            expected_event = deepcopy(_dummy_expected_event)
             expected_event["_id"] = "_id"
             assert _payload == [expected_event, expected_event]
 
@@ -85,11 +104,12 @@ class TestLogstashShipper(TestCase):
             return "_id"
 
         url = "http://logstash_url"
+        event = deepcopy(_dummy_event)
         responses.add_callback(responses.PUT, url, callback=request_callback)
         logstash_shipper = LogstashShipper(logstash_url=url, max_batch_size=2)
         logstash_shipper.set_event_id_generator(event_id_generator)
-        logstash_shipper.send(_dummy_event)
-        logstash_shipper.send(_dummy_event)
+        logstash_shipper.send(event)
+        logstash_shipper.send(event)
 
     @responses.activate
     def test_send_failures(self) -> None:
@@ -99,8 +119,9 @@ class TestLogstashShipper(TestCase):
             responses.put(url=url, status=429)
             responses.put(url=url, status=429)
             responses.put(url=url, status=200)
+            event = deepcopy(_dummy_event)
             logstash_shipper = LogstashShipper(logstash_url=url)
-            assert logstash_shipper.send(_dummy_event) == _EVENT_SENT
+            assert logstash_shipper.send(event) == _EVENT_SENT
         with self.subTest("Exceeds max retries, replay handler set"):
             for i in range(_MAX_RETRIES):
                 responses.put(url=url, status=429)
@@ -108,78 +129,26 @@ class TestLogstashShipper(TestCase):
             logstash_shipper = LogstashShipper(logstash_url=url)
             replay_handler = MagicMock(side_effect=_dummy_replay_handler)
             logstash_shipper.set_replay_handler(replay_handler)
-            assert logstash_shipper.send(_dummy_event) == _EVENT_SENT
-            replay_handler.assert_called_once_with("logstash", {}, _dummy_event)
+            event = deepcopy(_dummy_event)
+            assert logstash_shipper.send(event) == _EVENT_SENT
+            replay_handler.assert_called_once_with("logstash", {}, event)
         with self.subTest("Exceeds max retries, replay handler not set"):
             for i in range(_MAX_RETRIES):
                 responses.put(url=url, status=429)
             responses.put(url=url, status=429)
             replay_handler = MagicMock(side_effect=_dummy_replay_handler)
             logstash_shipper = LogstashShipper(logstash_url=url)
-            assert logstash_shipper.send(_dummy_event) == _EVENT_SENT
+            event = deepcopy(_dummy_event)
+            assert logstash_shipper.send(event) == _EVENT_SENT
             replay_handler.assert_not_called()
         with self.subTest("Authentication error, request is not retried"):
             responses.put(url=url, status=401)
             logstash_shipper = LogstashShipper(logstash_url=url)
             replay_handler = MagicMock(side_effect=_dummy_replay_handler)
             logstash_shipper.set_replay_handler(replay_handler)
-            assert logstash_shipper.send(_dummy_event) == _EVENT_SENT
-            replay_handler.assert_called_once_with("logstash", {}, _dummy_event)
-
-    def test_send_https_ssl_fingerprint(self) -> None:
-        certpath = os.path.join(os.path.dirname(__file__), "ssl", "localhost.crt")
-        keypath = os.path.join(os.path.dirname(__file__), "ssl", "localhost.pkcs8.key")
-        server_address = ("localhost", 8080)
-        httpd = http.server.HTTPServer(server_address, http.server.SimpleHTTPRequestHandler)
-        httpd.socket = ssl.wrap_socket(
-            httpd.socket, server_side=True, certfile=certpath, keyfile=keypath, ssl_version=ssl.PROTOCOL_TLS
-        )
-        httpd_thread = threading.Thread(target=httpd.serve_forever)
-        httpd_thread.daemon = True
-        httpd_thread.start()
-        logstash_shipper = LogstashShipper(
-            logstash_url="https://localhost:8080",
-            ssl_assert_fingerprint="22:F7:FB:84" ":1D:43:3E" ":E7:BB:F9" ":72:F3:D8:97:AD:7C:86:E3:07:42",
-        )
-        replay_handler = MagicMock(side_effect=_dummy_replay_handler)
-        logstash_shipper.set_replay_handler(replay_handler)
-        assert logstash_shipper.send(_dummy_event) == _EVENT_SENT
-        replay_handler.assert_not_called()
-        httpd.shutdown()
-
-    @responses.activate
-    def test_send_basic_auth(self) -> None:
-        def request_callback(request: PreparedRequest) -> tuple[int, dict[Any, Any], str]:
-            _payload = []
-            usr_bytes = _username.encode("latin1")
-            pwd_bytes = _password.encode("latin1")
-            auth_string = b64encode(b":".join((usr_bytes, pwd_bytes))).decode("latin1")
-            assert request.headers["Content-Encoding"] == "gzip"
-            assert request.headers["Content-Type"] == "application/x-ndjson"
-            print(auth_string)
-            assert request.headers["Authorization"] == f"Basic {auth_string}"
-            assert request.body is not None
-            assert isinstance(request.body, bytes)
-
-            events = gzip.decompress(request.body).decode("utf-8").split("\n")
-            for event in events:
-                _payload.append(ujson.loads(event))
-
-            expected_event = _dummy_event
-            expected_event["_id"] = "_id"
-            assert _payload == [expected_event, expected_event]
-
-            return 200, {}, "okay"
-
-        def event_id_generator(event: dict[str, Any]) -> str:
-            return "_id"
-
-        url = "http://logstash_url"
-        responses.add_callback(responses.PUT, url, callback=request_callback)
-        logstash_shipper = LogstashShipper(logstash_url=url, max_batch_size=2, username=_username, password=_password)
-        logstash_shipper.set_event_id_generator(event_id_generator)
-        logstash_shipper.send(_dummy_event)
-        logstash_shipper.send(_dummy_event)
+            event = deepcopy(_dummy_event)
+            assert logstash_shipper.send(event) == _EVENT_SENT
+            replay_handler.assert_called_once_with("logstash", {}, event)
 
     @responses.activate
     def test_flush(self) -> None:
@@ -187,7 +156,8 @@ class TestLogstashShipper(TestCase):
         responses.put(url=url, status=200)
         responses.put(url=url, status=200)
         logstash_shipper = LogstashShipper(logstash_url=url, max_batch_size=2)
-        logstash_shipper.send(_dummy_event)
-        assert logstash_shipper._events_batch == [_dummy_event]
+        event = deepcopy(_dummy_event)
+        logstash_shipper.send(event)
+        assert logstash_shipper._events_batch == [event]
         logstash_shipper.flush()
         assert logstash_shipper._events_batch == []

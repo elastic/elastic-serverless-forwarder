@@ -15,12 +15,12 @@ from share import (
     IncludeExcludeFilter,
     IncludeExcludeRule,
     Input,
+    LogstashOutput,
     Output,
     PatternMultiline,
     WhileMultiline,
     parse_config,
 )
-from share.config import LogstashOutput
 
 
 class DummyOutput(Output):
