@@ -38,10 +38,14 @@ def strtobool(val: str) -> bool:
 
 
 def is_telemetry_enabled() -> bool:
-    try:
-        return strtobool(os.environ["TELEMETRY_ENABLED"])
-    except (KeyError, ValueError):  # TELEMETRY_ENABLED not in env dict
-        return False
+    """Check if telemetry is enabled."""
+    return strtobool(os.environ.get("TELEMETRY_ENABLED", "no"))
+
+
+def get_telemetry_endpoint() -> str:
+    """Get the telemetry endpoint."""
+    # falls back to staging if not set
+    return os.environ.get("TELEMETRY_ENDPOINT", "https://telemetry-staging.elastic.co/v3/send/esf")
 
 
 # -------------------------------------------------------
@@ -147,27 +151,29 @@ class InputSelectedEvent(CommonTelemetryEvent):
         return telemetry_data
 
 
+# -------------------------------------------------------
+# Event triggers
+# -------------------------------------------------------
 
 
-class InputHasOutputTypeEvent(CommonTelemetryEvent):
-    """Happens when an output is identified for the input"""
+def function_started_telemetry(ctx: FunctionContext) -> None:
+    """Triggers the `FunctionStartedEvent` telemetry event."""
+    if not is_telemetry_enabled():
+        return
 
-    def __init__(self, input_id: str, input_type: str, output_type: str) -> None:
-        self.input_id = input_id
-        self.input_type = input_type
-        self.output_type = output_type
-
-    def merge_with(self, telemetry_data: TelemetryData) -> TelemetryData:
-        """Merge the current event details with the telemetry data"""
-        telemetry_data.set_output_type_for_input(
-            input_id=self.input_id,
-            input_type=self.input_type,
-            output_type=self.output_type,
-        )
-
-        return telemetry_data
+    _telemetry_queue.put(FunctionStartedEvent(ctx))
 
 
+def input_selected_telemetry(_input: Input) -> None:
+    """Triggers the `InputSelectedEvent` telemetry event."""
+    if not is_telemetry_enabled():
+        return
+
+    telemetry_event = InputSelectedEvent(
+        _input.type,
+        _input.get_output_types(),
+    )
+    _telemetry_queue.put(telemetry_event)
 
 
 # -------------------------------------------------------
@@ -185,15 +191,12 @@ class TelemetryWorker(Thread):
         Thread.__init__(self)
         self.queue = queue
         self.telemetry_data = TelemetryData()
-        self.telemetry_endpoint = os.environ.get(
-            "TELEMETRY_ENDPOINT",
-            "https://telemetry-staging.elastic.co/v3/send/esf",  # fallback to staging
-        )
         self.telemetry_client: urllib3.PoolManager = urllib3.PoolManager(
             # @TODO: make connect/read timeouts customizable
             timeout=urllib3.Timeout(
-                connect=2.0,
-                read=2.0,
+                # connect=2.0,
+                # read=2.0,
+                total=2.0
             ),
             retries=False,  # we can't afford to retry on failure
         )
@@ -208,7 +211,6 @@ class TelemetryWorker(Thread):
             "cloud_provider": self.telemetry_data.cloud_provider,
             "cloud_region": self.telemetry_data.cloud_region,
             "memory_limit_in_mb": self.telemetry_data.memory_limit_in_mb,
-            # "start_time": self.telemetry_data.start_time,
         }
 
         if self.telemetry_data.input:
@@ -219,10 +221,11 @@ class TelemetryWorker(Thread):
             )
 
         try:
+            endpoint = get_telemetry_endpoint()
             encoded_data = json.dumps(telemetry_data).encode("utf-8")
             r = self.telemetry_client.request(  # type: ignore
                 "POST",
-                self.telemetry_endpoint,
+                endpoint,
                 body=encoded_data,
                 headers={
                     "X-Elastic-Cluster-ID": self.telemetry_data.function_id,
@@ -256,35 +259,39 @@ class TelemetryWorker(Thread):
 
 
 # -------------------------------------------------------
-# Module-scoped variables
+# Internal variables and functions
 # -------------------------------------------------------
 
-telemetry_queue: Queue[ProtocolTelemetryEvent] = Queue()
+
+def telemetry_init() -> None:
+    """Ensure the worker is started.
+    
+    If the worker is already exists, it is a no-op.
+    """
+    global _telemetry_worker
+
+    if _telemetry_worker is None:
+        _telemetry_worker = TelemetryWorker(_telemetry_queue)
+        # the worker dies when main thread (only non-daemon thread) exits.
+        _telemetry_worker.daemon = True
+        _telemetry_worker.start()
+
+# The queue is used to communicate between the main thread
+# and the worker thread.
+#
+# The main thread adds events to the queue and the worker
+# thread reads them.
+_telemetry_queue: Queue[ProtocolTelemetryEvent] = Queue()
+
+# Worker thread that sends the telemetry data to the telemetry
+# endpoint.
+_telemetry_worker: Optional[TelemetryWorker] = None
 
 if is_telemetry_enabled():
-    telemetry_worker = TelemetryWorker(telemetry_queue)
-    # the worker dies when main thread (only non-daemon thread) exits.
-    telemetry_worker.daemon = True
-    telemetry_worker.start()
-
-
-# -------------------------------------------------------
-# Event triggers
-# -------------------------------------------------------
-
-
-def function_started_telemetry(ctx: FunctionContext) -> None:
-    """Triggers the `FunctionStartedEvent` telemetry event."""
-    if not is_telemetry_enabled():
-        return
-
-    telemetry_queue.put(FunctionStartedEvent(ctx))
-
-
-
-
-#
-
-
-
-
+    # If telemetry is enabled when the module is loaded,
+    # we start the worker.
+    #
+    # You can also start the worker later by
+    # calling telemetry_init(), for example for
+    # testing purposes.
+    telemetry_init()

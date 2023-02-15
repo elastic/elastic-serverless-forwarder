@@ -25,7 +25,7 @@ from handlers.aws.exceptions import (
     TriggerTypeException,
 )
 from main_aws import handler
-from share import json_dumper, json_parser
+from share import Input, json_dumper, json_parser, telemetry_init
 
 from .utils import ContextMock
 
@@ -395,15 +395,16 @@ class TestTelemetry:
         "handlers.aws.utils._available_triggers",
         new={"aws:s3": "s3-sqs", "aws:sqs": "sqs", "aws:kinesis": "kinesis-data-stream", "dummy": "s3-sqs"},
     )
+    @mock.patch("share.telemetry.is_telemetry_enabled", lambda: True)
     def test_lambda_telemetry(self, httpserver: pytest_httpserver.HTTPServer, monkeypatch: pytest.MonkeyPatch) -> None:
         reload_handlers_aws_handler()
 
-        # Enable telemetry
-        monkeypatch.setenv("TELEMETRY_ENABLED", "yes")
+        # Make sure the telemetry worker is running.
+        telemetry_init()
 
         # The telemetry_endpoint variable is defined when the module is loaded,
         # so we need to patch this instead of the environment variable.
-        with mock.patch("share.telemetry.telemetry_worker.telemetry_endpoint", httpserver.url_for("/v3/send/esf")):
+        with mock.patch("share.telemetry.get_telemetry_endpoint", lambda: httpserver.url_for("/v3/send/esf")):
             # Set up the expectaction for the telemetry request
             # to the telemetry endpoint.
             httpserver.expect_oneshot_request(
