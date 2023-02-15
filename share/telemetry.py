@@ -192,12 +192,7 @@ class TelemetryWorker(Thread):
         self.queue = queue
         self.telemetry_data = TelemetryData()
         self.telemetry_client: urllib3.PoolManager = urllib3.PoolManager(
-            # @TODO: make connect/read timeouts customizable
-            timeout=urllib3.Timeout(
-                # connect=2.0,
-                # read=2.0,
-                total=2.0
-            ),
+            timeout=urllib3.Timeout(total=3.0),
             retries=False,  # we can't afford to retry on failure
         )
 
@@ -265,7 +260,7 @@ class TelemetryWorker(Thread):
 
 def telemetry_init() -> None:
     """Ensure the worker is started.
-    
+
     If the worker is already exists, it is a no-op.
     """
     global _telemetry_worker
@@ -275,6 +270,7 @@ def telemetry_init() -> None:
         # the worker dies when main thread (only non-daemon thread) exits.
         _telemetry_worker.daemon = True
         _telemetry_worker.start()
+
 
 # The queue is used to communicate between the main thread
 # and the worker thread.
