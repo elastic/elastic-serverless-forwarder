@@ -1,6 +1,7 @@
 ### v1.7.1 - 2023/02/16
 ##### Bug fixes
 * Fix wrong resolved `expand_event_list_from_field` with AWS CloudTrail due to race condition [#244](https://github.com/elastic/elastic-serverless-forwarder/pull/244)
+* Fix shipper cache to include output type in the key [#245](https://github.com/elastic/elastic-serverless-forwarder/pull/245)
 
 ### v1.7.0 - 2023/02/01
 ##### Features
