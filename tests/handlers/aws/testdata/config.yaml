@@ -1,0 +1,9 @@
+inputs:
+  - type: "cloudwatch-logs"
+    id: "$CloudwatchLogStreamARN"
+    tags:
+        - test_tag
+    outputs:
+      - type: "logstash"
+        args:
+          logstash_url: "$LogstashURL"

@@ -10,3 +10,6 @@ orjson>=3.8.6,<3.9
 pysimdjson>=5.0.2,<5.1
 python-rapidjson>=1.9,<1.10
 cysimdjson>=21.11,<21.12
+responses>=0.22.0
+testcontainers==3.7.0
+amazon-kclpy==2.0.6
