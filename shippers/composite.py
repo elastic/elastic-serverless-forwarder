@@ -41,20 +41,6 @@ class CompositeShipper:
         """
         self._shippers.append(shipper)
 
-    def set_integration_scope(self, integration_scope: str) -> None:
-        """
-        Integration Scope setter.
-        Set the integration scope to the composite
-        """
-        self._integration_scope = integration_scope
-
-    def get_integration_scope(self) -> str:
-        """
-        Integration Scope getter.
-        Get the integration scope of the composite
-        """
-        return self._integration_scope
-
     def set_event_id_generator(self, event_id_generator: EventIdGeneratorCallable) -> None:
         for shipper in self._shippers:
             shipper.set_event_id_generator(event_id_generator=event_id_generator)

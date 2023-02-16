@@ -214,12 +214,6 @@ class Input:
 
         self._valid_json_content_type: list[str] = ["ndjson", "single", "disabled"]
 
-    def discover_integration_scope(self, lambda_event: dict[str, Any], at_record: int) -> str:
-        if self._integration_scope_discoverer is None:
-            return ""
-
-        return self._integration_scope_discoverer(lambda_event, at_record)
-
     @property
     def type(self) -> str:
         return self._type
@@ -386,11 +380,7 @@ class Config:
         self._inputs[new_input.id] = new_input
 
 
-def parse_config(
-    config_yaml: str,
-    expanders: list[Callable[[str], str]] = [],
-    integration_scope_discoverer: Optional[IntegrationScopeDiscovererCallable] = None,
-) -> Config:
+def parse_config(config_yaml: str, expanders: list[Callable[[str], str]] = []) -> Config:
     """
     Config component factory
     Given a config yaml as string it return the Config instance as defined by the yaml
@@ -415,11 +405,7 @@ def parse_config(
             raise ValueError(f'`type` must be provided as string for input {input_config["id"]}')
 
         try:
-            current_input: Input = Input(
-                input_type=input_config["type"],
-                input_id=input_config["id"],
-                integration_scope_discoverer=integration_scope_discoverer,
-            )
+            current_input: Input = Input(input_type=input_config["type"], input_id=input_config["id"])
         except ValueError as e:
             raise ValueError(f'An error occurred while applying type configuration for input {input_config["id"]}: {e}')
 
