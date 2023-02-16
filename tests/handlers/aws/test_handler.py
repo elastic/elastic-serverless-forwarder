@@ -3094,7 +3094,9 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
 
         ctx = ContextMock(remaining_time_in_millis=2)
 
-        _s3_event_to_sqs_message(queue_attributes=self._queues_info["source-queue"], filenames=[filename_digest, filename_non_digest])
+        _s3_event_to_sqs_message(
+            queue_attributes=self._queues_info["source-queue"], filenames=[filename_digest, filename_non_digest]
+        )
         event, _ = _event_from_sqs_message(queue_attributes=self._queues_info["source-queue"])
 
         first_call = handler(event, ctx)  # type:ignore
@@ -3105,7 +3107,13 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
 
         res = self._es_client.search(
             index="logs-aws.cloudtrail-default",
-            query={"bool": {"must_not": {"ids": {"values": [f"{prefix_s3_digest}-000000000000", f"{prefix_s3_digest}-000000000345"]}}}},
+            query={
+                "bool": {
+                    "must_not": {
+                        "ids": {"values": [f"{prefix_s3_digest}-000000000000", f"{prefix_s3_digest}-000000000345"]}
+                    }
+                }
+            },
             sort="_seq_no",
         )
         assert res["hits"]["total"] == {"value": 6, "relation": "eq"}
@@ -3244,7 +3252,9 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         # Remove the expected ids so that they can be replayed
         self._es_client.delete_by_query(
             index="logs-aws.cloudtrail-default",
-            body={"query": {"ids": {"values": [f"{prefix_s3_digest}-000000000000", f"{prefix_s3_digest}-000000000345"]}}},
+            body={
+                "query": {"ids": {"values": [f"{prefix_s3_digest}-000000000000", f"{prefix_s3_digest}-000000000345"]}}
+            },
         )
         self._es_client.indices.refresh(index="logs-aws.cloudtrail-default")
 
@@ -3315,7 +3325,9 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         )
 
         ctx = ContextMock()
-        _s3_event_to_sqs_message(queue_attributes=self._queues_info["source-queue"], filenames=[filename_digest, filename_non_digest])
+        _s3_event_to_sqs_message(
+            queue_attributes=self._queues_info["source-queue"], filenames=[filename_digest, filename_non_digest]
+        )
         event, _ = _event_from_sqs_message(queue_attributes=self._queues_info["source-queue"])
 
         first_call = handler(event, ctx)  # type:ignore
