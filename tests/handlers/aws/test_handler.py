@@ -3061,35 +3061,40 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
 
     @mock.patch("handlers.aws.handler._completion_grace_period", 1)
     def test_lambda_handler_replay(self) -> None:
-        filename: str = (
+        filename_digest: str = (
             "AWSLogs/aws-account-id/CloudTrail-Digest/region/yyyy/mm/dd/"
             "aws-account-id_CloudTrail-Digest_region_end-time_random-string.log.gz"
+        )
+
+        filename_non_digest: str = (
+            "AWSLogs/aws-account-id/CloudTrail/region/yyyy/mm/dd/"
+            "aws-account-id_CloudTrail_region_end-time_random-string.log.gz"
         )
 
         event_time = int(
             datetime.datetime.strptime("2021-09-08T18:34:25.042Z", "%Y-%m-%dT%H:%M:%S.%fZ").timestamp() * 1000
         )
 
-        hash_s3 = _get_hex_prefix(f"arn:aws:s3:::test-bucket-{filename}")
-        prefix_s3: str = f"{event_time}-{hash_s3}"
+        hash_s3_digest = _get_hex_prefix(f"arn:aws:s3:::test-bucket-{filename_digest}")
+        prefix_s3_digest: str = f"{event_time}-{hash_s3_digest}"
         # Create an expected id so that es.send will fail
         self._es_client.index(
             index="logs-aws.cloudtrail-default",
             op_type="create",
-            id=f"{prefix_s3}-000000000000",
+            id=f"{prefix_s3_digest}-000000000000",
             document={"@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
         )
         self._es_client.index(
             index="logs-aws.cloudtrail-default",
             op_type="create",
-            id=f"{prefix_s3}-000000000345",
+            id=f"{prefix_s3_digest}-000000000345",
             document={"@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
         )
         self._es_client.indices.refresh(index="logs-aws.cloudtrail-default")
 
         ctx = ContextMock(remaining_time_in_millis=2)
 
-        _s3_event_to_sqs_message(queue_attributes=self._queues_info["source-queue"], filenames=[filename])
+        _s3_event_to_sqs_message(queue_attributes=self._queues_info["source-queue"], filenames=[filename_digest, filename_non_digest])
         event, _ = _event_from_sqs_message(queue_attributes=self._queues_info["source-queue"])
 
         first_call = handler(event, ctx)  # type:ignore
@@ -3100,9 +3105,10 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
 
         res = self._es_client.search(
             index="logs-aws.cloudtrail-default",
-            query={"ids": {"values": [f"{prefix_s3}-000000000113", f"{prefix_s3}-000000000279"]}},
+            query={"bool": {"must_not": {"ids": {"values": [f"{prefix_s3_digest}-000000000000", f"{prefix_s3_digest}-000000000345"]}}}},
+            sort="_seq_no",
         )
-        assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
+        assert res["hits"]["total"] == {"value": 6, "relation": "eq"}
 
         assert (
             res["hits"]["hits"][0]["_source"]["message"]
@@ -3112,12 +3118,12 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
 
         assert res["hits"]["hits"][0]["_source"]["log"] == {
             "offset": 113,
-            "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
+            "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename_digest}"},
         }
         assert res["hits"]["hits"][0]["_source"]["aws"] == {
             "s3": {
                 "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
-                "object": {"key": f"{filename}"},
+                "object": {"key": f"{filename_digest}"},
             }
         }
         assert res["hits"]["hits"][0]["_source"]["cloud"] == {
@@ -3135,12 +3141,12 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
 
         assert res["hits"]["hits"][1]["_source"]["log"] == {
             "offset": 279,
-            "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
+            "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename_digest}"},
         }
         assert res["hits"]["hits"][1]["_source"]["aws"] == {
             "s3": {
                 "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
-                "object": {"key": f"{filename}"},
+                "object": {"key": f"{filename_digest}"},
             },
         }
         assert res["hits"]["hits"][1]["_source"]["cloud"] == {
@@ -3151,6 +3157,86 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
 
         assert res["hits"]["hits"][1]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
 
+        assert res["hits"]["hits"][2]["_source"]["message"] == json_dumper(json_parser(self._first_cloudtrail_record))
+
+        assert res["hits"]["hits"][2]["_source"]["log"] == {
+            "offset": 0,
+            "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename_non_digest}"},
+        }
+        assert res["hits"]["hits"][2]["_source"]["aws"] == {
+            "s3": {
+                "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
+                "object": {"key": f"{filename_non_digest}"},
+            }
+        }
+        assert res["hits"]["hits"][2]["_source"]["cloud"] == {
+            "account": {"id": "000000000000"},
+            "provider": "aws",
+            "region": "eu-central-1",
+        }
+
+        assert res["hits"]["hits"][2]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
+
+        assert res["hits"]["hits"][3]["_source"]["message"] == json_dumper(json_parser(self._second_cloudtrail_record))
+
+        assert res["hits"]["hits"][3]["_source"]["log"] == {
+            "offset": 837,
+            "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename_non_digest}"},
+        }
+        assert res["hits"]["hits"][3]["_source"]["aws"] == {
+            "s3": {
+                "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
+                "object": {"key": f"{filename_non_digest}"},
+            }
+        }
+        assert res["hits"]["hits"][3]["_source"]["cloud"] == {
+            "account": {"id": "000000000000"},
+            "provider": "aws",
+            "region": "eu-central-1",
+        }
+
+        assert res["hits"]["hits"][3]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
+
+        assert res["hits"]["hits"][4]["_source"]["message"] == json_dumper(json_parser(self._third_cloudtrail_record))
+
+        assert res["hits"]["hits"][4]["_source"]["log"] == {
+            "offset": 1674,
+            "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename_non_digest}"},
+        }
+        assert res["hits"]["hits"][4]["_source"]["aws"] == {
+            "s3": {
+                "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
+                "object": {"key": f"{filename_non_digest}"},
+            }
+        }
+        assert res["hits"]["hits"][4]["_source"]["cloud"] == {
+            "account": {"id": "000000000000"},
+            "provider": "aws",
+            "region": "eu-central-1",
+        }
+
+        assert res["hits"]["hits"][4]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
+
+        assert res["hits"]["hits"][5]["_source"]["message"] == json_dumper(json_parser(self._fifth_cloudtrail_record))
+
+        assert res["hits"]["hits"][5]["_source"]["log"] == {
+            "offset": 4325,
+            "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename_non_digest}"},
+        }
+        assert res["hits"]["hits"][5]["_source"]["aws"] == {
+            "s3": {
+                "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
+                "object": {"key": f"{filename_non_digest}"},
+            }
+        }
+        assert res["hits"]["hits"][5]["_source"]["cloud"] == {
+            "account": {"id": "000000000000"},
+            "provider": "aws",
+            "region": "eu-central-1",
+        }
+
+        assert res["hits"]["hits"][5]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
+
         event, _ = _event_from_sqs_message(queue_attributes=self._replay_queue_info)
         with self.assertRaises(ReplayHandlerException):
             handler(event, ctx)  # type:ignore
@@ -3158,7 +3244,7 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         # Remove the expected ids so that they can be replayed
         self._es_client.delete_by_query(
             index="logs-aws.cloudtrail-default",
-            body={"query": {"ids": {"values": [f"{prefix_s3}-000000000000", f"{prefix_s3}-000000000345"]}}},
+            body={"query": {"ids": {"values": [f"{prefix_s3_digest}-000000000000", f"{prefix_s3_digest}-000000000345"]}}},
         )
         self._es_client.indices.refresh(index="logs-aws.cloudtrail-default")
 
@@ -3170,61 +3256,66 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         assert third_call == "replayed"
 
         self._es_client.indices.refresh(index="logs-aws.cloudtrail-default")
-        assert self._es_client.count(index="logs-aws.cloudtrail-default")["count"] == 4
+        assert self._es_client.count(index="logs-aws.cloudtrail-default")["count"] == 8
 
         res = self._es_client.search(index="logs-aws.cloudtrail-default", sort="_seq_no")
-        assert res["hits"]["total"] == {"value": 4, "relation": "eq"}
+        assert res["hits"]["total"] == {"value": 8, "relation": "eq"}
         assert (
-            res["hits"]["hits"][2]["_source"]["message"]
+            res["hits"]["hits"][6]["_source"]["message"]
             == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}'
         )
 
-        assert res["hits"]["hits"][2]["_source"]["log"] == {
+        assert res["hits"]["hits"][6]["_source"]["log"] == {
             "offset": 0,
-            "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
+            "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename_digest}"},
         }
-        assert res["hits"]["hits"][2]["_source"]["aws"] == {
+        assert res["hits"]["hits"][6]["_source"]["aws"] == {
             "s3": {
                 "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
-                "object": {"key": f"{filename}"},
+                "object": {"key": f"{filename_digest}"},
             }
         }
-        assert res["hits"]["hits"][2]["_source"]["cloud"] == {
+        assert res["hits"]["hits"][6]["_source"]["cloud"] == {
             "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "eu-central-1",
         }
 
-        assert res["hits"]["hits"][2]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
+        assert res["hits"]["hits"][6]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
 
-        assert res["hits"]["hits"][3]["_source"]["message"] == '{"replayed": "as well"}'
+        assert res["hits"]["hits"][7]["_source"]["message"] == '{"replayed": "as well"}'
 
-        assert res["hits"]["hits"][3]["_source"]["log"] == {
+        assert res["hits"]["hits"][7]["_source"]["log"] == {
             "offset": 345,
-            "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
+            "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename_digest}"},
         }
-        assert res["hits"]["hits"][2]["_source"]["aws"] == {
+        assert res["hits"]["hits"][7]["_source"]["aws"] == {
             "s3": {
                 "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
-                "object": {"key": f"{filename}"},
+                "object": {"key": f"{filename_digest}"},
             }
         }
-        assert res["hits"]["hits"][3]["_source"]["cloud"] == {
+        assert res["hits"]["hits"][7]["_source"]["cloud"] == {
             "account": {"id": "000000000000"},
             "provider": "aws",
             "region": "eu-central-1",
         }
 
-        assert res["hits"]["hits"][3]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
+        assert res["hits"]["hits"][7]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
 
     def test_lambda_handler_continuing(self) -> None:
-        filename: str = (
+        filename_digest: str = (
+            "AWSLogs/aws-account-id/CloudTrail-Digest/region/yyyy/mm/dd/"
+            "aws-account-id_CloudTrail-Digest_region_end-time_random-string.log.gz"
+        )
+
+        filename_non_digest: str = (
             "AWSLogs/aws-account-id/CloudTrail/region/yyyy/mm/dd/"
             "aws-account-id_CloudTrail_region_end-time_random-string.log.gz"
         )
 
         ctx = ContextMock()
-        _s3_event_to_sqs_message(queue_attributes=self._queues_info["source-queue"], filenames=[filename])
+        _s3_event_to_sqs_message(queue_attributes=self._queues_info["source-queue"], filenames=[filename_digest, filename_non_digest])
         event, _ = _event_from_sqs_message(queue_attributes=self._queues_info["source-queue"])
 
         first_call = handler(event, ctx)  # type:ignore
@@ -3237,16 +3328,19 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         res = self._es_client.search(index="logs-aws.cloudtrail-default", sort="_seq_no")
         assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
 
-        assert res["hits"]["hits"][0]["_source"]["message"] == json_dumper(json_parser(self._first_cloudtrail_record))
+        assert (
+            res["hits"]["hits"][0]["_source"]["message"]
+            == '{"@timestamp": "2021-12-28T11:33:08.160Z", "log.level": "info", "message": "trigger"}'
+        )
 
         assert res["hits"]["hits"][0]["_source"]["log"] == {
             "offset": 0,
-            "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
+            "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename_digest}"},
         }
         assert res["hits"]["hits"][0]["_source"]["aws"] == {
             "s3": {
                 "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
-                "object": {"key": f"{filename}"},
+                "object": {"key": f"{filename_digest}"},
             }
         }
         assert res["hits"]["hits"][0]["_source"]["cloud"] == {
@@ -3255,12 +3349,28 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
             "region": "eu-central-1",
         }
 
-        assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
-
         event, _ = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
         second_call = handler(event, ctx)  # type:ignore
 
         assert second_call == "continuing"
+
+        self._es_client.indices.refresh(index="logs-aws.cloudtrail-default")
+        # count does not change, message was empty
+        assert self._es_client.count(index="logs-aws.cloudtrail-default")["count"] == 1
+
+        event, _ = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        third_call = handler(event, ctx)  # type:ignore
+
+        assert third_call == "continuing"
+
+        self._es_client.indices.refresh(index="logs-aws.cloudtrail-default")
+        # count does not change, message was filtered
+        assert self._es_client.count(index="logs-aws.cloudtrail-default")["count"] == 1
+
+        event, _ = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        fourth_call = handler(event, ctx)  # type:ignore
+
+        assert fourth_call == "continuing"
 
         self._es_client.indices.refresh(index="logs-aws.cloudtrail-default")
         assert self._es_client.count(index="logs-aws.cloudtrail-default")["count"] == 2
@@ -3268,16 +3378,20 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         res = self._es_client.search(index="logs-aws.cloudtrail-default", sort="_seq_no")
         assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
 
-        assert res["hits"]["hits"][1]["_source"]["message"] == json_dumper(json_parser(self._second_cloudtrail_record))
+        assert (
+            res["hits"]["hits"][1]["_source"]["message"]
+            == '{"ecs": {"version": "1.6.0"}, "log": {"logger": "root", "origin": {"file": {"line": 30, "name": '
+            '"handler.py"}, "function": "lambda_handler"}, "original": "trigger"}}'
+        )
 
         assert res["hits"]["hits"][1]["_source"]["log"] == {
-            "offset": 837,
-            "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
+            "offset": 113,
+            "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename_digest}"},
         }
         assert res["hits"]["hits"][1]["_source"]["aws"] == {
             "s3": {
                 "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
-                "object": {"key": f"{filename}"},
+                "object": {"key": f"{filename_digest}"},
             }
         }
         assert res["hits"]["hits"][1]["_source"]["cloud"] == {
@@ -3289,9 +3403,9 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         assert res["hits"]["hits"][1]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
 
         event, _ = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
-        third_call = handler(event, ctx)  # type:ignore
+        fifth_call = handler(event, ctx)  # type:ignore
 
-        assert third_call == "continuing"
+        assert fifth_call == "continuing"
 
         self._es_client.indices.refresh(index="logs-aws.cloudtrail-default")
         assert self._es_client.count(index="logs-aws.cloudtrail-default")["count"] == 3
@@ -3299,17 +3413,20 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         res = self._es_client.search(index="logs-aws.cloudtrail-default", sort="_seq_no")
         assert res["hits"]["total"] == {"value": 3, "relation": "eq"}
 
-        assert res["hits"]["hits"][2]["_source"]["message"] == json_dumper(json_parser(self._third_cloudtrail_record))
+        assert (
+            res["hits"]["hits"][2]["_source"]["message"]
+            == '{"another": "continuation", "from": "the", "continuing": "queue"}'
+        )
 
         assert res["hits"]["hits"][2]["_source"]["log"] == {
-            "offset": 1674,
-            "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
+            "offset": 279,
+            "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename_digest}"},
         }
         assert res["hits"]["hits"][2]["_source"]["aws"] == {
             "s3": {
                 "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
-                "object": {"key": f"{filename}"},
-            }
+                "object": {"key": f"{filename_digest}"},
+            },
         }
         assert res["hits"]["hits"][2]["_source"]["cloud"] == {
             "account": {"id": "000000000000"},
@@ -3320,17 +3437,9 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         assert res["hits"]["hits"][2]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
 
         event, _ = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
-        fourth_call = handler(event, ctx)  # type:ignore
+        sixth_call = handler(event, ctx)  # type:ignore
 
-        self._es_client.indices.refresh(index="logs-aws.cloudtrail-default")
-        assert self._es_client.count(index="logs-aws.cloudtrail-default")["count"] == 3
-
-        assert fourth_call == "continuing"
-
-        event, _ = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
-        fifth_call = handler(event, ctx)  # type:ignore
-
-        assert fifth_call == "continuing"
+        assert sixth_call == "continuing"
 
         self._es_client.indices.refresh(index="logs-aws.cloudtrail-default")
         assert self._es_client.count(index="logs-aws.cloudtrail-default")["count"] == 4
@@ -3338,16 +3447,16 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         res = self._es_client.search(index="logs-aws.cloudtrail-default", sort="_seq_no")
         assert res["hits"]["total"] == {"value": 4, "relation": "eq"}
 
-        assert res["hits"]["hits"][3]["_source"]["message"] == json_dumper(json_parser(self._fifth_cloudtrail_record))
+        assert res["hits"]["hits"][3]["_source"]["message"] == '{"replayed": "as well"}'
 
         assert res["hits"]["hits"][3]["_source"]["log"] == {
-            "offset": 4325,
-            "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename}"},
+            "offset": 345,
+            "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename_digest}"},
         }
         assert res["hits"]["hits"][3]["_source"]["aws"] == {
             "s3": {
                 "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
-                "object": {"key": f"{filename}"},
+                "object": {"key": f"{filename_digest}"},
             }
         }
         assert res["hits"]["hits"][3]["_source"]["cloud"] == {
@@ -3359,12 +3468,145 @@ class TestLambdaHandlerSuccessS3SQS(IntegrationTestCase):
         assert res["hits"]["hits"][3]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
 
         event, _ = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
-        sixth_call = handler(event, ctx)  # type:ignore
+        seventh_call = handler(event, ctx)  # type:ignore
 
-        assert sixth_call == "completed"
+        assert seventh_call == "continuing"
 
         self._es_client.indices.refresh(index="logs-aws.cloudtrail-default")
-        assert self._es_client.count(index="logs-aws.cloudtrail-default")["count"] == 4
+        assert self._es_client.count(index="logs-aws.cloudtrail-default")["count"] == 5
+
+        res = self._es_client.search(index="logs-aws.cloudtrail-default", sort="_seq_no")
+        assert res["hits"]["total"] == {"value": 5, "relation": "eq"}
+
+        assert res["hits"]["hits"][4]["_source"]["message"] == json_dumper(json_parser(self._first_cloudtrail_record))
+
+        assert res["hits"]["hits"][4]["_source"]["log"] == {
+            "offset": 0,
+            "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename_non_digest}"},
+        }
+        assert res["hits"]["hits"][4]["_source"]["aws"] == {
+            "s3": {
+                "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
+                "object": {"key": f"{filename_non_digest}"},
+            }
+        }
+        assert res["hits"]["hits"][4]["_source"]["cloud"] == {
+            "account": {"id": "000000000000"},
+            "provider": "aws",
+            "region": "eu-central-1",
+        }
+
+        assert res["hits"]["hits"][4]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
+
+        event, _ = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        eighth_call = handler(event, ctx)  # type:ignore
+
+        assert eighth_call == "continuing"
+
+        self._es_client.indices.refresh(index="logs-aws.cloudtrail-default")
+        assert self._es_client.count(index="logs-aws.cloudtrail-default")["count"] == 6
+
+        res = self._es_client.search(index="logs-aws.cloudtrail-default", sort="_seq_no")
+        assert res["hits"]["total"] == {"value": 6, "relation": "eq"}
+
+        assert res["hits"]["hits"][5]["_source"]["message"] == json_dumper(json_parser(self._second_cloudtrail_record))
+
+        assert res["hits"]["hits"][5]["_source"]["log"] == {
+            "offset": 837,
+            "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename_non_digest}"},
+        }
+        assert res["hits"]["hits"][5]["_source"]["aws"] == {
+            "s3": {
+                "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
+                "object": {"key": f"{filename_non_digest}"},
+            }
+        }
+        assert res["hits"]["hits"][5]["_source"]["cloud"] == {
+            "account": {"id": "000000000000"},
+            "provider": "aws",
+            "region": "eu-central-1",
+        }
+
+        assert res["hits"]["hits"][5]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
+
+        event, _ = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        ninth_call = handler(event, ctx)  # type:ignore
+
+        assert ninth_call == "continuing"
+
+        self._es_client.indices.refresh(index="logs-aws.cloudtrail-default")
+        assert self._es_client.count(index="logs-aws.cloudtrail-default")["count"] == 7
+
+        res = self._es_client.search(index="logs-aws.cloudtrail-default", sort="_seq_no")
+        assert res["hits"]["total"] == {"value": 7, "relation": "eq"}
+
+        assert res["hits"]["hits"][6]["_source"]["message"] == json_dumper(json_parser(self._third_cloudtrail_record))
+
+        assert res["hits"]["hits"][6]["_source"]["log"] == {
+            "offset": 1674,
+            "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename_non_digest}"},
+        }
+        assert res["hits"]["hits"][6]["_source"]["aws"] == {
+            "s3": {
+                "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
+                "object": {"key": f"{filename_non_digest}"},
+            }
+        }
+        assert res["hits"]["hits"][6]["_source"]["cloud"] == {
+            "account": {"id": "000000000000"},
+            "provider": "aws",
+            "region": "eu-central-1",
+        }
+
+        assert res["hits"]["hits"][6]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
+
+        event, _ = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        tenth_call = handler(event, ctx)  # type:ignore
+
+        assert tenth_call == "continuing"
+
+        self._es_client.indices.refresh(index="logs-aws.cloudtrail-default")
+        # count does not change, message was filtered
+        assert self._es_client.count(index="logs-aws.cloudtrail-default")["count"] == 7
+
+        event, _ = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        eleventh_call = handler(event, ctx)  # type:ignore
+
+        assert eleventh_call == "continuing"
+
+        self._es_client.indices.refresh(index="logs-aws.cloudtrail-default")
+        assert self._es_client.count(index="logs-aws.cloudtrail-default")["count"] == 8
+
+        res = self._es_client.search(index="logs-aws.cloudtrail-default", sort="_seq_no")
+        assert res["hits"]["total"] == {"value": 8, "relation": "eq"}
+
+        assert res["hits"]["hits"][7]["_source"]["message"] == json_dumper(json_parser(self._fifth_cloudtrail_record))
+
+        assert res["hits"]["hits"][7]["_source"]["log"] == {
+            "offset": 4325,
+            "file": {"path": f"https://test-bucket.s3.eu-central-1.amazonaws.com/{filename_non_digest}"},
+        }
+        assert res["hits"]["hits"][7]["_source"]["aws"] == {
+            "s3": {
+                "bucket": {"name": "test-bucket", "arn": "arn:aws:s3:::test-bucket"},
+                "object": {"key": f"{filename_non_digest}"},
+            }
+        }
+        assert res["hits"]["hits"][7]["_source"]["cloud"] == {
+            "account": {"id": "000000000000"},
+            "provider": "aws",
+            "region": "eu-central-1",
+        }
+
+        assert res["hits"]["hits"][7]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
+
+        event, _ = _event_from_sqs_message(queue_attributes=self._continuing_queue_info)
+        twelfth_call = handler(event, ctx)  # type:ignore
+
+        assert twelfth_call == "completed"
+
+        self._es_client.indices.refresh(index="logs-aws.cloudtrail-default")
+        assert self._es_client.count(index="logs-aws.cloudtrail-default")["count"] == 8
 
 
 @pytest.mark.integration
