@@ -2,6 +2,7 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
+
 import random
 import string
 from datetime import datetime
@@ -10,7 +11,15 @@ from unittest import TestCase
 
 import pytest
 
-from handlers.aws.utils import cloudwatch_logs_object_id, kinesis_record_id, s3_object_id, sqs_object_id
+from handlers.aws.utils import (
+    cloudwatch_logs_object_id,
+    get_shipper_from_input,
+    kinesis_record_id,
+    s3_object_id,
+    sqs_object_id,
+)
+from share import parse_config
+from shippers.logstash import LogstashShipper
 
 # Elasticsearch _id constraints
 MAX_ES_ID_SIZ_BYTES = 512
@@ -59,6 +68,46 @@ def _get_random_digit_string_of_size(size: int) -> str:
 
 @pytest.mark.unit
 class TestUtils(TestCase):
+    def test_get_shipper_from_input(self) -> None:
+        with self.subTest("Logstash shipper from Kinesis input"):
+            config_yaml_kinesis: str = """
+                                inputs:
+                                  - type: kinesis-data-stream
+                                    id: arn:aws:kinesis:eu-central-1:123456789:stream/test-esf-kinesis-stream
+                                    outputs:
+                                        - type: logstash
+                                          args:
+                                            logstash_url: logstash_url
+                            """
+            config = parse_config(config_yaml_kinesis)
+            event_input = config.get_input_by_id(
+                "arn:aws:kinesis:eu-central-1:123456789:stream/test-esf-kinesis-stream"
+            )
+            assert event_input is not None
+            shipper = get_shipper_from_input(
+                event_input=event_input, lambda_event={}, at_record=0, config_yaml=config_yaml_kinesis
+            )
+            assert len(shipper._shippers) == 1
+            assert isinstance(shipper._shippers[0], LogstashShipper)
+        with self.subTest("Logstash shipper from Cloudwatch logs input"):
+            config_yaml_cw: str = """
+                                inputs:
+                                  - type: cloudwatch-logs
+                                    id: arn:aws:logs:eu-central-1:123456789:stream/test-cw-logs
+                                    outputs:
+                                        - type: logstash
+                                          args:
+                                            logstash_url: logstash_url
+                            """
+            config = parse_config(config_yaml_cw)
+            event_input = config.get_input_by_id("arn:aws:logs:eu-central-1:123456789:stream/test-cw-logs")
+            assert event_input is not None
+            shipper = get_shipper_from_input(
+                event_input=event_input, lambda_event={}, at_record=0, config_yaml=config_yaml_cw
+            )
+            assert len(shipper._shippers) == 1
+            assert isinstance(shipper._shippers[0], LogstashShipper)
+
     def test_kinesis_id_less_than_512bytes(self) -> None:
         stream_name: str = _get_random_string_of_size(MAX_STREAM_NAME_CHARS)
         partition_key: str = _get_random_string_of_size(MAX_PARTITION_KEY_CHARS)

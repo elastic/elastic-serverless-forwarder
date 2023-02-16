@@ -12,7 +12,7 @@ from .logger import logger as shared_logger
 from .multiline import ProtocolMultiline
 
 _available_input_types: list[str] = ["cloudwatch-logs", "s3-sqs", "sqs", "kinesis-data-stream"]
-_available_output_types: list[str] = ["elasticsearch"]
+_available_output_types: list[str] = ["elasticsearch", "logstash"]
 
 IntegrationScopeDiscovererCallable = Callable[[dict[str, Any], int], str]
 
@@ -188,6 +188,97 @@ class ElasticsearchOutput(Output):
         self._ssl_assert_fingerprint = value
 
 
+class LogstashOutput(Output):
+    def __init__(
+        self,
+        logstash_url: str = "",
+        username: str = "",
+        password: str = "",
+        max_batch_size: int = 500,
+        compression_level: int = 9,
+        tags: list[str] = [],
+        ssl_assert_fingerprint: str = "",
+    ) -> None:
+        super().__init__(output_type="logstash")
+        self.logstash_url = logstash_url
+        self.username = username
+        self.password = password
+        self.max_batch_size = max_batch_size
+        self.compression_level = compression_level
+        self.tags = tags
+        self.ssl_assert_fingerprint = ssl_assert_fingerprint
+
+        if self.username and not self.password:
+            raise ValueError("`password` must be set when using `username`")
+        shared_logger.debug("tags: ", extra={"tags": self.tags})
+
+    @property
+    def logstash_url(self) -> str:
+        return self._logstash_url
+
+    @logstash_url.setter
+    def logstash_url(self, value: str) -> None:
+        if not isinstance(value, str):
+            raise ValueError("`logstash_url` must be provided as string")
+
+        self._logstash_url = value
+
+    @property
+    def username(self) -> str:
+        return self._username
+
+    @username.setter
+    def username(self, value: str) -> None:
+        if not isinstance(value, str):
+            raise ValueError("`username` must be provided as string")
+
+        self._username = value
+
+    @property
+    def password(self) -> str:
+        return self._password
+
+    @password.setter
+    def password(self, value: str) -> None:
+        if not isinstance(value, str):
+            raise ValueError("`password` must be provided as string")
+
+        self._password = value
+
+    @property
+    def max_batch_size(self) -> int:
+        return self._max_batch_size
+
+    @max_batch_size.setter
+    def max_batch_size(self, value: int) -> None:
+        if not isinstance(value, int):
+            raise ValueError("`max_batch_size` must be provided as int")
+
+        self._max_batch_size = value
+
+    @property
+    def compression_level(self) -> int:
+        return self._compression_level
+
+    @compression_level.setter
+    def compression_level(self, value: int) -> None:
+        if not isinstance(value, int):
+            raise ValueError("`compression_level` must be provided as int")
+
+        self._compression_level = value
+
+    @property
+    def ssl_assert_fingerprint(self) -> str:
+        return self._ssl_assert_fingerprint
+
+    @ssl_assert_fingerprint.setter
+    def ssl_assert_fingerprint(self, value: str) -> None:
+        if not isinstance(value, str):
+            raise ValueError("`ssl_assert_fingerprint` must be provided as string")
+
+        self._ssl_assert_fingerprint = value
+
+
 class Input:
     """
     Base class for Input component
@@ -325,6 +416,8 @@ class Input:
         output: Optional[Output] = None
         if output_type == "elasticsearch":
             output = ElasticsearchOutput(**kwargs)
+        elif output_type == "logstash":
+            output = LogstashOutput(**kwargs)
         else:
             output = Output(output_type=output_type)
 

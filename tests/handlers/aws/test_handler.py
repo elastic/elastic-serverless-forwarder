@@ -206,6 +206,9 @@ def _get_object(Bucket: str, Key: str, Range: str) -> dict[str, Any]:
         b"        args:\n"
         b"          cloud_id: cloud_id:bG9jYWxob3N0OjkyMDAkMA==\n"
         b"          api_key: api_key\n"
+        b"      - type: logstash\n"
+        b"        args:\n"
+        b"          logstash_url: logstash_url\n"
         b"  - type: sqs\n"
         b"    id: arn:aws:sqs:eu-central-1:123456789:sqs-queue\n"
         b"    outputs:\n"
@@ -213,6 +216,9 @@ def _get_object(Bucket: str, Key: str, Range: str) -> dict[str, Any]:
         b"        args:\n"
         b"          cloud_id: cloud_id:bG9jYWxob3N0OjkyMDAkMA==\n"
         b"          api_key: api_key\n"
+        b"      - type: logstash\n"
+        b"        args:\n"
+        b"          logstash_url: logstash_url\n"
         b"  - type: dummy\n"
         b"    id: arn:aws:dummy:eu-central-1:123456789:input\n"
         b"    outputs:\n"
@@ -220,6 +226,9 @@ def _get_object(Bucket: str, Key: str, Range: str) -> dict[str, Any]:
         b"        args:\n"
         b"          cloud_id: cloud_id:bG9jYWxob3N0OjkyMDAkMA==\n"
         b"          api_key: api_key\n"
+        b"      - type: logstash\n"
+        b"        args:\n"
+        b"          logstash_url: logstash_url\n"
         b"  - type: s3-sqs\n"
         b"    id: arn:aws:sqs:eu-central-1:123456789:s3-sqs-queue-with-dummy-output\n"
         b"    outputs:\n"
@@ -328,7 +337,7 @@ def revert_handlers_aws_handler() -> None:
 
 @pytest.mark.unit
 class TestLambdaHandlerNoop(TestCase):
-    @mock.patch("share.config._available_output_types", new=["elasticsearch", "output_type"])
+    @mock.patch("share.config._available_output_types", new=["elasticsearch", "logstash", "output_type"])
     @mock.patch(
         "share.config._available_input_types", new=["cloudwatch-logs", "s3-sqs", "sqs", "kinesis-data-stream", "dummy"]
     )
