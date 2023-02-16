@@ -23,7 +23,6 @@ class CompositeShipper:
     """
 
     def __init__(self, **kwargs: Any):
-        self._integration_scope: str = ""
         self._shippers: list[ProtocolShipper] = []
         self._include_exclude_filter: Optional[IncludeExcludeFilter] = None
 

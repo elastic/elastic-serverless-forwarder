@@ -193,12 +193,7 @@ class Input:
     Base class for Input component
     """
 
-    def __init__(
-        self,
-        input_type: str,
-        input_id: str,
-        integration_scope_discoverer: Optional[IntegrationScopeDiscovererCallable] = None,
-    ):
+    def __init__(self, input_type: str, input_id: str):
         self.id = input_id
         self.type = input_type
 
@@ -206,8 +201,6 @@ class Input:
         self._json_content_type: str = ""
         self._expand_event_list_from_field: str = ""
         self._outputs: dict[str, Output] = {}
-
-        self._integration_scope_discoverer = integration_scope_discoverer
 
         self._multiline_processor: Optional[ProtocolMultiline] = None
         self._include_exclude_filter: Optional[IncludeExcludeFilter] = None
