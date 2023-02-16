@@ -64,12 +64,6 @@ class CompositeShipper:
             shared_logger.debug("event is filtered according to filter rules")
             return EVENT_IS_FILTERED
 
-        if self._integration_scope != "":
-            if "meta" not in event:
-                event["meta"] = {}
-
-            event["meta"]["integration_scope"] = self._integration_scope
-
         for shipper in self._shippers:
             shipper.send(event)
 
