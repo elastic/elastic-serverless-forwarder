@@ -84,9 +84,7 @@ class TestUtils(TestCase):
                 "arn:aws:kinesis:eu-central-1:123456789:stream/test-esf-kinesis-stream"
             )
             assert event_input is not None
-            shipper = get_shipper_from_input(
-                event_input=event_input, lambda_event={}, at_record=0, config_yaml=config_yaml_kinesis
-            )
+            shipper = get_shipper_from_input(event_input=event_input, config_yaml=config_yaml_kinesis)
             assert len(shipper._shippers) == 1
             assert isinstance(shipper._shippers[0], LogstashShipper)
         with self.subTest("Logstash shipper from Cloudwatch logs input"):
@@ -102,9 +100,7 @@ class TestUtils(TestCase):
             config = parse_config(config_yaml_cw)
             event_input = config.get_input_by_id("arn:aws:logs:eu-central-1:123456789:stream/test-cw-logs")
             assert event_input is not None
-            shipper = get_shipper_from_input(
-                event_input=event_input, lambda_event={}, at_record=0, config_yaml=config_yaml_cw
-            )
+            shipper = get_shipper_from_input(event_input=event_input, config_yaml=config_yaml_cw)
             assert len(shipper._shippers) == 1
             assert isinstance(shipper._shippers[0], LogstashShipper)
 
