@@ -86,7 +86,8 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             event = json_parser(replay_record["body"])
             input_id = event["event_input_id"]
             output_type = event["output_type"]
-            if input_id + output_type not in shipper_cache:
+            shipper_id = input_id + output_type
+            if shipper_id not in shipper_cache:
                 shipper = get_shipper_for_replay_event(
                     config=config,
                     output_type=output_type,
@@ -102,9 +103,9 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                     )
                     continue
 
-                shipper_cache[input_id + output_type] = shipper
+                shipper_cache[shipper_id] = shipper
             else:
-                shipper = shipper_cache[input_id + output_type]
+                shipper = shipper_cache[shipper_id]
 
             shipper.send(event["event_payload"])
             replay_handler.add_event_id_with_receipt_handle(
