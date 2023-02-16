@@ -39,7 +39,7 @@ from handlers.aws.exceptions import (
     TriggerTypeException,
 )
 from main_aws import handler
-from share import Input, json_dumper, json_parser
+from share import json_dumper, json_parser
 
 
 class ContextMock:
@@ -472,125 +472,67 @@ class TestDiscoverIntegrationScope(TestCase):
     def test_discover_integration_scope(self) -> None:
         from handlers.aws.utils import discover_integration_scope
 
-        input_s3 = Input(input_type="s3-sqs", input_id="id", integration_scope_discoverer=discover_integration_scope)
-
-        with self.subTest("discover_integration_scope no integration scope"):
-            lambda_event = deepcopy(_dummy_lambda_event)
-            assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "generic"
-
         with self.subTest("discover_integration_scope aws.cloudtrail integration scope"):
-            lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
-            lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
+            s3_object_key = (
                 "AWSLogs/aws-account-id/CloudTrail/region/"
                 "yyyy/mm/dd/aws-account-id_CloudTrail_region_end-time_random-string.log.gz"
             )
-            lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
 
-            assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "aws.cloudtrail"
+            assert discover_integration_scope(s3_object_key=s3_object_key) == "aws.cloudtrail"
 
         with self.subTest("discover_integration_scope aws.cloudtrail digest integration scope"):
-            lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
-            lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
+            s3_object_key = (
                 "AWSLogs/aws-account-id/CloudTrail-Digest/region/"
                 "yyyy/mm/dd/aws-account-id_CloudTrail-Digest_region_end-time_random-string.log.gz"
             )
-            lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
 
-            assert (
-                input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "aws.cloudtrail-digest"
-            )
+            assert discover_integration_scope(s3_object_key=s3_object_key) == "aws.cloudtrail-digest"
 
         with self.subTest("discover_integration_scope aws.cloudtrail insight integration scope"):
-            lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
-            lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
+            s3_object_key = (
                 "AWSLogs/aws-account-id/CloudTrail-Insight/region/"
                 "yyyy/mm/dd/aws-account-id_CloudTrail-Insight_region_end-time_random-string.log.gz"
             )
-            lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
 
-            assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "aws.cloudtrail"
+            assert discover_integration_scope(s3_object_key=s3_object_key) == "aws.cloudtrail"
 
         with self.subTest("discover_integration_scope aws.cloudwatch_logs integration scope"):
-            lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
-            lambda_event_body["Records"][0]["s3"]["object"]["key"] = "exportedlogs/111-222-333/2021-12-28/hash/file.gz"
-            lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
+            s3_object_key = "exportedlogs/111-222-333/2021-12-28/hash/file.gz"
 
-            assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "aws.cloudwatch_logs"
+            assert discover_integration_scope(s3_object_key=s3_object_key) == "aws.cloudwatch_logs"
 
         with self.subTest("discover_integration_scope aws.elb_logs integration scope"):
-            lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
-            lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
-                "AWSLogs/aws-account-id/elasticloadbalancing/"
-                "region/yyyy/mm/dd/"
+            s3_object_key = (
+                "AWSLogs/aws-account-id/elasticloadbalancing/region/yyyy/mm/dd/"
                 "aws-account-id_elasticloadbalancing_region_load-balancer-id_end-time_ip-address_random-string.log.gz"
             )
-            lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
 
-            assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "aws.elb_logs"
+            assert discover_integration_scope(s3_object_key=s3_object_key) == "aws.elb_logs"
 
         with self.subTest("discover_integration_scope aws.firewall_logs integration scope"):
-            lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
-            lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
-                "AWSLogs/aws-account-id/network-firewall/" "log-type/Region/firewall-name/timestamp/"
-            )
-            lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
+            s3_object_key = "AWSLogs/aws-account-id/network-firewall/log-type/Region/firewall-name/timestamp/"
 
-            assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "aws.firewall_logs"
+            assert discover_integration_scope(s3_object_key=s3_object_key) == "aws.firewall_logs"
 
         with self.subTest("discover_integration_scope aws.waf integration scope"):
-            lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
-            lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
-                "AWSLogs/account-id/" "WAFLogs/Region/web-acl-name/YYYY/MM/dd/HH/mm"
-            )
-            lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
+            s3_object_key = "AWSLogs/account-id/WAFLogs/Region/web-acl-name/YYYY/MM/dd/HH/mm"
 
-            assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "aws.waf"
+            assert discover_integration_scope(s3_object_key=s3_object_key) == "aws.waf"
 
         with self.subTest("discover_integration_scope aws.vpcflow integration scope"):
-            lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
-            lambda_event_body["Records"][0]["s3"]["object"]["key"] = (
-                "AWSLogs/id/vpcflowlogs/" "region/date_vpcflowlogs_region_file.log.gz"
-            )
-            lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
+            s3_object_key = "AWSLogs/id/vpcflowlogs/region/date_vpcflowlogs_region_file.log.gz"
 
-            assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "aws.vpcflow"
+            assert discover_integration_scope(s3_object_key=s3_object_key) == "aws.vpcflow"
 
         with self.subTest("discover_integration_scope unknown integration scope"):
-            lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
-            lambda_event_body["Records"][0]["s3"]["object"]["key"] = "random_hash"
-            lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
+            s3_object_key = "random_hash"
 
-            assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "generic"
-
-        with self.subTest("discover_integration_scope records not in event"):
-            lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
-            del lambda_event_body["Records"]
-            lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
-
-            assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "generic"
-
-        with self.subTest("discover_integration_scope s3 key not in record"):
-            lambda_event = {"Records": [{"body": '{"Records": [{}]}'}]}
-
-            assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "generic"
+            assert discover_integration_scope(s3_object_key=s3_object_key) == "generic"
 
         with self.subTest("discover_integration_scope empty s3"):
-            lambda_event = deepcopy(_dummy_lambda_event)
-            lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
-            lambda_event_body["Records"][0]["s3"]["object"]["key"] = ""
-            lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
+            s3_object_key = ""
 
-            assert input_s3.discover_integration_scope(lambda_event=lambda_event, at_record=0) == "generic"
+            assert discover_integration_scope(s3_object_key=s3_object_key) == "generic"
 
 
 @pytest.mark.unit

@@ -3,7 +3,6 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 import re
-from typing import Any
 from unittest import TestCase
 
 import pytest
@@ -613,22 +612,6 @@ class TestInput(TestCase):
             input_sqs = Input(input_type="s3-sqs", input_id="id")
             with self.assertRaisesRegex(KeyError, "'type"):
                 input_sqs.delete_output_by_type("type")
-
-    def test_discover_integration_scope(self) -> None:
-        with self.subTest("integration_scope_discoverer is None"):
-            input_sqs = Input(input_type="s3-sqs", input_id="id")
-            assert input_sqs.discover_integration_scope({}, 0) == ""
-
-        with self.subTest("integration_scope_discoverer is not none"):
-
-            def discover_integration_scope(lambda_event: dict[str, Any], at_record: int) -> str:
-                return "an_integration_scope"
-
-            input_sqs = Input(
-                input_type="s3-sqs", input_id="id", integration_scope_discoverer=discover_integration_scope
-            )
-
-            assert input_sqs.discover_integration_scope({}, 0) == "an_integration_scope"
 
 
 @pytest.mark.unit
