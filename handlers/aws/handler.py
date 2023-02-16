@@ -444,6 +444,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                         return "continuing"
 
             elif event_input.type == "s3-sqs":
+                sqs_record_body = json_parser(sqs_record["body"])
                 for es_event, last_ending_offset, last_event_expanded_offset, current_s3_record in _handle_s3_sqs_event(
                     sqs_record_body,
                     event_input.id,
