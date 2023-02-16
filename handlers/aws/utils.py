@@ -29,6 +29,8 @@ _available_triggers: dict[str, str] = {"aws:s3": "s3-sqs", "aws:sqs": "sqs", "aw
 CONFIG_FROM_PAYLOAD: str = "CONFIG_FROM_PAYLOAD"
 CONFIG_FROM_S3FILE: str = "CONFIG_FROM_S3FILE"
 
+INTEGRATION_SCOPE_GENERIC: str = "generic"
+
 
 def get_sqs_client() -> BotoBaseClient:
     """
@@ -110,25 +112,10 @@ def wrap_try_except(
     return wrapper
 
 
-def discover_integration_scope(lambda_event: dict[str, Any], at_record: int) -> str:
-    if (
-        "Records" not in lambda_event
-        or len(lambda_event["Records"]) < at_record
-        or "body" not in lambda_event["Records"][at_record]
-    ):
-        return "generic"
-
-    body: str = lambda_event["Records"][at_record]["body"]
-    s3_object_key: str = ""
-    try:
-        json_body: dict[str, Any] = json_parser(body)
-        s3_object_key = json_body["Records"][0]["s3"]["object"]["key"]
-    except Exception:
-        pass
-
+def discover_integration_scope(s3_object_key: str) -> str:
     if s3_object_key == "":
         shared_logger.info("s3 object key is empty, dataset set to `generic`")
-        return "generic"
+        return INTEGRATION_SCOPE_GENERIC
     else:
         if "/CloudTrail/" in s3_object_key or "/CloudTrail-Insight/" in s3_object_key:
             return "aws.cloudtrail"
@@ -145,14 +132,11 @@ def discover_integration_scope(lambda_event: dict[str, Any], at_record: int) -> 
         elif "/WAFLogs/" in s3_object_key:
             return "aws.waf"
         else:
-            return "generic"
+            return INTEGRATION_SCOPE_GENERIC
 
 
-def get_shipper_from_input(
-    event_input: Input, lambda_event: dict[str, Any], at_record: int, config_yaml: str
-) -> CompositeShipper:
+def get_shipper_from_input(event_input: Input, config_yaml: str) -> CompositeShipper:
     composite_shipper: CompositeShipper = CompositeShipper()
-    integration_scope: str = event_input.discover_integration_scope(lambda_event=lambda_event, at_record=at_record)
 
     for output_type in event_input.get_output_types():
         if output_type == "elasticsearch":
@@ -176,7 +160,6 @@ def get_shipper_from_input(
 
             composite_shipper.add_shipper(shipper=logstash_shipper)
 
-        composite_shipper.set_integration_scope(integration_scope=integration_scope)
         replay_handler = ReplayEventHandler(config_yaml=config_yaml, event_input=event_input)
         composite_shipper.set_replay_handler(replay_handler=replay_handler.replay_handler)
 

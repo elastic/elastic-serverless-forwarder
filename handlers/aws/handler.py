@@ -22,13 +22,13 @@ from .s3_sqs_trigger import _handle_s3_sqs_continuation, _handle_s3_sqs_event
 from .sqs_trigger import _handle_sqs_continuation, _handle_sqs_event
 from .utils import (
     CONFIG_FROM_PAYLOAD,
+    INTEGRATION_SCOPE_GENERIC,
     ConfigFileException,
     TriggerTypeException,
     capture_serverless,
     config_yaml_from_payload,
     config_yaml_from_s3,
     delete_sqs_record,
-    discover_integration_scope,
     expand_event_list_from_field_resolver,
     get_continuing_original_input_type,
     get_log_group_arn_and_region_from_log_group_name,
@@ -70,7 +70,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         raise ConfigFileException("Empty config")
 
     try:
-        config = parse_config(config_yaml, _expanders, discover_integration_scope)
+        config = parse_config(config_yaml, _expanders)
     except Exception as e:
         raise ConfigFileException(e)
 
@@ -145,14 +145,10 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
                 return "completed"
 
-        composite_shipper = get_shipper_from_input(
-            event_input=event_input, lambda_event=lambda_event, at_record=0, config_yaml=config_yaml
-        )
+        composite_shipper = get_shipper_from_input(event_input=event_input, config_yaml=config_yaml)
 
-        field_to_expand_event_list_from = event_input.expand_event_list_from_field
-        integration_scope = event_input.discover_integration_scope(lambda_event=lambda_event, at_record=0)
         expand_event_list_from_field = ExpandEventListFromField(
-            field_to_expand_event_list_from, integration_scope, expand_event_list_from_field_resolver
+            event_input.expand_event_list_from_field, INTEGRATION_SCOPE_GENERIC, expand_event_list_from_field_resolver
         )
 
         for (
@@ -218,15 +214,10 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
             return "completed"
 
-        composite_shipper = get_shipper_from_input(
-            event_input=event_input, lambda_event=lambda_event, at_record=0, config_yaml=config_yaml
-        )
+        composite_shipper = get_shipper_from_input(event_input=event_input, config_yaml=config_yaml)
 
-        integration_scope = event_input.discover_integration_scope(lambda_event=lambda_event, at_record=0)
-
-        field_to_expand_event_list_from = event_input.expand_event_list_from_field
         expand_event_list_from_field = ExpandEventListFromField(
-            field_to_expand_event_list_from, integration_scope, expand_event_list_from_field_resolver
+            event_input.expand_event_list_from_field, INTEGRATION_SCOPE_GENERIC, expand_event_list_from_field_resolver
         )
 
         for (
@@ -391,19 +382,9 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             if input_id in composite_shipper_cache:
                 composite_shipper = composite_shipper_cache[input_id]
             else:
-                composite_shipper = get_shipper_from_input(
-                    event_input=event_input,
-                    lambda_event=lambda_event,
-                    at_record=current_sqs_record,
-                    config_yaml=config_yaml,
-                )
+                composite_shipper = get_shipper_from_input(event_input=event_input, config_yaml=config_yaml)
 
                 composite_shipper_cache[event_input.id] = composite_shipper
-
-            field_to_expand_event_list_from = event_input.expand_event_list_from_field
-            integration_scope = event_input.discover_integration_scope(
-                lambda_event=lambda_event, at_record=current_sqs_record
-            )
 
             sqs_record_body: dict[str, Any] = {}
             continuing_event_expanded_offset: Optional[int] = None
@@ -415,23 +396,18 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                     sqs_record["messageAttributes"]["originalLastEventExpandedOffset"]["stringValue"]
                 )
 
-            if event_input.type == "s3-sqs":
-                sqs_record_body = json_parser(sqs_record["body"])
-                if "last_event_expanded_offset" in sqs_record_body["Records"][0]:
-                    continuing_event_expanded_offset = sqs_record_body["Records"][0]["last_event_expanded_offset"]
-
-            expand_event_list_from_field = ExpandEventListFromField(
-                field_to_expand_event_list_from,
-                integration_scope,
-                expand_event_list_from_field_resolver,
-                continuing_event_expanded_offset,
-            )
-
             if (
                 event_input.type == "kinesis-data-stream"
                 or event_input.type == "sqs"
                 or event_input.type == "cloudwatch-logs"
             ):
+                expand_event_list_from_field = ExpandEventListFromField(
+                    event_input.expand_event_list_from_field,
+                    INTEGRATION_SCOPE_GENERIC,
+                    expand_event_list_from_field_resolver,
+                    continuing_event_expanded_offset,
+                )
+
                 for es_event, last_ending_offset, last_event_expanded_offset in _handle_sqs_event(
                     sqs_record,
                     input_id,
@@ -468,10 +444,11 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                         return "continuing"
 
             elif event_input.type == "s3-sqs":
+                sqs_record_body = json_parser(sqs_record["body"])
                 for es_event, last_ending_offset, last_event_expanded_offset, current_s3_record in _handle_s3_sqs_event(
                     sqs_record_body,
                     event_input.id,
-                    expand_event_list_from_field,
+                    event_input.expand_event_list_from_field,
                     event_input.json_content_type,
                     event_input.get_multiline_processor(),
                 ):
