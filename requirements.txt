@@ -1,4 +1,4 @@
-elastic-apm==6.14.0
+elastic-apm==6.15.0
 ecs_logging==2.0.0
 boto3==1.26.72
 elasticsearch==7.16.3
