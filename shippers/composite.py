@@ -2,6 +2,7 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
+from copy import deepcopy
 from typing import Any, Optional
 
 from share import IncludeExcludeFilter, shared_logger
@@ -64,7 +65,10 @@ class CompositeShipper:
             return EVENT_IS_FILTERED
 
         for shipper in self._shippers:
-            shipper.send(event)
+            # dict are mutated if not deep copied, every shipper can mutate the
+            # events it receives without affecting the events of other shippers
+            sent_event = deepcopy(event)
+            shipper.send(sent_event)
 
         return EVENT_IS_SENT
 
