@@ -2,6 +2,8 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
+from __future__ import annotations
+
 import os
 import ssl
 import time
@@ -9,8 +11,8 @@ from typing import Any
 
 import requests
 from OpenSSL import crypto as OpenSSLCrypto
-from testcontainers.core.container import DockerContainer  # type: ignore
-from testcontainers.core.waiting_utils import wait_container_is_ready  # type: ignore
+from testcontainers.core.container import DockerContainer
+from testcontainers.core.waiting_utils import wait_container_is_ready
 
 from share import json_parser
 
@@ -135,7 +137,7 @@ class LogstashContainer(DockerContainer):  # type: ignore
     def reset(self) -> None:
         self._last_reset_message_count = self._previous_message_count
 
-    def start(self) -> "LogstashContainer":
+    def start(self) -> LogstashContainer:
         self._configure()
         super().start()
         self._connect()

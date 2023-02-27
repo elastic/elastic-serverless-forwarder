@@ -2,14 +2,16 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
+from __future__ import annotations
+
 import ssl
 import time
 from typing import Any
 
 from elasticsearch import Elasticsearch
 from OpenSSL import crypto as OpenSSLCrypto
-from testcontainers.core.container import DockerContainer  # type: ignore
-from testcontainers.core.waiting_utils import wait_container_is_ready  # type: ignore
+from testcontainers.core.container import DockerContainer
+from testcontainers.core.waiting_utils import wait_container_is_ready
 
 
 class ElasticsearchContainer(DockerContainer):  # type: ignore
@@ -146,7 +148,7 @@ class ElasticsearchContainer(DockerContainer):  # type: ignore
 
         self._pipelines_ids = set()
 
-    def start(self) -> "ElasticsearchContainer":
+    def start(self) -> ElasticsearchContainer:
         super().start()
         self._configure()
         self._connect()
