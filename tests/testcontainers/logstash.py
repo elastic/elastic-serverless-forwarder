@@ -46,7 +46,6 @@ class LogstashContainer(DockerContainer):  # type: ignore
     ):
         image = f"{image}:{version}"
         super(LogstashContainer, self).__init__(image=image)
-        self.with_command("infinity")
 
         self.port = port
         self.api_port = api_port
