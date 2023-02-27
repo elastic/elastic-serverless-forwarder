@@ -97,7 +97,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 )
 
                 if shipper is None:
-                    shared_logger.warn(
+                    shared_logger.warning(
                         "no shipper for output in replay queue",
                         extra={"output_type": event["output_type"], "event_input_id": event["event_input_id"]},
                     )
@@ -108,8 +108,9 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 shipper = shipper_cache[shipper_id]
 
             shipper.send(event["event_payload"])
-            replay_handler.add_event_id_with_receipt_handle(
-                event_id=event["event_payload"]["_id"], receipt_handle=replay_record["receiptHandle"]
+            event_uniq_id: str = event["event_payload"]["_id"] + output_type
+            replay_handler.add_event_with_receipt_handle(
+                event_uniq_id=event_uniq_id, receipt_handle=replay_record["receiptHandle"]
             )
 
             if lambda_context is not None and lambda_context.get_remaining_time_in_millis() < _completion_grace_period:
