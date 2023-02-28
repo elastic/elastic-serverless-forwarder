@@ -433,18 +433,7 @@ class TestLambdaHandlerNoop(TestCase):
 
             assert handler(lambda_event, ctx) == "exception raised: Exception('raised')"  # type:ignore
 
-        with self.subTest("raising unexpected exception apm client not Nome"):
-            with mock.patch("handlers.aws.utils.get_apm_client", lambda: mock.MagicMock()):
-                ctx = ContextMock()
-                lambda_event = deepcopy(_dummy_lambda_event)
-                lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
-                lambda_event_body["Records"][0]["s3"]["object"]["key"] = "please raise"
-
-                lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
-
-                assert handler(lambda_event, ctx) == "exception raised: Exception('raised')"  # type:ignore
-
-        with self.subTest("raising unexpected exception apm client not Nome"):
+        with self.subTest("raising unexpected exception apm client not None"):
             with mock.patch("handlers.aws.utils.get_apm_client", lambda: mock.MagicMock()):
                 ctx = ContextMock()
                 lambda_event = deepcopy(_dummy_lambda_event)

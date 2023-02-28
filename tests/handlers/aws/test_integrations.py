@@ -91,11 +91,19 @@ class TestLambdaHandlerIntegration(TestCase):
         )
 
         cls.mocks = {
-            "s3client": mock.patch("storage.S3Storage._s3_client", new=cls.s3_client),
-            "cloudwatchclient": mock.patch("handlers.aws.utils.get_cloudwatch_logs_client", lambda: cls.logs_client),
-            "smclient": mock.patch("share.secretsmanager._get_aws_sm_client", lambda region_name: cls.sm_client),
-            "sqsclient": mock.patch("handlers.aws.utils.get_sqs_client", lambda: cls.sqs_client),
-            "sqsclient2": mock.patch("handlers.aws.handler.get_sqs_client", lambda: cls.sqs_client),
+            "storage.S3Storage._s3_client": mock.patch("storage.S3Storage._s3_client", new=cls.s3_client),
+            "handlers.aws.utils.get_cloudwatch_logs_client": mock.patch(
+                "handlers.aws.utils.get_cloudwatch_logs_client", lambda: cls.logs_client
+            ),
+            "share.secretsmanager._get_aws_sm_client": mock.patch(
+                "share.secretsmanager._get_aws_sm_client", lambda region_name: cls.sm_client
+            ),
+            "handlers.aws.utils.get_sqs_client": mock.patch(
+                "handlers.aws.utils.get_sqs_client", lambda: cls.sqs_client
+            ),
+            "handlers.aws.handler.get_sqs_client": mock.patch(
+                "handlers.aws.handler.get_sqs_client", lambda: cls.sqs_client
+            ),
         }
 
         for k, m in cls.mocks.items():
