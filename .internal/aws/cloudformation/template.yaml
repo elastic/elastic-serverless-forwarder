@@ -46,6 +46,10 @@ Parameters:
     Type: CommaDelimitedList
     Default: ""
     Description: Comma delimited list of the subnet IDs the Lambda should belong to
+  ElasticServerlessForwarderTelemetry:
+    Type: String
+    Default: "true"
+    Description: Boolean flag to enable or disable telemetry (to be set as `TELEMETRY_ENABLED` env variable)
 Resources:
   ElasticServerlessForwarderEventMacro:
     Type: AWS::Serverless::Application
@@ -70,6 +74,7 @@ Resources:
         ElasticServerlessForwarderS3Buckets: !Join [",", !Ref ElasticServerlessForwarderS3Buckets]
         ElasticServerlessForwarderSecurityGroups: !Join [",", !Ref ElasticServerlessForwarderSecurityGroups]
         ElasticServerlessForwarderSubnets: !Join [",", !Ref ElasticServerlessForwarderSubnets]
+        ElasticServerlessForwarderTelemetry: !Ref ElasticServerlessForwarderTelemetry
     DependsOn: ElasticServerlessForwarderEventMacro
 Metadata:
   AWS::CloudFormation::Interface:
@@ -96,6 +101,10 @@ Metadata:
         Parameters:
           - ElasticServerlessForwarderSecurityGroups
           - ElasticServerlessForwarderSubnets
+      - Label:
+          default: Elastic Serverless Forwarder Telemetry options
+        Parameters:
+          - ElasticServerlessForwarderTelemetry
     ParameterLabels:
       ElasticServerlessForwarderS3ConfigFile:
         default: "Config File"
@@ -117,6 +126,8 @@ Metadata:
         default: "Security groups to attach to the Elastic Serverless Forwarder"
       ElasticServerlessForwarderSubnets:
         default: "Subnets for the Elastic Serverless Forwarder"
+      ElasticServerlessForwarderTelemetry:
+        default: "Telemetry for the Elastic Serverless Forwarder"
   AWS::ServerlessRepo::Application:
     Name: %sarAppName%
     Description: Send observability data from your AWS environment to Elastic.

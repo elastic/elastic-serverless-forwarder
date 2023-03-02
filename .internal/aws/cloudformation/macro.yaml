@@ -90,7 +90,6 @@ Resources:
 
             return events_fragment
 
-
         def create_policy(event):
             policy_fragment = {
                 "Type": "AWS::IAM::Policy",
@@ -199,7 +198,6 @@ Resources:
 
             return policy_fragment
 
-
         def create_vpc_config(event):
             parameters = event["templateParameterValues"]
             vpc_config_fragment = {}
@@ -226,6 +224,19 @@ Resources:
 
             return vpc_config_fragment
 
+        def create_environment_variables(event):
+            parameters = event["templateParameterValues"]
+
+            environment_vars = {
+                "TELEMETRY_ENABLED": "true",
+                "TELEMETRY_ENDPOINT": "https://telemetry.elastic.co/v3/send/esf",
+            }
+
+            if "ElasticServerlessForwarderTelemetry" in parameters:
+                environment_vars["TELEMETRY_ENABLED"] = parameters["ElasticServerlessForwarderTelemetry"]
+
+            return environment_vars
+
         def handler(event, context):
             vpc_config = create_vpc_config(event)
             if vpc_config:
@@ -234,6 +245,10 @@ Resources:
             created_events = create_events(event)
             for created_event in created_events:
                 event["fragment"]["ApplicationElasticServerlessForwarder"]["Properties"]["Events"][created_event] = created_events[created_event]
+
+            environment_vars = create_environment_variables(event)
+            for var in environment_vars:
+                event["fragment"]["ApplicationElasticServerlessForwarder"]["Properties"]["Environment"]["Variables"][var] = environment_vars[var]
 
             created_policy = create_policy(event)
             event["fragment"]["ElasticServerlessForwarderPolicy"] = created_policy

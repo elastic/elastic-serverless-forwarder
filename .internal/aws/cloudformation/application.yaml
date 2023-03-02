@@ -26,6 +26,8 @@ Parameters:
     Type: CommaDelimitedList
   ElasticServerlessForwarderSubnets:
     Type: CommaDelimitedList
+  ElasticServerlessForwarderTelemetry:
+    Type: String
 Resources:
   ElasticServerlessForwarderContinuingDLQ:
     Type: AWS::SQS::Queue
@@ -72,6 +74,8 @@ Resources:
               S3_CONFIG_FILE: !Ref ElasticServerlessForwarderS3ConfigFile
               SQS_CONTINUE_URL: !Ref ElasticServerlessForwarderContinuingQueue
               SQS_REPLAY_URL: !Ref ElasticServerlessForwarderReplayQueue
+              TELEMETRY_ENABLED: !Ref ElasticServerlessForwarderTelemetry
+              TELEMETRY_ENDPOINT: "https://telemetry.elastic.co/v3/send/esf"
       Events:
         SQSContinuingEvent:
           Type: SQS
