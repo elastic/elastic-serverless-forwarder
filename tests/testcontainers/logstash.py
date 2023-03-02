@@ -4,12 +4,19 @@
 
 from __future__ import annotations
 
+import datetime
 import os
 import ssl
 import time
 from typing import Any
 
 import requests
+from cryptography import x509
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat
+from cryptography.x509.oid import NameOID
 from OpenSSL import crypto as OpenSSLCrypto
 from testcontainers.core.container import DockerContainer
 from testcontainers.core.waiting_utils import wait_container_is_ready
@@ -63,19 +70,67 @@ class LogstashContainer(DockerContainer):  # type: ignore
         self._last_reset_message_count: int = 0
         self._previous_message_count: int = 0
 
+    @staticmethod
+    def _certificates_for_authority_and_server(service_identity: str, key_size: int = 1024) -> tuple[str, str]:
+        """
+        Create a self-signed CA certificate and server certificate signed
+        by the CA.
+        """
+        common_name_for_ca = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "CA")])
+        common_name_for_server = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "Server")])
+        one_day = datetime.timedelta(1, 0, 0)
+        private_key_for_ca = rsa.generate_private_key(
+            public_exponent=65537, key_size=key_size, backend=default_backend()
+        )
+        private_key_for_server = rsa.generate_private_key(
+            public_exponent=65537, key_size=key_size, backend=default_backend()
+        )
+        public_key_for_server = private_key_for_server.public_key()
+        server_certificate = (
+            x509.CertificateBuilder()
+            .subject_name(common_name_for_server)
+            .issuer_name(common_name_for_ca)
+            .not_valid_before(datetime.datetime.today() - one_day)
+            .not_valid_after(datetime.datetime.today() + one_day)
+            .serial_number(x509.random_serial_number())
+            .public_key(public_key_for_server)
+            .add_extension(
+                x509.BasicConstraints(ca=False, path_length=None),
+                critical=True,
+            )
+            .add_extension(
+                x509.SubjectAlternativeName([x509.DNSName(service_identity)]),
+                critical=True,
+            )
+            .sign(private_key=private_key_for_ca, algorithm=hashes.SHA256(), backend=default_backend())
+        )
+
+        return server_certificate.public_bytes(Encoding.PEM).decode("utf-8"), private_key_for_server.private_bytes(
+            Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()
+        ).decode("utf-8")
+
     def _configure(self) -> None:
         """
         Values set here will override any value set by calling <instance>.with_env(...)
         after initializing this class before <instance>.start()
         """
 
-        # TODO: let's generate the certificate and key with code, current cert will expire Nov 17 15:04:09 2025 GMT
-        local_ssl_path = os.path.join(os.path.dirname(__file__), "ssl")
-        self.with_volume_mapping(local_ssl_path, "/ssl")
+        x509_cert, priv_key = self._certificates_for_authority_and_server(service_identity="localhost")
 
         self.with_command(
-            'bash -c "/opt/logstash/bin/logstash-plugin install '
-            'logstash-input-elastic_serverless_forwarder && /opt/logstash/bin/logstash"'
+            f"""bash -c "mkdir /tmp/ssl
+cat <<EOF > /tmp/ssl/localhost.crt
+{x509_cert}
+EOF
+
+cat <<EOF > /tmp/ssl/localhost.pkcs8.key
+{priv_key}
+EOF
+
+/opt/logstash/bin/logstash-plugin install logstash-input-elastic_serverless_forwarder
+
+/opt/logstash/bin/logstash"
+"""
         )
 
         # NOTE: plain curly brackets must be escaped in this string (double them)
@@ -83,8 +138,8 @@ class LogstashContainer(DockerContainer):  # type: ignore
             input {{
               elastic_serverless_forwarder {{
                 port => {self.port}
-                ssl_certificate => "/ssl/localhost.crt"
-                ssl_key => "/ssl/localhost.pkcs8.key"
+                ssl_certificate => "/tmp/ssl/localhost.crt"
+                ssl_key => "/tmp/ssl/localhost.pkcs8.key"
                 auth_basic_username => "{self.logstash_user}"
                 auth_basic_password => "{self.logstash_password}"
               }}
