@@ -402,22 +402,29 @@ class TestTelemetry:
         # Make sure the telemetry worker is running.
         telemetry_init()
 
-        # The telemetry_endpoint variable is defined when the module is loaded,
-        # so we need to patch this instead of the environment variable.
+        # The `telemetry_endpoint` variable is defined from the environment variable
+        # TELEMETRY_ENDPOINT once when the module is loaded; so we need to patch its
+        # value.
         with mock.patch("share.telemetry.get_telemetry_endpoint", lambda: httpserver.url_for("/v3/send/esf")):
-            # Set up the expectaction for the telemetry request
-            # to the telemetry endpoint.
+            # Set up the expected request to the
+            # telemetry endpoint.
             httpserver.expect_oneshot_request(
                 "/v3/send/esf",
                 method="POST",
                 json={
                     "function_id": "80036aa038",
                     "function_version": "v0.0.0",
-                    "execution_id": "6b76b62589",
+                    "execution_id": "aws_request_id",
                     "cloud_provider": "aws",
                     "cloud_region": "us-east-1",
                     "memory_limit_in_mb": "512",
-                    "input": {"type": "s3-sqs", "outputs": ["elasticsearch"]},
+                    "inputs": [
+                        {
+                            "id": "sqs:bae4265aec",
+                            "type": "s3-sqs",
+                            "outputs": ["elasticsearch"],
+                        }
+                    ],
                 },
             ).respond_with_json({"status": "ok"})
 

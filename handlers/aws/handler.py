@@ -9,6 +9,7 @@ from aws_lambda_typing import context as context_
 
 from share import (
     ExpandEventListFromField,
+    event_processed_telemetry,
     function_started_telemetry,
     input_selected_telemetry,
     json_parser,
@@ -28,6 +29,7 @@ from .replay_trigger import ReplayedEventReplayHandler, get_shipper_for_replay_e
 from .s3_sqs_trigger import _handle_s3_sqs_continuation, _handle_s3_sqs_event
 from .sqs_trigger import _handle_sqs_continuation, _handle_sqs_event
 from .utils import (
+    ARN,
     CONFIG_FROM_PAYLOAD,
     INTEGRATION_SCOPE_GENERIC,
     ConfigFileException,
@@ -91,6 +93,8 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
     if trigger_type == "replay-sqs":
         shared_logger.info("trigger", extra={"size": len(lambda_event["Records"])})
 
+        # The lambda function was triggered by a SQS message from the replay queue
+        # This is a replay of events that were sent to the output but failed
         replay_queue_arn = lambda_event["Records"][0]["eventSourceARN"]
         replay_handler = ReplayedEventReplayHandler(replay_queue_arn=replay_queue_arn)
         shipper_cache: dict[str, ProtocolShipper] = {}
@@ -157,6 +161,15 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
             return "completed"
 
+        _input_arn = ARN(event_input.id)
+        input_selected_telemetry(
+            # we want to avoid sending the full ARN as it may contain
+            # sensitive information, like the account id.
+            f"{_input_arn.service}:{_input_arn.hashed_resource_id}",
+            event_input.type,
+            event_input.get_output_types(),
+        )
+
         aws_region = input_id.split(":")[3]
         composite_shipper = get_shipper_from_input(event_input=event_input, config_yaml=config_yaml)
 
@@ -216,6 +229,8 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
                 return "continuing"
 
+        event_processed_telemetry()
+
         composite_shipper.flush()
         shared_logger.info(
             "lambda processed all the events",
@@ -231,6 +246,15 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             shared_logger.warning("no input defined", extra={"input_id": input_id})
 
             return "completed"
+
+        _input_arn = ARN(event_input.id)
+        input_selected_telemetry(
+            # we want to avoid sending the full ARN as it may contain
+            # sensitive information, like the account id.
+            f"{_input_arn.service}:{_input_arn.hashed_resource_id}",
+            event_input.type,
+            event_input.get_output_types(),
+        )
 
         composite_shipper = get_shipper_from_input(event_input=event_input, config_yaml=config_yaml)
 
@@ -295,6 +319,8 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                     )
 
                 return "continuing"
+
+        event_processed_telemetry()
 
         composite_shipper.flush()
         shared_logger.info(
@@ -395,6 +421,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
             input_id = sqs_record["eventSourceARN"]
             if "messageAttributes" in sqs_record and "originalEventSourceARN" in sqs_record["messageAttributes"]:
+                # override input_id with originalEventSourceARN if it exists
                 input_id = sqs_record["messageAttributes"]["originalEventSourceARN"]["stringValue"]
 
             event_input = config.get_input_by_id(input_id)
@@ -402,7 +429,14 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 shared_logger.warning("no input defined", extra={"input_id": input_id})
                 continue
 
-            input_selected_telemetry(event_input)
+            _input_arn = ARN(event_input.id)
+            input_selected_telemetry(
+                # we want to avoid sending the full ARN as it may contain
+                # sensitive information, like the account id.
+                f"{_input_arn.service}:{_input_arn.hashed_resource_id}",
+                event_input.type,
+                event_input.get_output_types(),
+            )
 
             if input_id in composite_shipper_cache:
                 composite_shipper = composite_shipper_cache[input_id]
@@ -505,6 +539,8 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                         )
 
                         return "continuing"
+
+        event_processed_telemetry()
 
         for composite_shipper in composite_shipper_cache.values():
             composite_shipper.flush()

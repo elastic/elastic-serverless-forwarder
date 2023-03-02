@@ -521,36 +521,36 @@ def expand_event_list_from_field_resolver(integration_scope: str, field_to_expan
 
 
 @dataclass
-class ARN(object):
+class ARN:
     """The Amazon Resource Name (ARN) of an AWS resource."""
 
-    id: str
-    service: str
-    region: str
-    account_id: str
+    def __init__(self, arn: str) -> None:
+        arn_components = arn.split(":")
+        self.arn = arn
+        self.service = arn_components[2]
+        self.region = arn_components[3]
+        self.account_id = arn_components[4]
+        self.resource_id = arn_components[5]
 
+    @property
+    def hashed_arn(self) -> str:
+        return hashlib.sha256(self.arn.encode("utf-8")).hexdigest()[:10]
 
-def anonymize_arn(arn: str) -> ARN:
-    """Anonymize an ARN by hashing the account ID and the resource ID."""
-    arn_components = arn.split(":")
-
-    hashed_arn = hashlib.sha256(arn.encode("utf-8")).hexdigest()[:10]
-    service = arn_components[2]
-    region = arn_components[3]
-    account_id = hashlib.sha256(arn_components[4].encode("utf-8")).hexdigest()[:10]
-
-    return ARN(hashed_arn, service, region, account_id)
+    @property
+    def hashed_resource_id(self) -> str:
+        return hashlib.sha256(self.resource_id.encode("utf-8")).hexdigest()[:10]
 
 
 def build_function_context(lambda_context: context_.Context) -> FunctionContext:
     """Create a FunctionContext from a Lambda context."""
-    anonymized_arn = anonymize_arn(lambda_context.invoked_function_arn)
+
+    arn = ARN(lambda_context.invoked_function_arn)
 
     return FunctionContext(
-        anonymized_arn.id,
+        arn.hashed_arn,
         lambda_context.function_version,
         lambda_context.aws_request_id,
-        anonymized_arn.region,
+        arn.region,
         "aws",
         lambda_context.memory_limit_in_mb,
     )

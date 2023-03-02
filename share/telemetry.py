@@ -2,7 +2,6 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
-import hashlib
 import json
 import os
 import time
@@ -11,11 +10,11 @@ from dataclasses import dataclass
 from enum import Enum
 from queue import Empty, Queue
 from threading import Thread
-from typing import Any, List, Optional, Protocol, TypeVar, Union
+from typing import Any, Dict, List, Optional, Protocol, TypeVar, Union
 
 import urllib3
 
-from share import Input, shared_logger
+from share import shared_logger
 
 # -------------------------------------------------------
 # Helpers
@@ -82,11 +81,26 @@ class TelemetryData:
     cloud_region: str = ""
     memory_limit_in_mb: str = ""
 
-    input: dict[str, Union[str, List[str]]] = {}
+    # We want to collect the unique inputs and their outputs in a data structure
+    # like this one to avoid duplicates:
+    #
+    # {
+    #   "input-123": {
+    #     "type": "s3-sqs",
+    #     "outputs": [
+    #       "elasticsearch",
+    #       "logstash"
+    #     ]
+    #   }
+    # }
+    #
+    # The data is sent to the telemetry endpoint using a different structure
+    # to make analysis easier.
+    inputs: Dict[str, dict[str, Union[str, List[str]]]] = {}
 
-    def set_input(self, input_type: str, outputs: List[str]) -> None:
-        """Set the input to the telemetry."""
-        self.input = {"type": input_type, "outputs": outputs}
+    def add_input(self, input_id: str, input_type: str, outputs: List[str]) -> None:
+        """Add an input to the telemetry."""
+        self.inputs[input_id] = {"type": input_type, "outputs": outputs}
 
 
 class ProtocolTelemetryEvent(Protocol):
@@ -123,7 +137,7 @@ class FunctionStartedEvent(CommonTelemetryEvent):
         self.function_version = ctx.function_version
         self.cloud_provider = ctx.cloud_provider
         self.cloud_region = ctx.cloud_region
-        self.execution_id = hashlib.sha256(ctx.execution_id.encode("utf-8")).hexdigest()[:10]
+        self.execution_id = ctx.execution_id
         self.memory_limit_in_mb = ctx.memory_limit_in_mb
 
     def merge_with(self, telemetry_data: TelemetryData) -> TelemetryData:
@@ -141,13 +155,25 @@ class FunctionStartedEvent(CommonTelemetryEvent):
 class InputSelectedEvent(CommonTelemetryEvent):
     """Happens when the input is selected to process an incoming event."""
 
-    def __init__(self, input_type: str, outputs: List[str]) -> None:
+    def __init__(self, input_id: str, input_type: str, outputs: List[str]) -> None:
+        self.input_id = input_id
         self.input_type = input_type
         self.outputs = outputs
 
     def merge_with(self, telemetry_data: TelemetryData) -> TelemetryData:
         """Merge the current event details with the telemetry data"""
-        telemetry_data.set_input(self.input_type, self.outputs)
+
+        # telemetry_data.set_input(self.input_type, self.outputs)
+        telemetry_data.add_input(self.input_id, self.input_type, self.outputs)
+
+        return telemetry_data
+
+
+class EventProcessedEvent(CommonTelemetryEvent):
+    """Happens when the event is processed successfully."""
+
+    def merge_with(self, telemetry_data: TelemetryData) -> TelemetryData:
+        """Merge the current event details with the telemetry data"""
         return telemetry_data
 
 
@@ -161,19 +187,28 @@ def function_started_telemetry(ctx: FunctionContext) -> None:
     if not is_telemetry_enabled():
         return
 
-    _telemetry_queue.put(FunctionStartedEvent(ctx))
+    _events_queue.put(FunctionStartedEvent(ctx))
 
 
-def input_selected_telemetry(_input: Input) -> None:
+def input_selected_telemetry(_id: str, _type: str, _outputs: List[str]) -> None:
     """Triggers the `InputSelectedEvent` telemetry event."""
     if not is_telemetry_enabled():
         return
 
     telemetry_event = InputSelectedEvent(
-        _input.type,
-        _input.get_output_types(),
+        _id,
+        _type,
+        _outputs,
     )
-    _telemetry_queue.put(telemetry_event)
+    _events_queue.put(telemetry_event)
+
+
+def event_processed_telemetry() -> None:
+    """Triggers the `EventProcessedEvent` telemetry event."""
+    if not is_telemetry_enabled():
+        return
+
+    _events_queue.put(EventProcessedEvent())
 
 
 # -------------------------------------------------------
@@ -208,10 +243,15 @@ class TelemetryWorker(Thread):
             "memory_limit_in_mb": self.telemetry_data.memory_limit_in_mb,
         }
 
-        if self.telemetry_data.input:
+        if self.telemetry_data.inputs:
+            # turn the inputs into a list of dicts, it's easier
+            # to work with in Kibana
+            _inputs = [
+                {"id": k, "type": v["type"], "outputs": v["outputs"]} for k, v in self.telemetry_data.inputs.items()
+            ]
             telemetry_data.update(
                 {
-                    "input": self.telemetry_data.input,
+                    "inputs": _inputs,
                 }
             )
 
@@ -237,7 +277,7 @@ class TelemetryWorker(Thread):
         """Process telemetry event"""
 
         self.telemetry_data = event.merge_with(self.telemetry_data)
-        if isinstance(event, InputSelectedEvent):
+        if isinstance(event, EventProcessedEvent):
             self._send_telemetry()
 
     def run(self) -> None:
@@ -263,13 +303,13 @@ def telemetry_init() -> None:
 
     If the worker is already exists, it is a no-op.
     """
-    global _telemetry_worker
+    global _worker
 
-    if _telemetry_worker is None:
-        _telemetry_worker = TelemetryWorker(_telemetry_queue)
+    if _worker is None:
+        _worker = TelemetryWorker(_events_queue)
         # the worker dies when main thread (only non-daemon thread) exits.
-        _telemetry_worker.daemon = True
-        _telemetry_worker.start()
+        _worker.daemon = True
+        _worker.start()
 
 
 # The queue is used to communicate between the main thread
@@ -277,11 +317,11 @@ def telemetry_init() -> None:
 #
 # The main thread adds events to the queue and the worker
 # thread reads them.
-_telemetry_queue: Queue[ProtocolTelemetryEvent] = Queue()
+_events_queue: Queue[ProtocolTelemetryEvent] = Queue()
 
 # Worker thread that sends the telemetry data to the telemetry
 # endpoint.
-_telemetry_worker: Optional[TelemetryWorker] = None
+_worker: Optional[TelemetryWorker] = None
 
 if is_telemetry_enabled():
     # If telemetry is enabled when the module is loaded,
