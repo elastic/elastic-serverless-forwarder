@@ -12,7 +12,6 @@ from typing import Any
 
 import requests
 from cryptography import x509
-from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat
@@ -73,29 +72,25 @@ class LogstashContainer(DockerContainer):  # type: ignore
     @staticmethod
     def _ssl_certificate_and_private_key(subject_name: str) -> tuple[str, str]:
         """
-        Create a self-signed CA certificate and server certificate signed
-        by the CA.
+        Create a private key and self-signed server certificate.
         """
         one_day = datetime.timedelta(1, 0, 0)
 
-        private_key_for_ca = rsa.generate_private_key(public_exponent=65537, key_size=1024, backend=default_backend())
-        private_key_for_server = rsa.generate_private_key(
-            public_exponent=65537, key_size=1024, backend=default_backend()
-        )
-        public_key_for_server = private_key_for_server.public_key()
+        priv_key = rsa.generate_private_key(public_exponent=65537, key_size=1024)
 
-        server_certificate = x509.CertificateBuilder(
+        x509_cert = x509.CertificateBuilder(
             issuer_name=x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "CA")]),
             subject_name=x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, subject_name)]),
-            public_key=public_key_for_server,
+            public_key=priv_key.public_key(),
             serial_number=x509.random_serial_number(),
             not_valid_before=datetime.datetime.today() - one_day,
             not_valid_after=datetime.datetime.today() + one_day,
-        ).sign(private_key=private_key_for_ca, algorithm=hashes.SHA256(), backend=default_backend())
+        ).sign(private_key=priv_key, algorithm=hashes.SHA256())
 
-        return server_certificate.public_bytes(Encoding.PEM).decode("utf-8"), private_key_for_server.private_bytes(
-            Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()
-        ).decode("utf-8")
+        x509_cert_str: str = x509_cert.public_bytes(Encoding.PEM).decode("utf-8")
+        priv_key_str: str = priv_key.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()).decode("utf-8")
+
+        return x509_cert_str, priv_key_str
 
     def _configure(self) -> None:
         """
