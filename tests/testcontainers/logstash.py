@@ -71,39 +71,27 @@ class LogstashContainer(DockerContainer):  # type: ignore
         self._previous_message_count: int = 0
 
     @staticmethod
-    def _certificates_for_authority_and_server(service_identity: str, key_size: int = 1024) -> tuple[str, str]:
+    def _ssl_certificate_and_private_key(subject_name: str) -> tuple[str, str]:
         """
         Create a self-signed CA certificate and server certificate signed
         by the CA.
         """
-        common_name_for_ca = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "CA")])
-        common_name_for_server = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "Server")])
         one_day = datetime.timedelta(1, 0, 0)
-        private_key_for_ca = rsa.generate_private_key(
-            public_exponent=65537, key_size=key_size, backend=default_backend()
-        )
+
+        private_key_for_ca = rsa.generate_private_key(public_exponent=65537, key_size=1024, backend=default_backend())
         private_key_for_server = rsa.generate_private_key(
-            public_exponent=65537, key_size=key_size, backend=default_backend()
+            public_exponent=65537, key_size=1024, backend=default_backend()
         )
         public_key_for_server = private_key_for_server.public_key()
-        server_certificate = (
-            x509.CertificateBuilder()
-            .subject_name(common_name_for_server)
-            .issuer_name(common_name_for_ca)
-            .not_valid_before(datetime.datetime.today() - one_day)
-            .not_valid_after(datetime.datetime.today() + one_day)
-            .serial_number(x509.random_serial_number())
-            .public_key(public_key_for_server)
-            .add_extension(
-                x509.BasicConstraints(ca=False, path_length=None),
-                critical=True,
-            )
-            .add_extension(
-                x509.SubjectAlternativeName([x509.DNSName(service_identity)]),
-                critical=True,
-            )
-            .sign(private_key=private_key_for_ca, algorithm=hashes.SHA256(), backend=default_backend())
-        )
+
+        server_certificate = x509.CertificateBuilder(
+            issuer_name=x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "CA")]),
+            subject_name=x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, subject_name)]),
+            public_key=public_key_for_server,
+            serial_number=x509.random_serial_number(),
+            not_valid_before=datetime.datetime.today() - one_day,
+            not_valid_after=datetime.datetime.today() + one_day,
+        ).sign(private_key=private_key_for_ca, algorithm=hashes.SHA256(), backend=default_backend())
 
         return server_certificate.public_bytes(Encoding.PEM).decode("utf-8"), private_key_for_server.private_bytes(
             Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()
@@ -115,7 +103,7 @@ class LogstashContainer(DockerContainer):  # type: ignore
         after initializing this class before <instance>.start()
         """
 
-        x509_cert, priv_key = self._certificates_for_authority_and_server(service_identity="localhost")
+        x509_cert, priv_key = self._ssl_certificate_and_private_key(subject_name="localhost")
 
         self.with_command(
             f"""bash -c "mkdir /tmp/ssl
