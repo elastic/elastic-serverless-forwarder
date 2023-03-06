@@ -56,7 +56,7 @@ def by_lines(func: GetByLinesCallable[ProtocolStorageType]) -> GetByLinesCallabl
                 assert isinstance(data, bytes)
 
                 unfinished_line += data
-                lines = unfinished_line.decode("UTF-8").splitlines()
+                lines = unfinished_line.decode("utf-8").splitlines()
 
                 if len(lines) == 0:
                     continue
@@ -75,7 +75,7 @@ def by_lines(func: GetByLinesCallable[ProtocolStorageType]) -> GetByLinesCallabl
                     unfinished_line = lines.pop().encode()
 
                 for line in lines:
-                    line_encoded = line.encode("UTF-8")
+                    line_encoded = line.encode("utf-8")
                     starting_offset = ending_offset
                     ending_offset += len(line_encoded) + newline_length
                     shared_logger.debug("by_line lines", extra={"offset": ending_offset})
@@ -412,12 +412,15 @@ class JsonCollector:
                             self._unfinished_line = b""
 
             # in this case we could have a trailing new line in what's left in the buffer
-            # or the content had a leading `{` but was not a json object before the circuit breaker intercepted it:
+            # or the content had a leading `{` but was not a json object before the circuit breaker intercepted it
+            # or we waited for the object start and never reached:
             # let's fallback to by_lines()
             if not self._is_a_json_object:
-                for line, starting_offset, ending_offset, original_newline_length, _ in self._by_lines_fallback(
-                    self._unfinished_line
-                ):
+                buffer: bytes = self._unfinished_line
+                if wait_for_object_start:
+                    buffer = wait_for_object_start_buffer
+
+                for line, starting_offset, ending_offset, original_newline_length, _ in self._by_lines_fallback(buffer):
                     self._handle_offset(len(line) + original_newline_length)
 
                     yield line, self._starting_offset, self._ending_offset, original_newline_length, None
