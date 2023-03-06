@@ -66,12 +66,16 @@ class LogstashShipper:
         self._replay_handler: Optional[ReplayHandlerCallable] = None
         self._event_id_generator: Optional[EventIdGeneratorCallable] = None
         self._events_batch: list[dict[str, Any]] = []
+
         self._max_batch_size = max_batch_size
+
         self._tags = tags
+
         if 0 <= compression_level <= 9:
             self._compression_level = compression_level
         else:
             raise ValueError("compression_level must be an integer value between 0 and 9")
+
         self._replay_args: dict[str, Any] = {}
 
         self._session = self._get_session(self._logstash_url, username, password, ssl_assert_fingerprint)
@@ -79,11 +83,15 @@ class LogstashShipper:
     @staticmethod
     def _get_session(url: str, username: str, password: str, ssl_assert_fingerprint: str) -> Session:
         session = Session()
+
         if username:
             session.auth = (username, password)
+
         if ssl_assert_fingerprint:
             session.verify = False
+
         session.mount(url, LogstashAdapter(ssl_assert_fingerprint))
+
         return session
 
     def send(self, event: dict[str, Any]) -> str:
@@ -92,12 +100,15 @@ class LogstashShipper:
 
         event["tags"] = ["forwarded"]
         event["tags"] += self._tags
+
         event = normalise_event(event)
 
         self._events_batch.append(event)
         if len(self._events_batch) < self._max_batch_size:
             return _EVENT_BUFFERED
+
         self._send()
+
         return _EVENT_SENT
 
     def set_event_id_generator(self, event_id_generator: EventIdGeneratorCallable) -> None:
@@ -109,11 +120,14 @@ class LogstashShipper:
     def flush(self) -> None:
         if len(self._events_batch) > 0:
             self._send()
+
         self._events_batch = []
+
         return
 
     def _send(self) -> None:
         ndjson = "\n".join(json_dumper(event) for event in self._events_batch)
+
         try:
             response = self._session.put(
                 self._logstash_url,
@@ -121,12 +135,14 @@ class LogstashShipper:
                 headers={"Content-Encoding": "gzip", "Content-Type": "application/x-ndjson"},
                 timeout=_TIMEOUT,
             )
+
             if response.status_code == 401:
                 raise RequestException("Authentication error")
         except RequestException as e:
             shared_logger.error(
                 f"logstash shipper encountered an error while publishing events to logstash. Error: {str(e)}"
             )
+
             if self._replay_handler is not None:
                 for event in self._events_batch:
                     self._replay_handler("logstash", self._replay_args, event)

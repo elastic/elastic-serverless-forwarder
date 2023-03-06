@@ -11,3 +11,4 @@ from .json import json_dumper, json_parser
 from .logger import logger as shared_logger
 from .multiline import CollectBuffer, CountMultiline, PatternMultiline, ProtocolMultiline, WhileMultiline
 from .secretsmanager import aws_sm_expander
+from .utils import get_hex_prefix

@@ -121,7 +121,7 @@ from ruamel.yaml import YAML
 
 
 def hex_suffix(src):
-    return hashlib.sha256(src.encode("UTF-8")).hexdigest()[:10]
+    return hashlib.sha256(src.encode("utf-8")).hexdigest()[:10]
 
 
 def create_events(publish_config: dict[str, Any]):

@@ -99,7 +99,7 @@ def test_get_as_string() -> None:
     MockContent.init_content(content_type=_IS_PLAIN, newline=b"\n")
 
     s3_storage = S3Storage(bucket_name="dummy_bucket", object_key="dummy.key")
-    content: bytes = s3_storage.get_as_string().encode("UTF-8")
+    content: bytes = s3_storage.get_as_string().encode("utf-8")
     assert content == MockContent.f_content_plain
     assert len(content) == len(MockContent.f_content_plain)
 
