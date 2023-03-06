@@ -5,6 +5,7 @@
 from .composite import CompositeShipper
 from .es import ElasticsearchShipper, JSONSerializer
 from .factory import ShipperFactory
+from .logstash import LogstashShipper
 from .shipper import (
     EVENT_IS_EMPTY,
     EVENT_IS_FILTERED,

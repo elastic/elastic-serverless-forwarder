@@ -2,6 +2,7 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
+
 import random
 import string
 from datetime import datetime
@@ -10,7 +11,15 @@ from unittest import TestCase
 
 import pytest
 
-from handlers.aws.utils import cloudwatch_logs_object_id, kinesis_record_id, s3_object_id, sqs_object_id
+from handlers.aws.utils import (
+    cloudwatch_logs_object_id,
+    get_shipper_from_input,
+    kinesis_record_id,
+    s3_object_id,
+    sqs_object_id,
+)
+from share import parse_config
+from shippers import LogstashShipper
 
 # Elasticsearch _id constraints
 MAX_ES_ID_SIZ_BYTES = 512
@@ -58,7 +67,115 @@ def _get_random_digit_string_of_size(size: int) -> str:
 
 
 @pytest.mark.unit
-class TestUtils(TestCase):
+class TestDiscoverIntegrationScope(TestCase):
+    def test_discover_integration_scope(self) -> None:
+        from handlers.aws.utils import discover_integration_scope
+
+        with self.subTest("discover_integration_scope aws.cloudtrail integration scope"):
+            s3_object_key = (
+                "AWSLogs/aws-account-id/CloudTrail/region/"
+                "yyyy/mm/dd/aws-account-id_CloudTrail_region_end-time_random-string.log.gz"
+            )
+
+            assert discover_integration_scope(s3_object_key=s3_object_key) == "aws.cloudtrail"
+
+        with self.subTest("discover_integration_scope aws.cloudtrail digest integration scope"):
+            s3_object_key = (
+                "AWSLogs/aws-account-id/CloudTrail-Digest/region/"
+                "yyyy/mm/dd/aws-account-id_CloudTrail-Digest_region_end-time_random-string.log.gz"
+            )
+
+            assert discover_integration_scope(s3_object_key=s3_object_key) == "aws.cloudtrail-digest"
+
+        with self.subTest("discover_integration_scope aws.cloudtrail insight integration scope"):
+            s3_object_key = (
+                "AWSLogs/aws-account-id/CloudTrail-Insight/region/"
+                "yyyy/mm/dd/aws-account-id_CloudTrail-Insight_region_end-time_random-string.log.gz"
+            )
+
+            assert discover_integration_scope(s3_object_key=s3_object_key) == "aws.cloudtrail"
+
+        with self.subTest("discover_integration_scope aws.cloudwatch_logs integration scope"):
+            s3_object_key = "exportedlogs/111-222-333/2021-12-28/hash/file.gz"
+
+            assert discover_integration_scope(s3_object_key=s3_object_key) == "aws.cloudwatch_logs"
+
+        with self.subTest("discover_integration_scope aws.elb_logs integration scope"):
+            s3_object_key = (
+                "AWSLogs/aws-account-id/elasticloadbalancing/region/yyyy/mm/dd/"
+                "aws-account-id_elasticloadbalancing_region_load-balancer-id_end-time_ip-address_random-string.log.gz"
+            )
+
+            assert discover_integration_scope(s3_object_key=s3_object_key) == "aws.elb_logs"
+
+        with self.subTest("discover_integration_scope aws.firewall_logs integration scope"):
+            s3_object_key = "AWSLogs/aws-account-id/network-firewall/log-type/Region/firewall-name/timestamp/"
+
+            assert discover_integration_scope(s3_object_key=s3_object_key) == "aws.firewall_logs"
+
+        with self.subTest("discover_integration_scope aws.waf integration scope"):
+            s3_object_key = "AWSLogs/account-id/WAFLogs/Region/web-acl-name/YYYY/MM/dd/HH/mm"
+
+            assert discover_integration_scope(s3_object_key=s3_object_key) == "aws.waf"
+
+        with self.subTest("discover_integration_scope aws.vpcflow integration scope"):
+            s3_object_key = "AWSLogs/id/vpcflowlogs/region/date_vpcflowlogs_region_file.log.gz"
+
+            assert discover_integration_scope(s3_object_key=s3_object_key) == "aws.vpcflow"
+
+        with self.subTest("discover_integration_scope unknown integration scope"):
+            s3_object_key = "random_hash"
+
+            assert discover_integration_scope(s3_object_key=s3_object_key) == "generic"
+
+        with self.subTest("discover_integration_scope empty s3"):
+            s3_object_key = ""
+
+            assert discover_integration_scope(s3_object_key=s3_object_key) == "generic"
+
+
+@pytest.mark.unit
+class TestGetShipperFromInput(TestCase):
+    def test_get_shipper_from_input(self) -> None:
+        with self.subTest("Logstash shipper from Kinesis input"):
+            config_yaml_kinesis: str = """
+                                inputs:
+                                  - type: kinesis-data-stream
+                                    id: arn:aws:kinesis:eu-central-1:123456789:stream/test-esf-kinesis-stream
+                                    outputs:
+                                        - type: logstash
+                                          args:
+                                            logstash_url: logstash_url
+                            """
+            config = parse_config(config_yaml_kinesis)
+            event_input = config.get_input_by_id(
+                "arn:aws:kinesis:eu-central-1:123456789:stream/test-esf-kinesis-stream"
+            )
+            assert event_input is not None
+            shipper = get_shipper_from_input(event_input=event_input, config_yaml=config_yaml_kinesis)
+            assert len(shipper._shippers) == 1
+            assert isinstance(shipper._shippers[0], LogstashShipper)
+
+        with self.subTest("Logstash shipper from Cloudwatch logs input"):
+            config_yaml_cw: str = """
+                                inputs:
+                                  - type: cloudwatch-logs
+                                    id: arn:aws:logs:eu-central-1:123456789:stream/test-cw-logs
+                                    outputs:
+                                        - type: logstash
+                                          args:
+                                            logstash_url: logstash_url
+                            """
+            config = parse_config(config_yaml_cw)
+            event_input = config.get_input_by_id("arn:aws:logs:eu-central-1:123456789:stream/test-cw-logs")
+            assert event_input is not None
+            shipper = get_shipper_from_input(event_input=event_input, config_yaml=config_yaml_cw)
+            assert len(shipper._shippers) == 1
+            assert isinstance(shipper._shippers[0], LogstashShipper)
+
+
+@pytest.mark.unit
+class TestRecordId(TestCase):
     def test_kinesis_id_less_than_512bytes(self) -> None:
         stream_name: str = _get_random_string_of_size(MAX_STREAM_NAME_CHARS)
         partition_key: str = _get_random_string_of_size(MAX_PARTITION_KEY_CHARS)

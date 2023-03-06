@@ -1,7 +1,6 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
-import hashlib
 import os
 from typing import Any, Callable, Optional
 
@@ -12,7 +11,7 @@ from elasticapm import Client
 from elasticapm import get_client as get_apm_client
 from elasticapm.contrib.serverless.aws import capture_serverless as apm_capture_serverless  # noqa: F401
 
-from share import Input, Output, json_dumper, json_parser, shared_logger
+from share import Input, Output, get_hex_prefix, json_dumper, json_parser, shared_logger
 from shippers import CompositeShipper, ProtocolShipper, ShipperFactory
 from storage import ProtocolStorage, StorageFactory
 
@@ -28,6 +27,8 @@ _available_triggers: dict[str, str] = {"aws:s3": "s3-sqs", "aws:sqs": "sqs", "aw
 
 CONFIG_FROM_PAYLOAD: str = "CONFIG_FROM_PAYLOAD"
 CONFIG_FROM_S3FILE: str = "CONFIG_FROM_S3FILE"
+
+INTEGRATION_SCOPE_GENERIC: str = "generic"
 
 
 def get_sqs_client() -> BotoBaseClient:
@@ -110,25 +111,10 @@ def wrap_try_except(
     return wrapper
 
 
-def discover_integration_scope(lambda_event: dict[str, Any], at_record: int) -> str:
-    if (
-        "Records" not in lambda_event
-        or len(lambda_event["Records"]) < at_record
-        or "body" not in lambda_event["Records"][at_record]
-    ):
-        return "generic"
-
-    body: str = lambda_event["Records"][at_record]["body"]
-    s3_object_key: str = ""
-    try:
-        json_body: dict[str, Any] = json_parser(body)
-        s3_object_key = json_body["Records"][0]["s3"]["object"]["key"]
-    except Exception:
-        pass
-
+def discover_integration_scope(s3_object_key: str) -> str:
     if s3_object_key == "":
         shared_logger.info("s3 object key is empty, dataset set to `generic`")
-        return "generic"
+        return INTEGRATION_SCOPE_GENERIC
     else:
         if "/CloudTrail/" in s3_object_key or "/CloudTrail-Insight/" in s3_object_key:
             return "aws.cloudtrail"
@@ -145,35 +131,45 @@ def discover_integration_scope(lambda_event: dict[str, Any], at_record: int) -> 
         elif "/WAFLogs/" in s3_object_key:
             return "aws.waf"
         else:
-            return "generic"
+            return INTEGRATION_SCOPE_GENERIC
 
 
-def get_shipper_from_input(
-    event_input: Input, lambda_event: dict[str, Any], at_record: int, config_yaml: str
-) -> CompositeShipper:
+def get_shipper_from_input(event_input: Input, config_yaml: str) -> CompositeShipper:
     composite_shipper: CompositeShipper = CompositeShipper()
-    integration_scope: str = event_input.discover_integration_scope(lambda_event=lambda_event, at_record=at_record)
 
     for output_type in event_input.get_output_types():
         if output_type == "elasticsearch":
             shared_logger.info("setting ElasticSearch shipper")
-            output: Optional[Output] = event_input.get_output_by_type("elasticsearch")
-            assert output is not None
+            elasticsearch_output: Optional[Output] = event_input.get_output_by_type("elasticsearch")
+            assert elasticsearch_output is not None
 
-            shipper: ProtocolShipper = ShipperFactory.create_from_output(output_type="elasticsearch", output=output)
-            composite_shipper.add_shipper(shipper=shipper)
-            composite_shipper.set_integration_scope(integration_scope=integration_scope)
-            replay_handler = ReplayEventHandler(config_yaml=config_yaml, event_input=event_input)
-            composite_shipper.set_replay_handler(replay_handler=replay_handler.replay_handler)
+            elasticsearch_shipper: ProtocolShipper = ShipperFactory.create_from_output(
+                output_type="elasticsearch", output=elasticsearch_output
+            )
+            composite_shipper.add_shipper(shipper=elasticsearch_shipper)
 
-            if event_input.type == "cloudwatch-logs":
-                composite_shipper.set_event_id_generator(event_id_generator=cloudwatch_logs_object_id)
-            elif event_input.type == "sqs":
-                composite_shipper.set_event_id_generator(event_id_generator=sqs_object_id)
-            elif event_input.type == "s3-sqs":
-                composite_shipper.set_event_id_generator(event_id_generator=s3_object_id)
-            elif event_input.type == "kinesis-data-stream":
-                composite_shipper.set_event_id_generator(event_id_generator=kinesis_record_id)
+        if output_type == "logstash":
+            shared_logger.info("setting Logstash shipper")
+            logstash_output: Optional[Output] = event_input.get_output_by_type("logstash")
+            assert logstash_output is not None
+
+            logstash_shipper: ProtocolShipper = ShipperFactory.create_from_output(
+                output_type="logstash", output=logstash_output
+            )
+
+            composite_shipper.add_shipper(shipper=logstash_shipper)
+
+        replay_handler = ReplayEventHandler(event_input=event_input)
+        composite_shipper.set_replay_handler(replay_handler=replay_handler.replay_handler)
+
+        if event_input.type == "cloudwatch-logs":
+            composite_shipper.set_event_id_generator(event_id_generator=cloudwatch_logs_object_id)
+        elif event_input.type == "sqs":
+            composite_shipper.set_event_id_generator(event_id_generator=sqs_object_id)
+        elif event_input.type == "s3-sqs":
+            composite_shipper.set_event_id_generator(event_id_generator=s3_object_id)
+        elif event_input.type == "kinesis-data-stream":
+            composite_shipper.set_event_id_generator(event_id_generator=kinesis_record_id)
 
     composite_shipper.add_include_exclude_filter(event_input.include_exclude_filter)
 
@@ -305,7 +301,7 @@ def get_trigger_type_and_config_source(event: dict[str, Any]) -> tuple[str, str]
                 and "output_args" in event_body
                 and "event_payload" in event_body
             ):
-                return "replay-sqs", CONFIG_FROM_PAYLOAD
+                return "replay-sqs", CONFIG_FROM_S3FILE
 
             if (
                 isinstance(body, dict)
@@ -343,8 +339,7 @@ def get_trigger_type_and_config_source(event: dict[str, Any]) -> tuple[str, str]
 
 
 class ReplayEventHandler:
-    def __init__(self, config_yaml: str, event_input: Input):
-        self._config_yaml: str = config_yaml
+    def __init__(self, event_input: Input):
         self._event_input_id: str = event_input.id
 
     def replay_handler(self, output_type: str, output_args: dict[str, Any], event_payload: dict[str, Any]) -> None:
@@ -359,13 +354,7 @@ class ReplayEventHandler:
             "event_input_id": self._event_input_id,
         }
 
-        sqs_client.send_message(
-            QueueUrl=sqs_replay_queue,
-            MessageBody=json_dumper(message_payload),
-            MessageAttributes={
-                "config": {"StringValue": self._config_yaml, "DataType": "String"},
-            },
-        )
+        sqs_client.send_message(QueueUrl=sqs_replay_queue, MessageBody=json_dumper(message_payload))
 
         shared_logger.warning(
             "sent to replay queue", extra={"output_type": output_type, "event_input_id": self._event_input_id}
@@ -442,7 +431,7 @@ def s3_object_id(event_payload: dict[str, Any]) -> str:
     event_time: int = event_payload["meta"]["event_time"]
 
     src: str = f"{bucket_arn}-{object_key}"
-    hex_src = _get_hex_prefix(src)
+    hex_src = get_hex_prefix(src)
 
     return f"{event_time}-{hex_src}-{offset:012d}"
 
@@ -459,7 +448,7 @@ def cloudwatch_logs_object_id(event_payload: dict[str, Any]) -> str:
     event_timestamp: int = event_payload["meta"]["event_timestamp"]
 
     src: str = f"{group_name}-{stream_name}-{event_id}"
-    hex_src = _get_hex_prefix(src)
+    hex_src = get_hex_prefix(src)
 
     return f"{event_timestamp}-{hex_src}-{offset:012d}"
 
@@ -475,7 +464,7 @@ def sqs_object_id(event_payload: dict[str, Any]) -> str:
     sent_timestamp: int = event_payload["meta"]["sent_timestamp"]
 
     src: str = f"{queue_name}-{message_id}"
-    hex_src = _get_hex_prefix(src)
+    hex_src = get_hex_prefix(src)
 
     return f"{sent_timestamp}-{hex_src}-{offset:012d}"
 
@@ -492,7 +481,7 @@ def kinesis_record_id(event_payload: dict[str, Any]) -> str:
     approximate_arrival_timestamp: int = event_payload["meta"]["approximate_arrival_timestamp"]
 
     src: str = f"{stream_type}-{stream_name}-{partition_key}-{sequence_number}"
-    hex_src = _get_hex_prefix(src)
+    hex_src = get_hex_prefix(src)
 
     return f"{approximate_arrival_timestamp}-{hex_src}-{offset:012d}"
 
@@ -506,7 +495,3 @@ def expand_event_list_from_field_resolver(integration_scope: str, field_to_expan
         field_to_expand_event_list_from = "Records"
 
     return field_to_expand_event_list_from
-
-
-def _get_hex_prefix(src: str) -> str:
-    return hashlib.sha3_384(src.encode("UTF8")).hexdigest()

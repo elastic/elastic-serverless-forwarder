@@ -114,7 +114,7 @@ def _handle_kinesis_record(
             es_event: dict[str, Any] = {
                 "@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
                 "fields": {
-                    "message": log_event.decode("UTF-8"),
+                    "message": log_event.decode("utf-8"),
                     "log": {
                         "offset": starting_offset,
                         "file": {

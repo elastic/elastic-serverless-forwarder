@@ -110,4 +110,4 @@ class S3Storage(CommonStorage):
         s3_object = self._s3_client.get_object(Bucket=self._bucket_name, Key=self._object_key, Range="bytes=0-")
 
         body: StreamingBody = s3_object["Body"]
-        return str(body.read(s3_object["ContentLength"]).decode("UTF-8"))
+        return str(body.read(s3_object["ContentLength"]).decode("utf-8"))

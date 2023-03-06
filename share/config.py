@@ -12,7 +12,7 @@ from .logger import logger as shared_logger
 from .multiline import ProtocolMultiline
 
 _available_input_types: list[str] = ["cloudwatch-logs", "s3-sqs", "sqs", "kinesis-data-stream"]
-_available_output_types: list[str] = ["elasticsearch"]
+_available_output_types: list[str] = ["elasticsearch", "logstash"]
 
 IntegrationScopeDiscovererCallable = Callable[[dict[str, Any], int], str]
 
@@ -188,17 +188,103 @@ class ElasticsearchOutput(Output):
         self._ssl_assert_fingerprint = value
 
 
+class LogstashOutput(Output):
+    def __init__(
+        self,
+        logstash_url: str = "",
+        username: str = "",
+        password: str = "",
+        max_batch_size: int = 500,
+        compression_level: int = 9,
+        tags: list[str] = [],
+        ssl_assert_fingerprint: str = "",
+    ) -> None:
+        super().__init__(output_type="logstash")
+        self.logstash_url = logstash_url
+        self.username = username
+        self.password = password
+        self.max_batch_size = max_batch_size
+        self.compression_level = compression_level
+        self.tags = tags
+        self.ssl_assert_fingerprint = ssl_assert_fingerprint
+
+        if self.username and not self.password:
+            raise ValueError("`password` must be set when using `username`")
+        shared_logger.debug("tags: ", extra={"tags": self.tags})
+
+    @property
+    def logstash_url(self) -> str:
+        return self._logstash_url
+
+    @logstash_url.setter
+    def logstash_url(self, value: str) -> None:
+        if not isinstance(value, str):
+            raise ValueError("`logstash_url` must be provided as string")
+
+        self._logstash_url = value
+
+    @property
+    def username(self) -> str:
+        return self._username
+
+    @username.setter
+    def username(self, value: str) -> None:
+        if not isinstance(value, str):
+            raise ValueError("`username` must be provided as string")
+
+        self._username = value
+
+    @property
+    def password(self) -> str:
+        return self._password
+
+    @password.setter
+    def password(self, value: str) -> None:
+        if not isinstance(value, str):
+            raise ValueError("`password` must be provided as string")
+
+        self._password = value
+
+    @property
+    def max_batch_size(self) -> int:
+        return self._max_batch_size
+
+    @max_batch_size.setter
+    def max_batch_size(self, value: int) -> None:
+        if not isinstance(value, int):
+            raise ValueError("`max_batch_size` must be provided as int")
+
+        self._max_batch_size = value
+
+    @property
+    def compression_level(self) -> int:
+        return self._compression_level
+
+    @compression_level.setter
+    def compression_level(self, value: int) -> None:
+        if not isinstance(value, int):
+            raise ValueError("`compression_level` must be provided as int")
+
+        self._compression_level = value
+
+    @property
+    def ssl_assert_fingerprint(self) -> str:
+        return self._ssl_assert_fingerprint
+
+    @ssl_assert_fingerprint.setter
+    def ssl_assert_fingerprint(self, value: str) -> None:
+        if not isinstance(value, str):
+            raise ValueError("`ssl_assert_fingerprint` must be provided as string")
+
+        self._ssl_assert_fingerprint = value
+
+
 class Input:
     """
     Base class for Input component
     """
 
-    def __init__(
-        self,
-        input_type: str,
-        input_id: str,
-        integration_scope_discoverer: Optional[IntegrationScopeDiscovererCallable] = None,
-    ):
+    def __init__(self, input_type: str, input_id: str):
         self.id = input_id
         self.type = input_type
 
@@ -207,18 +293,10 @@ class Input:
         self._expand_event_list_from_field: str = ""
         self._outputs: dict[str, Output] = {}
 
-        self._integration_scope_discoverer = integration_scope_discoverer
-
         self._multiline_processor: Optional[ProtocolMultiline] = None
         self._include_exclude_filter: Optional[IncludeExcludeFilter] = None
 
         self._valid_json_content_type: list[str] = ["ndjson", "single", "disabled"]
-
-    def discover_integration_scope(self, lambda_event: dict[str, Any], at_record: int) -> str:
-        if self._integration_scope_discoverer is None:
-            return ""
-
-        return self._integration_scope_discoverer(lambda_event, at_record)
 
     @property
     def type(self) -> str:
@@ -338,6 +416,8 @@ class Input:
         output: Optional[Output] = None
         if output_type == "elasticsearch":
             output = ElasticsearchOutput(**kwargs)
+        elif output_type == "logstash":
+            output = LogstashOutput(**kwargs)
         else:
             output = Output(output_type=output_type)
 
@@ -386,11 +466,7 @@ class Config:
         self._inputs[new_input.id] = new_input
 
 
-def parse_config(
-    config_yaml: str,
-    expanders: list[Callable[[str], str]] = [],
-    integration_scope_discoverer: Optional[IntegrationScopeDiscovererCallable] = None,
-) -> Config:
+def parse_config(config_yaml: str, expanders: list[Callable[[str], str]] = []) -> Config:
     """
     Config component factory
     Given a config yaml as string it return the Config instance as defined by the yaml
@@ -415,11 +491,7 @@ def parse_config(
             raise ValueError(f'`type` must be provided as string for input {input_config["id"]}')
 
         try:
-            current_input: Input = Input(
-                input_type=input_config["type"],
-                input_id=input_config["id"],
-                integration_scope_discoverer=integration_scope_discoverer,
-            )
+            current_input: Input = Input(input_type=input_config["type"], input_id=input_config["id"])
         except ValueError as e:
             raise ValueError(f'An error occurred while applying type configuration for input {input_config["id"]}: {e}')
 

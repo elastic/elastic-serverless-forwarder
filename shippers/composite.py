@@ -2,6 +2,7 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
+from copy import deepcopy
 from typing import Any, Optional
 
 from share import IncludeExcludeFilter, shared_logger
@@ -23,7 +24,6 @@ class CompositeShipper:
     """
 
     def __init__(self, **kwargs: Any):
-        self._integration_scope: str = ""
         self._shippers: list[ProtocolShipper] = []
         self._include_exclude_filter: Optional[IncludeExcludeFilter] = None
 
@@ -40,20 +40,6 @@ class CompositeShipper:
         Add a shipper to the composite
         """
         self._shippers.append(shipper)
-
-    def set_integration_scope(self, integration_scope: str) -> None:
-        """
-        Integration Scope setter.
-        Set the integration scope to the composite
-        """
-        self._integration_scope = integration_scope
-
-    def get_integration_scope(self) -> str:
-        """
-        Integration Scope getter.
-        Get the integration scope of the composite
-        """
-        return self._integration_scope
 
     def set_event_id_generator(self, event_id_generator: EventIdGeneratorCallable) -> None:
         for shipper in self._shippers:
@@ -78,14 +64,11 @@ class CompositeShipper:
             shared_logger.debug("event is filtered according to filter rules")
             return EVENT_IS_FILTERED
 
-        if self._integration_scope != "":
-            if "meta" not in event:
-                event["meta"] = {}
-
-            event["meta"]["integration_scope"] = self._integration_scope
-
         for shipper in self._shippers:
-            shipper.send(event)
+            # dict are mutated if not deep copied, every shipper can mutate the
+            # events it receives without affecting the events of other shippers
+            sent_event = deepcopy(event)
+            shipper.send(sent_event)
 
         return EVENT_IS_SENT
 

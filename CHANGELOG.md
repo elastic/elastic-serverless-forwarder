@@ -1,3 +1,16 @@
+### v1.7.2 - 2023/02/27
+##### Bug fixes
+* Fix events mutation across different outputs of the same input, proper handling of multiple outputs in the replay queue handler, proper handling of non json content where no json object start was ever met in the storage json collector [#260](https://github.com/elastic/elastic-serverless-forwarder/pull/260)
+
+### v1.7.1 - 2023/02/16
+##### Bug fixes
+* Fix wrong resolved `expand_event_list_from_field` with AWS CloudTrail due to race condition [#244](https://github.com/elastic/elastic-serverless-forwarder/pull/244)
+* Fix shipper cache to include output type in the key [#245](https://github.com/elastic/elastic-serverless-forwarder/pull/245)
+
+### v1.7.0 - 2023/02/01
+##### Features
+* Added support for Logstash as output (Technical Preview) [#210](https://github.com/elastic/elastic-serverless-forwarder/pull/210)
+
 ### v1.6.1 - 2023/02/03
 ##### Bug fixes
 * Changed event ID format to use a SHA3 384bit hash of AWS-provided ids: [#227](https://github.com/elastic/elastic-serverless-forwarder/pull/227)

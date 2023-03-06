@@ -12,7 +12,12 @@ from botocore.client import BaseClient as BotoBaseClient
 from share import ExpandEventListFromField, ProtocolMultiline, json_dumper, json_parser, shared_logger
 from storage import ProtocolStorage, StorageFactory
 
-from .utils import get_account_id_from_arn, get_bucket_name_from_arn
+from .utils import (
+    discover_integration_scope,
+    expand_event_list_from_field_resolver,
+    get_account_id_from_arn,
+    get_bucket_name_from_arn,
+)
 
 
 def _handle_s3_sqs_continuation(
@@ -68,7 +73,7 @@ def _handle_s3_sqs_continuation(
 def _handle_s3_sqs_event(
     sqs_record_body: dict[str, Any],
     input_id: str,
-    expand_event_list_from_field: ExpandEventListFromField,
+    field_to_expand_event_list_from: str,
     json_content_type: Optional[str],
     multiline_processor: Optional[ProtocolMultiline],
 ) -> Iterator[tuple[dict[str, Any], int, Optional[int], int]]:
@@ -86,6 +91,18 @@ def _handle_s3_sqs_event(
         object_key = unquote_plus(s3_record["s3"]["object"]["key"], "utf-8")
         event_time = int(datetime.datetime.strptime(s3_record["eventTime"], "%Y-%m-%dT%H:%M:%S.%fZ").timestamp() * 1000)
         last_ending_offset = s3_record["last_ending_offset"] if "last_ending_offset" in s3_record else 0
+        last_event_expanded_offset = (
+            s3_record["last_event_expanded_offset"] if "last_event_expanded_offset" in s3_record else None
+        )
+
+        integration_scope = discover_integration_scope(object_key)
+
+        expand_event_list_from_field = ExpandEventListFromField(
+            field_to_expand_event_list_from,
+            integration_scope,
+            expand_event_list_from_field_resolver,
+            last_event_expanded_offset,
+        )
 
         assert len(bucket_arn) > 0
         assert len(object_key) > 0
@@ -114,7 +131,7 @@ def _handle_s3_sqs_event(
             es_event: dict[str, Any] = {
                 "@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
                 "fields": {
-                    "message": log_event.decode("UTF-8"),
+                    "message": log_event.decode("utf-8"),
                     "log": {
                         "offset": starting_offset,
                         "file": {
@@ -133,7 +150,7 @@ def _handle_s3_sqs_event(
                         "account": {"id": account_id},
                     },
                 },
-                "meta": {"event_time": event_time},
+                "meta": {"event_time": event_time, "integration_scope": integration_scope},
             }
 
             yield es_event, ending_offset, event_expanded_offset, s3_record_n

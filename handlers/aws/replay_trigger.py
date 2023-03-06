@@ -4,7 +4,7 @@
 
 from typing import Any, Optional
 
-from share import Config, ElasticsearchOutput, Input, Output, shared_logger
+from share import Config, ElasticsearchOutput, Input, LogstashOutput, Output, shared_logger
 from shippers import ProtocolShipper, ShipperFactory
 
 from .exceptions import InputConfigException, OutputConfigException, ReplayHandlerException
@@ -15,19 +15,20 @@ class ReplayedEventReplayHandler:
     def __init__(self, replay_queue_arn: str):
         self._replay_queue_arn = replay_queue_arn
         self._failed_event_ids: list[str] = []
-        self._event_ids_with_receipt_handle: dict[str, str] = {}
+        self._events_with_receipt_handle: dict[str, str] = {}
 
-    def add_event_id_with_receipt_handle(self, event_id: str, receipt_handle: str) -> None:
-        self._event_ids_with_receipt_handle[event_id] = receipt_handle
+    def add_event_with_receipt_handle(self, event_uniq_id: str, receipt_handle: str) -> None:
+        self._events_with_receipt_handle[event_uniq_id] = receipt_handle
 
     def replay_handler(self, output_type: str, output_args: dict[str, Any], event_payload: dict[str, Any]) -> None:
-        self._failed_event_ids.append(event_payload["_id"])
+        event_uniq_id: str = event_payload["_id"] + output_type
+        self._failed_event_ids.append(event_uniq_id)
 
     def flush(self) -> None:
-        for failed_event_id in self._failed_event_ids:
-            del self._event_ids_with_receipt_handle[failed_event_id]
+        for failed_event_uniq_id in self._failed_event_ids:
+            del self._events_with_receipt_handle[failed_event_uniq_id]
 
-        for receipt_handle in self._event_ids_with_receipt_handle.values():
+        for receipt_handle in self._events_with_receipt_handle.values():
             delete_sqs_record(self._replay_queue_arn, receipt_handle)
 
         if len(self._failed_event_ids) > 0:
@@ -57,5 +58,13 @@ def get_shipper_for_replay_event(
         elasticsearch.set_replay_handler(replay_handler=replay_handler.replay_handler)
 
         return elasticsearch
+
+    if output_type == "logstash":
+        assert isinstance(output, LogstashOutput)
+        shared_logger.info("setting Logstash shipper")
+        logstash: ProtocolShipper = ShipperFactory.create_from_output(output_type=output_type, output=output)
+        logstash.set_replay_handler(replay_handler=replay_handler.replay_handler)
+
+        return logstash
 
     return None
