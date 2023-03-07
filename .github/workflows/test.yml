@@ -1,0 +1,62 @@
+name: test
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  license:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+    - uses: actions/checkout@v3
+    - run: make license
+
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+    - uses: actions/checkout@v3
+    - run: make docker-lint
+
+  coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+    - name: Cleanup some tools from the workers to fix no space left
+      run: |-
+        df -h
+        sudo rm -rf /usr/local/lib/android &
+        sudo rm -rf /usr/local/lib/heroku /usr/local/aws-cli /usr/share/apache-maven* /usr/share/apache2 /usr/share/php* /usr/share/dotnet /opt /usr/local/lib/node_modules &
+
+    - uses: actions/checkout@v3
+
+    - run: make docker-coverage
+
+    - name: Store test results
+      if: success() || failure()
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-results
+        path: '**/elastic-serverless-forwarder-junit.xml'
+
+    - name: Code Coverage Summary Report
+      if: success() || failure()
+      uses: irongut/CodeCoverageSummary@v1.3.0
+      with:
+        filename: coverage.xml
+        format: 'markdown'
+        output: 'both'
+
+    - name: Write to Job Summary
+      if: success() || failure()
+      run: cat code-coverage-results.md >> $GITHUB_STEP_SUMMARY
