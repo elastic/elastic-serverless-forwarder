@@ -1,7 +1,6 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
-import hashlib
 import os
 from typing import Any, Callable, Optional
 
@@ -12,7 +11,7 @@ from elasticapm import Client
 from elasticapm import get_client as get_apm_client
 from elasticapm.contrib.serverless.aws import capture_serverless as apm_capture_serverless  # noqa: F401
 
-from share import Input, Output, json_dumper, json_parser, shared_logger
+from share import Input, Output, get_hex_prefix, json_dumper, json_parser, shared_logger
 from shippers import CompositeShipper, ProtocolShipper, ShipperFactory
 from storage import ProtocolStorage, StorageFactory
 
@@ -160,7 +159,7 @@ def get_shipper_from_input(event_input: Input, config_yaml: str) -> CompositeShi
 
             composite_shipper.add_shipper(shipper=logstash_shipper)
 
-        replay_handler = ReplayEventHandler(config_yaml=config_yaml, event_input=event_input)
+        replay_handler = ReplayEventHandler(event_input=event_input)
         composite_shipper.set_replay_handler(replay_handler=replay_handler.replay_handler)
 
         if event_input.type == "cloudwatch-logs":
@@ -302,7 +301,7 @@ def get_trigger_type_and_config_source(event: dict[str, Any]) -> tuple[str, str]
                 and "output_args" in event_body
                 and "event_payload" in event_body
             ):
-                return "replay-sqs", CONFIG_FROM_PAYLOAD
+                return "replay-sqs", CONFIG_FROM_S3FILE
 
             if (
                 isinstance(body, dict)
@@ -340,8 +339,7 @@ def get_trigger_type_and_config_source(event: dict[str, Any]) -> tuple[str, str]
 
 
 class ReplayEventHandler:
-    def __init__(self, config_yaml: str, event_input: Input):
-        self._config_yaml: str = config_yaml
+    def __init__(self, event_input: Input):
         self._event_input_id: str = event_input.id
 
     def replay_handler(self, output_type: str, output_args: dict[str, Any], event_payload: dict[str, Any]) -> None:
@@ -356,13 +354,7 @@ class ReplayEventHandler:
             "event_input_id": self._event_input_id,
         }
 
-        sqs_client.send_message(
-            QueueUrl=sqs_replay_queue,
-            MessageBody=json_dumper(message_payload),
-            MessageAttributes={
-                "config": {"StringValue": self._config_yaml, "DataType": "String"},
-            },
-        )
+        sqs_client.send_message(QueueUrl=sqs_replay_queue, MessageBody=json_dumper(message_payload))
 
         shared_logger.warning(
             "sent to replay queue", extra={"output_type": output_type, "event_input_id": self._event_input_id}
@@ -439,7 +431,7 @@ def s3_object_id(event_payload: dict[str, Any]) -> str:
     event_time: int = event_payload["meta"]["event_time"]
 
     src: str = f"{bucket_arn}-{object_key}"
-    hex_src = _get_hex_prefix(src)
+    hex_src = get_hex_prefix(src)
 
     return f"{event_time}-{hex_src}-{offset:012d}"
 
@@ -456,7 +448,7 @@ def cloudwatch_logs_object_id(event_payload: dict[str, Any]) -> str:
     event_timestamp: int = event_payload["meta"]["event_timestamp"]
 
     src: str = f"{group_name}-{stream_name}-{event_id}"
-    hex_src = _get_hex_prefix(src)
+    hex_src = get_hex_prefix(src)
 
     return f"{event_timestamp}-{hex_src}-{offset:012d}"
 
@@ -472,7 +464,7 @@ def sqs_object_id(event_payload: dict[str, Any]) -> str:
     sent_timestamp: int = event_payload["meta"]["sent_timestamp"]
 
     src: str = f"{queue_name}-{message_id}"
-    hex_src = _get_hex_prefix(src)
+    hex_src = get_hex_prefix(src)
 
     return f"{sent_timestamp}-{hex_src}-{offset:012d}"
 
@@ -489,7 +481,7 @@ def kinesis_record_id(event_payload: dict[str, Any]) -> str:
     approximate_arrival_timestamp: int = event_payload["meta"]["approximate_arrival_timestamp"]
 
     src: str = f"{stream_type}-{stream_name}-{partition_key}-{sequence_number}"
-    hex_src = _get_hex_prefix(src)
+    hex_src = get_hex_prefix(src)
 
     return f"{approximate_arrival_timestamp}-{hex_src}-{offset:012d}"
 
@@ -503,7 +495,3 @@ def expand_event_list_from_field_resolver(integration_scope: str, field_to_expan
         field_to_expand_event_list_from = "Records"
 
     return field_to_expand_event_list_from
-
-
-def _get_hex_prefix(src: str) -> str:
-    return hashlib.sha3_384(src.encode("UTF8")).hexdigest()
