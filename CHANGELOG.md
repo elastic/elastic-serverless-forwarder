@@ -2,7 +2,7 @@
 ##### Bug fixes
 * Fix events mutation across different outputs of the same input, proper handling of multiple outputs in the replay queue handler, proper handling of non json content where no json object start was ever met in the storage json collector [#260](https://github.com/elastic/elastic-serverless-forwarder/pull/260)
 * Fix throttling exception in `cloudwatch-logs` input related to DescribeLogStreams [#276](https://github.com/elastic/elastic-serverless-forwarder/pull/276)
-*
+
 ### v1.7.1 - 2023/02/16
 ##### Bug fixes
 * Fix wrong resolved `expand_event_list_from_field` with AWS CloudTrail due to race condition [#244](https://github.com/elastic/elastic-serverless-forwarder/pull/244)
