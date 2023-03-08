@@ -60,6 +60,15 @@ jobs:
         format: 'markdown'
         output: 'both'
 
+    - name: Store coverage results
+      if: success() || failure()
+      uses: actions/upload-artifact@v3
+      with:
+        name: coverage
+        path: |
+          coverage.xml
+          code-coverage-results.md
+
     # Version https://github.com/marocchino/sticky-pull-request-comment/releases/tag/v2.5.0
     - name: Add Coverage PR Comment
       uses: marocchino/sticky-pull-request-comment@3d60a5b2dae89d44e0c6ddc69dd7536aec2071cd
