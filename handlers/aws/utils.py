@@ -385,10 +385,8 @@ def get_input_from_log_group_subscription_data(
     This function is not less resilient than the previous get_log_group_arn_and_region_from_log_group_name()
     We avoid to call the describe_log_streams on the logs' client, since we have no way to apply the proper
     throttling because we'd need to know the number of concurrent lambda running at the time of the call.
-    The list of regions is unluckily hardcoded: there's no API to get the list for logs (the most similar API is in ec2:
-    https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_regions.html - but we
-    would need to add IAM permissions for it).
-    We must keep the hardcoded list up to date or find a way to sync it automatically
+    In order to not hardcode the list of regions we rely on ec2 DescribeRegions - as much weird as it is - that I found
+    no information about any kind of throttling. Weadd IAM permissions for it in deployment.
     """
     all_regions = get_ec2_client().describe_regions(AllRegions=True)
     assert "Regions" in all_regions
