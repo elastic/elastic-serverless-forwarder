@@ -163,6 +163,103 @@ def _send_message(QueueUrl: str, MessageBody: str, MessageAttributes: dict[str, 
     pass
 
 
+def _describe_regions(AllRegions: bool) -> dict[str, Any]:
+    return {
+        "Regions": [
+            {
+                "RegionName": "af-south-1",
+            },
+            {
+                "RegionName": "ap-east-1",
+            },
+            {
+                "RegionName": "ap-northeast-1",
+            },
+            {
+                "RegionName": "ap-northeast-2",
+            },
+            {
+                "RegionName": "ap-northeast-3",
+            },
+            {
+                "RegionName": "ap-south-1",
+            },
+            {
+                "RegionName": "ap-south-2",
+            },
+            {
+                "RegionName": "ap-southeast-1",
+            },
+            {
+                "RegionName": "ap-southeast-2",
+            },
+            {
+                "RegionName": "ap-southeast-3",
+            },
+            {
+                "RegionName": "ap-southeast-4",
+            },
+            {
+                "RegionName": "ca-central-1",
+            },
+            {
+                "RegionName": "eu-central-1",
+            },
+            {
+                "RegionName": "eu-central-2",
+            },
+            {
+                "RegionName": "eu-north-1",
+            },
+            {
+                "RegionName": "eu-south-1",
+            },
+            {
+                "RegionName": "eu-south-2",
+            },
+            {
+                "RegionName": "eu-west-1",
+            },
+            {
+                "RegionName": "eu-west-2",
+            },
+            {
+                "RegionName": "eu-west-3",
+            },
+            {
+                "RegionName": "me-central-1",
+            },
+            {
+                "RegionName": "me-south-1",
+            },
+            {
+                "RegionName": "sa-east-1",
+            },
+            {
+                "RegionName": "us-east-1",
+            },
+            {
+                "RegionName": "us-east-2",
+            },
+            {
+                "RegionName": "us-gov-east-1",
+            },
+            {
+                "RegionName": "us-gov-west-1",
+            },
+            {
+                "RegionName": "us-west-1",
+            },
+            {
+                "RegionName": "us-west-2",
+            },
+        ]
+    }
+
+
+_ec2_client_mock = mock.MagicMock()
+_ec2_client_mock.describe_regions = _describe_regions
+
 _sqs_client_mock = mock.MagicMock()
 _sqs_client_mock.get_queue_url = _get_queue_url_mock
 _sqs_client_mock.send_message = _send_message
@@ -257,12 +354,14 @@ def reload_handlers_aws_handler() -> None:
     os.environ["ELASTIC_APM_ACTIVE"] = "ELASTIC_APM_ACTIVE"
     os.environ["AWS_LAMBDA_FUNCTION_NAME"] = "AWS_LAMBDA_FUNCTION_NAME"
 
-    from handlers.aws.utils import get_sqs_client
+    from handlers.aws.utils import get_ec2_client, get_sqs_client
 
     os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
     _ = get_sqs_client()
+    _ = get_ec2_client()
 
     mock.patch("handlers.aws.utils.get_sqs_client", lambda: _sqs_client_mock).start()
+    mock.patch("handlers.aws.utils.get_ec2_client", lambda: _ec2_client_mock).start()
 
     handlers_aws_handler = sys.modules["handlers.aws.handler"]
     importlib.reload(handlers_aws_handler)
@@ -288,6 +387,7 @@ class TestLambdaHandlerNoop(TestCase):
     @mock.patch(
         "share.config._available_input_types", new=["cloudwatch-logs", "s3-sqs", "sqs", "kinesis-data-stream", "dummy"]
     )
+    @mock.patch("handlers.aws.utils.get_ec2_client", lambda: _ec2_client_mock)
     @mock.patch("handlers.aws.handler.get_sqs_client", lambda: _sqs_client_mock)
     @mock.patch("storage.S3Storage._s3_client", _s3_client_mock)
     @mock.patch("handlers.aws.utils.apm_capture_serverless", _apm_capture_serverless)
@@ -432,6 +532,7 @@ class TestLambdaHandlerFailure(TestCase):
         "share.config._available_input_types", new=["cloudwatch-logs", "s3-sqs", "sqs", "kinesis-data-stream", "dummy"]
     )
     @mock.patch("share.secretsmanager._get_aws_sm_client", new=MockContent._get_aws_sm_client)
+    @mock.patch("handlers.aws.utils.get_ec2_client", lambda: _ec2_client_mock)
     @mock.patch("handlers.aws.handler.get_sqs_client", lambda: _sqs_client_mock)
     @mock.patch("storage.S3Storage._s3_client", _s3_client_mock)
     def test_lambda_handler_failure(self) -> None:

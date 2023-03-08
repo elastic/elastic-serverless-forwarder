@@ -58,6 +58,7 @@ class TestLambdaHandlerIntegration(TestCase):
     sqs_client: Optional[BotoBaseClient] = None
     kinesis_client: Optional[BotoBaseClient] = None
     sm_client: Optional[BotoBaseClient] = None
+    ec2_client: Optional[BotoBaseClient] = None
 
     secret_arn: Optional[Any] = None
 
@@ -83,6 +84,7 @@ class TestLambdaHandlerIntegration(TestCase):
         cls.sqs_client = session.client("sqs", endpoint_url=cls.localstack.get_url())
         cls.kinesis_client = session.client("kinesis", endpoint_url=cls.localstack.get_url())
         cls.sm_client = session.client("secretsmanager", endpoint_url=cls.localstack.get_url())
+        cls.ec2_client = session.client("ec2", endpoint_url=cls.localstack.get_url())
 
         cls.secret_arn = _create_secrets(
             cls.sm_client,
@@ -97,6 +99,9 @@ class TestLambdaHandlerIntegration(TestCase):
             ),
             "handlers.aws.utils.get_sqs_client": mock.patch(
                 "handlers.aws.utils.get_sqs_client", lambda: cls.sqs_client
+            ),
+            "handlers.aws.utils.get_ec2_client": mock.patch(
+                "handlers.aws.utils.get_ec2_client", lambda: cls.ec2_client
             ),
             "handlers.aws.handler.get_sqs_client": mock.patch(
                 "handlers.aws.handler.get_sqs_client", lambda: cls.sqs_client
