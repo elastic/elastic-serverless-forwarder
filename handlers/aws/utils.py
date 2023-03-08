@@ -39,6 +39,14 @@ def get_sqs_client() -> BotoBaseClient:
     return boto3.client("sqs")
 
 
+def get_ec2_client() -> BotoBaseClient:
+    """
+    Getter for ec2 client
+    Extracted for mocking
+    """
+    return boto3.client("ec2")
+
+
 def capture_serverless(
     func: Callable[[dict[str, Any], context_.Context], str]
 ) -> Callable[[dict[str, Any], context_.Context], str]:
@@ -382,37 +390,10 @@ def get_input_from_log_group_subscription_data(
     would need to add IAM permissions for it).
     We must keep the hardcoded list up to date or find a way to sync it automatically
     """
-    for region in [
-        "af-south-1",
-        "ap-east-1",
-        "ap-northeast-1",
-        "ap-northeast-2",
-        "ap-northeast-3",
-        "ap-south-1",
-        "ap-south-2",
-        "ap-southeast-1",
-        "ap-southeast-2",
-        "ap-southeast-3",
-        "ap-southeast-4",
-        "ca-central-1",
-        "eu-central-1",
-        "eu-central-2",
-        "eu-north-1",
-        "eu-south-1",
-        "eu-south-2",
-        "eu-west-1",
-        "eu-west-2",
-        "eu-west-3",
-        "me-central-1",
-        "me-south-1",
-        "sa-east-1",
-        "us-east-1",
-        "us-east-2",
-        "us-gov-east-1",
-        "us-gov-west-1",
-        "us-west-1",
-        "us-west-2",
-    ]:
+    all_regions = get_ec2_client().describe_regions(AllRegions=True)
+    assert "Regions" in all_regions
+    for region_data in all_regions["Regions"]:
+        region = region_data["RegionName"]
         log_stream_arn = f"arn:aws:logs:{region}:{account_id}:log-group:{log_group_name}:log-stream:{log_stream_name}"
         event_input = config.get_input_by_id(log_stream_arn)
 
