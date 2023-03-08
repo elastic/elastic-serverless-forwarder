@@ -31,7 +31,7 @@ from .utils import (
     delete_sqs_record,
     expand_event_list_from_field_resolver,
     get_continuing_original_input_type,
-    get_log_group_arn_and_region_from_log_group_name,
+    get_input_from_log_group_subscription_data,
     get_shipper_from_input,
     get_sqs_client,
     get_trigger_type_and_config_source,
@@ -130,24 +130,19 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
     if trigger_type == "cloudwatch-logs":
         cloudwatch_logs_event = _from_awslogs_data_to_event(lambda_event["awslogs"]["data"])
-        log_stream_arn, aws_region = get_log_group_arn_and_region_from_log_group_name(
-            cloudwatch_logs_event["logGroup"], cloudwatch_logs_event["logStream"]
+        input_id, event_input = get_input_from_log_group_subscription_data(
+            config,
+            cloudwatch_logs_event["owner"],
+            cloudwatch_logs_event["logGroup"],
+            cloudwatch_logs_event["logStream"],
         )
-        input_id = log_stream_arn
-
-        event_input = config.get_input_by_id(input_id)
 
         if event_input is None:
-            log_group_arn_components = log_stream_arn.split(":")
-            input_id = f"{':'.join(log_group_arn_components[:-2])}:*"
+            shared_logger.warning("no input defined", extra={"input_type": trigger_type, "input_id": input_id})
 
-            event_input = config.get_input_by_id(input_id)
+            return "completed"
 
-            if event_input is None:
-                shared_logger.warning("no input defined", extra={"input_type": trigger_type, "input_id": input_id})
-
-                return "completed"
-
+        aws_region = input_id.split(":")[3]
         composite_shipper = get_shipper_from_input(event_input=event_input, config_yaml=config_yaml)
 
         expand_event_list_from_field = ExpandEventListFromField(
