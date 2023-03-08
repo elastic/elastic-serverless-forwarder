@@ -92,9 +92,6 @@ class TestLambdaHandlerIntegration(TestCase):
 
         cls.mocks = {
             "storage.S3Storage._s3_client": mock.patch("storage.S3Storage._s3_client", new=cls.s3_client),
-            "handlers.aws.utils.get_cloudwatch_logs_client": mock.patch(
-                "handlers.aws.utils.get_cloudwatch_logs_client", lambda: cls.logs_client
-            ),
             "share.secretsmanager._get_aws_sm_client": mock.patch(
                 "share.secretsmanager._get_aws_sm_client", lambda region_name: cls.sm_client
             ),
