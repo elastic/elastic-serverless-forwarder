@@ -31,6 +31,9 @@ jobs:
   coverage:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    permissions:
+      pull-requests: write # for marocchino/sticky-pull-request-comment
+
     steps:
     - name: Cleanup some tools from the workers to fix no space left
       run: |-
@@ -56,6 +59,14 @@ jobs:
         filename: coverage.xml
         format: 'markdown'
         output: 'both'
+
+    # Version https://github.com/marocchino/sticky-pull-request-comment/releases/tag/v2.5.0
+    - name: Add Coverage PR Comment
+      uses: marocchino/sticky-pull-request-comment@3d60a5b2dae89d44e0c6ddc69dd7536aec2071cd
+      if: github.event_name == 'pull_request' && (success() || failure())
+      with:
+        recreate: true
+        path: code-coverage-results.md
 
     - name: Write to Job Summary
       if: success() || failure()
