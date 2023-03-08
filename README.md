@@ -1,4 +1,4 @@
-[![Build Status](https://beats-ci.elastic.co/job/Library/job/elastic-serverless-forwarder-mbp/job/main/badge/icon)](https://beats-ci.elastic.co/job/Library/job/elastic-serverless-forwarder-mbp/job/main/)
+[![Build Status](https://github.com/elastic/elastic-serverless-forwarder/actions/workflows/test.yml/badge.svg)](https://github.com/elastic/elastic-serverless-forwarder/actions/workflows/test.yml)
 
 # elastic-serverless-forwarder
 Elastic Serverless Forwarder
