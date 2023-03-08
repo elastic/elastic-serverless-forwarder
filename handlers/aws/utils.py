@@ -11,7 +11,7 @@ from elasticapm import Client
 from elasticapm import get_client as get_apm_client
 from elasticapm.contrib.serverless.aws import capture_serverless as apm_capture_serverless  # noqa: F401
 
-from share import Input, Output, get_hex_prefix, json_dumper, json_parser, shared_logger
+from share import Config, Input, Output, get_hex_prefix, json_dumper, json_parser, shared_logger
 from shippers import CompositeShipper, ProtocolShipper, ShipperFactory
 from storage import ProtocolStorage, StorageFactory
 
@@ -37,14 +37,6 @@ def get_sqs_client() -> BotoBaseClient:
     Extracted for mocking
     """
     return boto3.client("sqs")
-
-
-def get_cloudwatch_logs_client() -> BotoBaseClient:
-    """
-    Getter for cloudwatch logs client
-    Extracted for mocking
-    """
-    return boto3.client("logs")
 
 
 def capture_serverless(
@@ -82,7 +74,7 @@ def wrap_try_except(
             return func(lambda_event, lambda_context)
 
         # NOTE: for all these cases we want the exception to bubble up to Lambda platform and let the defined retry
-        # mechanism take action. These are non transient unrecoverable error from this code point of view.
+        # mechanism take action. These are non-transient unrecoverable error from this code point of view.
         except (
             ConfigFileException,
             InputConfigException,
@@ -378,32 +370,63 @@ def get_account_id_from_arn(lambda_arn: str) -> str:
     return arn_components[4]
 
 
-def get_log_group_arn_and_region_from_log_group_name(log_group_name: str, log_stream_name: str) -> tuple[str, str]:
+def get_input_from_log_group_subscription_data(
+    config: Config, account_id: str, log_group_name: str, log_stream_name: str
+) -> tuple[str, Optional[Input]]:
     """
-    Return cloudwatch log group arn given a log group name
+    This function is not less resilient than the previous get_log_group_arn_and_region_from_log_group_name()
+    We avoid to call the describe_log_streams on the logs' client, since we have no way to apply the proper
+    throttling because we'd need to know the number of concurrent lambda running at the time of the call.
+    The list of regions is unluckily hardcoded: there's no API to get the list for logs (the most similar API is in ec2:
+    https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_regions.html - but we
+    would need to add IAM permissions for it).
+    We must keep the hardcoded list up to date or find a way to sync it automatically
     """
-    logs_client = get_cloudwatch_logs_client()
+    for region in [
+        "af-south-1",
+        "ap-east-1",
+        "ap-northeast-1",
+        "ap-northeast-2",
+        "ap-northeast-3",
+        "ap-south-1",
+        "ap-south-2",
+        "ap-southeast-1",
+        "ap-southeast-2",
+        "ap-southeast-3",
+        "ap-southeast-4",
+        "ca-central-1",
+        "eu-central-1",
+        "eu-central-2",
+        "eu-north-1",
+        "eu-south-1",
+        "eu-south-2",
+        "eu-west-1",
+        "eu-west-2",
+        "eu-west-3",
+        "me-central-1",
+        "me-south-1",
+        "sa-east-1",
+        "us-east-1",
+        "us-east-2",
+        "us-gov-east-1",
+        "us-gov-west-1",
+        "us-west-1",
+        "us-west-2",
+    ]:
+        log_stream_arn = f"arn:aws:logs:{region}:{account_id}:log-group:{log_group_name}:log-stream:{log_stream_name}"
+        event_input = config.get_input_by_id(log_stream_arn)
 
-    describe_log_streams_kwargs = {"logGroupName": log_group_name, "logStreamNamePrefix": log_stream_name, "limit": 50}
-    while True:
-        log_streams = logs_client.describe_log_streams(**describe_log_streams_kwargs)
+        if event_input is not None:
+            return log_stream_arn, event_input
 
-        assert "logStreams" in log_streams
+        log_group_arn_components = log_stream_arn.split(":")
+        log_group_arn = f"{':'.join(log_group_arn_components[:-2])}:*"
+        event_input = config.get_input_by_id(log_group_arn)
 
-        for log_stream in log_streams["logStreams"]:
-            if "logStreamName" in log_stream and log_stream["logStreamName"] == log_stream_name:
-                log_stream_arn = log_stream["arn"]
-                region = log_stream_arn.split(":")[3]
+        if event_input is not None:
+            return log_group_arn, event_input
 
-                return log_stream_arn, region
-
-        if "nextToken" in log_streams and len(log_streams["nextToken"]) > 0:
-            describe_log_streams_kwargs["nextToken"] = log_streams["nextToken"]
-        else:
-            describe_log_streams_kwargs["nextToken"] = ""
-            break
-
-    raise ValueError("Cannot find cloudwatch log stream ARN")
+    return "", None
 
 
 def delete_sqs_record(sqs_arn: str, receipt_handle: str) -> None:
