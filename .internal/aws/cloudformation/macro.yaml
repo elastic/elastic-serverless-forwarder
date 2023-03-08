@@ -221,6 +221,14 @@ Resources:
                 }
             )
 
+            policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
+                {
+                    "Effect": "Allow",
+                    "Action": "ec2:DescribeRegions",
+                    "Resource": "*",
+                }
+            )
+
             return policy_fragment
 
 
