@@ -45,7 +45,7 @@ jobs:
         python-version: '3.9' # As defined in tests/scripts/docker/run_tests.sh
         cache: 'pip'          # caching pip dependencies
 
-    - run: make requirements-test && make requirements && make coverage
+    - run: make requirements-tests && make requirements && make coverage
 
     - name: Store test results
       if: success() || failure()
