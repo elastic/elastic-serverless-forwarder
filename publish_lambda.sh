@@ -409,6 +409,14 @@ def create_policy(publish_config: dict[str, Any]):
         }
     )
 
+    policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
+        {
+            "Effect": "Allow",
+            "Action": "ec2:DescribeRegions",
+            "Resource": "*",
+        }
+    )
+
     return policy_fragment
 
 
