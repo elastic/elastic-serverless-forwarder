@@ -356,7 +356,7 @@ class ReplayEventHandler:
 
         sqs_client.send_message(QueueUrl=sqs_replay_queue, MessageBody=json_dumper(message_payload))
 
-        shared_logger.warning(
+        shared_logger.debug(
             "sent to replay queue", extra={"output_type": output_type, "event_input_id": self._event_input_id}
         )
 

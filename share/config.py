@@ -210,6 +210,7 @@ class LogstashOutput(Output):
 
         if self.username and not self.password:
             raise ValueError("`password` must be set when using `username`")
+
         shared_logger.debug("tags: ", extra={"tags": self.tags})
 
     @property
