@@ -387,8 +387,6 @@ class TestLambdaHandlerNoop(TestCase):
     @mock.patch(
         "share.config._available_input_types", new=["cloudwatch-logs", "s3-sqs", "sqs", "kinesis-data-stream", "dummy"]
     )
-    @mock.patch("handlers.aws.utils.get_ec2_client", lambda: _ec2_client_mock)
-    @mock.patch("handlers.aws.handler.get_sqs_client", lambda: _sqs_client_mock)
     @mock.patch("storage.S3Storage._s3_client", _s3_client_mock)
     @mock.patch("handlers.aws.utils.apm_capture_serverless", _apm_capture_serverless)
     @mock.patch(
