@@ -43,7 +43,6 @@ jobs:
     - uses: actions/setup-python@v4
       with:
         python-version: '3.9' # As defined in tests/scripts/docker/run_tests.sh
-    - run: python -m pip uninstall -y pip && python -m pip install --upgrade pip
     - run: pip install -r requirements.txt -r requirements-tests.txt
     - run: make coverage
       env:
