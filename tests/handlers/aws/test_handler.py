@@ -492,7 +492,9 @@ class TestLambdaHandlerNoop(TestCase):
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
             lambda_event = {
                 "awslogs": {
-                    "data": json_dumper({"logGroup": "logGroup", "logStream": "logStreamNotMatching", "owner": "owner"})
+                    "data": json_dumper(
+                        {"logGroup": "logGroup", "logStream": "logStreamNotMatching", "owner": "owner", "logEvents": []}
+                    )
                 }
             }
 

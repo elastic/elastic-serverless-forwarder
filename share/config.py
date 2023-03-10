@@ -84,7 +84,7 @@ class ElasticsearchOutput(Output):
             raise ValueError("`password` must be set when using `username`")
 
         if not self.es_datastream_name:
-            shared_logger.info("no `es_datastream_name` set in config")
+            shared_logger.debug("no `es_datastream_name` set in config")
 
         shared_logger.debug("tags: ", extra={"tags": self.tags})
 
@@ -210,6 +210,7 @@ class LogstashOutput(Output):
 
         if self.username and not self.password:
             raise ValueError("`password` must be set when using `username`")
+
         shared_logger.debug("tags: ", extra={"tags": self.tags})
 
     @property
