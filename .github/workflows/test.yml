@@ -32,11 +32,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-    - name: Cleanup some tools from the workers to fix no space left
-      run: |-
-        df -h
-        sudo rm -rf /usr/local/lib/android &
-        sudo rm -rf /usr/local/lib/heroku /usr/local/aws-cli /usr/share/apache-maven* /usr/share/apache2 /usr/share/php* /usr/share/dotnet /opt /usr/local/lib/node_modules &
 
     - uses: actions/checkout@v3
 
@@ -45,8 +40,8 @@ jobs:
         python-version: '3.9' # As defined in tests/scripts/docker/run_tests.sh
         cache: 'pip'          # caching pip dependencies
 
-    - run: pip install -r requirements-tests.txt
-    - run: pip install -r requirements.txt
+    - run: pip install -r requirements.txt -r requirements-tests.txt
+
     - run: make coverage
       env:
         # See https://github.com/elastic/elastic-serverless-forwarder/pull/280#issuecomment-1461554126
