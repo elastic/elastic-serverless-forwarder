@@ -53,7 +53,7 @@ def get_shipper_for_replay_event(
     if output_type == "elasticsearch":
         assert isinstance(output, ElasticsearchOutput)
         output.es_datastream_name = output_args["es_datastream_name"]
-        shared_logger.info("setting ElasticSearch shipper")
+        shared_logger.debug("setting ElasticSearch shipper")
         elasticsearch: ProtocolShipper = ShipperFactory.create_from_output(output_type=output_type, output=output)
         elasticsearch.set_replay_handler(replay_handler=replay_handler.replay_handler)
 
@@ -61,7 +61,7 @@ def get_shipper_for_replay_event(
 
     if output_type == "logstash":
         assert isinstance(output, LogstashOutput)
-        shared_logger.info("setting Logstash shipper")
+        shared_logger.debug("setting Logstash shipper")
         logstash: ProtocolShipper = ShipperFactory.create_from_output(output_type=output_type, output=output)
         logstash.set_replay_handler(replay_handler=replay_handler.replay_handler)
 

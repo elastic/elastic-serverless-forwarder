@@ -113,7 +113,7 @@ def wrap_try_except(
 
 def discover_integration_scope(s3_object_key: str) -> str:
     if s3_object_key == "":
-        shared_logger.info("s3 object key is empty, dataset set to `generic`")
+        shared_logger.debug("s3 object key is empty, dataset set to `generic`")
         return INTEGRATION_SCOPE_GENERIC
     else:
         if "/CloudTrail/" in s3_object_key or "/CloudTrail-Insight/" in s3_object_key:
@@ -139,7 +139,7 @@ def get_shipper_from_input(event_input: Input, config_yaml: str) -> CompositeShi
 
     for output_type in event_input.get_output_types():
         if output_type == "elasticsearch":
-            shared_logger.info("setting ElasticSearch shipper")
+            shared_logger.debug("setting ElasticSearch shipper")
             elasticsearch_output: Optional[Output] = event_input.get_output_by_type("elasticsearch")
             assert elasticsearch_output is not None
 
@@ -149,7 +149,7 @@ def get_shipper_from_input(event_input: Input, config_yaml: str) -> CompositeShi
             composite_shipper.add_shipper(shipper=elasticsearch_shipper)
 
         if output_type == "logstash":
-            shared_logger.info("setting Logstash shipper")
+            shared_logger.debug("setting Logstash shipper")
             logstash_output: Optional[Output] = event_input.get_output_by_type("logstash")
             assert logstash_output is not None
 
@@ -419,7 +419,7 @@ def delete_sqs_record(sqs_arn: str, receipt_handle: str) -> None:
 
     sqs_client.delete_message(QueueUrl=queue_url, ReceiptHandle=receipt_handle)
 
-    shared_logger.info("delete processed sqs message", extra={"queue_url": queue_url})
+    shared_logger.debug("delete processed sqs message", extra={"queue_url": queue_url})
 
 
 def s3_object_id(event_payload: dict[str, Any]) -> str:

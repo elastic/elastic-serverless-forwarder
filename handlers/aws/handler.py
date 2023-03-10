@@ -79,6 +79,8 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
     sqs_client = get_sqs_client()
 
     if trigger_type == "replay-sqs":
+        shared_logger.info("trigger", extra={"size": len(lambda_event["Records"])})
+
         replay_queue_arn = lambda_event["Records"][0]["eventSourceARN"]
         replay_handler = ReplayedEventReplayHandler(replay_queue_arn=replay_queue_arn)
         shipper_cache: dict[str, ProtocolShipper] = {}
@@ -130,6 +132,9 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
     if trigger_type == "cloudwatch-logs":
         cloudwatch_logs_event = _from_awslogs_data_to_event(lambda_event["awslogs"]["data"])
+
+        shared_logger.info("trigger", extra={"size": len(cloudwatch_logs_event["logEvents"])})
+
         input_id, event_input = get_input_from_log_group_subscription_data(
             config,
             cloudwatch_logs_event["owner"],
@@ -205,6 +210,8 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         )
 
     if trigger_type == "kinesis-data-stream":
+        shared_logger.info("trigger", extra={"size": len(lambda_event["Records"])})
+
         input_id = lambda_event["Records"][0]["eventSourceARN"]
         event_input = config.get_input_by_id(input_id)
         if event_input is None:
@@ -280,6 +287,8 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         )
 
     if trigger_type == "s3-sqs" or trigger_type == "sqs":
+        shared_logger.info("trigger", extra={"size": len(lambda_event["Records"])})
+
         composite_shipper_cache: dict[str, CompositeShipper] = {}
 
         def event_processing(
@@ -384,7 +393,6 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
                 composite_shipper_cache[event_input.id] = composite_shipper
 
-            sqs_record_body: dict[str, Any] = {}
             continuing_event_expanded_offset: Optional[int] = None
             if (
                 "messageAttributes" in sqs_record
@@ -442,7 +450,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                         return "continuing"
 
             elif event_input.type == "s3-sqs":
-                sqs_record_body = json_parser(sqs_record["body"])
+                sqs_record_body: dict[str, Any] = json_parser(sqs_record["body"])
                 for es_event, last_ending_offset, last_event_expanded_offset, current_s3_record in _handle_s3_sqs_event(
                     sqs_record_body,
                     event_input.id,

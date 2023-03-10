@@ -104,8 +104,6 @@ def _handle_kinesis_record(
             kinesis_record["eventSourceARN"]
         )
 
-        shared_logger.info("kinesis event")
-
         events = storage.get_by_lines(range_start=0)
 
         for log_event, starting_offset, ending_offset, event_expanded_offset in events:

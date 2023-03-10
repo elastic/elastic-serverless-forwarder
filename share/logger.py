@@ -8,7 +8,7 @@ import os
 import ecs_logging
 from elasticapm.handlers.logging import LoggingFilter
 
-log_level = logging.getLevelName(os.getenv("LOG_LEVEL", logging.INFO))
+log_level = logging.getLevelName(os.getenv("LOG_LEVEL", logging.INFO).upper())
 
 # Get the Logger
 logger = logging.getLogger()
