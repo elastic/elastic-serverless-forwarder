@@ -1062,6 +1062,56 @@ class TestLambdaHandlerFailure(TestCase):
 
                 handler(event, ctx)  # type:ignore
 
+        with self.subTest("root_fields_to_add_to_expanded_event not `all` when string"):
+            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
+            with self.assertRaisesRegex(
+                ConfigFileException,
+                "`root_fields_to_add_to_expanded_event` must be provided as `all` or a list of strings",
+            ):
+                ctx = ContextMock()
+                _s3_client_mock.config_content = b"""
+                    inputs:
+                      - type: "s3-sqs"
+                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret"
+                        root_fields_to_add_to_expanded_event: not_all
+                        outputs:
+                          - type: "elasticsearch"
+                            args:
+                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
+                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
+                              es_datastream_name: "logs-redis.log-default"
+                """
+
+                event = deepcopy(dummy_event)
+
+                handler(event, ctx)  # type:ignore
+
+        with self.subTest("root_fields_to_add_to_expanded_event not `all` neither list of strings"):
+            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
+            with self.assertRaisesRegex(
+                ConfigFileException,
+                "`root_fields_to_add_to_expanded_event` must be provided as `all` or a list of strings",
+            ):
+                ctx = ContextMock()
+                _s3_client_mock.config_content = b"""
+                    inputs:
+                      - type: "s3-sqs"
+                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret"
+                        root_fields_to_add_to_expanded_event: 0
+                        outputs:
+                          - type: "elasticsearch"
+                            args:
+                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
+                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
+                              es_datastream_name: "logs-redis.log-default"
+                """
+
+                event = deepcopy(dummy_event)
+
+                handler(event, ctx)  # type:ignore
+
         with self.subTest("json_content_type not valid"):
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
             with self.assertRaisesRegex(

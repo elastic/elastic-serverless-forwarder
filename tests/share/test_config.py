@@ -1102,6 +1102,112 @@ class TestParseConfig(TestCase):
             """
                 )
 
+        with self.subTest("valid root_fields_to_add_to_expanded_event as `all`"):
+            config = parse_config(
+                config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                root_fields_to_add_to_expanded_event: all
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      es_datastream_name: "es_datastream_name"
+            """
+            )
+
+            input_sqs = config.get_input_by_id(input_id="id")
+            assert input_sqs is not None
+            assert input_sqs.type == "s3-sqs"
+            assert input_sqs.id == "id"
+            assert input_sqs.root_fields_to_add_to_expanded_event == "all"
+            elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
+
+            assert elasticsearch is not None
+            assert isinstance(elasticsearch, ElasticsearchOutput)
+            assert elasticsearch.type == "elasticsearch"
+            assert elasticsearch.cloud_id == "cloud_id"
+            assert elasticsearch.api_key == "api_key"
+            assert elasticsearch.es_datastream_name == "es_datastream_name"
+            assert elasticsearch.tags == []
+            assert elasticsearch.batch_max_actions == 500
+            assert elasticsearch.batch_max_bytes == 10485760
+            assert elasticsearch.ssl_assert_fingerprint == ""
+
+        with self.subTest("valid root_fields_to_add_to_expanded_event as list of strings"):
+            config = parse_config(
+                config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                root_fields_to_add_to_expanded_event: ["one", "two"]
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      es_datastream_name: "es_datastream_name"
+            """
+            )
+
+            input_sqs = config.get_input_by_id(input_id="id")
+            assert input_sqs is not None
+            assert input_sqs.type == "s3-sqs"
+            assert input_sqs.id == "id"
+            assert input_sqs.root_fields_to_add_to_expanded_event == ["one", "two"]
+            elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
+
+            assert elasticsearch is not None
+            assert isinstance(elasticsearch, ElasticsearchOutput)
+            assert elasticsearch.type == "elasticsearch"
+            assert elasticsearch.cloud_id == "cloud_id"
+            assert elasticsearch.api_key == "api_key"
+            assert elasticsearch.es_datastream_name == "es_datastream_name"
+            assert elasticsearch.tags == []
+            assert elasticsearch.batch_max_actions == 500
+            assert elasticsearch.batch_max_bytes == 10485760
+            assert elasticsearch.ssl_assert_fingerprint == ""
+
+        with self.subTest("root_fields_to_add_to_expanded_event not `all` when string"):
+            with self.assertRaisesRegex(
+                ValueError, "`root_fields_to_add_to_expanded_event` must be provided as `all` or a list of strings"
+            ):
+                parse_config(
+                    config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                root_fields_to_add_to_expanded_event: not_all
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      es_datastream_name: "es_datastream_name"
+            """
+                )
+
+        with self.subTest("root_fields_to_add_to_expanded_event not `all` neither list of strings"):
+            with self.assertRaisesRegex(
+                ValueError, "`root_fields_to_add_to_expanded_event` must be provided as `all` or a list of strings"
+            ):
+                parse_config(
+                    config_yaml="""
+            inputs:
+              - type: s3-sqs
+                id: id
+                root_fields_to_add_to_expanded_event: 0
+                outputs:
+                  - type: elasticsearch
+                    args:
+                      cloud_id: "cloud_id"
+                      api_key: "api_key"
+                      es_datastream_name: "es_datastream_name"
+            """
+                )
+
         with self.subTest("json_content_type single"):
             config = parse_config(
                 config_yaml="""
