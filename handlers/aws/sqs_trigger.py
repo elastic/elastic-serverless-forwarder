@@ -80,7 +80,7 @@ def _handle_sqs_continuation(
 def _handle_sqs_event(
     sqs_record: dict[str, Any],
     input_id: str,
-    expand_event_list_from_field: ExpandEventListFromField,
+    event_list_from_field_expander: ExpandEventListFromField,
     continuing_original_input_type: Optional[str],
     json_content_type: Optional[str],
     multiline_processor: Optional[ProtocolMultiline],
@@ -97,7 +97,7 @@ def _handle_sqs_event(
         storage_type="payload",
         payload=sqs_record["body"],
         json_content_type=json_content_type,
-        expand_event_list_from_field=expand_event_list_from_field,
+        event_list_from_field_expander=event_list_from_field_expander,
         multiline_processor=multiline_processor,
     )
 
