@@ -1,6 +1,6 @@
 elastic-apm==6.15.1
 ecs_logging==2.0.0
-boto3==1.26.88
+boto3==1.26.90
 elasticsearch==7.16.3
 PyYAML==6.0
 aws_lambda_typing==2.16.4
