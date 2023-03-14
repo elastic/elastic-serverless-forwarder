@@ -150,8 +150,11 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         aws_region = input_id.split(":")[3]
         composite_shipper = get_shipper_from_input(event_input=event_input, config_yaml=config_yaml)
 
-        expand_event_list_from_field = ExpandEventListFromField(
-            event_input.expand_event_list_from_field, INTEGRATION_SCOPE_GENERIC, expand_event_list_from_field_resolver
+        event_list_from_field_expander = ExpandEventListFromField(
+            event_input.expand_event_list_from_field,
+            INTEGRATION_SCOPE_GENERIC,
+            expand_event_list_from_field_resolver,
+            event_input.root_fields_to_add_to_expanded_event,
         )
 
         for (
@@ -163,7 +166,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             cloudwatch_logs_event,
             aws_region,
             event_input.id,
-            expand_event_list_from_field,
+            event_list_from_field_expander,
             event_input.json_content_type,
             event_input.get_multiline_processor(),
         ):
@@ -221,8 +224,11 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
         composite_shipper = get_shipper_from_input(event_input=event_input, config_yaml=config_yaml)
 
-        expand_event_list_from_field = ExpandEventListFromField(
-            event_input.expand_event_list_from_field, INTEGRATION_SCOPE_GENERIC, expand_event_list_from_field_resolver
+        event_list_from_field_expander = ExpandEventListFromField(
+            event_input.expand_event_list_from_field,
+            INTEGRATION_SCOPE_GENERIC,
+            expand_event_list_from_field_resolver,
+            event_input.root_fields_to_add_to_expanded_event,
         )
 
         for (
@@ -233,7 +239,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         ) in _handle_kinesis_record(
             lambda_event,
             event_input.id,
-            expand_event_list_from_field,
+            event_list_from_field_expander,
             event_input.json_content_type,
             event_input.get_multiline_processor(),
         ):
@@ -407,17 +413,18 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 or event_input.type == "sqs"
                 or event_input.type == "cloudwatch-logs"
             ):
-                expand_event_list_from_field = ExpandEventListFromField(
+                event_list_from_field_expander = ExpandEventListFromField(
                     event_input.expand_event_list_from_field,
                     INTEGRATION_SCOPE_GENERIC,
                     expand_event_list_from_field_resolver,
+                    event_input.root_fields_to_add_to_expanded_event,
                     continuing_event_expanded_offset,
                 )
 
                 for es_event, last_ending_offset, last_event_expanded_offset in _handle_sqs_event(
                     sqs_record,
                     input_id,
-                    expand_event_list_from_field,
+                    event_list_from_field_expander,
                     continuing_original_input_type,
                     event_input.json_content_type,
                     event_input.get_multiline_processor(),
@@ -455,6 +462,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                     sqs_record_body,
                     event_input.id,
                     event_input.expand_event_list_from_field,
+                    event_input.root_fields_to_add_to_expanded_event,
                     event_input.json_content_type,
                     event_input.get_multiline_processor(),
                 ):
