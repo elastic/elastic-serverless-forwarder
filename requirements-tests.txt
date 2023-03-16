@@ -6,7 +6,7 @@ coverage==7.2.1
 simplejson==3.18.4
 orjson==3.8.7
 pysimdjson==5.0.2
-python-rapidjson==1.9
+python-rapidjson==1.10
 cysimdjson==21.11
 responses==0.23.1
 testcontainers==3.7.1
