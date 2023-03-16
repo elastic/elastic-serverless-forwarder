@@ -10,17 +10,18 @@ on:
 
 jobs:
   report:
-    if: ${{ github.event.workflow_run.event == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: elastic/apm-pipeline-library/.github/actions/test-report@current
+      - name: elastic/apm-pipeline-library/.github/actions/test-report
+        uses: elastic/apm-pipeline-library/.github/actions/test-report@current
         with:
           artifact: test-results            # artifact name
           name: JUnit Tests                 # Name of the check run which will be created
           path: "**/*.xml"                  # Path to test results (inside artifact .zip)
           reporter: java-junit              # Format of test results
           output-to: step-summary           # Write summary in the PR
-      - uses: 5monkeys/cobertura-action@v13
+      - name: 5monkeys/cobertura-action
+        uses: 5monkeys/cobertura-action@v13
         with:
           skip_covered: false
           minimum_coverage: 100
