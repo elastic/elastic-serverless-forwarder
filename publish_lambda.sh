@@ -341,45 +341,6 @@ def create_policy(publish_config: dict[str, Any]):
                 {"Effect": "Allow", "Action": "kms:Decrypt", "Resource": kms_keys_arn}
             )
 
-    if "cloudwatch-logs" in publish_config:
-        cloudwatch_logs_group_arn = {}
-        cloudwatch_logs_stream_arn = {}
-
-        assert isinstance(publish_config["cloudwatch-logs"], list)
-        for cloudwatch_logs_event in publish_config["cloudwatch-logs"]:
-            assert isinstance(cloudwatch_logs_event, dict)
-
-            if "arn" in cloudwatch_logs_event:
-                cloudwatch_logs_event_arn = cloudwatch_logs_event["arn"].split(':')
-
-                if len(cloudwatch_logs_event_arn) == 7:
-                    cloudwatch_logs_group_arn[f"{':'.join(cloudwatch_logs_event_arn[0:-1])}:*:*"] = True
-                    cloudwatch_logs_stream_arn[f"{':'.join(cloudwatch_logs_event_arn)}:log-stream:*"] = True
-                elif len(cloudwatch_logs_event_arn) == 8:
-                    cloudwatch_logs_group_arn[f"{':'.join(cloudwatch_logs_event_arn[0:-2])}:*:*"] = True
-                    cloudwatch_logs_stream_arn[f"{':'.join(cloudwatch_logs_event_arn[0:-1])}:log-stream:*"] = True
-                elif len(cloudwatch_logs_event_arn) == 9:
-                    cloudwatch_logs_group_arn[f"{':'.join(cloudwatch_logs_event_arn[0:-3])}:*:*"] = True
-                    cloudwatch_logs_stream_arn[f"{':'.join(cloudwatch_logs_event_arn[0:-2])}:log-stream:*"] = True
-
-        if len(cloudwatch_logs_group_arn) > 0:
-            policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
-                {
-                    "Effect": "Allow",
-                    "Action": "logs:DescribeLogGroups",
-                    "Resource": [x for x in cloudwatch_logs_group_arn.keys()],
-                }
-            )
-
-        if len(cloudwatch_logs_stream_arn) > 0:
-            policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
-                {
-                    "Effect": "Allow",
-                    "Action": "logs:DescribeLogStreams",
-                    "Resource": [x for x in cloudwatch_logs_stream_arn.keys()],
-                }
-            )
-
     if "s3-buckets" in publish_config:
         assert isinstance(publish_config["s3-buckets"], list)
 

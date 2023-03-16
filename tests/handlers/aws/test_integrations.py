@@ -1702,6 +1702,648 @@ class TestLambdaHandlerIntegration(TestCase):
         assert logstash_message[1]["cloud"]["account"]["id"] == "000000000000"
         assert logstash_message[1]["tags"] == ["forwarded", "tag1", "tag2", "tag3"]
 
+    def test_root_fields_to_add_to_expanded_event_no_dict_event(self) -> None:
+        assert isinstance(self.logstash, LogstashContainer)
+        assert isinstance(self.localstack, LocalStackContainer)
+
+        first_expanded_event: str = '"first_expanded_event"'
+        second_expanded_event: str = '"second_expanded_event"'
+        third_expanded_event: str = '"third_expanded_event"'
+
+        fixtures = [
+            f"""{{"firstRootField": "firstRootField", "secondRootField":"secondRootField",
+            "aField": [{first_expanded_event},{second_expanded_event},{third_expanded_event}]}}"""
+        ]
+
+        sqs_queue_name = _time_based_id(suffix="source-sqs")
+
+        sqs_queue = _sqs_create_queue(self.sqs_client, sqs_queue_name, self.localstack.get_url())
+
+        sqs_queue_arn = sqs_queue["QueueArn"]
+        sqs_queue_url = sqs_queue["QueueUrl"]
+        sqs_queue_url_path = sqs_queue["QueueUrlPath"]
+
+        _sqs_send_messages(self.sqs_client, sqs_queue_url, "".join(fixtures))
+
+        config_yaml: str = f"""
+            inputs:
+              - type: "sqs"
+                id: "{sqs_queue_arn}"
+                expand_event_list_from_field: aField
+                root_fields_to_add_to_expanded_event: ["secondRootField"]
+                tags: {self.default_tags}
+                outputs:
+                  - type: "logstash"
+                    args:
+                      logstash_url: "{self.logstash.get_url()}"
+                      ssl_assert_fingerprint: {self.logstash.ssl_assert_fingerprint}
+                      username: "{self.logstash.logstash_user}"
+                      password: "{self.logstash.logstash_password}"
+        """
+
+        config_file_path = "config.yaml"
+        config_bucket_name = _time_based_id(suffix="config-bucket")
+        _s3_upload_content_to_bucket(
+            client=self.s3_client,
+            content=config_yaml.encode("utf-8"),
+            content_type="text/plain",
+            bucket_name=config_bucket_name,
+            key=config_file_path,
+        )
+
+        os.environ["S3_CONFIG_FILE"] = f"s3://{config_bucket_name}/{config_file_path}"
+
+        events_sqs, _ = _sqs_get_messages(self.sqs_client, sqs_queue_url, sqs_queue_arn)
+
+        message_id = events_sqs["Records"][0]["messageId"]
+
+        ctx = ContextMock()
+        first_call = handler(events_sqs, ctx)  # type:ignore
+
+        assert first_call == "continuing"
+
+        logstash_message = self.logstash.get_messages(expected=1)
+        assert len(logstash_message) == 1
+
+        assert logstash_message[0]["message"] == first_expanded_event
+        assert logstash_message[0]["log"]["offset"] == 0
+        assert logstash_message[0]["log"]["file"]["path"] == sqs_queue_url_path
+        assert logstash_message[0]["aws"]["sqs"]["name"] == sqs_queue_name
+        assert logstash_message[0]["aws"]["sqs"]["message_id"] == message_id
+        assert logstash_message[0]["cloud"]["provider"] == "aws"
+        assert logstash_message[0]["cloud"]["region"] == "us-east-1"
+        assert logstash_message[0]["cloud"]["account"]["id"] == "000000000000"
+        assert logstash_message[0]["tags"] == ["forwarded", "tag1", "tag2", "tag3"]
+
+        ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
+
+        continued_events, _ = _sqs_get_messages(
+            self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
+        )
+        second_call = handler(continued_events, ctx)  # type:ignore
+
+        assert second_call == "completed"
+
+        logstash_message = self.logstash.get_messages(expected=3)
+        assert len(logstash_message) == 3
+
+        assert logstash_message[1]["message"] == second_expanded_event
+        assert logstash_message[1]["log"]["offset"] == 56
+        assert logstash_message[1]["log"]["file"]["path"] == sqs_queue_url_path
+        assert logstash_message[1]["aws"]["sqs"]["name"] == sqs_queue_name
+        assert logstash_message[1]["aws"]["sqs"]["message_id"] == message_id
+        assert logstash_message[1]["cloud"]["provider"] == "aws"
+        assert logstash_message[1]["cloud"]["region"] == "us-east-1"
+        assert logstash_message[1]["cloud"]["account"]["id"] == "000000000000"
+        assert logstash_message[1]["tags"] == ["forwarded", "tag1", "tag2", "tag3"]
+
+        assert logstash_message[2]["message"] == third_expanded_event
+        assert logstash_message[2]["log"]["offset"] == 112
+        assert logstash_message[2]["log"]["file"]["path"] == sqs_queue_url_path
+        assert logstash_message[2]["aws"]["sqs"]["name"] == sqs_queue_name
+        assert logstash_message[2]["aws"]["sqs"]["message_id"] == message_id
+        assert logstash_message[2]["cloud"]["provider"] == "aws"
+        assert logstash_message[2]["cloud"]["region"] == "us-east-1"
+        assert logstash_message[2]["cloud"]["account"]["id"] == "000000000000"
+        assert logstash_message[2]["tags"] == ["forwarded", "tag1", "tag2", "tag3"]
+
+    def test_root_fields_to_add_to_expanded_event_event_not_expanded(self) -> None:
+        assert isinstance(self.logstash, LogstashContainer)
+        assert isinstance(self.localstack, LocalStackContainer)
+
+        first_expanded_event: str = _load_file_fixture("cloudwatch-log-1.json")
+        first_expanded_with_root_fields: dict[str, Any] = json_parser(first_expanded_event)
+        first_expanded_with_root_fields["secondRootField"] = "secondRootField"
+
+        second_expanded_event: str = _load_file_fixture("cloudwatch-log-3.json")
+        second_expanded_with_root_fields: dict[str, Any] = json_parser(second_expanded_event)
+        second_expanded_with_root_fields["secondRootField"] = "secondRootField"
+
+        fixtures = [
+            f"""{{"firstRootField": "firstRootField", "secondRootField":"secondRootField",
+            "aField": [{first_expanded_event},{{}},{second_expanded_event}]}}"""
+        ]
+
+        sqs_queue_name = _time_based_id(suffix="source-sqs")
+
+        sqs_queue = _sqs_create_queue(self.sqs_client, sqs_queue_name, self.localstack.get_url())
+
+        sqs_queue_arn = sqs_queue["QueueArn"]
+        sqs_queue_url = sqs_queue["QueueUrl"]
+        sqs_queue_url_path = sqs_queue["QueueUrlPath"]
+
+        _sqs_send_messages(self.sqs_client, sqs_queue_url, "".join(fixtures))
+
+        config_yaml: str = f"""
+            inputs:
+              - type: "sqs"
+                id: "{sqs_queue_arn}"
+                expand_event_list_from_field: aField
+                root_fields_to_add_to_expanded_event: ["secondRootField"]
+                tags: {self.default_tags}
+                outputs:
+                  - type: "logstash"
+                    args:
+                      logstash_url: "{self.logstash.get_url()}"
+                      ssl_assert_fingerprint: {self.logstash.ssl_assert_fingerprint}
+                      username: "{self.logstash.logstash_user}"
+                      password: "{self.logstash.logstash_password}"
+        """
+
+        config_file_path = "config.yaml"
+        config_bucket_name = _time_based_id(suffix="config-bucket")
+        _s3_upload_content_to_bucket(
+            client=self.s3_client,
+            content=config_yaml.encode("utf-8"),
+            content_type="text/plain",
+            bucket_name=config_bucket_name,
+            key=config_file_path,
+        )
+
+        os.environ["S3_CONFIG_FILE"] = f"s3://{config_bucket_name}/{config_file_path}"
+
+        events_sqs, _ = _sqs_get_messages(self.sqs_client, sqs_queue_url, sqs_queue_arn)
+
+        message_id = events_sqs["Records"][0]["messageId"]
+
+        ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
+
+        first_call = handler(events_sqs, ctx)  # type:ignore
+
+        assert first_call == "completed"
+
+        logstash_message = self.logstash.get_messages(expected=2)
+        assert len(logstash_message) == 2
+
+        assert logstash_message[0]["message"] == json_dumper(first_expanded_with_root_fields)
+        assert logstash_message[0]["log"]["offset"] == 0
+        assert logstash_message[0]["log"]["file"]["path"] == sqs_queue_url_path
+        assert logstash_message[0]["aws"]["sqs"]["name"] == sqs_queue_name
+        assert logstash_message[0]["aws"]["sqs"]["message_id"] == message_id
+        assert logstash_message[0]["cloud"]["provider"] == "aws"
+        assert logstash_message[0]["cloud"]["region"] == "us-east-1"
+        assert logstash_message[0]["cloud"]["account"]["id"] == "000000000000"
+        assert logstash_message[0]["tags"] == ["forwarded", "tag1", "tag2", "tag3"]
+
+        assert logstash_message[1]["message"] == json_dumper(second_expanded_with_root_fields)
+        assert logstash_message[1]["log"]["offset"] == 180
+        assert logstash_message[1]["log"]["file"]["path"] == sqs_queue_url_path
+        assert logstash_message[1]["aws"]["sqs"]["name"] == sqs_queue_name
+        assert logstash_message[1]["aws"]["sqs"]["message_id"] == message_id
+        assert logstash_message[1]["cloud"]["provider"] == "aws"
+        assert logstash_message[1]["cloud"]["region"] == "us-east-1"
+        assert logstash_message[1]["cloud"]["account"]["id"] == "000000000000"
+        assert logstash_message[1]["tags"] == ["forwarded", "tag1", "tag2", "tag3"]
+
+    def test_root_fields_to_add_to_expanded_event_list(self) -> None:
+        assert isinstance(self.logstash, LogstashContainer)
+        assert isinstance(self.localstack, LocalStackContainer)
+
+        first_expanded_event: str = _load_file_fixture("cloudwatch-log-1.json")
+        first_expanded_with_root_fields: dict[str, Any] = json_parser(first_expanded_event)
+        first_expanded_with_root_fields["secondRootField"] = "secondRootField"
+
+        second_expanded_event: str = _load_file_fixture("cloudwatch-log-3.json")
+        second_expanded_with_root_fields: dict[str, Any] = json_parser(second_expanded_event)
+        second_expanded_with_root_fields["secondRootField"] = "secondRootField"
+
+        third_expanded_event: str = _load_file_fixture("cloudwatch-log-3.json")
+        third_expanded_event_with_root_fields: dict[str, Any] = json_parser(third_expanded_event)
+        third_expanded_event_with_root_fields["secondRootField"] = "secondRootField"
+
+        fixtures = [
+            f"""{{"firstRootField": "firstRootField", "secondRootField":"secondRootField",
+            "aField": [{first_expanded_event},{second_expanded_event},{third_expanded_event}]}}"""
+        ]
+
+        sqs_queue_name = _time_based_id(suffix="source-sqs")
+
+        sqs_queue = _sqs_create_queue(self.sqs_client, sqs_queue_name, self.localstack.get_url())
+
+        sqs_queue_arn = sqs_queue["QueueArn"]
+        sqs_queue_url = sqs_queue["QueueUrl"]
+        sqs_queue_url_path = sqs_queue["QueueUrlPath"]
+
+        _sqs_send_messages(self.sqs_client, sqs_queue_url, "".join(fixtures))
+
+        config_yaml: str = f"""
+            inputs:
+              - type: "sqs"
+                id: "{sqs_queue_arn}"
+                expand_event_list_from_field: aField
+                root_fields_to_add_to_expanded_event: ["secondRootField"]
+                tags: {self.default_tags}
+                outputs:
+                  - type: "logstash"
+                    args:
+                      logstash_url: "{self.logstash.get_url()}"
+                      ssl_assert_fingerprint: {self.logstash.ssl_assert_fingerprint}
+                      username: "{self.logstash.logstash_user}"
+                      password: "{self.logstash.logstash_password}"
+        """
+
+        config_file_path = "config.yaml"
+        config_bucket_name = _time_based_id(suffix="config-bucket")
+        _s3_upload_content_to_bucket(
+            client=self.s3_client,
+            content=config_yaml.encode("utf-8"),
+            content_type="text/plain",
+            bucket_name=config_bucket_name,
+            key=config_file_path,
+        )
+
+        os.environ["S3_CONFIG_FILE"] = f"s3://{config_bucket_name}/{config_file_path}"
+
+        events_sqs, _ = _sqs_get_messages(self.sqs_client, sqs_queue_url, sqs_queue_arn)
+
+        message_id = events_sqs["Records"][0]["messageId"]
+
+        ctx = ContextMock()
+        first_call = handler(events_sqs, ctx)  # type:ignore
+
+        assert first_call == "continuing"
+
+        logstash_message = self.logstash.get_messages(expected=1)
+        assert len(logstash_message) == 1
+
+        assert logstash_message[0]["message"] == json_dumper(first_expanded_with_root_fields)
+        assert logstash_message[0]["log"]["offset"] == 0
+        assert logstash_message[0]["log"]["file"]["path"] == sqs_queue_url_path
+        assert logstash_message[0]["aws"]["sqs"]["name"] == sqs_queue_name
+        assert logstash_message[0]["aws"]["sqs"]["message_id"] == message_id
+        assert logstash_message[0]["cloud"]["provider"] == "aws"
+        assert logstash_message[0]["cloud"]["region"] == "us-east-1"
+        assert logstash_message[0]["cloud"]["account"]["id"] == "000000000000"
+        assert logstash_message[0]["tags"] == ["forwarded", "tag1", "tag2", "tag3"]
+
+        ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
+
+        continued_events, _ = _sqs_get_messages(
+            self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
+        )
+        second_call = handler(continued_events, ctx)  # type:ignore
+
+        assert second_call == "completed"
+
+        logstash_message = self.logstash.get_messages(expected=3)
+        assert len(logstash_message) == 3
+
+        assert logstash_message[1]["message"] == json_dumper(second_expanded_with_root_fields)
+        assert logstash_message[1]["log"]["offset"] == 114
+        assert logstash_message[1]["log"]["file"]["path"] == sqs_queue_url_path
+        assert logstash_message[1]["aws"]["sqs"]["name"] == sqs_queue_name
+        assert logstash_message[1]["aws"]["sqs"]["message_id"] == message_id
+        assert logstash_message[1]["cloud"]["provider"] == "aws"
+        assert logstash_message[1]["cloud"]["region"] == "us-east-1"
+        assert logstash_message[1]["cloud"]["account"]["id"] == "000000000000"
+        assert logstash_message[1]["tags"] == ["forwarded", "tag1", "tag2", "tag3"]
+
+        assert logstash_message[2]["message"] == json_dumper(third_expanded_event_with_root_fields)
+        assert logstash_message[2]["log"]["offset"] == 228
+        assert logstash_message[2]["log"]["file"]["path"] == sqs_queue_url_path
+        assert logstash_message[2]["aws"]["sqs"]["name"] == sqs_queue_name
+        assert logstash_message[2]["aws"]["sqs"]["message_id"] == message_id
+        assert logstash_message[2]["cloud"]["provider"] == "aws"
+        assert logstash_message[2]["cloud"]["region"] == "us-east-1"
+        assert logstash_message[2]["cloud"]["account"]["id"] == "000000000000"
+        assert logstash_message[2]["tags"] == ["forwarded", "tag1", "tag2", "tag3"]
+
+    def test_root_fields_to_add_to_expanded_event_list_no_fields_in_root(self) -> None:
+        assert isinstance(self.logstash, LogstashContainer)
+        assert isinstance(self.localstack, LocalStackContainer)
+
+        first_expanded_event: str = _load_file_fixture("cloudwatch-log-1.json")
+        first_expanded_with_root_fields: dict[str, Any] = json_parser(first_expanded_event)
+        first_expanded_with_root_fields["secondRootField"] = "secondRootField"
+
+        second_expanded_event: str = _load_file_fixture("cloudwatch-log-3.json")
+        second_expanded_with_root_fields: dict[str, Any] = json_parser(second_expanded_event)
+        second_expanded_with_root_fields["secondRootField"] = "secondRootField"
+
+        third_expanded_event: str = _load_file_fixture("cloudwatch-log-3.json")
+        third_expanded_event_with_root_fields: dict[str, Any] = json_parser(third_expanded_event)
+        third_expanded_event_with_root_fields["secondRootField"] = "secondRootField"
+
+        fixtures = [
+            f"""{{"firstRootField": "firstRootField", "secondRootField":"secondRootField",
+            "aField": [{first_expanded_event},{second_expanded_event},{third_expanded_event}]}}"""
+        ]
+
+        sqs_queue_name = _time_based_id(suffix="source-sqs")
+
+        sqs_queue = _sqs_create_queue(self.sqs_client, sqs_queue_name, self.localstack.get_url())
+
+        sqs_queue_arn = sqs_queue["QueueArn"]
+        sqs_queue_url = sqs_queue["QueueUrl"]
+        sqs_queue_url_path = sqs_queue["QueueUrlPath"]
+
+        _sqs_send_messages(self.sqs_client, sqs_queue_url, "".join(fixtures))
+
+        config_yaml: str = f"""
+            inputs:
+              - type: "sqs"
+                id: "{sqs_queue_arn}"
+                expand_event_list_from_field: aField
+                root_fields_to_add_to_expanded_event: ["secondRootField", "thirdRootField"]
+                tags: {self.default_tags}
+                outputs:
+                  - type: "logstash"
+                    args:
+                      logstash_url: "{self.logstash.get_url()}"
+                      ssl_assert_fingerprint: {self.logstash.ssl_assert_fingerprint}
+                      username: "{self.logstash.logstash_user}"
+                      password: "{self.logstash.logstash_password}"
+        """
+
+        config_file_path = "config.yaml"
+        config_bucket_name = _time_based_id(suffix="config-bucket")
+        _s3_upload_content_to_bucket(
+            client=self.s3_client,
+            content=config_yaml.encode("utf-8"),
+            content_type="text/plain",
+            bucket_name=config_bucket_name,
+            key=config_file_path,
+        )
+
+        os.environ["S3_CONFIG_FILE"] = f"s3://{config_bucket_name}/{config_file_path}"
+
+        events_sqs, _ = _sqs_get_messages(self.sqs_client, sqs_queue_url, sqs_queue_arn)
+
+        message_id = events_sqs["Records"][0]["messageId"]
+
+        ctx = ContextMock()
+        first_call = handler(events_sqs, ctx)  # type:ignore
+
+        assert first_call == "continuing"
+
+        logstash_message = self.logstash.get_messages(expected=1)
+        assert len(logstash_message) == 1
+
+        assert logstash_message[0]["message"] == json_dumper(first_expanded_with_root_fields)
+        assert logstash_message[0]["log"]["offset"] == 0
+        assert logstash_message[0]["log"]["file"]["path"] == sqs_queue_url_path
+        assert logstash_message[0]["aws"]["sqs"]["name"] == sqs_queue_name
+        assert logstash_message[0]["aws"]["sqs"]["message_id"] == message_id
+        assert logstash_message[0]["cloud"]["provider"] == "aws"
+        assert logstash_message[0]["cloud"]["region"] == "us-east-1"
+        assert logstash_message[0]["cloud"]["account"]["id"] == "000000000000"
+        assert logstash_message[0]["tags"] == ["forwarded", "tag1", "tag2", "tag3"]
+
+        ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
+
+        continued_events, _ = _sqs_get_messages(
+            self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
+        )
+        second_call = handler(continued_events, ctx)  # type:ignore
+
+        assert second_call == "completed"
+
+        logstash_message = self.logstash.get_messages(expected=3)
+        assert len(logstash_message) == 3
+
+        assert logstash_message[1]["message"] == json_dumper(second_expanded_with_root_fields)
+        assert logstash_message[1]["log"]["offset"] == 114
+        assert logstash_message[1]["log"]["file"]["path"] == sqs_queue_url_path
+        assert logstash_message[1]["aws"]["sqs"]["name"] == sqs_queue_name
+        assert logstash_message[1]["aws"]["sqs"]["message_id"] == message_id
+        assert logstash_message[1]["cloud"]["provider"] == "aws"
+        assert logstash_message[1]["cloud"]["region"] == "us-east-1"
+        assert logstash_message[1]["cloud"]["account"]["id"] == "000000000000"
+        assert logstash_message[1]["tags"] == ["forwarded", "tag1", "tag2", "tag3"]
+
+        assert logstash_message[2]["message"] == json_dumper(third_expanded_event_with_root_fields)
+        assert logstash_message[2]["log"]["offset"] == 228
+        assert logstash_message[2]["log"]["file"]["path"] == sqs_queue_url_path
+        assert logstash_message[2]["aws"]["sqs"]["name"] == sqs_queue_name
+        assert logstash_message[2]["aws"]["sqs"]["message_id"] == message_id
+        assert logstash_message[2]["cloud"]["provider"] == "aws"
+        assert logstash_message[2]["cloud"]["region"] == "us-east-1"
+        assert logstash_message[2]["cloud"]["account"]["id"] == "000000000000"
+        assert logstash_message[2]["tags"] == ["forwarded", "tag1", "tag2", "tag3"]
+
+    def test_root_fields_to_add_to_expanded_event_all(self) -> None:
+        assert isinstance(self.logstash, LogstashContainer)
+        assert isinstance(self.localstack, LocalStackContainer)
+
+        first_expanded_event: str = _load_file_fixture("cloudwatch-log-1.json")
+        first_expanded_with_root_fields: dict[str, Any] = json_parser(first_expanded_event)
+        first_expanded_with_root_fields["firstRootField"] = "firstRootField"
+        first_expanded_with_root_fields["secondRootField"] = "secondRootField"
+
+        second_expanded_event: str = _load_file_fixture("cloudwatch-log-3.json")
+        second_expanded_with_root_fields: dict[str, Any] = json_parser(second_expanded_event)
+        second_expanded_with_root_fields["firstRootField"] = "firstRootField"
+        second_expanded_with_root_fields["secondRootField"] = "secondRootField"
+
+        third_expanded_event: str = _load_file_fixture("cloudwatch-log-3.json")
+        third_expanded_event_with_root_fields: dict[str, Any] = json_parser(third_expanded_event)
+        third_expanded_event_with_root_fields["firstRootField"] = "firstRootField"
+        third_expanded_event_with_root_fields["secondRootField"] = "secondRootField"
+
+        fixtures = [
+            f"""{{"firstRootField": "firstRootField", "secondRootField":"secondRootField",
+            "aField": [{first_expanded_event},{second_expanded_event},{third_expanded_event}]}}"""
+        ]
+
+        sqs_queue_name = _time_based_id(suffix="source-sqs")
+
+        sqs_queue = _sqs_create_queue(self.sqs_client, sqs_queue_name, self.localstack.get_url())
+
+        sqs_queue_arn = sqs_queue["QueueArn"]
+        sqs_queue_url = sqs_queue["QueueUrl"]
+        sqs_queue_url_path = sqs_queue["QueueUrlPath"]
+
+        _sqs_send_messages(self.sqs_client, sqs_queue_url, "".join(fixtures))
+
+        config_yaml: str = f"""
+            inputs:
+              - type: "sqs"
+                id: "{sqs_queue_arn}"
+                expand_event_list_from_field: aField
+                root_fields_to_add_to_expanded_event: all
+                tags: {self.default_tags}
+                outputs:
+                  - type: "logstash"
+                    args:
+                      logstash_url: "{self.logstash.get_url()}"
+                      ssl_assert_fingerprint: {self.logstash.ssl_assert_fingerprint}
+                      username: "{self.logstash.logstash_user}"
+                      password: "{self.logstash.logstash_password}"
+        """
+
+        config_file_path = "config.yaml"
+        config_bucket_name = _time_based_id(suffix="config-bucket")
+        _s3_upload_content_to_bucket(
+            client=self.s3_client,
+            content=config_yaml.encode("utf-8"),
+            content_type="text/plain",
+            bucket_name=config_bucket_name,
+            key=config_file_path,
+        )
+
+        os.environ["S3_CONFIG_FILE"] = f"s3://{config_bucket_name}/{config_file_path}"
+
+        events_sqs, _ = _sqs_get_messages(self.sqs_client, sqs_queue_url, sqs_queue_arn)
+
+        message_id = events_sqs["Records"][0]["messageId"]
+
+        ctx = ContextMock()
+        first_call = handler(events_sqs, ctx)  # type:ignore
+
+        assert first_call == "continuing"
+
+        logstash_message = self.logstash.get_messages(expected=1)
+        assert len(logstash_message) == 1
+
+        assert logstash_message[0]["message"] == json_dumper(first_expanded_with_root_fields)
+        assert logstash_message[0]["log"]["offset"] == 0
+        assert logstash_message[0]["log"]["file"]["path"] == sqs_queue_url_path
+        assert logstash_message[0]["aws"]["sqs"]["name"] == sqs_queue_name
+        assert logstash_message[0]["aws"]["sqs"]["message_id"] == message_id
+        assert logstash_message[0]["cloud"]["provider"] == "aws"
+        assert logstash_message[0]["cloud"]["region"] == "us-east-1"
+        assert logstash_message[0]["cloud"]["account"]["id"] == "000000000000"
+        assert logstash_message[0]["tags"] == ["forwarded", "tag1", "tag2", "tag3"]
+
+        ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
+
+        continued_events, _ = _sqs_get_messages(
+            self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
+        )
+        second_call = handler(continued_events, ctx)  # type:ignore
+
+        assert second_call == "completed"
+
+        logstash_message = self.logstash.get_messages(expected=3)
+        assert len(logstash_message) == 3
+
+        assert logstash_message[1]["message"] == json_dumper(second_expanded_with_root_fields)
+        assert logstash_message[1]["log"]["offset"] == 114
+        assert logstash_message[1]["log"]["file"]["path"] == sqs_queue_url_path
+        assert logstash_message[1]["aws"]["sqs"]["name"] == sqs_queue_name
+        assert logstash_message[1]["aws"]["sqs"]["message_id"] == message_id
+        assert logstash_message[1]["cloud"]["provider"] == "aws"
+        assert logstash_message[1]["cloud"]["region"] == "us-east-1"
+        assert logstash_message[1]["cloud"]["account"]["id"] == "000000000000"
+        assert logstash_message[1]["tags"] == ["forwarded", "tag1", "tag2", "tag3"]
+
+        assert logstash_message[2]["message"] == json_dumper(third_expanded_event_with_root_fields)
+        assert logstash_message[2]["log"]["offset"] == 228
+        assert logstash_message[2]["log"]["file"]["path"] == sqs_queue_url_path
+        assert logstash_message[2]["aws"]["sqs"]["name"] == sqs_queue_name
+        assert logstash_message[2]["aws"]["sqs"]["message_id"] == message_id
+        assert logstash_message[2]["cloud"]["provider"] == "aws"
+        assert logstash_message[2]["cloud"]["region"] == "us-east-1"
+        assert logstash_message[2]["cloud"]["account"]["id"] == "000000000000"
+        assert logstash_message[2]["tags"] == ["forwarded", "tag1", "tag2", "tag3"]
+
+    def test_root_fields_to_add_to_expanded_event_all_no_fields_in_root(self) -> None:
+        assert isinstance(self.logstash, LogstashContainer)
+        assert isinstance(self.localstack, LocalStackContainer)
+
+        first_expanded_event: str = _load_file_fixture("cloudwatch-log-1.json")
+        first_expanded_with_root_fields: dict[str, Any] = json_parser(first_expanded_event)
+
+        second_expanded_event: str = _load_file_fixture("cloudwatch-log-3.json")
+        second_expanded_with_root_fields: dict[str, Any] = json_parser(second_expanded_event)
+
+        third_expanded_event: str = _load_file_fixture("cloudwatch-log-3.json")
+        third_expanded_event_with_root_fields: dict[str, Any] = json_parser(third_expanded_event)
+
+        fixtures = [f"""{{"aField": [{first_expanded_event},{second_expanded_event},{third_expanded_event}]}}"""]
+
+        sqs_queue_name = _time_based_id(suffix="source-sqs")
+
+        sqs_queue = _sqs_create_queue(self.sqs_client, sqs_queue_name, self.localstack.get_url())
+
+        sqs_queue_arn = sqs_queue["QueueArn"]
+        sqs_queue_url = sqs_queue["QueueUrl"]
+        sqs_queue_url_path = sqs_queue["QueueUrlPath"]
+
+        _sqs_send_messages(self.sqs_client, sqs_queue_url, "".join(fixtures))
+
+        config_yaml: str = f"""
+            inputs:
+              - type: "sqs"
+                id: "{sqs_queue_arn}"
+                expand_event_list_from_field: aField
+                root_fields_to_add_to_expanded_event: all
+                tags: {self.default_tags}
+                outputs:
+                  - type: "logstash"
+                    args:
+                      logstash_url: "{self.logstash.get_url()}"
+                      ssl_assert_fingerprint: {self.logstash.ssl_assert_fingerprint}
+                      username: "{self.logstash.logstash_user}"
+                      password: "{self.logstash.logstash_password}"
+        """
+
+        config_file_path = "config.yaml"
+        config_bucket_name = _time_based_id(suffix="config-bucket")
+        _s3_upload_content_to_bucket(
+            client=self.s3_client,
+            content=config_yaml.encode("utf-8"),
+            content_type="text/plain",
+            bucket_name=config_bucket_name,
+            key=config_file_path,
+        )
+
+        os.environ["S3_CONFIG_FILE"] = f"s3://{config_bucket_name}/{config_file_path}"
+
+        events_sqs, _ = _sqs_get_messages(self.sqs_client, sqs_queue_url, sqs_queue_arn)
+
+        message_id = events_sqs["Records"][0]["messageId"]
+
+        ctx = ContextMock()
+        first_call = handler(events_sqs, ctx)  # type:ignore
+
+        assert first_call == "continuing"
+
+        logstash_message = self.logstash.get_messages(expected=1)
+        assert len(logstash_message) == 1
+
+        assert logstash_message[0]["message"] == json_dumper(first_expanded_with_root_fields)
+        assert logstash_message[0]["log"]["offset"] == 0
+        assert logstash_message[0]["log"]["file"]["path"] == sqs_queue_url_path
+        assert logstash_message[0]["aws"]["sqs"]["name"] == sqs_queue_name
+        assert logstash_message[0]["aws"]["sqs"]["message_id"] == message_id
+        assert logstash_message[0]["cloud"]["provider"] == "aws"
+        assert logstash_message[0]["cloud"]["region"] == "us-east-1"
+        assert logstash_message[0]["cloud"]["account"]["id"] == "000000000000"
+        assert logstash_message[0]["tags"] == ["forwarded", "tag1", "tag2", "tag3"]
+
+        ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
+
+        continued_events, _ = _sqs_get_messages(
+            self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
+        )
+        second_call = handler(continued_events, ctx)  # type:ignore
+
+        assert second_call == "completed"
+
+        logstash_message = self.logstash.get_messages(expected=3)
+        assert len(logstash_message) == 3
+
+        assert logstash_message[1]["message"] == json_dumper(second_expanded_with_root_fields)
+        assert logstash_message[1]["log"]["offset"] == 86
+        assert logstash_message[1]["log"]["file"]["path"] == sqs_queue_url_path
+        assert logstash_message[1]["aws"]["sqs"]["name"] == sqs_queue_name
+        assert logstash_message[1]["aws"]["sqs"]["message_id"] == message_id
+        assert logstash_message[1]["cloud"]["provider"] == "aws"
+        assert logstash_message[1]["cloud"]["region"] == "us-east-1"
+        assert logstash_message[1]["cloud"]["account"]["id"] == "000000000000"
+        assert logstash_message[1]["tags"] == ["forwarded", "tag1", "tag2", "tag3"]
+
+        assert logstash_message[2]["message"] == json_dumper(third_expanded_event_with_root_fields)
+        assert logstash_message[2]["log"]["offset"] == 172
+        assert logstash_message[2]["log"]["file"]["path"] == sqs_queue_url_path
+        assert logstash_message[2]["aws"]["sqs"]["name"] == sqs_queue_name
+        assert logstash_message[2]["aws"]["sqs"]["message_id"] == message_id
+        assert logstash_message[2]["cloud"]["provider"] == "aws"
+        assert logstash_message[2]["cloud"]["region"] == "us-east-1"
+        assert logstash_message[2]["cloud"]["account"]["id"] == "000000000000"
+        assert logstash_message[2]["tags"] == ["forwarded", "tag1", "tag2", "tag3"]
+
     def test_cloudwatch_logs_stream_as_input_instead_of_group(self) -> None:
         assert isinstance(self.logstash, LogstashContainer)
         assert isinstance(self.localstack, LocalStackContainer)

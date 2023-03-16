@@ -364,17 +364,17 @@ class JsonCollector:
                         wait_for_object_start_buffer = b""
                         for data_to_yield, json_object in self._collector(data, newline, newline_length):
                             shared_logger.debug("JsonCollector objects", extra={"offset": self._ending_offset})
-                            expand_event_list_from_field: Optional[
+                            event_list_from_field_expander: Optional[
                                 ExpandEventListFromField
-                            ] = storage.expand_event_list_from_field
+                            ] = storage.event_list_from_field_expander
 
-                            if expand_event_list_from_field is not None:
+                            if event_list_from_field_expander is not None:
                                 for (
                                     expanded_log_event,
                                     expanded_starting_offset,
                                     expanded_ending_offset,
                                     expanded_event_n,
-                                ) in expand_event_list_from_field.expand(
+                                ) in event_list_from_field_expander.expand(
                                     data_to_yield, json_object, self._starting_offset, self._ending_offset
                                 ):
                                     to_be_yield = (

@@ -26,7 +26,7 @@ class StorageFactory:
     def create(
         storage_type: str,
         json_content_type: Optional[str] = None,
-        expand_event_list_from_field: Optional[ExpandEventListFromField] = None,
+        event_list_from_field_expander: Optional[ExpandEventListFromField] = None,
         multiline_processor: Optional[ProtocolMultiline] = None,
         **kwargs: Any,
     ) -> ProtocolStorage:
@@ -52,7 +52,7 @@ class StorageFactory:
 
         kwargs["json_content_type"] = json_content_type
         kwargs["multiline_processor"] = multiline_processor
-        kwargs["expand_event_list_from_field"] = expand_event_list_from_field
+        kwargs["event_list_from_field_expander"] = event_list_from_field_expander
 
         storage_builder: Callable[..., ProtocolStorage] = storage_definition["class"]
         return storage_builder(**kwargs)

@@ -236,10 +236,10 @@ def wrap(payload: str, json_content_type: Optional[str] = None, expand: bool = F
         def resolver(_: str, field_to_expand_event_list_from: str) -> str:
             return field_to_expand_event_list_from
 
-        expander = ExpandEventListFromField("pleaseExpand", "", resolver, Setup.expanded_offset)
+        expander = ExpandEventListFromField("pleaseExpand", "", resolver, None, Setup.expanded_offset)
 
     payload_storage = PayloadStorage(
-        payload=payload, json_content_type=json_content_type, expand_event_list_from_field=expander
+        payload=payload, json_content_type=json_content_type, event_list_from_field_expander=expander
     )
     lines = payload_storage.get_by_lines(range_start=0)
     last_length: int = 0

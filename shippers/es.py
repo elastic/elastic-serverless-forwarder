@@ -163,7 +163,7 @@ class ElasticsearchShipper:
                 self._replay_handler("elasticsearch", self._replay_args, action_failed[0])
 
         if failed > 0:
-            shared_logger.error("elasticsearch shipper", extra={"success": success, "failed": failed})
+            shared_logger.warning("elasticsearch shipper", extra={"success": success, "failed": failed})
             return
 
         shared_logger.info("elasticsearch shipper", extra={"success": success, "failed": failed})
@@ -242,7 +242,7 @@ class ElasticsearchShipper:
                     self._dataset = "aws.cloudtrail"
 
         if self._dataset == "generic":
-            shared_logger.info("dataset set to generic")
+            shared_logger.debug("dataset set to generic")
 
         shared_logger.debug("dataset", extra={"dataset": self._dataset})
 
