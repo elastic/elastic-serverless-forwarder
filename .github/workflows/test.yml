@@ -31,8 +31,6 @@ jobs:
   coverage:
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    permissions:
-      pull-requests: write # for marocchino/sticky-pull-request-comment
 
     steps:
 
@@ -43,13 +41,14 @@ jobs:
         python-version: '3.9' # As defined in tests/scripts/docker/run_tests.sh
         cache: 'pip'          # caching pip dependencies
 
-    - run: pip install -r requirements.txt -r requirements-tests.txt
+    - run: make all-requirements
 
     - run: make coverage
       env:
         # See https://github.com/elastic/elastic-serverless-forwarder/pull/280#issuecomment-1461554126
         AWS_ACCESS_KEY_ID: AWS_ACCESS_KEY_ID
         AWS_SECRET_ACCESS_KEY: AWS_SECRET_ACCESS_KEY
+        PYTEST_JUNIT: "--junitxml=./elastic-serverless-forwarder-junit.xml"
 
     - name: Store test results
       if: success() || failure()
@@ -57,58 +56,3 @@ jobs:
       with:
         name: test-results
         path: '**/elastic-serverless-forwarder-junit.xml'
-
-    - name: Code Coverage Summary Report
-      if: success() || failure()
-      uses: irongut/CodeCoverageSummary@v1.3.0
-      with:
-        filename: coverage.xml
-        format: 'markdown'
-        output: 'both'
-
-    - name: Store coverage results
-      if: success() || failure()
-      uses: actions/upload-artifact@v3
-      with:
-        name: coverage
-        path: |
-          coverage.xml
-          code-coverage-results.md
-
-    # Version https://github.com/marocchino/sticky-pull-request-comment/releases/tag/v2.5.0
-    - name: Add Coverage PR Comment
-      uses: marocchino/sticky-pull-request-comment@3d60a5b2dae89d44e0c6ddc69dd7536aec2071cd
-      if: github.event_name == 'pull_request' && (success() || failure())
-      with:
-        recreate: true
-        path: code-coverage-results.md
-
-    - name: Write to Job Summary
-      if: success() || failure()
-      run: cat code-coverage-results.md >> $GITHUB_STEP_SUMMARY
-
-  test-reporting:
-    runs-on: ubuntu-latest
-    timeout-minutes: 2
-    permissions:
-      pull-requests: write # for marocchino/sticky-pull-request-comment
-    steps:
-    - run: curl https://raw.githubusercontent.com/irongut/CodeCoverageSummary/master/src/coverage.simplecov.xml > coverage.xml
-    - name: Code Coverage Summary Report
-      uses: irongut/CodeCoverageSummary@v1.3.0
-      with:
-        filename: coverage.xml
-        format: 'markdown'
-        output: 'both'
-    - name: Store coverage results
-      uses: actions/upload-artifact@v3
-      with:
-        name: coverage
-        path: |
-          coverage.xml
-          code-coverage-results.md
-    - name: Add Coverage PR Comment
-      uses: marocchino/sticky-pull-request-comment@3d60a5b2dae89d44e0c6ddc69dd7536aec2071cd
-      with:
-        recreate: true
-        path: code-coverage-results.md
