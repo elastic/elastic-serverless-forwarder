@@ -10,6 +10,7 @@ on:
 
 jobs:
   report:
+    if: ${{ github.event.workflow_run.event == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
       - uses: elastic/apm-pipeline-library/.github/actions/test-report@current
