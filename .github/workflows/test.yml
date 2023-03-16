@@ -55,6 +55,6 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: test-results
-        path:
-          - '**/elastic-serverless-forwarder-junit.xml'
-          - '**/coverage.xml'
+        path: |
+          **/elastic-serverless-forwarder-junit.xml
+          **/coverage.xml
