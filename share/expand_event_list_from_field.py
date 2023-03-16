@@ -2,9 +2,11 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
-from typing import Any, Callable, Iterator, Optional
+from copy import deepcopy
+from typing import Any, Callable, Iterator, Optional, Union
 
 from .json import json_dumper
+from .logger import logger as shared_logger
 
 ExpandEventListFromFieldResolverCallable = Callable[[str, str], str]
 
@@ -15,12 +17,14 @@ class ExpandEventListFromField:
         field_to_expand_event_list_from: str,
         integration_scope: str,
         field_resolver: ExpandEventListFromFieldResolverCallable,
+        root_fields_to_add_to_expanded_event: Optional[Union[str, list[str]]] = None,
         last_event_expanded_offset: Optional[int] = None,
     ):
         self._last_event_expanded_offset: Optional[int] = last_event_expanded_offset
+        self._root_fields_to_add_to_expanded_event = root_fields_to_add_to_expanded_event
         self._field_to_expand_event_list_from: str = field_resolver(integration_scope, field_to_expand_event_list_from)
 
-    def _expander_event_list_from_field(
+    def _expand_event_list_from_field(
         self, json_object: dict[str, Any], starting_offset: int, ending_offset: int
     ) -> Iterator[tuple[Any, int, Optional[int], bool, bool]]:
         if len(self._field_to_expand_event_list_from) == 0 or self._field_to_expand_event_list_from not in json_object:
@@ -37,6 +41,32 @@ class ExpandEventListFromField:
                 events_list = events_list[offset_skew:]
 
             for event_n, event in enumerate(events_list):
+                if self._root_fields_to_add_to_expanded_event:
+                    root_fields_to_add_to_expanded_event: dict[str, Any] = {}
+                    # we can and want to add the root fields only in case the event is a not empty json object
+                    if isinstance(event, dict) and len(event) > 0:
+                        # we want to add all the root fields
+                        if self._root_fields_to_add_to_expanded_event == "all":
+                            root_fields_to_add_to_expanded_event = deepcopy(json_object)
+                            del root_fields_to_add_to_expanded_event[self._field_to_expand_event_list_from]
+                        else:
+                            # we want to add only a list of root fields
+                            assert isinstance(self._root_fields_to_add_to_expanded_event, list)
+                            for root_field_to_add_to_expanded_event in self._root_fields_to_add_to_expanded_event:
+                                if root_field_to_add_to_expanded_event in json_object:
+                                    root_fields_to_add_to_expanded_event[
+                                        root_field_to_add_to_expanded_event
+                                    ] = json_object[root_field_to_add_to_expanded_event]
+                                else:
+                                    shared_logger.debug(
+                                        f"`{root_field_to_add_to_expanded_event}` field to be added"
+                                        f" to expanded event not present at root level"
+                                    )
+
+                        event.update(root_fields_to_add_to_expanded_event)
+                    else:
+                        shared_logger.debug("root fields to be added on a non json object event")
+
                 event_n += offset_skew
                 yield event, int(
                     starting_offset + (event_n * avg_event_length)
@@ -56,9 +86,9 @@ class ExpandEventListFromField:
                 expanded_event_n,
                 is_last_expanded_event,
                 event_was_expanded,
-            ) in self._expander_event_list_from_field(json_object, starting_offset, ending_offset):
+            ) in self._expand_event_list_from_field(json_object, starting_offset, ending_offset):
                 if event_was_expanded:
-                    # empty values once json dumped will have a len() greater than 0, this will prevent
+                    # empty values once json dumped might have a len() greater than 0, this will prevent
                     # them to be skipped later as empty value, so we yield as zero length bytes string
                     if not expanded_event:
                         expanded_log_event = b""

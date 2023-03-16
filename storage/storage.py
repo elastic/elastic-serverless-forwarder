@@ -40,7 +40,7 @@ class ProtocolStorage(Protocol):
 
     json_content_type: Optional[str]
     multiline_processor: Optional[ProtocolMultiline]
-    expand_event_list_from_field: Optional[ExpandEventListFromField]
+    event_list_from_field_expander: Optional[ExpandEventListFromField]
 
     def get_by_lines(self, range_start: int) -> Iterator[tuple[bytes, int, int, Optional[int]]]:
         pass  # pragma: no cover
@@ -56,7 +56,7 @@ class CommonStorage(metaclass=ABCMeta):
 
     json_content_type: Optional[str] = None
     multiline_processor: Optional[ProtocolMultiline] = None
-    expand_event_list_from_field: Optional[ExpandEventListFromField] = None
+    event_list_from_field_expander: Optional[ExpandEventListFromField] = None
 
 
 ProtocolStorageType = TypeVar("ProtocolStorageType", bound=ProtocolStorage)
