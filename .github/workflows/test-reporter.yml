@@ -20,3 +20,12 @@ jobs:
           path: "**/*.xml"                  # Path to test results (inside artifact .zip)
           reporter: java-junit              # Format of test results
           output-to: step-summary           # Write summary in the PR
+      - uses: 5monkeys/cobertura-action@v13
+        with:
+          skip_covered: false
+          minimum_coverage: 100
+          fail_below_threshold: true
+          show_line: true
+          show_branch: true
+          show_missing: true
+          pull_request_number: ${{ github.event.workflow_run.pull_requests[0].number }}
