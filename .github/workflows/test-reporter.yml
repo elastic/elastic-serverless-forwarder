@@ -12,6 +12,8 @@ jobs:
   report:
     runs-on: ubuntu-latest
     steps:
+      - name: ${{ github.event.workflow_run.event }}
+        run: echo "${{ github.event.workflow_run.pull_requests[0].number }}"
       - name: elastic/apm-pipeline-library/.github/actions/test-report
         uses: elastic/apm-pipeline-library/.github/actions/test-report@current
         with:
