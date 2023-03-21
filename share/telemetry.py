@@ -39,13 +39,17 @@ def strtobool(val: str) -> bool:
 
 def is_telemetry_enabled() -> bool:
     """Check if telemetry is enabled."""
-    return strtobool(os.environ.get("TELEMETRY_ENABLED", "no"))
+    enabled = os.environ.get("TELEMETRY_ENABLED", "no")
+    try:
+        return strtobool(enabled)
+    except ValueError:
+        shared_logger.info(f"Telemetry is disabled. Invalid value for TELEMETRY_ENABLED: {enabled}")
+        return False
 
 
 def get_telemetry_endpoint() -> str:
     """Get the telemetry endpoint."""
     return os.environ.get("TELEMETRY_ENDPOINT", "https://telemetry.elastic.co/v3/send/esf")
-
 
 
 # -------------------------------------------------------

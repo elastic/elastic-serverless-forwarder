@@ -25,7 +25,7 @@ from handlers.aws.exceptions import (
     TriggerTypeException,
 )
 from main_aws import handler
-from share import Input, json_dumper, json_parser, telemetry_init
+from share import json_dumper, json_parser, telemetry_init
 
 from .utils import ContextMock
 
