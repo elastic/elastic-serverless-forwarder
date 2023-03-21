@@ -424,6 +424,10 @@ def create_environment_variables(publish_config: dict[str, Any]):
         if "endpoint" in publish_config["telemetry"]:
             environment_vars["TELEMETRY_ENDPOINT"] = publish_config["telemetry"]["endpoint"]
 
+    if "environment" in publish_config:
+        for var in publish_config["environment"]:
+            environment_vars[var] = publish_config["environment"][var]
+
     return environment_vars
 
 

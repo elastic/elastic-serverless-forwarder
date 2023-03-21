@@ -384,11 +384,10 @@ def revert_handlers_aws_handler() -> None:
 
 @pytest.mark.unit
 class TestTelemetry:
-    @mock.patch("share.config._available_output_types", new=["elasticsearch", "output_type"])
+    @mock.patch("share.config._available_output_types", new=["elasticsearch", "logstash", "output_type"])
     @mock.patch(
         "share.config._available_input_types", new=["cloudwatch-logs", "s3-sqs", "sqs", "kinesis-data-stream", "dummy"]
     )
-    @mock.patch("handlers.aws.handler.get_sqs_client", lambda: _sqs_client_mock)
     @mock.patch("storage.S3Storage._s3_client", _s3_client_mock)
     @mock.patch("handlers.aws.utils.apm_capture_serverless", _apm_capture_serverless)
     @mock.patch(
@@ -422,7 +421,7 @@ class TestTelemetry:
                         {
                             "id": "sqs:bae4265aec",
                             "type": "s3-sqs",
-                            "outputs": ["elasticsearch"],
+                            "outputs": ["elasticsearch", "logstash"],
                         }
                     ],
                 },

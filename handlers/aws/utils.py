@@ -12,11 +12,13 @@ from botocore.client import BaseClient as BotoBaseClient
 from elasticapm import Client
 from elasticapm import get_client as get_apm_client
 from elasticapm.contrib.serverless.aws import capture_serverless as apm_capture_serverless  # noqa: F401
-from share import (  # function_ended_telemetry,; input_has_output_type_telemetry,
+
+from share import (
     Config,
     FunctionContext,
     Input,
     Output,
+    function_ended_telemetry,
     get_hex_prefix,
     json_dumper,
     json_parser,
@@ -89,7 +91,13 @@ def wrap_try_except(
     def wrapper(lambda_event: dict[str, Any], lambda_context: context_.Context) -> str:
         apm_client: Client = get_apm_client()
         try:
-            return func(lambda_event, lambda_context)
+            result = func(lambda_event, lambda_context)
+            if result == "continuing":
+                function_ended_telemetry(to_be_continued=True)
+            else:
+                function_ended_telemetry(to_be_continued=False)
+
+            return result
 
         # NOTE: for all these cases we want the exception to bubble up to Lambda platform and let the defined retry
         # mechanism take action. These are non-transient unrecoverable error from this code point of view.
@@ -105,7 +113,7 @@ def wrap_try_except(
 
             shared_logger.exception("exception raised", exc_info=e)
 
-            # function_ended_telemetry(exception_raised=True)
+            function_ended_telemetry(exception_raised=True)
 
             raise e
 
@@ -118,7 +126,7 @@ def wrap_try_except(
 
             shared_logger.exception("exception raised", exc_info=e)
 
-            # function_ended_telemetry(exception_ignored=True)
+            function_ended_telemetry(exception_ignored=True)
 
             return f"exception raised: {e.__repr__()}"
 
@@ -152,13 +160,6 @@ def get_shipper_from_input(event_input: Input, config_yaml: str) -> CompositeShi
     composite_shipper: CompositeShipper = CompositeShipper()
 
     for output_type in event_input.get_output_types():
-        # anonymized_arn = anonymize_arn(event_input.id)
-        # input_has_output_type_telemetry(
-        #     input_id=anonymized_arn.id,
-        #     input_type=event_input.type,
-        #     output_type=output_type,
-        # )
-
         if output_type == "elasticsearch":
             shared_logger.debug("setting ElasticSearch shipper")
             elasticsearch_output: Optional[Output] = event_input.get_output_by_type("elasticsearch")

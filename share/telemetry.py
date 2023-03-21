@@ -2,6 +2,7 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
+import datetime as dt
 import json
 import os
 import time
@@ -43,8 +44,8 @@ def is_telemetry_enabled() -> bool:
 
 def get_telemetry_endpoint() -> str:
     """Get the telemetry endpoint."""
-    # falls back to staging if not set
-    return os.environ.get("TELEMETRY_ENDPOINT", "https://telemetry-staging.elastic.co/v3/send/esf")
+    return os.environ.get("TELEMETRY_ENDPOINT", "https://telemetry.elastic.co/v3/send/esf")
+
 
 
 # -------------------------------------------------------
@@ -81,6 +82,7 @@ class TelemetryData:
     cloud_region: str = ""
     memory_limit_in_mb: str = ""
 
+    #
     # We want to collect the unique inputs and their outputs in a data structure
     # like this one to avoid duplicates:
     #
@@ -96,7 +98,14 @@ class TelemetryData:
     #
     # The data is sent to the telemetry endpoint using a different structure
     # to make analysis easier.
+    #
     inputs: Dict[str, dict[str, Union[str, List[str]]]] = {}
+
+    # More fields will be collected in the future
+    start_time: str = ""
+    end_time: str = ""
+    to_be_continued: bool = False
+    with_exception: Optional[WithExceptionTelemetryEnum] = None
 
     def add_input(self, input_id: str, input_type: str, outputs: List[str]) -> None:
         """Add an input to the telemetry."""
@@ -118,6 +127,18 @@ TelemetryEventType = TypeVar("TelemetryEventType", bound=ProtocolTelemetryEvent)
 # -------------------------------------------------------
 # Events
 # -------------------------------------------------------
+
+# List of telemetry events
+#
+# | -------------------- | --------------------------------------------------------------- |
+# | Event                | Description                                                     |
+# | -------------------- | --------------------------------------------------------------- |
+# | FunctionStartedEvent | Occurs at the start of the function execution.                  |
+# | InputSelectedEvent   | Occurs when the input is selected to process an incoming event. |
+# | EventProcessedEvent  | Occurs when the event is processed successfully.                |
+# | FunctionEndedEvent   | Occurs at the end of the function execution.                    |
+# | -------------------- | --------------------------------------------------------------- |
+#
 
 
 class CommonTelemetryEvent(metaclass=ABCMeta):
@@ -148,6 +169,7 @@ class FunctionStartedEvent(CommonTelemetryEvent):
         telemetry_data.cloud_region = self.cloud_region
         telemetry_data.execution_id = self.execution_id
         telemetry_data.memory_limit_in_mb = self.memory_limit_in_mb
+        telemetry_data.start_time = dt.datetime.utcnow().strftime("%s.%f")
 
         return telemetry_data
 
@@ -163,7 +185,6 @@ class InputSelectedEvent(CommonTelemetryEvent):
     def merge_with(self, telemetry_data: TelemetryData) -> TelemetryData:
         """Merge the current event details with the telemetry data"""
 
-        # telemetry_data.set_input(self.input_type, self.outputs)
         telemetry_data.add_input(self.input_id, self.input_type, self.outputs)
 
         return telemetry_data
@@ -174,6 +195,21 @@ class EventProcessedEvent(CommonTelemetryEvent):
 
     def merge_with(self, telemetry_data: TelemetryData) -> TelemetryData:
         """Merge the current event details with the telemetry data"""
+        return telemetry_data
+
+
+class FunctionEndedEvent(CommonTelemetryEvent):
+    """FunctionEndedEvent represents the end of the function execution."""
+
+    def __init__(self, with_exception: Optional[WithExceptionTelemetryEnum], to_be_continued: bool) -> None:
+        self.with_exception = with_exception
+        self.to_be_continued = to_be_continued
+
+    def merge_with(self, telemetry_data: TelemetryData) -> TelemetryData:
+        """Merge the current event details with the telemetry data"""
+        telemetry_data.to_be_continued = self.to_be_continued
+        telemetry_data.end_time = dt.datetime.utcnow().strftime("%s.%f")
+
         return telemetry_data
 
 
@@ -209,6 +245,22 @@ def event_processed_telemetry() -> None:
         return
 
     _events_queue.put(EventProcessedEvent())
+
+
+def function_ended_telemetry(
+    exception_ignored: bool = False, exception_raised: bool = False, to_be_continued: bool = False
+) -> None:
+    """Triggers the `FunctionEndedEvent` telemetry event."""
+    if not is_telemetry_enabled():
+        return
+
+    with_exception = None
+    if exception_ignored:
+        with_exception = WithExceptionTelemetryEnum.EXCEPTION_IGNORED
+    elif exception_raised:
+        with_exception = WithExceptionTelemetryEnum.EXCEPTION_RAISED
+
+    _events_queue.put(FunctionEndedEvent(with_exception=with_exception, to_be_continued=to_be_continued))
 
 
 # -------------------------------------------------------

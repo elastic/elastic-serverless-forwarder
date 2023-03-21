@@ -36,6 +36,8 @@ class ContextMock:
 
     aws_request_id = "aws_request_id"
     invoked_function_arn = "arn:aws:lambda:us-east-1:123456789:function:elastic-serverless-forwarder"
+    memory_limit_in_mb = "512"
+    function_version = "v0.0.0"
 
     def get_remaining_time_in_millis(self) -> int:
         return self._remaining_time_in_millis

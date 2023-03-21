@@ -11,11 +11,12 @@ from .json import json_dumper, json_parser
 from .logger import logger as shared_logger
 from .multiline import CollectBuffer, CountMultiline, PatternMultiline, ProtocolMultiline, WhileMultiline
 from .secretsmanager import aws_sm_expander
-from .utils import get_hex_prefix
 from .telemetry import (
     FunctionContext,
     event_processed_telemetry,
+    function_ended_telemetry,
     function_started_telemetry,
     input_selected_telemetry,
     telemetry_init,
 )
+from .utils import get_hex_prefix
