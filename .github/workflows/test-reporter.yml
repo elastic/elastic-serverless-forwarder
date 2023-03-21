@@ -16,5 +16,27 @@ jobs:
         with:
           artifact: test-results            # artifact name
           name: JUnit Tests                 # Name of the check run which will be created
-          path: "**/*.xml"                  # Path to test results (inside artifact .zip)
+          path: "**/elastic-serverless-forwarder-junit.xml"                  # Path to test results (inside artifact .zip)
           reporter: java-junit              # Format of test results
+          output-to: step-summary           # Write summary in the PR
+  coverage:
+    if: ${{ github.event.workflow_run.event == 'pull_request' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        run: >
+          gh run download ${{ github.event.workflow_run.id }}
+          --name test-results
+          --repo "${GITHUB_REPOSITORY}"
+          --dir .
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - uses: 5monkeys/cobertura-action@4157521
+        with:
+          path: "**/coverage.xml"
+          skip_covered: false
+          minimum_coverage: 100
+          fail_below_threshold: true
+          show_line: true
+          show_branch: true
+          show_missing: true

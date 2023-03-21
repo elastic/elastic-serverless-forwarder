@@ -31,6 +31,7 @@ jobs:
   coverage:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+
     steps:
 
     - uses: actions/checkout@v3
@@ -40,29 +41,20 @@ jobs:
         python-version: '3.9' # As defined in tests/scripts/docker/run_tests.sh
         cache: 'pip'          # caching pip dependencies
 
-    - run: pip install -r requirements.txt -r requirements-tests.txt
+    - run: make all-requirements
 
     - run: make coverage
       env:
         # See https://github.com/elastic/elastic-serverless-forwarder/pull/280#issuecomment-1461554126
         AWS_ACCESS_KEY_ID: AWS_ACCESS_KEY_ID
         AWS_SECRET_ACCESS_KEY: AWS_SECRET_ACCESS_KEY
+        PYTEST_JUNIT: "--junitxml=./elastic-serverless-forwarder-junit.xml"
 
     - name: Store test results
       if: success() || failure()
       uses: actions/upload-artifact@v3
       with:
         name: test-results
-        path: '**/elastic-serverless-forwarder-junit.xml'
-
-    - name: Code Coverage Summary Report
-      if: success() || failure()
-      uses: irongut/CodeCoverageSummary@v1.3.0
-      with:
-        filename: coverage.xml
-        format: 'markdown'
-        output: 'both'
-
-    - name: Write to Job Summary
-      if: success() || failure()
-      run: cat code-coverage-results.md >> $GITHUB_STEP_SUMMARY
+        path: |
+          **/elastic-serverless-forwarder-junit.xml
+          **/coverage.xml
