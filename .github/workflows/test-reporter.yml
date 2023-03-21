@@ -11,7 +11,6 @@ on:
 jobs:
   report:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.event == 'pull_request' }}
     steps:
       - uses: elastic/apm-pipeline-library/.github/actions/test-report@current
         with:
@@ -20,12 +19,17 @@ jobs:
           path: "**/elastic-serverless-forwarder-junit.xml"                  # Path to test results (inside artifact .zip)
           reporter: java-junit              # Format of test results
           output-to: step-summary           # Write summary in the PR
-      - uses: dawidd6/action-download-artifact@v2
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          workflow: ${{ github.event.workflow_run.workflow_id }}
-          commit: ${{ github.event.workflow_run.head_commit.id }}
-          name: test-results
+  coverage:
+    if: ${{ github.event.workflow_run.event == 'pull_request' }}
+    steps:
+      - name: Download artifacts
+        run: >
+          gh run download ${{ github.event.workflow_run.id }}
+          --name test-results
+          --repo "${GITHUB_REPOSITORY}"
+          --dir .
+        env:
+          GH_TOKEN: ${{ github.token }}
       - uses: 5monkeys/cobertura-action@v13
         with:
           path: "**/coverage.xml"
