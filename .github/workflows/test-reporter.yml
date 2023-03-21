@@ -21,6 +21,7 @@ jobs:
           output-to: step-summary           # Write summary in the PR
   coverage:
     if: ${{ github.event.workflow_run.event == 'pull_request' }}
+    runs-on: ubuntu-latest
     steps:
       - name: Download artifacts
         run: >
