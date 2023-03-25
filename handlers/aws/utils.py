@@ -11,7 +11,7 @@ from elasticapm import Client
 from elasticapm import get_client as get_apm_client
 from elasticapm.contrib.serverless.aws import capture_serverless as apm_capture_serverless  # noqa: F401
 
-from share import Input, Output, get_hex_prefix, json_dumper, json_parser, shared_logger
+from share import Config, Input, Output, get_hex_prefix, json_dumper, json_parser, shared_logger
 from shippers import CompositeShipper, ProtocolShipper, ShipperFactory
 from storage import ProtocolStorage, StorageFactory
 
@@ -39,12 +39,12 @@ def get_sqs_client() -> BotoBaseClient:
     return boto3.client("sqs")
 
 
-def get_cloudwatch_logs_client() -> BotoBaseClient:
+def get_ec2_client() -> BotoBaseClient:
     """
-    Getter for cloudwatch logs client
+    Getter for ec2 client
     Extracted for mocking
     """
-    return boto3.client("logs")
+    return boto3.client("ec2")
 
 
 def capture_serverless(
@@ -82,7 +82,7 @@ def wrap_try_except(
             return func(lambda_event, lambda_context)
 
         # NOTE: for all these cases we want the exception to bubble up to Lambda platform and let the defined retry
-        # mechanism take action. These are non transient unrecoverable error from this code point of view.
+        # mechanism take action. These are non-transient unrecoverable error from this code point of view.
         except (
             ConfigFileException,
             InputConfigException,
@@ -113,7 +113,7 @@ def wrap_try_except(
 
 def discover_integration_scope(s3_object_key: str) -> str:
     if s3_object_key == "":
-        shared_logger.info("s3 object key is empty, dataset set to `generic`")
+        shared_logger.debug("s3 object key is empty, dataset set to `generic`")
         return INTEGRATION_SCOPE_GENERIC
     else:
         if "/CloudTrail/" in s3_object_key or "/CloudTrail-Insight/" in s3_object_key:
@@ -139,7 +139,7 @@ def get_shipper_from_input(event_input: Input, config_yaml: str) -> CompositeShi
 
     for output_type in event_input.get_output_types():
         if output_type == "elasticsearch":
-            shared_logger.info("setting ElasticSearch shipper")
+            shared_logger.debug("setting ElasticSearch shipper")
             elasticsearch_output: Optional[Output] = event_input.get_output_by_type("elasticsearch")
             assert elasticsearch_output is not None
 
@@ -149,7 +149,7 @@ def get_shipper_from_input(event_input: Input, config_yaml: str) -> CompositeShi
             composite_shipper.add_shipper(shipper=elasticsearch_shipper)
 
         if output_type == "logstash":
-            shared_logger.info("setting Logstash shipper")
+            shared_logger.debug("setting Logstash shipper")
             logstash_output: Optional[Output] = event_input.get_output_by_type("logstash")
             assert logstash_output is not None
 
@@ -356,7 +356,7 @@ class ReplayEventHandler:
 
         sqs_client.send_message(QueueUrl=sqs_replay_queue, MessageBody=json_dumper(message_payload))
 
-        shared_logger.warning(
+        shared_logger.debug(
             "sent to replay queue", extra={"output_type": output_type, "event_input_id": self._event_input_id}
         )
 
@@ -378,32 +378,34 @@ def get_account_id_from_arn(lambda_arn: str) -> str:
     return arn_components[4]
 
 
-def get_log_group_arn_and_region_from_log_group_name(log_group_name: str, log_stream_name: str) -> tuple[str, str]:
+def get_input_from_log_group_subscription_data(
+    config: Config, account_id: str, log_group_name: str, log_stream_name: str
+) -> tuple[str, Optional[Input]]:
     """
-    Return cloudwatch log group arn given a log group name
+    This function is not less resilient than the previous get_log_group_arn_and_region_from_log_group_name()
+    We avoid to call the describe_log_streams on the logs' client, since we have no way to apply the proper
+    throttling because we'd need to know the number of concurrent lambda running at the time of the call.
+    In order to not hardcode the list of regions we rely on ec2 DescribeRegions - as much weird as it is - that I found
+    no information about any kind of throttling. Weadd IAM permissions for it in deployment.
     """
-    logs_client = get_cloudwatch_logs_client()
+    all_regions = get_ec2_client().describe_regions(AllRegions=True)
+    assert "Regions" in all_regions
+    for region_data in all_regions["Regions"]:
+        region = region_data["RegionName"]
+        log_stream_arn = f"arn:aws:logs:{region}:{account_id}:log-group:{log_group_name}:log-stream:{log_stream_name}"
+        event_input = config.get_input_by_id(log_stream_arn)
 
-    describe_log_streams_kwargs = {"logGroupName": log_group_name, "logStreamNamePrefix": log_stream_name, "limit": 50}
-    while True:
-        log_streams = logs_client.describe_log_streams(**describe_log_streams_kwargs)
+        if event_input is not None:
+            return log_stream_arn, event_input
 
-        assert "logStreams" in log_streams
+        log_group_arn_components = log_stream_arn.split(":")
+        log_group_arn = f"{':'.join(log_group_arn_components[:-2])}:*"
+        event_input = config.get_input_by_id(log_group_arn)
 
-        for log_stream in log_streams["logStreams"]:
-            if "logStreamName" in log_stream and log_stream["logStreamName"] == log_stream_name:
-                log_stream_arn = log_stream["arn"]
-                region = log_stream_arn.split(":")[3]
+        if event_input is not None:
+            return log_group_arn, event_input
 
-                return log_stream_arn, region
-
-        if "nextToken" in log_streams and len(log_streams["nextToken"]) > 0:
-            describe_log_streams_kwargs["nextToken"] = log_streams["nextToken"]
-        else:
-            describe_log_streams_kwargs["nextToken"] = ""
-            break
-
-    raise ValueError("Cannot find cloudwatch log stream ARN")
+    return "", None
 
 
 def delete_sqs_record(sqs_arn: str, receipt_handle: str) -> None:
@@ -417,7 +419,7 @@ def delete_sqs_record(sqs_arn: str, receipt_handle: str) -> None:
 
     sqs_client.delete_message(QueueUrl=queue_url, ReceiptHandle=receipt_handle)
 
-    shared_logger.info("delete processed sqs message", extra={"queue_url": queue_url})
+    shared_logger.debug("delete processed sqs message", extra={"queue_url": queue_url})
 
 
 def s3_object_id(event_payload: dict[str, Any]) -> str:

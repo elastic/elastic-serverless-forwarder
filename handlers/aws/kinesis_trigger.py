@@ -81,7 +81,7 @@ def _handle_kinesis_continuation(
 def _handle_kinesis_record(
     event: dict[str, Any],
     input_id: str,
-    expand_event_list_from_field: ExpandEventListFromField,
+    event_list_from_field_expander: ExpandEventListFromField,
     json_content_type: Optional[str],
     multiline_processor: Optional[ProtocolMultiline],
 ) -> Iterator[tuple[dict[str, Any], int, Optional[int], int]]:
@@ -96,15 +96,13 @@ def _handle_kinesis_record(
             storage_type="payload",
             payload=kinesis_record["kinesis"]["data"],
             json_content_type=json_content_type,
-            expand_event_list_from_field=expand_event_list_from_field,
+            event_list_from_field_expander=event_list_from_field_expander,
             multiline_processor=multiline_processor,
         )
 
         stream_type, stream_name, aws_region = get_kinesis_stream_name_type_and_region_from_arn(
             kinesis_record["eventSourceARN"]
         )
-
-        shared_logger.info("kinesis event")
 
         events = storage.get_by_lines(range_start=0)
 

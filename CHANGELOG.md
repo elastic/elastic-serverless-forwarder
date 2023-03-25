@@ -1,15 +1,24 @@
-### v1.7.2 - 2023/02/27
+### v1.8.0 - 2023/03/21
+##### Features
+* Add `root_fields_to_add_to_expanded_event` input setting to merge fields at root level when expanding a list of events from field: [#290](https://github.com/elastic/elastic-serverless-forwarder/pull/290)
+
 ##### Bug fixes
-* Fix events mutation across different outputs of the same input, proper handling of multiple outputs in the replay queue handler, proper handling of non json content where no json object start was ever met in the storage json collector [#260](https://github.com/elastic/elastic-serverless-forwarder/pull/260)
+* Reduced logging verbosity: [#287](https://github.com/elastic/elastic-serverless-forwarder/pull/287)
+* Fix potential `PolicyLengthExceededException` when using `cloudwatch-logs` input: [#283](https://github.com/elastic/elastic-serverless-forwarder/pull/283)
+
+### v1.7.2 - 2023/03/08
+##### Bug fixes
+* Fix events mutation across different outputs of the same input, proper handling of multiple outputs in the replay queue handler, proper handling of non json content where no json object start was ever met in the storage json collector: [#260](https://github.com/elastic/elastic-serverless-forwarder/pull/260)
+* Fix throttling exception in `cloudwatch-logs` input related to DescribeLogStreams: [#276](https://github.com/elastic/elastic-serverless-forwarder/pull/276)
 
 ### v1.7.1 - 2023/02/16
 ##### Bug fixes
-* Fix wrong resolved `expand_event_list_from_field` with AWS CloudTrail due to race condition [#244](https://github.com/elastic/elastic-serverless-forwarder/pull/244)
-* Fix shipper cache to include output type in the key [#245](https://github.com/elastic/elastic-serverless-forwarder/pull/245)
+* Fix wrong resolved `expand_event_list_from_field` with AWS CloudTrail due to race condition: [#244](https://github.com/elastic/elastic-serverless-forwarder/pull/244)
+* Fix shipper cache to include output type in the key: [#245](https://github.com/elastic/elastic-serverless-forwarder/pull/245)
 
 ### v1.7.0 - 2023/02/01
 ##### Features
-* Added support for Logstash as output (Technical Preview) [#210](https://github.com/elastic/elastic-serverless-forwarder/pull/210)
+* Added support for Logstash as output (Technical Preview): [#210](https://github.com/elastic/elastic-serverless-forwarder/pull/210)
 
 ### v1.6.1 - 2023/02/03
 ##### Bug fixes

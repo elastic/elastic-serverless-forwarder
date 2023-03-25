@@ -25,12 +25,12 @@ class PayloadStorage(CommonStorage):
         payload: str,
         json_content_type: Optional[str] = None,
         multiline_processor: Optional[ProtocolMultiline] = None,
-        expand_event_list_from_field: Optional[ExpandEventListFromField] = None,
+        event_list_from_field_expander: Optional[ExpandEventListFromField] = None,
     ):
         self._payload: str = payload
         self.json_content_type = json_content_type
         self.multiline_processor = multiline_processor
-        self.expand_event_list_from_field = expand_event_list_from_field
+        self.event_list_from_field_expander = event_list_from_field_expander
 
     @multi_line
     @JsonCollector

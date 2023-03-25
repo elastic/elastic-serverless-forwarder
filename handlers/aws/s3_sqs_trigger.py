@@ -3,7 +3,7 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 import datetime
-from typing import Any, Iterator, Optional
+from typing import Any, Iterator, Optional, Union
 from urllib.parse import unquote_plus
 
 import elasticapm
@@ -74,6 +74,7 @@ def _handle_s3_sqs_event(
     sqs_record_body: dict[str, Any],
     input_id: str,
     field_to_expand_event_list_from: str,
+    root_fields_to_add_to_expanded_event: Optional[Union[str, list[str]]],
     json_content_type: Optional[str],
     multiline_processor: Optional[ProtocolMultiline],
 ) -> Iterator[tuple[dict[str, Any], int, Optional[int], int]]:
@@ -97,10 +98,11 @@ def _handle_s3_sqs_event(
 
         integration_scope = discover_integration_scope(object_key)
 
-        expand_event_list_from_field = ExpandEventListFromField(
+        event_list_from_field_expander = ExpandEventListFromField(
             field_to_expand_event_list_from,
             integration_scope,
             expand_event_list_from_field_resolver,
+            root_fields_to_add_to_expanded_event,
             last_event_expanded_offset,
         )
 
@@ -113,7 +115,7 @@ def _handle_s3_sqs_event(
             bucket_name=bucket_name,
             object_key=object_key,
             json_content_type=json_content_type,
-            expand_event_list_from_field=expand_event_list_from_field,
+            event_list_from_field_expander=event_list_from_field_expander,
             multiline_processor=multiline_processor,
         )
 
