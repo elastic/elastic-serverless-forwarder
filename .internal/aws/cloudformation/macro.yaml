@@ -154,38 +154,6 @@ Resources:
                         }
                     )
 
-            if "ElasticServerlessForwarderCloudWatchLogsEvents" in parameters:
-                cloudwatch_logs_group_arn = {}
-                cloudwatch_logs_stream_arn = {}
-                cloudwatch_logs_event_arns = [x.split(':') for x in parameters["ElasticServerlessForwarderCloudWatchLogsEvents"] if len(x.strip()) > 0]
-                for cloudwatch_logs_event_arn in cloudwatch_logs_event_arns:
-                    if len(cloudwatch_logs_event_arn) == 7:
-                        cloudwatch_logs_group_arn[f"{':'.join(cloudwatch_logs_event_arn[0:-1])}:*:*"] = True
-                        cloudwatch_logs_stream_arn[f"{':'.join(cloudwatch_logs_event_arn)}:log-stream:*"] = True
-                    elif len(cloudwatch_logs_event_arn) == 8:
-                        cloudwatch_logs_group_arn[f"{':'.join(cloudwatch_logs_event_arn[0:-2])}:*:*"] = True
-                        cloudwatch_logs_stream_arn[f"{':'.join(cloudwatch_logs_event_arn[0:-1])}:log-stream:*"] = True
-                    elif len(cloudwatch_logs_event_arn) == 9:
-                        cloudwatch_logs_group_arn[f"{':'.join(cloudwatch_logs_event_arn[0:-3])}:*:*"] = True
-                        cloudwatch_logs_stream_arn[f"{':'.join(cloudwatch_logs_event_arn[0:-2])}:log-stream:*"] = True
-
-
-                if len(cloudwatch_logs_group_arn) > 0:
-                    policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
-                        {
-                            "Effect": "Allow",
-                            "Action": "logs:DescribeLogGroups",
-                            "Resource": [x for x in cloudwatch_logs_group_arn.keys()]
-                        }
-                    )
-                    policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
-                        {
-                            "Effect": "Allow",
-                            "Action": "logs:DescribeLogStreams",
-                            "Resource": [x for x in cloudwatch_logs_stream_arn.keys()]
-                        }
-                    )
-
             if "ElasticServerlessForwarderS3Buckets" in parameters:
                 s3_buckets_arn = [x for x in parameters["ElasticServerlessForwarderS3Buckets"] if len(x.strip()) > 0]
                 if len(s3_buckets_arn) > 0:
@@ -218,6 +186,14 @@ Resources:
                         {"Fn::GetAtt": ["ElasticServerlessForwarderReplayQueue", "Arn"]},
                         {"Fn::GetAtt": ["ElasticServerlessForwarderContinuingQueue", "Arn"]},
                     ]
+                }
+            )
+
+            policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
+                {
+                    "Effect": "Allow",
+                    "Action": "ec2:DescribeRegions",
+                    "Resource": "*",
                 }
             )
 

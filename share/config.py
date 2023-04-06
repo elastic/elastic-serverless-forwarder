@@ -2,7 +2,7 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Union
 
 import yaml
 
@@ -84,7 +84,7 @@ class ElasticsearchOutput(Output):
             raise ValueError("`password` must be set when using `username`")
 
         if not self.es_datastream_name:
-            shared_logger.info("no `es_datastream_name` set in config")
+            shared_logger.debug("no `es_datastream_name` set in config")
 
         shared_logger.debug("tags: ", extra={"tags": self.tags})
 
@@ -210,6 +210,7 @@ class LogstashOutput(Output):
 
         if self.username and not self.password:
             raise ValueError("`password` must be set when using `username`")
+
         shared_logger.debug("tags: ", extra={"tags": self.tags})
 
     @property
@@ -291,6 +292,7 @@ class Input:
         self._tags: list[str] = []
         self._json_content_type: str = ""
         self._expand_event_list_from_field: str = ""
+        self._root_fields_to_add_to_expanded_event: Optional[Union[str, list[str]]] = None
         self._outputs: dict[str, Output] = {}
 
         self._multiline_processor: Optional[ProtocolMultiline] = None
@@ -352,6 +354,22 @@ class Input:
             raise ValueError(f"`expand_event_list_from_field` must be provided as string for input {self.id}")
 
         self._expand_event_list_from_field = value
+
+    @property
+    def root_fields_to_add_to_expanded_event(self) -> Optional[Union[str, list[str]]]:
+        return self._root_fields_to_add_to_expanded_event
+
+    @root_fields_to_add_to_expanded_event.setter
+    def root_fields_to_add_to_expanded_event(self, value: Union[str, list[str]]) -> None:
+        if isinstance(value, str) and value == "all":
+            self._root_fields_to_add_to_expanded_event = value
+            return
+
+        if isinstance(value, list):
+            self._root_fields_to_add_to_expanded_event = value
+            return
+
+        raise ValueError("`root_fields_to_add_to_expanded_event` must be provided as `all` or a list of strings")
 
     @property
     def json_content_type(self) -> str:
@@ -520,6 +538,9 @@ def parse_config(config_yaml: str, expanders: list[Callable[[str], str]] = []) -
 
         if "expand_event_list_from_field" in input_config:
             current_input.expand_event_list_from_field = input_config["expand_event_list_from_field"]
+
+        if "root_fields_to_add_to_expanded_event" in input_config:
+            current_input.root_fields_to_add_to_expanded_event = input_config["root_fields_to_add_to_expanded_event"]
 
         if "json_content_type" in input_config:
             current_input.json_content_type = input_config["json_content_type"]
