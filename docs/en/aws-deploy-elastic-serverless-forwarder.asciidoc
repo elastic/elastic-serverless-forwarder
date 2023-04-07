@@ -18,7 +18,7 @@ To deploy Elastic Serverless Forwarder, you have to:
 
 [discrete]
 [[aws-serverless-forwarder-deploy-prereq]]
-=== Prerequisites
+== Prerequisites
 This documentation assumes you have some familiarity with {aws} services and you have correctly created and configured the necessary {aws} objects. For example, if you want to use an Amazon S3 (via SQS event notifications) input then you must ensure that you have enabled AWS VPC flow logs to be sent to that bucket, and created an SQS queue to receive those logs. For more information, refer to the relevant https://docs.aws.amazon.com/[{aws} docs].
 
 // Need more details on pre-reqs for other input types
@@ -31,6 +31,7 @@ Forwarder for {aws}— for additional information on configuration topics such a
 == Deploying directly without SAR
 If the customization options available when deploying via Serverless Application Repository (SAR) are not sufficient, from version `1.6.0` and above you can <<aws-serverless-forwarder-direct-deploy,deploy the Elastic Serverless Forwarder directly>> to your {aws} Account without using SAR. This enables you to customize the event source settings for the inputs (i.e. triggers) one-by-one.
 
+[discrete]
 [[aws-serverless-forwarder-deploy-kibana]]
 == Install {aws} integration assets in {kib}
 
@@ -50,6 +51,7 @@ that provide you with more granular controls and flexibility on managing data in
 
 NOTE: We recommend using integration assets to get started but the forwarder supports writing to any index, alias, or custom data stream. This enables existing Elasticsearch users to re-use index templates, ingest pipelines, or dashboards that are already created and connected to existing processes or systems. If you already have an existing index or data stream you intend to send data to, then you can skip this deployment step.
 
+[discrete]
 [[sample-s3-config-file]]
 == Create and upload `config.yaml` to S3 bucket
 
@@ -178,6 +180,7 @@ inputs:
           ssl_assert_fingerprint: "22:F7:FB:84:1D:43:3E:E7:BB:F9:72:F3:D8:97:AD:7C:86:E3:08:42" #optional
 ----
 
+[discrete]
 [[s3-config-file-fields]]
 === Fields
 
@@ -233,10 +236,12 @@ For `logstash` the following arguments are supported:
   * `args.compression_level`: (Optional) The GZIP compression level for HTTP(s) requests towards {ls}. It can be any integer value between 1 (minimum compression, best performance, highest amount of bytes sent) and 9 (maximum compression, worst performance, lowest amount of bytes sent). Default value: 1
   * `args.ssl_assert_fingerprint`: (Optional) SSL fingerprint for self-signed SSL certificate on HTTPS transport.
 
+[discrete]
 [[aws-serverless-forwarder-define-deploy-parameters]]
 == Define deployment parameters
 Whichever SAR deployment method you choose, you must define the following parameters correctly for your setup. This section explains the types of parameters and provides guidance on how to set them to match your deployment(s).
 
+[discrete]
 === General configuration
 These parameters define the general configuration and behaviour for the forwarder.
 
@@ -249,6 +254,7 @@ These parameters define the general configuration and behaviour for the forwarde
 Make sure you include all the KMS keys used to encrypt the data. For example, S3 buckets are often encrypted, so the Lambda function needs access to that key to get the object.
 ====
 
+[discrete]
 === Inputs
 These parameters define your specific <<aws-serverless-forwarder-inputs>> or 'event triggers'.
 
@@ -262,11 +268,13 @@ These parameters define your specific <<aws-serverless-forwarder-inputs>> or 'ev
 Make sure you reference the ARNs specified in your `config.yaml`, and leave any settings for unused inputs blank.
 ====
 
+[discrete]
 === S3 Bucket permissions
 These parameters define the permissions required in order to access the associated S3 Buckets.
 
 - `ElasticServerlessForwarderS3Buckets`: Add a comma delimited list of S3 bucket ARNs that are sources for the S3 SQS Event Notifications (if any).
 
+[discrete]
 === Network
 These parameters define the network settings for your environment.
 
@@ -278,6 +286,7 @@ These parameters define the network settings for your environment.
 If you are setting up an an {aws} VPC for the forwarder, review the <<aws-serverless-troubleshooting-vpc-prerequisites,VPC prerequisites>>.
 ====
 
+[discrete]
 [[aws-serverless-forwarder-deploy-sar]]
 == Deploy Elastic Serverless Forwarder from SAR
 
@@ -289,6 +298,7 @@ There are several deployment methods available via the {aws} Serverless Applicat
 
 NOTE: To deploy the forwarder directly without using SAR, refer to <<aws-serverless-forwarder-direct-deploy>>
 
+[discrete]
 [[aws-serverless-forwarder-deploy-console]]
 === Deploy using {aws} Console
 
@@ -317,6 +327,7 @@ image::images/aws-serverless-forwarder-create-function.png[Create Elastic Server
 
 NOTE: If you have already successfully deployed the forwarder but want to update the application (for example, if a new version of the Lambda function is released), you should go through this deploy step again and use the same **Application name**. This will ensure the function is updated rather than duplicated or created anew.
 
+[discrete]
 [[aws-serverless-forwarder-deploy-cloudformation]]
 === Deploy using Cloudformation
 
@@ -364,7 +375,7 @@ aws serverlessrepo list-application-versions --application-id arn:aws:serverless
 
 NOTE: Starting from **v1.4.0**, if you want to update the Events settings for the forwarder, you do not need to manually delete existing settings before applying new settings.
 
-
+[discrete]
 [[aws-serverless-forwarder-deploy-terraform]]
 === Deploy using Terraform
 
@@ -416,6 +427,7 @@ From **v1.4.0** and above, if you want to update the Events settings for the dep
 Due to a https://github.com/hashicorp/terraform-provider-aws/issues/24771[Terraform bug] related to `aws_serverlessapplicationrepository_application`, if you want to delete existing Event parameters you have to set the related `aws_serverlessapplicationrepository_cloudformation_stack.parameters` to a blank space value (`" "`) instead of an empty string (`""`).
 ====
 
+[discrete]
 [[aws-serverless-forwarder-direct-deploy]]
 == Deploy Elastic Serverless Forwarder directly
 
@@ -428,6 +440,7 @@ To deploy the forwarder directly, you have to:
 * <<sample-direct-publish-config-file>>
 * <<aws-serverless-forwarder-run-publish-script>>
 
+[discrete]
 [[sample-direct-publish-config-file]]
 === Create `publish-config.yaml` for the publishing script
 
@@ -473,6 +486,7 @@ continuing-queue:
 
 ----
 
+[discrete]
 [[direct-publish-config-file-fields]]
 === Fields
 
@@ -530,6 +544,7 @@ continuing-queue:
 
 |===
 
+[discrete]
 [[aws-serverless-forwarder-run-publish-script]]
 === Run the publishing script
 
@@ -537,7 +552,9 @@ A bash script for publishing the Elastic Serverless Forwarder directly to your {
 
 Download the https://raw.githubusercontent.com/elastic/elastic-serverless-forwarder/lambda-v1.6.0/publish_lambda.sh[`publish_lambda.sh` script] and follow the instructions below.
 
+[discrete]
 ==== Script arguments
+
 [source, bash]
 ----
 
@@ -555,7 +572,9 @@ Usage: ./publish_lambda.sh config-path lambda-name forwarder-tag bucket-name reg
     region: region where to publish in
 ----
 
+[discrete]
 ==== Prerequisites
+
 - Python3.9 with pip3 is required to run the script
 - https://aws.amazon.com/cli/[{aws} CLI], https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html[SAM CLI] and the https://pypi.org/project/ruamel.yaml/[ruamel.yaml package] must also be installed
 
@@ -566,6 +585,7 @@ $ pip3 install awscli aws-sam-cli ruamel.yaml
 
 ----
 
+[discrete]
 ==== Running the script
 Assuming `publish-config.yaml` in saved in the same directory you intend to run `publish_lambda.sh` from, here's an example:
 
@@ -576,6 +596,7 @@ $ ./publish_lambda.sh publish-config.yaml forwarder-lambda lambda-v1.6.0 s3-lamb
 
 ----
 
+[discrete]
 ==== Updating to a new version via script
 You can update the version of a published Elastic Serverless Forwarder without changing its configuration by running the publishing script again and passing a *new* https://github.com/elastic/elastic-serverless-forwarder/tags[`forwarder-tag`]:
 
@@ -588,6 +609,7 @@ $ ./publish_lambda.sh publish-config.yaml forwarder-lambda lambda-v1.7.0 s3-lamb
 
 NOTE: The above examples show the forwarder being updated from `lambda-v1.6.0` to `lambda-v1.7.0`.
 
+[discrete]
 ==== Changing configuration via script
 If you want to change the configuration of a published Elastic Serverless Forwarder without changing its version, you can update the `publish-config.yaml` and run the script again using the *same* `forwarder-tag`:
 
@@ -600,7 +622,7 @@ $ ./publish_lambda.sh publish-config.yaml forwarder-lambda lambda-v1.6.0 s3-lamb
 
 NOTE: The above example shows an existing `lambda-v1.6.0` configuration being updated without changing version.
 
-
+[discrete]
 ==== Using the script for multiple deployments
 If you want to use the publish script for deploying the forwarder with different configurations, create two different `publish-config.yaml` files with unique names and run the publishing script twice, with correct references to the `config-path` and `lambda-name`:
 

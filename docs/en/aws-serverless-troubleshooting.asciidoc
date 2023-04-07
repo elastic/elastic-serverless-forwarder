@@ -5,6 +5,7 @@
 <titleabbrev>Troubleshooting</titleabbrev>
 ++++
 
+[discrete]
 == Troubleshooting deployment errors
 You can view the status of deployment actions and get additional information on events, including why a particular event fails e.g. misconfiguration details.
 
@@ -13,15 +14,18 @@ You can view the status of deployment actions and get additional information on 
 
 NOTE: For example, if you don't increase the visibility timeout for an SQS queue as described in <<aws-serverless-forwarder-inputs-s3>>, you will see a `CREATE_FAILED`**Status** for the event, and the **Status reason** provides additional detail.
 
+[discrete]
 [[aws-serverless-troubleshooting-vpc-prerequisites]]
 == Prerequisites when attached to a VPC
 If the Elastic Serverless Forwarder is attached to a VPC, you need to https://docs.aws.amazon.com/vpc/latest/privatelink/create-interface-endpoint.html[create VPC Endpoints] for S3 and SQS, and for *every* service you define as an input for the forwarder. S3 and SQS VPC Endpoints are always required for reading the `config.yaml` uploaded to S3 and managing the _Continuing queue_ and the _Replay queue_, regardless of the <<aws-serverless-forwarder-inputs>> used.
 
+[discrete]
 == Preventing unexpected costs
 It is important to monitor the Elastic Serverless Forwarder Lambda function for timeouts to prevent unexpected costs. You can use the https://docs.elastic.co/en/integrations/aws/lambda[AWS Lambda integration] for this. If the timeouts are constant, you should throttle the Lambda function to stop its execution before proceeding with any troubleshooting steps. In most cases, constant timeouts will cause the records and messages from the event triggers to go back to their sources and trigger the function again, which will cause further timeouts and force a loop that will incure unexpected high costs. For more information on throttling Lambda functions, refer to https://docs.aws.amazon.com/lambda/latest/operatorguide/throttling.html[AWS docs].
 
 // is it clear how you would throttle the Lambda function? should we detail and number these steps?
 
+[discrete]
 === Increase debug information
 To help with debugging, you can increase the amount of logging detail by adding an environment variable as follows:
 
@@ -31,6 +35,7 @@ To help with debugging, you can increase the amount of logging detail by adding 
 
 // confirm where this is visible - only in CloudWatch or also within ES messages?
 
+[discrete]
 [[aws-serverless-troubleshooting-event-id-format]]
 == Using the Event ID format (version 1.6.0 and above)
 
@@ -44,6 +49,7 @@ The timestamp is used as a prefix for the ID, because identifiers that gradually
 
 NOTE: If old events that are already published to {es} using a version of Elastic Serverless Forwarder before v1.6.0 are ingested again, they will be treated as new events and published to {es} as duplicates.
 
+[discrete]
 == Error handling
 
 There are two kind of errors that can occur during execution of the forwarder:
@@ -51,9 +57,11 @@ There are two kind of errors that can occur during execution of the forwarder:
 . Errors _before_ the ingestion phase begins
 . Errors _during_ the ingestion phase
 
+[discrete]
 === Errors before ingestion
 For errors that occur before ingestion begins (1), the function will return a failure. These errors are mostly due to misconfiguration, incorrect permissions for AWS resources, etc. Most importantly, when an error occurs at this stage we don’t have any status for events that are ingested, so there’s no requirement to keep data, and the function can fail safely. In the case of SQS messages and Kinesis data stream records, both will go back into the queue and trigger the function again with the same payload.
 
+[discrete]
 === Errors during ingestion
 For errors that occur during ingestion (2), the situation is different. We do have a status for *N* failed events out of *X* total events; if we fail the whole function then all *X* events will be processed again. While the *N* failed ones could potentially succeed, the remaining *X-N* will definitely fail, because the data streams are append-only (the function would attempt to recreate already ingested documents using the same document ID).
 
@@ -63,6 +71,7 @@ You can temporarily set the replay SQS queue as an Event Source Mapping for the 
 
 Every other error that occurs during the execution of the forwarder is silently ignored, and reported to the APM server if instrumentation is enabled.
 
+[discrete]
 === Execution timeout
 There is a grace period of 2 minutes before the timeout of the Lambda function where no more ingestion will occur. Instead, during this grace period the forwarder will collect and handle any unprocessed payloads in the batch of the input used as trigger.
 

@@ -25,6 +25,7 @@ You can transform or enrich data from {aws} as it is parsed by the forwarder. Th
 
 - <<aws-serverless-manage-multiline-messages>>
 
+[discrete]
 [[lambda-permissions-policies]]
 == Permissions and policies
 
@@ -61,6 +62,7 @@ In addition to these basic permissions, the following permissions are added when
 ** `arn:aws:logs:%AWS_REGION%:%AWS_ACCOUNT_ID%:log-group:*:*`
 ** `logs:DescribeLogGroups`
 
+[discrete]
 [[lambda-policy-cloudwatch]]
 === Lambda resource-based policy for CloudWatch Logs subscription filter input
 
@@ -73,6 +75,7 @@ For CloudWatch Logs subscription filter log group resources that you want to use
   * Source ARN: arn:aws:logs:%AWS_REGION%:%AWS_ACCOUNT_ID%:log-group:%LOG_GROUP_NAME%:*
 ----
 
+[discrete]
 [[use-secrets-manager]]
 == Use {aws} Secrets Manager
 
@@ -125,11 +128,13 @@ arn:aws:secretsmanager:AWS_REGION:AWS_ACCOUNT_ID:secret:SECRET_NAME:SECRET_KEY
 
 // link to guide/en/apm/lambda/current/aws-lambda-secrets-manager.html?
 
+[discrete]
 [[aws-serverless-route-service-logs]]
 == Route AWS service logs
 
 For `S3 SQS Event Notifications` inputs, the Elastic Serverless Forwarder supports automatic routing of several AWS service logs to the corresponding https://docs.elastic.co/en/integrations[integration data streams] for further processing and storage in the {es} cluster.
 
+[discrete]
 [[aws-serverless-automatic-routing]]
 === Automatic routing
 Elastic Serverless Forwarder supports automatic routing of the following logs to the corresponding default integration data stream:
@@ -151,6 +156,7 @@ For most other use cases, you will need to set the `es_datastream_name` field in
 
 If the `es_datastream_name` is not specified, and the log cannot be matched with any of the above AWS services, then the dataset will be set to `generic` and the namespace set to `default`, pointing to the data stream name `logs-generic-default`.
 
+[discrete]
 [[aws-serverless-use-tags-filters]]
 == Use tags and filters
 
@@ -158,6 +164,7 @@ You can use tags and filters to tag and filter messages based on regular express
 
 // expand? should we move this into Configure topic?
 
+[discrete]
 [[aws-serverless-use-tags]]
 === Use custom tags
 
@@ -193,6 +200,7 @@ The `forwarded` tag is always appended and the `generic` tag in this example com
 - Each tag must be a string and added to the list.
 ====
 
+[discrete]
 [[aws-serverless-define-include-exclude-filters]]
 === Define include/exclude filters
 
@@ -233,6 +241,7 @@ No flags are used when the regular expression is compiled. Please refer to https
 
 ====
 
+[discrete]
 [[aws-serverless-json-content]]
 == JSON content discovery
 
@@ -254,6 +263,7 @@ To change this configuration option, set `inputs.[].json_content_type` to one of
 
 NOTE: There is no need to configure the JSON content type when <<expanding-events-from-json-object-lists>>, unless you have single JSON objects that span more than 1000 lines.
 
+[discrete]
 [[expanding-events-from-json-object-lists]]
 === Expanding events from JSON object lists
 
@@ -278,6 +288,7 @@ You can define `inputs.[].expand_event_list_from_field` as a string with the val
 
 NOTE: When <<aws-serverless-route-service-logs, routing service logs>>, any value set for the `expand_event_list_from_field` configuration parameter will be ignored, because this will be automatically handled by the Elastic Serverless Forwarder.
 
+[discrete]
 === Example
 
 With the following input:
@@ -307,11 +318,13 @@ If `expand_event_list_from_field` is set to `Records`, four events will be forwa
 ----
 
 
+[discrete]
 [[aws-serverless-manage-multiline-messages]]
 == Manage multiline messages
 
 Forwarded content may contain messages that span multiple lines of text. For example, multiline messages are common in files that contain Java stack traces. In order to correctly handle these multiline events, you need to configure `multiline` settings for a specific input to specify which lines are part of a single event.
 
+[discrete]
 [[aws-serverless-multiline-config]]
 === Configuration options
 
@@ -378,6 +391,7 @@ NOTE: The `after` setting is equivalent to `previous` in https://www.elastic.co/
 
 `inputs.[].multiline.skip_newline` defined whether multiline events must be concatenated, stripping the line separator. If set to `true`, the line separator will be stripped. The default is `false`.
 
+[discrete]
 [[aws-serverless-multiline-config-examples]]
 === Examples of multiline configuration
 
@@ -387,6 +401,7 @@ The examples in this section cover the following use cases:
 -   Combining C-style line continuations into a single event
 -   Combining multiple lines from time-stamped events
 
+[discrete]
 [[aws-serverless-multiline-config-example-java]]
 ==== Java stack traces
 
@@ -442,6 +457,7 @@ In this example, the pattern matches and merges the following lines:
 NOTE: In Python’s string literals, `\b` is the backspace character (ASCII value 8). As raw strings are not used, Python would convert the `\b` to a backspace. In order for our regular expression to match as expected, you need to escape the backslash `\` in `\b` to `\\b`, which will produce the correct regular expression upon compiling.
 
 
+[discrete]
 [[aws-serverless-multiline-line-continuations]]
 ==== Line continuations
 
@@ -468,6 +484,7 @@ This configuration merges any line that ends with the `\` character with the lin
 
 NOTE: Note that you should escape the opening backslash (`\`) twice in the regular expression, as raw strings are not used. Thus, `\\\\$` will produce the required regular expression upon compiling.
 
+[discrete]
 [[aws-serverless-multiline-timestamps]]
 ==== Timestamps
 Activity logs from services such as {es} typically begin with a timestamp, followed by information on the specific activity, as in this example:
@@ -493,6 +510,7 @@ This configuration uses the `negate: true` and `match: after` settings to specif
 
 NOTE: Note that you should escape the opening square bracket (`[`) in the regular expression, because it specifies a character class i.e. a set of characters that you wish to match. You also have to escape the backslash (`\`) used for escaping the opening square bracket as raw strings are not used. Thus, `^\\[` will produce the required regular expression upon compiling.
 
+[discrete]
 [[aws-serverless-multiline-application-events]]
 ==== Application events
 
@@ -534,6 +552,7 @@ NOTE: This example will not work correctly if start/end log blocks are mixed wit
 [2015-08-24 11:51:14,399] End event
 ----
 
+[discrete]
 [[aws-serverless-multiline-test-regexp]]
 === Test your regexp pattern for multiline
 
