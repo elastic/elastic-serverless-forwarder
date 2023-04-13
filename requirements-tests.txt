@@ -3,7 +3,7 @@ pytest==7.3.0
 pytest-cov==4.0.0
 pytest-benchmark==4.0.0
 coverage==7.2.3
-simplejson==3.18.4
+simplejson==3.19.1
 orjson==3.8.9
 pysimdjson==5.0.2
 python-rapidjson==1.10
