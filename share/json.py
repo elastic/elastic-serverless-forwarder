@@ -8,7 +8,7 @@ import ujson
 
 
 def json_dumper(json_object: Any) -> str:
-    return ujson.dumps(json_object, ensure_ascii=False, reject_bytes=False)  # type:ignore
+    return ujson.dumps(json_object, ensure_ascii=False, reject_bytes=False)
 
 
 def json_parser(payload: AnyStr) -> Any:
