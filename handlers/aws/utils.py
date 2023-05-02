@@ -486,7 +486,7 @@ def kinesis_record_id(event_payload: dict[str, Any]) -> str:
     hex_src = get_hex_prefix(src)
 
     return f"{approximate_arrival_timestamp}-{hex_src}-{offset:012d}"
-
+    from elasticapm.metrics.base_metrics import
 
 # This is implementation specific to AWS and should not reside on share
 def expand_event_list_from_field_resolver(integration_scope: str, field_to_expand_event_list_from: str) -> str:

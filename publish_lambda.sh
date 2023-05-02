@@ -66,6 +66,7 @@ Resources:
       DelaySeconds: 0
       QueueName: !Join [ "-", ["elastic-serverless-forwarder-continuing-dlq", !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
       VisibilityTimeout: 910
+      SqsManagedSseEnabled: true
   ElasticServerlessForwarderContinuingQueue:
     Type: AWS::SQS::Queue
     Properties:
@@ -73,12 +74,14 @@ Resources:
       QueueName: !Join [ "-", ["elastic-serverless-forwarder-continuing-queue", !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
       RedrivePolicy: { "deadLetterTargetArn" : !GetAtt ElasticServerlessForwarderContinuingDLQ.Arn, "maxReceiveCount" : 1 }
       VisibilityTimeout: 910
+      SqsManagedSseEnabled: true
   ElasticServerlessForwarderReplayDLQ:
     Type: AWS::SQS::Queue
     Properties:
       DelaySeconds: 0
       QueueName: !Join [ "-", ["elastic-serverless-forwarder-replay-dlq", !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
       VisibilityTimeout: 910
+      SqsManagedSseEnabled: true
   ElasticServerlessForwarderReplayQueue:
     Type: AWS::SQS::Queue
     Properties:
@@ -86,6 +89,7 @@ Resources:
       QueueName: !Join [ "-", ["elastic-serverless-forwarder-replay-queue", !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
       RedrivePolicy: { "deadLetterTargetArn" : !GetAtt ElasticServerlessForwarderReplayDLQ.Arn, "maxReceiveCount" : 3 }
       VisibilityTimeout: 910
+      SqsManagedSseEnabled: true
   ApplicationElasticServerlessForwarder:
     Type: AWS::Serverless::Function
     Properties:
