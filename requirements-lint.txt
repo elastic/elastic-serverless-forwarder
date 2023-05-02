@@ -5,3 +5,4 @@ isort
 mypy
 types-PyYAML
 types-mock
+pyflakes<3.1.0,>=3.0.0
