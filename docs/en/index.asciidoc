@@ -1,6 +1,6 @@
 :doctype: book
 
-= Elastic Serverless Forwarder
+= Elastic Serverless Forwarder Guide
 
 include::{docs-root}/shared/versions/stack/{source_branch}.asciidoc[]
 include::{docs-root}/shared/attributes.asciidoc[]
@@ -9,6 +9,6 @@ include::{docs-root}/shared/attributes.asciidoc[]
 :n: image:images/red-x.svg[no]
 
 include::aws-elastic-serverless-forwarder.asciidoc[leveloffset=+1]
-include::aws-deploy-elastic-serverless-forwarder.asciidoc[leveloffset=+2]
-include::aws-elastic-serverless-forwarder-configuration.asciidoc[leveloffset=+2]
-include::aws-serverless-troubleshooting.asciidoc[leveloffset=+2]
+include::aws-deploy-elastic-serverless-forwarder.asciidoc[leveloffset=+1]
+include::aws-elastic-serverless-forwarder-configuration.asciidoc[leveloffset=+1]
+include::aws-serverless-troubleshooting.asciidoc[leveloffset=+1]
