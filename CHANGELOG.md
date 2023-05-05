@@ -1,3 +1,6 @@
+### v1.8.1 - 2023/03/21
+* Explicitly set `SqsManagedSseEnabled` in CF template for replay and continuing queues for stack created before September/October 2022: [#353](https://github.com/elastic/elastic-serverless-forwarder/pull/353)
+
 ### v1.8.0 - 2023/03/21
 ##### Features
 * Add `root_fields_to_add_to_expanded_event` input setting to merge fields at root level when expanding a list of events from field: [#290](https://github.com/elastic/elastic-serverless-forwarder/pull/290)
