@@ -104,6 +104,7 @@ Resources:
           Variables:
               SQS_CONTINUE_URL: !Ref ElasticServerlessForwarderContinuingQueue
               SQS_REPLAY_URL: !Ref ElasticServerlessForwarderReplayQueue
+              TELEMETRY_DEPLOYMENT_ID: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]
               TELEMETRY_ENABLED: true
               TELEMETRY_ENDPOINT: "https://telemetry.elastic.co/v3/send/esf"
       Events:

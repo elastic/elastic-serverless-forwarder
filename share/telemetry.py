@@ -39,11 +39,16 @@ def strtobool(val: str) -> bool:
 
 def is_telemetry_enabled() -> bool:
     """Check if telemetry is enabled."""
+    deployment_id = os.environ.get("TELEMETRY_DEPLOYMENT_ID", "")
+    if not deployment_id:
+        shared_logger.debug("Telemetry is disabled. TELEMETRY_DEPLOYMENT_ID is not set.")
+        return False
+
     enabled = os.environ.get("TELEMETRY_ENABLED", "no")
     try:
         return strtobool(enabled)
     except ValueError:
-        shared_logger.info(f"Telemetry is disabled. Invalid value for TELEMETRY_ENABLED: {enabled}")
+        shared_logger.debug(f"Telemetry is disabled. Invalid value for TELEMETRY_ENABLED: {enabled}")
         return False
 
 
