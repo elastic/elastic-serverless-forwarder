@@ -5,5 +5,5 @@ elasticsearch==7.16.3
 PyYAML==6.0
 aws_lambda_typing==2.17.0
 ujson==5.7.0
-requests==2.30.0
+requests==2.31.0
 urllib3==1.26.15
