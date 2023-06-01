@@ -8,7 +8,7 @@ set -e
 echo "    AWS CLI (https://aws.amazon.com/cli/), SAM (https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html), Docker and Python3.9 with pip3 required"
 echo "    Please, before launching the tool execute \"$ pip3 install ruamel.yaml\""
 
-if [[ $# -ne 5 ]]
+if [[ $# -lt 5 ]]
 then
     echo "Usage: $0 config-path lambda-name forwarder-tag bucket-name region"
     echo "    Arguments:"
@@ -19,6 +19,9 @@ then
     echo "                 (it will be created if it doesn't exists, otherwise "
     echo "                  you need already to have proper access to it)"
     echo "    region: region where to publish in"
+    echo "    CUSTOM_ROLE_PREFIX: To add role/policy prefix in case customization is needed (optional)"
+    echo "    Please note that the prefix will be added to both role/policy naming"
+
     exit 1
 fi
 
@@ -27,6 +30,7 @@ LABDA_NAME="$2"
 TAG_NAME="$3"
 BUCKET="$4"
 REGION="$5"
+CUSTOM_ROLE_PREFIX="${6:-}" ## Default value would be of '' will be passed if this variable is NOT set.
 
 TMPDIR=$(mktemp -d /tmp/publish.XXXXXXXXXX)
 CLONED_FOLDER="${TMPDIR}/sources"
@@ -90,6 +94,23 @@ Resources:
       RedrivePolicy: { "deadLetterTargetArn" : !GetAtt ElasticServerlessForwarderReplayDLQ.Arn, "maxReceiveCount" : 3 }
       VisibilityTimeout: 910
       SqsManagedSseEnabled: true
+  ApplicationElasticServerlessForwarderCustomRole:
+            Type: 'AWS::IAM::Role'
+            Properties:
+              AssumeRolePolicyDocument:
+                Version: "2012-10-17"
+                Statement:
+                  - Effect: Allow
+                    Principal:
+                      Service:
+                        - lambda.amazonaws.com
+                    Action:
+                      - 'sts:AssumeRole'
+              RoleName: !Sub "${PREFIX}ApplicationElasticServerlessForwarderRole"
+              ManagedPolicyArns:
+                - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+                - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+                - arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole
   ApplicationElasticServerlessForwarder:
     Type: AWS::Serverless::Function
     Properties:
@@ -100,6 +121,7 @@ Resources:
       Architectures:
         - x86_64
       Handler: main_aws.handler
+      Role: !GetAtt ApplicationElasticServerlessForwarderCustomRole.Arn
       Environment:
           Variables:
               SQS_CONTINUE_URL: !Ref ElasticServerlessForwarderContinuingQueue
@@ -296,7 +318,7 @@ def create_policy(publish_config: dict[str, Any]):
                 "Fn::Join": [
                     "-",
                     [
-                        "elastic-serverless-forwarder-policy",
+                        "${PREFIX}elastic-serverless-forwarder-policy",
                         {
                             "Fn::Select": [
                                 4,
@@ -312,7 +334,7 @@ def create_policy(publish_config: dict[str, Any]):
                 ]
             },
             "PolicyDocument": {"Version": "2012-10-17", "Statement": []},
-            "Roles": [{"Ref": "ApplicationElasticServerlessForwarderRole"}],
+            "Roles": [{"Ref": "ApplicationElasticServerlessForwarderCustomRole"}],
         },
     }
 
