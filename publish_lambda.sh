@@ -106,7 +106,7 @@ Resources:
                         - lambda.amazonaws.com
                     Action:
                       - 'sts:AssumeRole'
-              RoleName: !Sub "${PREFIX}ApplicationElasticServerlessForwarderRole"
+              RoleName: !Sub "${CUSTOM_ROLE_PREFIX}ApplicationElasticServerlessForwarderRole"
               ManagedPolicyArns:
                 - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
                 - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
@@ -318,7 +318,7 @@ def create_policy(publish_config: dict[str, Any]):
                 "Fn::Join": [
                     "-",
                     [
-                        "${PREFIX}elastic-serverless-forwarder-policy",
+                        "${CUSTOM_ROLE_PREFIX}elastic-serverless-forwarder-policy",
                         {
                             "Fn::Select": [
                                 4,
