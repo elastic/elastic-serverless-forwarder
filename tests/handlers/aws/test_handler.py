@@ -14,6 +14,7 @@ from unittest import TestCase
 
 import mock
 import pytest
+import pytest_httpserver
 from botocore.exceptions import ClientError
 from botocore.response import StreamingBody
 
@@ -24,7 +25,7 @@ from handlers.aws.exceptions import (
     TriggerTypeException,
 )
 from main_aws import handler
-from share import json_dumper, json_parser
+from share import json_dumper, json_parser, telemetry_init
 
 from .utils import ContextMock
 
@@ -379,6 +380,68 @@ def revert_handlers_aws_handler() -> None:
 
     handlers_aws_handler = sys.modules["handlers.aws.handler"]
     importlib.reload(handlers_aws_handler)
+
+
+@pytest.mark.unit
+class TestTelemetry:
+    @mock.patch("share.config._available_output_types", new=["elasticsearch", "logstash", "output_type"])
+    @mock.patch(
+        "share.config._available_input_types", new=["cloudwatch-logs", "s3-sqs", "sqs", "kinesis-data-stream", "dummy"]
+    )
+    @mock.patch("storage.S3Storage._s3_client", _s3_client_mock)
+    @mock.patch("handlers.aws.utils.apm_capture_serverless", _apm_capture_serverless)
+    @mock.patch(
+        "handlers.aws.utils._available_triggers",
+        new={"aws:s3": "s3-sqs", "aws:sqs": "sqs", "aws:kinesis": "kinesis-data-stream", "dummy": "s3-sqs"},
+    )
+    @mock.patch("share.telemetry.is_telemetry_enabled", lambda: True)
+    def test_lambda_telemetry(self, httpserver: pytest_httpserver.HTTPServer, monkeypatch: pytest.MonkeyPatch) -> None:
+        reload_handlers_aws_handler()
+
+        # Make sure the telemetry worker is running.
+        telemetry_init()
+
+        # The `telemetry_endpoint` variable is defined from the environment variable
+        # TELEMETRY_ENDPOINT once when the module is loaded; so we need to patch its
+        # value.
+        with mock.patch("share.telemetry.get_telemetry_endpoint", lambda: httpserver.url_for("/v3/send/esf")):
+            # Set up the expected request to the
+            # telemetry endpoint.
+            httpserver.expect_oneshot_request(
+                "/v3/send/esf",
+                method="POST",
+                json={
+                    "function_id": "80036aa038",
+                    "function_version": "v0.0.0",
+                    "execution_id": "aws_request_id",
+                    "cloud_provider": "aws",
+                    "cloud_region": "us-east-1",
+                    "memory_limit_in_mb": "512",
+                    "inputs": [
+                        {
+                            "id": "sqs:bae4265aec",
+                            "type": "s3-sqs",
+                            "outputs": ["elasticsearch", "logstash"],
+                        }
+                    ],
+                },
+            ).respond_with_json({"status": "ok"})
+
+            # We wait for `timeout` seconds that the
+            # telemetry machinery sends the request to the
+            # telemetry endpoint.
+            #
+            # If the request is not sent within `timeout` seconds,
+            # the test will fail.
+            with httpserver.wait(timeout=5):
+                # Prepare the lambda environment
+                ctx = ContextMock()
+                os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
+                lambda_event = deepcopy(_dummy_lambda_event)
+                del lambda_event["Records"][0]["messageAttributes"]["originalEventSourceARN"]
+
+                # Run the lambda handler
+                assert handler(lambda_event, ctx) == "completed"  # type:ignore
 
 
 @pytest.mark.unit

@@ -1,7 +1,9 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
+import hashlib
 import os
+from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
 import boto3
@@ -11,7 +13,17 @@ from elasticapm import Client
 from elasticapm import get_client as get_apm_client
 from elasticapm.contrib.serverless.aws import capture_serverless as apm_capture_serverless  # noqa: F401
 
-from share import Config, Input, Output, get_hex_prefix, json_dumper, json_parser, shared_logger
+from share import (
+    Config,
+    FunctionContext,
+    Input,
+    Output,
+    function_ended_telemetry,
+    get_hex_prefix,
+    json_dumper,
+    json_parser,
+    shared_logger,
+)
 from shippers import CompositeShipper, ProtocolShipper, ShipperFactory
 from storage import ProtocolStorage, StorageFactory
 
@@ -79,7 +91,13 @@ def wrap_try_except(
     def wrapper(lambda_event: dict[str, Any], lambda_context: context_.Context) -> str:
         apm_client: Client = get_apm_client()
         try:
-            return func(lambda_event, lambda_context)
+            result = func(lambda_event, lambda_context)
+            if result == "continuing":
+                function_ended_telemetry(to_be_continued=True)
+            else:
+                function_ended_telemetry(to_be_continued=False)
+
+            return result
 
         # NOTE: for all these cases we want the exception to bubble up to Lambda platform and let the defined retry
         # mechanism take action. These are non-transient unrecoverable error from this code point of view.
@@ -95,6 +113,8 @@ def wrap_try_except(
 
             shared_logger.exception("exception raised", exc_info=e)
 
+            function_ended_telemetry(exception_raised=True)
+
             raise e
 
         # NOTE: any generic exception is logged and suppressed to prevent the entire Lambda function to fail.
@@ -105,6 +125,8 @@ def wrap_try_except(
                 apm_client.capture_exception()
 
             shared_logger.exception("exception raised", exc_info=e)
+
+            function_ended_telemetry(exception_ignored=True)
 
             return f"exception raised: {e.__repr__()}"
 
@@ -497,3 +519,39 @@ def expand_event_list_from_field_resolver(integration_scope: str, field_to_expan
         field_to_expand_event_list_from = "Records"
 
     return field_to_expand_event_list_from
+
+
+@dataclass
+class ARN:
+    """The Amazon Resource Name (ARN) of an AWS resource."""
+
+    def __init__(self, arn: str) -> None:
+        arn_components = arn.split(":")
+        self.arn = arn
+        self.service = arn_components[2]
+        self.region = arn_components[3]
+        self.account_id = arn_components[4]
+        self.resource_id = arn_components[5]
+
+    @property
+    def hashed_arn(self) -> str:
+        return hashlib.sha256(self.arn.encode("utf-8")).hexdigest()[:10]
+
+    @property
+    def hashed_resource_id(self) -> str:
+        return hashlib.sha256(self.resource_id.encode("utf-8")).hexdigest()[:10]
+
+
+def build_function_context(lambda_context: context_.Context) -> FunctionContext:
+    """Create a FunctionContext from a Lambda context."""
+
+    arn = ARN(lambda_context.invoked_function_arn)
+
+    return FunctionContext(
+        arn.hashed_arn,
+        lambda_context.function_version,
+        lambda_context.aws_request_id,
+        arn.region,
+        "aws",
+        lambda_context.memory_limit_in_mb,
+    )

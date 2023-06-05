@@ -11,3 +11,4 @@ cysimdjson==21.11
 responses==0.23.1
 testcontainers==3.7.1
 pyOpenSSL==23.1.1
+pytest-httpserver==1.0.6
