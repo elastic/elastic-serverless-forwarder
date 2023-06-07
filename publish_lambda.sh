@@ -26,7 +26,7 @@ then
 fi
 
 PUBLISH_CONFIG="$1"
-LABDA_NAME="$2"
+LAMBDA_NAME="$2"
 TAG_NAME="$3"
 BUCKET="$4"
 REGION="$5"
@@ -94,23 +94,6 @@ Resources:
       RedrivePolicy: { "deadLetterTargetArn" : !GetAtt ElasticServerlessForwarderReplayDLQ.Arn, "maxReceiveCount" : 3 }
       VisibilityTimeout: 910
       SqsManagedSseEnabled: true
-  ApplicationElasticServerlessForwarderCustomRole:
-            Type: 'AWS::IAM::Role'
-            Properties:
-              AssumeRolePolicyDocument:
-                Version: "2012-10-17"
-                Statement:
-                  - Effect: Allow
-                    Principal:
-                      Service:
-                        - lambda.amazonaws.com
-                    Action:
-                      - 'sts:AssumeRole'
-              RoleName: !Sub "${PREFIX}ApplicationElasticServerlessForwarderRole"
-              ManagedPolicyArns:
-                - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-                - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
-                - arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole
   ApplicationElasticServerlessForwarder:
     Type: AWS::Serverless::Function
     Properties:
@@ -121,7 +104,6 @@ Resources:
       Architectures:
         - x86_64
       Handler: main_aws.handler
-      Role: !GetAtt ApplicationElasticServerlessForwarderCustomRole.Arn
       Environment:
           Variables:
               SQS_CONTINUE_URL: !Ref ElasticServerlessForwarderContinuingQueue
@@ -348,6 +330,14 @@ def create_policy(publish_config: dict[str, Any]):
                 {"Effect": "Allow", "Action": "s3:GetObject", "Resource": resource}
             )
 
+    if "custom-role-prefix" in publish_config:
+        assert isinstance(publish_config["custom-role-prefix"], str)
+
+        if len(publish_config["custom-role-prefix"]) > 0:
+            policy_fragment["Properties"]["PolicyName"]["Fn::Join"][1][0] = '${CUSTOM_ROLE_PREFIX}elastic-serverless-forwarder-policy'
+            policy_fragment["Properties"]["Roles"][0]["Ref"] = 'ApplicationElasticServerlessForwarderCustomRole'
+
+
     if "ssm-secrets" in publish_config:
         assert isinstance(publish_config["ssm-secrets"], list)
 
@@ -442,7 +432,7 @@ if __name__ == "__main__":
     cloudformation_template_path = sys.argv[2]
     print(cloudformation_template_path)
 
-    yaml = YAML()  # default, if not specfied, is 'rt' (round-trip)
+    yaml = YAML()  # default, if not specified, is 'rt' (round-trip)
 
     publish_config_yaml = {}
     with open(publish_config_path, "r") as f:
@@ -473,6 +463,30 @@ if __name__ == "__main__":
     cloudformation_yaml["Resources"]["ApplicationElasticServerlessForwarder"][
         "DependsOn"
     ] = "ElasticServerlessForwarderPolicy"
+
+    customRole = '''\
+  ApplicationElasticServerlessForwarderCustomRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      RoleName: !Sub "${CUSTOM_ROLE_PREFIX}ApplicationElasticServerlessForwarderRole"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole'''
+    if "custom-role-prefix" in publish_config_yaml:
+        import inspect
+        assert isinstance(publish_config["custom-role-prefix"], str)
+        cloudformation_yaml["Resources"] = inspect.cleandoc(customRole)
+        cloudformation_yaml["Resources"]["ApplicationElasticServerlessForwarder"]["Properties"]["Role"] = '!GetAtt ApplicationElasticServerlessForwarderCustomRole.Arn'
 
     if "s3-config-file" in publish_config_yaml:
         assert isinstance(publish_config_yaml["s3-config-file"], str)
@@ -507,4 +521,4 @@ python "${TMPDIR}/publish.py" "${PUBLISH_CONFIG}" "${TMPDIR}/publish.yaml"
 
 sam build --debug --use-container --build-dir "${TMPDIR}/.aws-sam/build/publish" --template-file "${TMPDIR}/publish.yaml" --region "${REGION}"
 sam package --template-file "${TMPDIR}/.aws-sam/build/publish/template.yaml" --output-template-file "${TMPDIR}/.aws-sam/build/publish/packaged.yaml" --s3-bucket "${BUCKET}" --region "${REGION}"
-sam deploy --stack-name "${LABDA_NAME}" --capabilities CAPABILITY_NAMED_IAM --template "${TMPDIR}/.aws-sam/build/publish/packaged.yaml" --s3-bucket "${BUCKET}" --region "${REGION}"
+sam deploy --stack-name "${LAMBDA_NAME}" --capabilities CAPABILITY_NAMED_IAM --template "${TMPDIR}/.aws-sam/build/publish/packaged.yaml" --s3-bucket "${BUCKET}" --region "${REGION}"
