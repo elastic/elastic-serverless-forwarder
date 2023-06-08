@@ -1,4 +1,11 @@
+### v1.9.0 - 2023/06/08
+##### Features
+* Allow the possibility to set a prefix for role and policy when deploying with the `publish_lambda.sh` scriot: [#399](https://github.com/elastic/elastic-serverless-forwarder/pull/399)
+
+* https://github.com/elastic/elastic-serverless-forwarder/pull/399
+
 ### v1.8.1 - 2023/03/21
+##### Bug fixes
 * Explicitly set `SqsManagedSseEnabled` in CF template for replay and continuing queues for stack created before September/October 2022: [#353](https://github.com/elastic/elastic-serverless-forwarder/pull/353)
 
 ### v1.8.0 - 2023/03/21

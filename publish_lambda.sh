@@ -8,9 +8,9 @@ set -e
 echo "    AWS CLI (https://aws.amazon.com/cli/), SAM (https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html), Docker and Python3.9 with pip3 required"
 echo "    Please, before launching the tool execute \"$ pip3 install ruamel.yaml\""
 
-if [[ $# -lt 5 ]]
+if [ $# -lt 5 ] || [ $# -gt 6 ]
 then
-    echo "Usage: $0 config-path lambda-name forwarder-tag bucket-name region"
+    echo "Usage: $0 config-path lambda-name forwarder-tag bucket-name region [custom-role-prefix]"
     echo "    Arguments:"
     echo "    config-path: full path to the publish configuration"
     echo "    lambda-name: name of the lambda to be published in the account"
@@ -19,8 +19,8 @@ then
     echo "                 (it will be created if it doesn't exists, otherwise "
     echo "                  you need already to have proper access to it)"
     echo "    region: region where to publish in"
-    echo "    CUSTOM_ROLE_PREFIX: To add role/policy prefix in case customization is needed (optional)"
-    echo "    Please note that the prefix will be added to both role/policy naming"
+    echo "    custom-role-prefix: role/policy prefix to add in case customization is needed (optional)"
+    echo "                        (please note that the prefix will be added to both role/policy names)"
 
     exit 1
 fi
@@ -154,11 +154,9 @@ def create_events(publish_config: dict[str, Any]):
             kinesis_starting_position_timestamp = 0
             if (
                 "starting_position_timestamp" in kinesis_data_stream_event
-                and kinesis_data_stream_event == "AT_TIMESTAMP"
+                and kinesis_starting_position == "AT_TIMESTAMP"
             ):
-                kinesis_starting_position_timestamp = int(
-                    kinesis_data_stream_event["ElasticServerlessForwarderKinesisStartingPositionTimestamp"]
-                )
+                kinesis_starting_position_timestamp = int(kinesis_data_stream_event["starting_position_timestamp"])
 
             kinesis_batch_window = 0
             if "batching_window_in_second" in kinesis_data_stream_event:
@@ -238,7 +236,7 @@ def create_events(publish_config: dict[str, Any]):
             assert isinstance(s3_sqs_event, dict)
 
             sqs_s3_batch_size = 10
-            if s3_sqs_event["batch_size"]:
+            if "batch_size" in s3_sqs_event:
                 sqs_s3_batch_size = int(s3_sqs_event["batch_size"])
 
             if sqs_s3_batch_size < 1:
@@ -300,7 +298,7 @@ def create_policy(publish_config: dict[str, Any]):
                 "Fn::Join": [
                     "-",
                     [
-                        "${PREFIX}elastic-serverless-forwarder-policy",
+                        "${CUSTOM_ROLE_PREFIX}elastic-serverless-forwarder-policy",
                         {
                             "Fn::Select": [
                                 4,
@@ -329,14 +327,6 @@ def create_policy(publish_config: dict[str, Any]):
             policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
                 {"Effect": "Allow", "Action": "s3:GetObject", "Resource": resource}
             )
-
-    if "custom-role-prefix" in publish_config:
-        assert isinstance(publish_config["custom-role-prefix"], str)
-
-        if len(publish_config["custom-role-prefix"]) > 0:
-            policy_fragment["Properties"]["PolicyName"]["Fn::Join"][1][0] = '${CUSTOM_ROLE_PREFIX}elastic-serverless-forwarder-policy'
-            policy_fragment["Properties"]["Roles"][0]["Ref"] = 'ApplicationElasticServerlessForwarderCustomRole'
-
 
     if "ssm-secrets" in publish_config:
         assert isinstance(publish_config["ssm-secrets"], list)
@@ -464,29 +454,38 @@ if __name__ == "__main__":
         "DependsOn"
     ] = "ElasticServerlessForwarderPolicy"
 
-    customRole = '''\
-  ApplicationElasticServerlessForwarderCustomRole:
-    Type: 'AWS::IAM::Role'
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service:
-                - lambda.amazonaws.com
-            Action:
-              - 'sts:AssumeRole'
-      RoleName: !Sub "${CUSTOM_ROLE_PREFIX}ApplicationElasticServerlessForwarderRole"
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole'''
-    if "custom-role-prefix" in publish_config_yaml:
-        import inspect
-        assert isinstance(publish_config["custom-role-prefix"], str)
-        cloudformation_yaml["Resources"] = inspect.cleandoc(customRole)
-        cloudformation_yaml["Resources"]["ApplicationElasticServerlessForwarder"]["Properties"]["Role"] = '!GetAtt ApplicationElasticServerlessForwarderCustomRole.Arn'
+    customRole = {
+        "Type": "AWS::IAM::Role",
+        "Properties": {
+            "AssumeRolePolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Principal": {
+                            "Service": ["lambda.amazonaws.com"]
+                        },
+                        "Action": ["sts:AssumeRole"],
+                    },
+                ],
+            },
+            "RoleName": "${CUSTOM_ROLE_PREFIX}ApplicationElasticServerlessForwarderRole",
+            "ManagedPolicyArns": [
+                "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+                "arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole"
+            ],
+        },
+    }
+
+    if vpc_config:
+        customRole["Properties"]["ManagedPolicyArns"].append("arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole")
+
+    has_kms_events: bool = len([created_event for created_event in created_events if created_events[created_event]["Type"] == "Kinesis"]) > 0
+    if has_kms_events:
+        customRole["Properties"]["ManagedPolicyArns"].append("arn:aws:iam::aws:policy/service-role/AWSLambdaKinesisExecutionRole")
+
+    cloudformation_yaml["Resources"]["ApplicationElasticServerlessForwarderCustomRole"] = customRole
+    cloudformation_yaml["Resources"]["ApplicationElasticServerlessForwarder"]["Properties"]["Role"] = {"Fn::GetAtt": ["ApplicationElasticServerlessForwarderCustomRole", "Arn"] }
 
     if "s3-config-file" in publish_config_yaml:
         assert isinstance(publish_config_yaml["s3-config-file"], str)
