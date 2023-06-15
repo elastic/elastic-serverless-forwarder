@@ -1,6 +1,6 @@
 ### v1.9.0 - 2023/06/08
 ##### Features
-* Allow the possibility to set a prefix for role and policy when deploying with the `publish_lambda.sh` scriot: [#399](https://github.com/elastic/elastic-serverless-forwarder/pull/399)
+* Allow the possibility to set a prefix for role and policy when deploying with the `publish_lambda.sh` script: [#399](https://github.com/elastic/elastic-serverless-forwarder/pull/399)
 
 * https://github.com/elastic/elastic-serverless-forwarder/pull/399
 
