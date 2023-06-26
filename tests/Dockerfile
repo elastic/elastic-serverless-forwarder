@@ -6,10 +6,8 @@ RUN apt-get -qq update && apt-get -qq -y --no-install-recommends install \
     curl \
     docker.io \
     libsasl2-dev \
-    netcat \
-    openjdk-11-jdk \
     sudo \
-    zip &&\
+    zip && \
     rm -rf /var/lib/apt/lists/*
 
 ARG UID={${UID}:-1001}
