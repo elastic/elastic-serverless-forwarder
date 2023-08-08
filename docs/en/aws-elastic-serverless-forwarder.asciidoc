@@ -15,6 +15,7 @@ The Elastic Serverless Forwarder works with {stack} 7.16 and later.
 
 IMPORTANT: Using Elastic Serverless Forwarder may result in additional charges
 on your next cloud provider billing statement due to increased usage. To learn
+IMPORTANT: Using Elastic Serverless Forwarder may result in additional charges. To learn
 how to minimize additional charges, refer to <<preventing-unexpected-costs>>.
 
 [discrete]
