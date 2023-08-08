@@ -20,6 +20,7 @@ NOTE: For example, if you don't increase the visibility timeout for an SQS queue
 If the Elastic Serverless Forwarder is attached to a VPC, you need to https://docs.aws.amazon.com/vpc/latest/privatelink/create-interface-endpoint.html[create VPC Endpoints] for S3 and SQS, and for *every* service you define as an input for the forwarder. S3 and SQS VPC Endpoints are always required for reading the `config.yaml` uploaded to S3 and managing the _Continuing queue_ and the _Replay queue_, regardless of the <<aws-serverless-forwarder-inputs>> used.
 
 [discrete]
+[[preventing-unexpected-costs]]
 == Preventing unexpected costs
 It is important to monitor the Elastic Serverless Forwarder Lambda function for timeouts to prevent unexpected costs. You can use the https://docs.elastic.co/en/integrations/aws/lambda[AWS Lambda integration] for this. If the timeouts are constant, you should throttle the Lambda function to stop its execution before proceeding with any troubleshooting steps. In most cases, constant timeouts will cause the records and messages from the event triggers to go back to their sources and trigger the function again, which will cause further timeouts and force a loop that will incure unexpected high costs. For more information on throttling Lambda functions, refer to https://docs.aws.amazon.com/lambda/latest/operatorguide/throttling.html[AWS docs].
 
