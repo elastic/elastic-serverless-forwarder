@@ -13,6 +13,9 @@ The Elastic Serverless Forwarder is an Amazon Web Services ({aws}) Lambda functi
 
 The Elastic Serverless Forwarder works with {stack} 7.16 and later.
 
+IMPORTANT: Using Elastic Serverless Forwarder may result in additional charges. To learn
+how to minimize additional charges, refer to <<preventing-unexpected-costs>>.
+
 [discrete]
 [[aws-serverless-forwarder-overview]]
 = Overview
