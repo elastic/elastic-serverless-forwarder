@@ -7,7 +7,7 @@ RUN apt-get -qq update && apt-get -qq -y --no-install-recommends install \
     docker.io \
     libsasl2-dev \
     sudo \
-    zip &&\
+    zip && \
     rm -rf /var/lib/apt/lists/*
 
 ARG UID={${UID}:-1001}

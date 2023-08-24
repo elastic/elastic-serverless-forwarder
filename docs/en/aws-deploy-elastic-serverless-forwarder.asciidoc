@@ -561,7 +561,7 @@ Download the https://raw.githubusercontent.com/elastic/elastic-serverless-forwar
  $ ./publish_lambda.sh
     AWS CLI (https://aws.amazon.com/cli/), SAM (https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html) and Python3.9 with pip3 required
     Please, before launching the tool execute "$ pip3 install ruamel.yaml"
-Usage: ./publish_lambda.sh config-path lambda-name forwarder-tag bucket-name region
+Usage: ./publish_lambda.sh config-path lambda-name forwarder-tag bucket-name region [custom-role-prefix]
     Arguments:
     config-path: full path to the publish configuration
     lambda-name: name of the lambda to be published in the account
@@ -570,6 +570,8 @@ Usage: ./publish_lambda.sh config-path lambda-name forwarder-tag bucket-name reg
                  (it will be created if it doesn't exists, otherwise
                   you need already to have proper access to it)
     region: region where to publish in
+    custom-role-prefix: role/policy prefix to add in case customization is needed (optional)
+                        (please note that the prefix will be added to both role/policy naming)
 ----
 
 [discrete]

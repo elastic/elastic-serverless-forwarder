@@ -8,9 +8,9 @@ set -e
 echo "    AWS CLI (https://aws.amazon.com/cli/), SAM (https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html), Docker and Python3.9 with pip3 required"
 echo "    Please, before launching the tool execute \"$ pip3 install ruamel.yaml\""
 
-if [[ $# -ne 5 ]]
+if [ $# -lt 5 ] || [ $# -gt 6 ]
 then
-    echo "Usage: $0 config-path lambda-name forwarder-tag bucket-name region"
+    echo "Usage: $0 config-path lambda-name forwarder-tag bucket-name region [custom-role-prefix]"
     echo "    Arguments:"
     echo "    config-path: full path to the publish configuration"
     echo "    lambda-name: name of the lambda to be published in the account"
@@ -19,14 +19,18 @@ then
     echo "                 (it will be created if it doesn't exists, otherwise "
     echo "                  you need already to have proper access to it)"
     echo "    region: region where to publish in"
+    echo "    custom-role-prefix: role/policy prefix to add in case customization is needed (optional)"
+    echo "                        (please note that the prefix will be added to both role/policy names)"
+
     exit 1
 fi
 
 PUBLISH_CONFIG="$1"
-LABDA_NAME="$2"
+LAMBDA_NAME="$2"
 TAG_NAME="$3"
 BUCKET="$4"
 REGION="$5"
+CUSTOM_ROLE_PREFIX="${6:-}" ## Default value would be of '' will be passed if this variable is NOT set.
 
 TMPDIR=$(mktemp -d /tmp/publish.XXXXXXXXXX)
 CLONED_FOLDER="${TMPDIR}/sources"
@@ -150,11 +154,9 @@ def create_events(publish_config: dict[str, Any]):
             kinesis_starting_position_timestamp = 0
             if (
                 "starting_position_timestamp" in kinesis_data_stream_event
-                and kinesis_data_stream_event == "AT_TIMESTAMP"
+                and kinesis_starting_position == "AT_TIMESTAMP"
             ):
-                kinesis_starting_position_timestamp = int(
-                    kinesis_data_stream_event["ElasticServerlessForwarderKinesisStartingPositionTimestamp"]
-                )
+                kinesis_starting_position_timestamp = int(kinesis_data_stream_event["starting_position_timestamp"])
 
             kinesis_batch_window = 0
             if "batching_window_in_second" in kinesis_data_stream_event:
@@ -234,7 +236,7 @@ def create_events(publish_config: dict[str, Any]):
             assert isinstance(s3_sqs_event, dict)
 
             sqs_s3_batch_size = 10
-            if s3_sqs_event["batch_size"]:
+            if "batch_size" in s3_sqs_event:
                 sqs_s3_batch_size = int(s3_sqs_event["batch_size"])
 
             if sqs_s3_batch_size < 1:
@@ -296,7 +298,7 @@ def create_policy(publish_config: dict[str, Any]):
                 "Fn::Join": [
                     "-",
                     [
-                        "elastic-serverless-forwarder-policy",
+                        "${CUSTOM_ROLE_PREFIX}elastic-serverless-forwarder-policy",
                         {
                             "Fn::Select": [
                                 4,
@@ -312,7 +314,7 @@ def create_policy(publish_config: dict[str, Any]):
                 ]
             },
             "PolicyDocument": {"Version": "2012-10-17", "Statement": []},
-            "Roles": [{"Ref": "ApplicationElasticServerlessForwarderRole"}],
+            "Roles": [{"Ref": "ApplicationElasticServerlessForwarderCustomRole"}],
         },
     }
 
@@ -420,7 +422,7 @@ if __name__ == "__main__":
     cloudformation_template_path = sys.argv[2]
     print(cloudformation_template_path)
 
-    yaml = YAML()  # default, if not specfied, is 'rt' (round-trip)
+    yaml = YAML()  # default, if not specified, is 'rt' (round-trip)
 
     publish_config_yaml = {}
     with open(publish_config_path, "r") as f:
@@ -451,6 +453,39 @@ if __name__ == "__main__":
     cloudformation_yaml["Resources"]["ApplicationElasticServerlessForwarder"][
         "DependsOn"
     ] = "ElasticServerlessForwarderPolicy"
+
+    customRole = {
+        "Type": "AWS::IAM::Role",
+        "Properties": {
+            "AssumeRolePolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Principal": {
+                            "Service": ["lambda.amazonaws.com"]
+                        },
+                        "Action": ["sts:AssumeRole"],
+                    },
+                ],
+            },
+            "RoleName": "${CUSTOM_ROLE_PREFIX}ApplicationElasticServerlessForwarderRole",
+            "ManagedPolicyArns": [
+                "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+                "arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole"
+            ],
+        },
+    }
+
+    if vpc_config:
+        customRole["Properties"]["ManagedPolicyArns"].append("arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole")
+
+    has_kinesis_events: bool = len([created_event for created_event in created_events if created_events[created_event]["Type"] == "Kinesis"]) > 0
+    if has_kinesis_events:
+        customRole["Properties"]["ManagedPolicyArns"].append("arn:aws:iam::aws:policy/service-role/AWSLambdaKinesisExecutionRole")
+
+    cloudformation_yaml["Resources"]["ApplicationElasticServerlessForwarderCustomRole"] = customRole
+    cloudformation_yaml["Resources"]["ApplicationElasticServerlessForwarder"]["Properties"]["Role"] = {"Fn::GetAtt": ["ApplicationElasticServerlessForwarderCustomRole", "Arn"] }
 
     if "s3-config-file" in publish_config_yaml:
         assert isinstance(publish_config_yaml["s3-config-file"], str)
@@ -485,4 +520,4 @@ python "${TMPDIR}/publish.py" "${PUBLISH_CONFIG}" "${TMPDIR}/publish.yaml"
 
 sam build --debug --use-container --build-dir "${TMPDIR}/.aws-sam/build/publish" --template-file "${TMPDIR}/publish.yaml" --region "${REGION}"
 sam package --template-file "${TMPDIR}/.aws-sam/build/publish/template.yaml" --output-template-file "${TMPDIR}/.aws-sam/build/publish/packaged.yaml" --s3-bucket "${BUCKET}" --region "${REGION}"
-sam deploy --stack-name "${LABDA_NAME}" --capabilities CAPABILITY_NAMED_IAM --template "${TMPDIR}/.aws-sam/build/publish/packaged.yaml" --s3-bucket "${BUCKET}" --region "${REGION}"
+sam deploy --stack-name "${LAMBDA_NAME}" --capabilities CAPABILITY_NAMED_IAM --template "${TMPDIR}/.aws-sam/build/publish/packaged.yaml" --s3-bucket "${BUCKET}" --region "${REGION}"
