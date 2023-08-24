@@ -480,8 +480,8 @@ if __name__ == "__main__":
     if vpc_config:
         customRole["Properties"]["ManagedPolicyArns"].append("arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole")
 
-    has_kms_events: bool = len([created_event for created_event in created_events if created_events[created_event]["Type"] == "Kinesis"]) > 0
-    if has_kms_events:
+    has_kinesis_events: bool = len([created_event for created_event in created_events if created_events[created_event]["Type"] == "Kinesis"]) > 0
+    if has_kinesis_events:
         customRole["Properties"]["ManagedPolicyArns"].append("arn:aws:iam::aws:policy/service-role/AWSLambdaKinesisExecutionRole")
 
     cloudformation_yaml["Resources"]["ApplicationElasticServerlessForwarderCustomRole"] = customRole
