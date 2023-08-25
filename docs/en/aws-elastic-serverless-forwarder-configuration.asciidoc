@@ -257,9 +257,11 @@ Where content is known to be plain text, you can improve overall performance by 
 
 To change this configuration option, set `inputs.[].json_content_type` to one of the following values:
 
-- **single**: indicates that the content of a single item in the input payload is a single JSON object. The content can either be on a single line or spanning multiple lines. With this setting the whole content of the payload is decoded as a JSON object, with no limit on the number of lines the JSON object spans.
-- **ndjson**: indicates that the content of a single item in the input payload is a valid NDJSON format. Multiple single JSON objects formatted on a single line should be separated by a newline delimiter. With this setting each line will be decoded as JSON object, which improves the parsing performance.
+- **single**: indicates that the content of a single item in the input payload is a single JSON object. The content can either be on a single line or spanning multiple lines. With this setting the whole content of the payload is treated as a JSON object, with no limit on the number of lines the JSON object spans.
+- **ndjson**: indicates that the content of a single item in the input payload is a valid NDJSON format. Multiple single JSON objects formatted on a single line should be separated by a newline delimiter. With this setting each line will be treated as a JSON object, which improves the parsing performance.
 - **disabled**: instructs the forwarder not to attempt any automatic JSON content discovery and instead treat the content as plain text, which improves the parsing performance.
+
+NOTE: JSON content is still stored in Elasticsearch as field type `text`. No automatic JSON expansion is performed by the forwarder; this can be achieved using the https://www.elastic.co/guide/en/elasticsearch/reference/current/json-processor.html[JSON processor] in an ingest pipeline in Elasticsearch.
 
 NOTE: There is no need to configure the JSON content type when <<expanding-events-from-json-object-lists>>, unless you have single JSON objects that span more than 1000 lines.
 
