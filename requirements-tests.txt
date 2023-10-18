@@ -8,6 +8,6 @@ orjson==3.9.5
 pysimdjson==5.0.2
 python-rapidjson==1.10
 cysimdjson==21.11
-responses==0.23.1
+responses==0.23.3
 testcontainers==3.7.1
 pyOpenSSL==23.2.0
