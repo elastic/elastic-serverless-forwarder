@@ -1,10 +1,10 @@
 mock==5.1.0
-pytest==7.4.0
+pytest==7.4.2
 pytest-cov==4.1.0
 pytest-benchmark==4.0.0
 coverage==7.3.0
-simplejson==3.19.1
-orjson==3.9.5
+simplejson==3.19.2
+orjson==3.9.9
 pysimdjson==5.0.2
 python-rapidjson==1.10
 cysimdjson==23.8
