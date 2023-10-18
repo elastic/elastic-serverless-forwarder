@@ -6,4 +6,4 @@ PyYAML==6.0.1
 aws_lambda_typing==2.18.0
 ujson==5.8.0
 requests==2.31.0
-urllib3==1.26.15
+urllib3==2.0.7
