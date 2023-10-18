@@ -5,7 +5,7 @@
 
 set -e
 
-echo "    AWS CLI (https://aws.amazon.com/cli/) and Python3.9 with pip3 required"
+echo "    AWS CLI (https://aws.amazon.com/cli/), AWS SAM CLI (https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html), docker and Python3.9 with pip3 required"
 echo "    Please, execute from root folder of the repo"
 
 if [[ $# -ne 5 && $# -ne 6 ]]
