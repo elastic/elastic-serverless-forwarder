@@ -574,14 +574,13 @@ image:images/multiline-regexp-test-repl-run.png[View the test results]
 [[aws-serverless-manage-self-signed-certificates]]
 == Manage self-signed certificates
 
-Starting from v1.5.0, ESF introduced the SSL fingerprint option to access Elasticsearch clusters using self-signed certificates.
-
+From v1.5.0, ESF introduced the SSL fingerprint option to access Elasticsearch clusters using self-signed certificates.
 
 [discrete]
 [[aws-serverless-manage-self-signed-certificates-config]]
 === Configuration options
 
-YTo set the `ssl_assert_fingerprint` option, you must edit the config file stored in the S3 bucket.
+To set the `ssl_assert_fingerprint` option, you must edit the config file stored in the S3 bucket.
 
 Suppose you have a `config.yml` file stored in the bucket with the following content:
 
@@ -589,7 +588,7 @@ Suppose you have a `config.yml` file stored in the bucket with the following con
 ----
 inputs:
   - type: "s3-sqs"
-    id: "arn:aws:sqs:eu-west-1:<REDACTED>:zmoog-dev-access-logs"
+    id: "arn:aws:sqs:eu-west-1:123456789:dev-access-logs"
     outputs:
       - type: "elasticsearch"
         args:
@@ -600,8 +599,7 @@ inputs:
           ssl_assert_fingerprint: ""
 ----
 
-In this example, the `ssl_assert_fingerprint` is blank, the default option. With this value, the `ssl_assert_fingerprint` is ignored, and ESF will validate the HTTPS certificate.
-
+If the configuration omits the `ssl_assert_fingerprint` or, like in this example, is empty (the default option), the HTTP client validates the certificates of Elasticsearch clusters. 
 
 [discrete]
 [[aaws-serverless-manage-self-signed-certificates-get-ssl-fingerprint]]
@@ -624,7 +622,6 @@ You can use your DNS name, IP address, and port number instead of `my-deployment
 
 Copy your fingerprint value for the next step.
 
-
 [discrete]
 [[aaws-serverless-manage-self-signed-certificates-set-ssl-fingerprint]]
 === Set the SSL fingerprint
@@ -635,7 +632,7 @@ As a final step, edit your `config.yml` file to use the SSL fingerprint:
 ----
 inputs:
   - type: "s3-sqs"
-    id: "arn:aws:sqs:eu-west-1:<REDACTED>:zmoog-dev-access-logs"
+    id: "arn:aws:sqs:eu-west-1:123456789:dev-access-logs"
     outputs:
       - type: "elasticsearch"
         args:
