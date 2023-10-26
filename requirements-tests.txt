@@ -10,4 +10,4 @@ python-rapidjson==1.12
 cysimdjson==23.8
 responses==0.23.3
 testcontainers==3.7.1
-pyOpenSSL==23.2.0
+pyOpenSSL==23.3.0
