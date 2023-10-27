@@ -13,6 +13,9 @@ from OpenSSL import crypto as OpenSSLCrypto
 from testcontainers.core.container import DockerContainer
 from testcontainers.core.waiting_utils import wait_container_is_ready
 
+DEFAULT_USERNAME = "elastic"
+DEFAULT_PASSWORD = "password"
+
 
 class ElasticsearchContainer(DockerContainer):  # type: ignore
     """
@@ -30,8 +33,8 @@ class ElasticsearchContainer(DockerContainer):  # type: ignore
     _DEFAULT_IMAGE = "docker.elastic.co/elasticsearch/elasticsearch"
     _DEFAULT_VERSION = "7.16.3"
     _DEFAULT_PORT = 9200
-    _DEFAULT_USERNAME = "elastic"
-    _DEFAULT_PASSWORD = "password"
+    _DEFAULT_USERNAME = DEFAULT_USERNAME
+    _DEFAULT_PASSWORD = DEFAULT_PASSWORD
 
     def __init__(
         self,
@@ -85,6 +88,7 @@ class ElasticsearchContainer(DockerContainer):  # type: ignore
                 "xpack.security.enabled": "true",
                 "discovery.type": "single-node",
                 "network.bind_host": "0.0.0.0",
+                "network.publish_host": "0.0.0.0",
                 "logger.org.elasticsearch": "DEBUG",
                 "xpack.security.http.ssl.enabled": "true",
                 "xpack.security.http.ssl.keystore.path": "/usr/share/elasticsearch/config/certs/localhost/"
@@ -140,6 +144,9 @@ class ElasticsearchContainer(DockerContainer):  # type: ignore
     def reset(self) -> None:
         for index in self._index_indices:
             self.es_client.indices.delete_data_stream(name=index)
+
+        if self.es_client.indices.exists(index="logs-stash.elasticsearch-output"):
+            self.es_client.indices.delete_data_stream(name="logs-stash.elasticsearch-output")
 
         self._index_indices = set()
 

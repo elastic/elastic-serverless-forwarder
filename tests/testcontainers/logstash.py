@@ -8,7 +8,7 @@ import datetime
 import os
 import ssl
 import time
-from typing import Any
+from typing import Any, Optional
 
 import requests
 from cryptography import x509
@@ -20,6 +20,7 @@ from OpenSSL import crypto as OpenSSLCrypto
 from testcontainers.core.container import DockerContainer
 from testcontainers.core.waiting_utils import wait_container_is_ready
 
+import tests.testcontainers.es as es
 from share import json_parser
 
 
@@ -51,6 +52,7 @@ class LogstashContainer(DockerContainer):  # type: ignore
         api_port: int = _DEFAULT_API_PORT,
         username: str = _DEFAULT_USERNAME,
         password: str = _DEFAULT_PASSWORD,
+        es_container: Optional[es.ElasticsearchContainer] = None,
     ):
         image = f"{image}:{version}"
         super(LogstashContainer, self).__init__(image=image)
@@ -62,6 +64,15 @@ class LogstashContainer(DockerContainer):  # type: ignore
 
         self.logstash_user: str = username
         self.logstash_password: str = password
+
+        self.es_user: str = ""
+        self.es_password: str = ""
+        self.es_host: str = "127.0.0.1"
+
+        if es_container is not None:
+            self.es_user = es_container.elastic_user
+            self.es_password = es_container.elastic_password
+            self.es_host = es_container.get_docker_client().bridge_ip(es_container.get_wrapped_container().id)
 
         self.with_exposed_ports(self.port)
         self.with_exposed_ports(self.api_port)
@@ -127,7 +138,21 @@ EOF
                 auth_basic_password => "{self.logstash_password}"
               }}
             }}
-            output {{ stdout {{ codec => json_lines }} }}
+
+            output {{
+                stdout {{ codec => json_lines }}
+                elasticsearch {{
+                    hosts       => "https://{self.es_host}:9200"
+                    data_stream => true
+                    data_stream_type => "logs"
+                    data_stream_dataset => "stash.elasticsearch"
+                    data_stream_namespace => "output"
+                    ssl_certificate_verification => false
+                    document_id => "%{{[@metadata][_id]}}"
+                    user => "{self.es_user}"
+                    password => "{self.es_password}"
+                }}
+            }}
             """
 
         self.with_env("LOG_LEVEL", os.environ.get("LOGSTASH_LOG_LEVEL", "fatal"))
