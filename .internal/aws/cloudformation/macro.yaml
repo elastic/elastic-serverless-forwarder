@@ -245,17 +245,9 @@ Resources:
       Runtime: python3.9
   MacroElasticServerlessForwarder:
     Type: AWS::CloudFormation::Macro
-    Condition: MacroESFAWS
     Properties:
       Description: Expand parameters to Events and Policy for %sarAppName% in %awsOrGov%
       FunctionName: !GetAtt MacroElasticServerlessForwarderFunction.Arn
-      Name: %sarAppName%-macro
-  MacroElasticServerlessForwarderGov:
-    Type: AWS::CloudFormation::Macro
-    Condition: MacroESFAWSGov
-    Properties:
-      Description: Expand parameters to Events and Policy for %sarAppName% in %awsOrGov%
-      FunctionName: !GetAtt MacroElasticServerlessForwarderFunctionAWSGov.Arn
       Name: %sarAppName%-macro
 Metadata:
   AWS::ServerlessRepo::Application:

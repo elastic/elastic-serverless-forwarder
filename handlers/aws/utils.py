@@ -271,7 +271,10 @@ def get_continuing_original_input_type(sqs_record: dict[str, Any]) -> Optional[s
     if original_event_source.startswith("arn:aws:logs") or original_event_source.startswith("arn:aws-us-gov:logs"):
         return "cloudwatch-logs"
 
-    if (original_event_source.startswith("arn:aws:kinesis") or original_event_source.startswith("arn:aws-us-gov:kinesis")) and original_event_source.find(":stream/") > -1:
+    if (
+        original_event_source.startswith("arn:aws:kinesis")
+        or original_event_source.startswith("arn:aws-us-gov:kinesis")
+    ) and original_event_source.find(":stream/") > -1:
         return "kinesis-data-stream"
 
     return None
@@ -397,7 +400,9 @@ def get_input_from_log_group_subscription_data(
         if "gov" in region:
             aws_or_gov = "aws-us-gov"
 
-        log_stream_arn = f"arn:{aws_or_gov}:logs:{region}:{account_id}:log-group:{log_group_name}:log-stream:{log_stream_name}"
+        log_stream_arn = (
+            f"arn:{aws_or_gov}:logs:{region}:{account_id}:log-group:{log_group_name}:log-stream:{log_stream_name}"
+        )
         event_input = config.get_input_by_id(log_stream_arn)
 
         if event_input is not None:
