@@ -333,7 +333,7 @@ def create_policy(publish_config: dict[str, Any]):
         assert isinstance(publish_config["s3-config-file"], str)
 
         bucket_name_and_object_key = publish_config["s3-config-file"].replace("s3://", "")
-        resource = f"arn:%awsOrGov%:s3:::{bucket_name_and_object_key}"
+        resource = f"arn:${AWS_OR_AWS_GOV}:s3:::{bucket_name_and_object_key}"
         if len(resource) > 0:
             policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
                 {"Effect": "Allow", "Action": "s3:GetObject", "Resource": resource}
@@ -482,18 +482,18 @@ if __name__ == "__main__":
             },
             "RoleName": "${CUSTOM_ROLE_PREFIX}ApplicationElasticServerlessForwarderRole",
             "ManagedPolicyArns": [
-                "arn:%awsOrGov%:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
-                "arn:%awsOrGov%:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole"
+                "arn:${AWS_OR_AWS_GOV}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+                "arn:${AWS_OR_AWS_GOV}:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole"
             ],
         },
     }
 
     if vpc_config:
-        customRole["Properties"]["ManagedPolicyArns"].append("arn:%awsOrGov%:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole")
+        customRole["Properties"]["ManagedPolicyArns"].append("arn:${AWS_OR_AWS_GOV}:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole")
 
     has_kinesis_events: bool = len([created_event for created_event in created_events if created_events[created_event]["Type"] == "Kinesis"]) > 0
     if has_kinesis_events:
-        customRole["Properties"]["ManagedPolicyArns"].append("arn:%awsOrGov%:iam::aws:policy/service-role/AWSLambdaKinesisExecutionRole")
+        customRole["Properties"]["ManagedPolicyArns"].append("arn:${AWS_OR_AWS_GOV}:iam::aws:policy/service-role/AWSLambdaKinesisExecutionRole")
 
     cloudformation_yaml["Resources"]["ApplicationElasticServerlessForwarderCustomRole"] = customRole
     cloudformation_yaml["Resources"]["ApplicationElasticServerlessForwarder"]["Properties"]["Role"] = {"Fn::GetAtt": ["ApplicationElasticServerlessForwarderCustomRole", "Arn"] }
@@ -526,7 +526,7 @@ if __name__ == "__main__":
         yaml.dump(cloudformation_yaml, f)
 EOF
 
-sed -e "s|%codeUri%|${PACKAGE_FOLDER}|g" -e "s/%awsOrGov%/${AWS_OR_AWS_GOV}/g" "${TMPDIR}/publish-before-sed.yaml"  > "${TMPDIR}/publish.yaml"
+sed -e "s|%codeUri%|${PACKAGE_FOLDER}|g" "${TMPDIR}/publish-before-sed.yaml"  > "${TMPDIR}/publish.yaml"
 python "${TMPDIR}/publish.py" "${PUBLISH_CONFIG}" "${TMPDIR}/publish.yaml"
 
 sam build --debug --use-container --build-dir "${TMPDIR}/.aws-sam/build/publish" --template-file "${TMPDIR}/publish.yaml" --region "${REGION}"
