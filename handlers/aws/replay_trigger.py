@@ -5,7 +5,7 @@
 from typing import Any, Optional
 
 from share import Config, ElasticsearchOutput, Input, LogstashOutput, Output, shared_logger
-from shippers import ProtocolShipper, ShipperFactory
+from shippers import CompositeShipper, ProtocolShipper, ShipperFactory
 
 from .exceptions import InputConfigException, OutputConfigException, ReplayHandlerException
 from .utils import delete_sqs_record
@@ -41,7 +41,7 @@ def get_shipper_for_replay_event(
     output_args: dict[str, Any],
     event_input_id: str,
     replay_handler: ReplayedEventReplayHandler,
-) -> Optional[ProtocolShipper]:
+) -> Optional[CompositeShipper]:
     event_input: Optional[Input] = config.get_input_by_id(event_input_id)
     if event_input is None:
         raise InputConfigException(f"Cannot load input for input id {event_input_id}")
@@ -50,21 +50,28 @@ def get_shipper_for_replay_event(
     if output is None:
         raise OutputConfigException(f"Cannot load output of type {output_type}")
 
+    # Let's wrap the specific output shipper in the composite one, since the composite deepcopy the mutating events
+    shipper: CompositeShipper = CompositeShipper()
+
     if output_type == "elasticsearch":
         assert isinstance(output, ElasticsearchOutput)
         output.es_datastream_name = output_args["es_datastream_name"]
         shared_logger.debug("setting ElasticSearch shipper")
         elasticsearch: ProtocolShipper = ShipperFactory.create_from_output(output_type=output_type, output=output)
-        elasticsearch.set_replay_handler(replay_handler=replay_handler.replay_handler)
 
-        return elasticsearch
+        shipper.add_shipper(elasticsearch)
+        shipper.set_replay_handler(replay_handler=replay_handler.replay_handler)
+
+        return shipper
 
     if output_type == "logstash":
         assert isinstance(output, LogstashOutput)
         shared_logger.debug("setting Logstash shipper")
         logstash: ProtocolShipper = ShipperFactory.create_from_output(output_type=output_type, output=output)
-        logstash.set_replay_handler(replay_handler=replay_handler.replay_handler)
 
-        return logstash
+        shipper.add_shipper(logstash)
+        shipper.set_replay_handler(replay_handler=replay_handler.replay_handler)
+
+        return shipper
 
     return None

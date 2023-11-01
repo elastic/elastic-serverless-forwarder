@@ -2,6 +2,7 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
+from typing import Optional
 from unittest import TestCase
 
 import mock
@@ -9,7 +10,7 @@ import pytest
 
 from handlers.aws.replay_trigger import ReplayedEventReplayHandler, get_shipper_for_replay_event
 from share import parse_config
-from shippers import ElasticsearchShipper, LogstashShipper
+from shippers import CompositeShipper, ElasticsearchShipper, LogstashShipper
 
 
 @pytest.mark.unit
@@ -28,14 +29,15 @@ class TestReplayTrigger(TestCase):
                             """
             config = parse_config(config_yaml_kinesis)
             replay_handler = ReplayedEventReplayHandler("arn:aws:sqs:eu-central-1:123456789:queue/replayqueue")
-            logstash_shipper = get_shipper_for_replay_event(
+            logstash_shipper: Optional[CompositeShipper] = get_shipper_for_replay_event(
                 config,
                 "logstash",
                 {},
                 "arn:aws:kinesis:eu-central-1:123456789:stream/test-esf-kinesis-stream",
                 replay_handler,
             )
-            assert isinstance(logstash_shipper, LogstashShipper)
+            assert isinstance(logstash_shipper, CompositeShipper)
+            assert isinstance(logstash_shipper._shippers[0], LogstashShipper)
 
         with self.subTest("Elasticsearch shipper from replay event"):
             config_yaml_kinesis = """
@@ -52,14 +54,16 @@ class TestReplayTrigger(TestCase):
                             """
             config = parse_config(config_yaml_kinesis)
             replay_handler = ReplayedEventReplayHandler("arn:aws:sqs:eu-central-1:123456789:queue/replayqueue")
-            elasticsearch_shipper = get_shipper_for_replay_event(
+            elasticsearch_shipper: Optional[CompositeShipper] = get_shipper_for_replay_event(
                 config,
                 "elasticsearch",
                 {"es_datastream_name": "es_datastream_name"},
                 "arn:aws:kinesis:eu-central-1:123456789:stream/test-esf-kinesis-stream",
                 replay_handler,
             )
-            assert isinstance(elasticsearch_shipper, ElasticsearchShipper)
+
+            assert isinstance(elasticsearch_shipper, CompositeShipper)
+            assert isinstance(elasticsearch_shipper._shippers[0], ElasticsearchShipper)
 
         with self.subTest("None shipper from replay event"):
             config_yaml_kinesis = """
