@@ -103,6 +103,11 @@ class LogstashShipper:
 
         event = normalise_event(event)
 
+        # Let's move _id to @metadata._id for logstash
+        if "_id" in event:
+            event["@metadata"] = {"_id": event["_id"]}
+            del event["_id"]
+
         self._events_batch.append(event)
         if len(self._events_batch) < self._max_batch_size:
             return _EVENT_BUFFERED
@@ -145,4 +150,9 @@ class LogstashShipper:
 
             if self._replay_handler is not None:
                 for event in self._events_batch:
+                    # let's put back the _id field from @metadata._id
+                    if "@metadata" in event and "_id" in event["@metadata"]:
+                        event["_id"] = event["@metadata"]["_id"]
+                        del event["@metadata"]
+
                     self._replay_handler("logstash", self._replay_args, event)
