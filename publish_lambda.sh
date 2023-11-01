@@ -526,7 +526,7 @@ if __name__ == "__main__":
         yaml.dump(cloudformation_yaml, f)
 EOF
 
-sed -e "s|%codeUri%|${PACKAGE_FOLDER}|g" "${TMPDIR}/publish-before-sed.yaml"  > "${TMPDIR}/publish.yaml"
+sed -e "s|%codeUri%|${PACKAGE_FOLDER}|g" "${TMPDIR}/publish-before-sed.yaml" > "${TMPDIR}/publish.yaml"
 python "${TMPDIR}/publish.py" "${PUBLISH_CONFIG}" "${TMPDIR}/publish.yaml"
 
 sam build --debug --use-container --build-dir "${TMPDIR}/.aws-sam/build/publish" --template-file "${TMPDIR}/publish.yaml" --region "${REGION}"
