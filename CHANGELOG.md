@@ -1,7 +1,10 @@
+### v1.10.0 - 2023/10/27
+##### Features
+* Move `_id` field to `@metadata._id` in logstash output: [#507](https://github.com/elastic/elastic-serverless-forwarder/pull/507)
+
 ### v1.9.0 - 2023/08/24
 ##### Features
 * Allow the possibility to set a prefix for role and policy when deploying with the `publish_lambda.sh` script: [#399](https://github.com/elastic/elastic-serverless-forwarder/pull/399)
-
 
 ### v1.8.1 - 2023/05/04
 ##### Bug fixes
