@@ -121,7 +121,7 @@ Resources:
             parameters = event["templateParameterValues"]
             if "ElasticServerlessForwarderS3ConfigFile" in parameters:
                 bucket_name_and_object_key = parameters["ElasticServerlessForwarderS3ConfigFile"].replace("s3://", "")
-                resource = f"arn:aws:s3:::{bucket_name_and_object_key}"
+                resource = f"arn:%awsOrGov%:s3:::{bucket_name_and_object_key}"
                 if len(resource) > 0:
                     policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
                         {
@@ -246,7 +246,7 @@ Resources:
   MacroElasticServerlessForwarder:
     Type: AWS::CloudFormation::Macro
     Properties:
-      Description: Expand parameters to Events and Policy for %sarAppName%
+      Description: Expand parameters to Events and Policy for %sarAppName% in %awsOrGov%
       FunctionName: !GetAtt MacroElasticServerlessForwarderFunction.Arn
       Name: %sarAppName%-macro
 Metadata:
