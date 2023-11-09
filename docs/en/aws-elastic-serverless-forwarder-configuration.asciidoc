@@ -569,3 +569,76 @@ image:images/multiline-regexp-test-repl-main.png[Add your test message to Multil
 
 [role="screenshot"]
 image:images/multiline-regexp-test-repl-run.png[View the test results]
+
+[discrete]
+[[aws-serverless-manage-self-signed-certificates]]
+== Manage self-signed certificates
+
+From v1.5.0, ESF introduced the SSL fingerprint option to access Elasticsearch clusters using self-signed certificates.
+
+[discrete]
+[[aws-serverless-manage-self-signed-certificates-config]]
+=== Configuration options
+
+To set the `ssl_assert_fingerprint` option, you must edit the config file stored in the S3 bucket.
+
+Suppose you have a `config.yml` file stored in the bucket with the following content:
+
+[source, yaml]
+----
+inputs:
+  - type: "s3-sqs"
+    id: "arn:aws:sqs:eu-west-1:123456789:dev-access-logs"
+    outputs:
+      - type: "elasticsearch"
+        args:
+          api_key: "<REDACTED>"
+          es_datastream_name: "logs-aws.s3access-default"
+          batch_max_actions: 500
+          batch_max_bytes: 10485760
+          ssl_assert_fingerprint: ""
+----
+
+If the configuration omits the `ssl_assert_fingerprint` or, like in this example, is empty (the default option), the HTTP client validates the certificates of Elasticsearch clusters. 
+
+[discrete]
+[[aaws-serverless-manage-self-signed-certificates-get-ssl-fingerprint]]
+=== Get the SSL fingerprint
+
+The next step is to get the fingerprint of the HTTPS certificate your Elasticsearch cluster is using now.
+
+You can use OpenSSL to get the fingerprint for your certificate. Here's an example using an Elasticsearch cluster hosted on Elastic Cloud:
+
+[source, shell]
+----
+$ openssl s_client \
+    -connect my-deployment.es.eastus2.azure.elastic-cloud.com:443 \
+    -showcerts </dev/null 2>/dev/null | openssl x509 -noout -fingerprint
+
+SHA1 Fingerprint=1C:46:32:75:AA:D6:F1:E2:8E:10:A3:64:44:B1:36:C9:7D:44:35:B4
+----
+
+You can use your DNS name, IP address, and port number instead of `my-deployment.es.eastus2.azure.elastic-cloud.com:443` from the above example.
+
+Copy your fingerprint value for the next step.
+
+[discrete]
+[[aaws-serverless-manage-self-signed-certificates-set-ssl-fingerprint]]
+=== Set the SSL fingerprint
+
+As a final step, edit your `config.yml` file to use the SSL fingerprint:
+
+[source, yaml]
+----
+inputs:
+  - type: "s3-sqs"
+    id: "arn:aws:sqs:eu-west-1:123456789:dev-access-logs"
+    outputs:
+      - type: "elasticsearch"
+        args:
+          api_key: "<REDACTED>"
+          es_datastream_name: "logs-aws.s3access-default"
+          batch_max_actions: 500
+          batch_max_bytes: 10485760
+          ssl_assert_fingerprint: "1C:46:32:75:AA:D6:F1:E2:8E:10:A3:64:44:B1:36:C9:7D:44:35:B4"
+----
