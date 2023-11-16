@@ -69,7 +69,7 @@ class TestLambdaHandlerIntegration(TestCase):
         esc = ElasticsearchContainer()
         cls.elasticsearch = esc.start()
 
-        lgc = LogstashContainer()
+        lgc = LogstashContainer(es_container=esc)
         cls.logstash = lgc.start()
 
         lsc = LocalStackContainer(image="localstack/localstack:1.4.0")
@@ -170,6 +170,152 @@ class TestLambdaHandlerIntegration(TestCase):
         os.environ["S3_CONFIG_FILE"] = ""
         os.environ["SQS_CONTINUE_URL"] = ""
         os.environ["SQS_REPLAY_URL"] = ""
+
+    def test_ls_es_output(self) -> None:
+        assert isinstance(self.elasticsearch, ElasticsearchContainer)
+        assert isinstance(self.logstash, LogstashContainer)
+        assert isinstance(self.localstack, LocalStackContainer)
+
+        s3_sqs_queue_name = _time_based_id(suffix="source-s3-sqs")
+
+        s3_sqs_queue = _sqs_create_queue(self.sqs_client, s3_sqs_queue_name, self.localstack.get_url())
+
+        s3_sqs_queue_arn = s3_sqs_queue["QueueArn"]
+        s3_sqs_queue_url = s3_sqs_queue["QueueUrl"]
+
+        config_yaml: str = f"""
+            inputs:
+              - type: s3-sqs
+                id: "{s3_sqs_queue_arn}"
+                tags: {self.default_tags}
+                outputs: {self.default_outputs}
+        """
+
+        config_file_path = "config.yaml"
+        config_bucket_name = _time_based_id(suffix="config-bucket")
+        _s3_upload_content_to_bucket(
+            client=self.s3_client,
+            content=config_yaml.encode("utf-8"),
+            content_type="text/plain",
+            bucket_name=config_bucket_name,
+            key=config_file_path,
+        )
+
+        os.environ["S3_CONFIG_FILE"] = f"s3://{config_bucket_name}/{config_file_path}"
+        fixtures = [
+            _load_file_fixture("cloudwatch-log-1.json"),
+            _load_file_fixture("cloudwatch-log-2.json"),
+        ]
+
+        cloudtrail_filename_digest = (
+            "AWSLogs/aws-account-id/CloudTrail-Digest/region/yyyy/mm/dd/"
+            "aws-account-id_CloudTrail-Digest_region_end-time_random-string.log.gz"
+        )
+        cloudtrail_filename_non_digest = (
+            "AWSLogs/aws-account-id/CloudTrail/region/yyyy/mm/dd/"
+            "aws-account-id_CloudTrail_region_end-time_random-string.log.gz"
+        )
+
+        s3_bucket_name = _time_based_id(suffix="test-bucket")
+
+        _s3_upload_content_to_bucket(
+            client=self.s3_client,
+            content=gzip.compress(fixtures[0].encode("utf-8")),
+            content_type="application/x-gzip",
+            bucket_name=s3_bucket_name,
+            key=cloudtrail_filename_digest,
+        )
+
+        _s3_upload_content_to_bucket(
+            client=self.s3_client,
+            content=gzip.compress(fixtures[1].encode("utf-8")),
+            content_type="application/x-gzip",
+            bucket_name=s3_bucket_name,
+            key=cloudtrail_filename_non_digest,
+        )
+
+        _sqs_send_s3_notifications(
+            self.sqs_client,
+            s3_sqs_queue_url,
+            s3_bucket_name,
+            [cloudtrail_filename_digest, cloudtrail_filename_non_digest],
+        )
+
+        event, _ = _sqs_get_messages(self.sqs_client, s3_sqs_queue_url, s3_sqs_queue_arn)
+
+        ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
+        first_call = handler(event, ctx)  # type:ignore
+
+        assert first_call == "completed"
+
+        self.elasticsearch.refresh(index="logs-aws.cloudtrail-default")
+        assert self.elasticsearch.count(index="logs-aws.cloudtrail-default")["count"] == 2
+
+        res = self.elasticsearch.search(index="logs-aws.cloudtrail-default", sort="_seq_no")
+        assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
+
+        assert res["hits"]["hits"][0]["_source"]["message"] == fixtures[0].rstrip("\n")
+        assert res["hits"]["hits"][0]["_source"]["log"]["offset"] == 0
+        assert (
+            res["hits"]["hits"][0]["_source"]["log"]["file"]["path"]
+            == f"https://{s3_bucket_name}.s3.eu-central-1.amazonaws.com/{cloudtrail_filename_digest}"
+        )
+        assert res["hits"]["hits"][0]["_source"]["aws"]["s3"]["bucket"]["name"] == s3_bucket_name
+        assert res["hits"]["hits"][0]["_source"]["aws"]["s3"]["bucket"]["arn"] == f"arn:aws:s3:::{s3_bucket_name}"
+        assert res["hits"]["hits"][0]["_source"]["aws"]["s3"]["object"]["key"] == cloudtrail_filename_digest
+        assert res["hits"]["hits"][0]["_source"]["cloud"]["provider"] == "aws"
+        assert res["hits"]["hits"][0]["_source"]["cloud"]["region"] == "eu-central-1"
+        assert res["hits"]["hits"][0]["_source"]["cloud"]["account"]["id"] == "000000000000"
+        assert res["hits"]["hits"][0]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
+
+        assert res["hits"]["hits"][1]["_source"]["message"] == fixtures[1].rstrip("\n")
+        assert res["hits"]["hits"][1]["_source"]["log"]["offset"] == 0
+        assert (
+            res["hits"]["hits"][1]["_source"]["log"]["file"]["path"]
+            == f"https://{s3_bucket_name}.s3.eu-central-1.amazonaws.com/{cloudtrail_filename_non_digest}"
+        )
+        assert res["hits"]["hits"][1]["_source"]["aws"]["s3"]["bucket"]["name"] == s3_bucket_name
+        assert res["hits"]["hits"][1]["_source"]["aws"]["s3"]["bucket"]["arn"] == f"arn:aws:s3:::{s3_bucket_name}"
+        assert res["hits"]["hits"][1]["_source"]["aws"]["s3"]["object"]["key"] == cloudtrail_filename_non_digest
+        assert res["hits"]["hits"][1]["_source"]["cloud"]["provider"] == "aws"
+        assert res["hits"]["hits"][1]["_source"]["cloud"]["region"] == "eu-central-1"
+        assert res["hits"]["hits"][1]["_source"]["cloud"]["account"]["id"] == "000000000000"
+        assert res["hits"]["hits"][1]["_source"]["tags"] == ["forwarded", "aws-cloudtrail", "tag1", "tag2", "tag3"]
+
+        logstash_message = self.logstash.get_messages(expected=2)
+        assert len(logstash_message) == 2
+        res["hits"]["hits"][0]["_source"]["tags"].remove("aws-cloudtrail")
+        res["hits"]["hits"][1]["_source"]["tags"].remove("aws-cloudtrail")
+
+        assert res["hits"]["hits"][0]["_source"]["aws"] == logstash_message[0]["aws"]
+        assert res["hits"]["hits"][0]["_source"]["cloud"] == logstash_message[0]["cloud"]
+        assert res["hits"]["hits"][0]["_source"]["log"] == logstash_message[0]["log"]
+        assert res["hits"]["hits"][0]["_source"]["message"] == logstash_message[0]["message"]
+        assert res["hits"]["hits"][0]["_source"]["tags"] == logstash_message[0]["tags"]
+
+        assert res["hits"]["hits"][1]["_source"]["aws"] == logstash_message[1]["aws"]
+        assert res["hits"]["hits"][1]["_source"]["cloud"] == logstash_message[1]["cloud"]
+        assert res["hits"]["hits"][1]["_source"]["log"] == logstash_message[1]["log"]
+        assert res["hits"]["hits"][1]["_source"]["message"] == logstash_message[1]["message"]
+        assert res["hits"]["hits"][1]["_source"]["tags"] == logstash_message[1]["tags"]
+
+        self.elasticsearch.refresh(index="logs-stash.elasticsearch-output")
+        assert self.elasticsearch.count(index="logs-stash.elasticsearch-output")["count"] == 2
+
+        res = self.elasticsearch.search(index="logs-stash.elasticsearch-output", sort="_seq_no")
+        assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
+
+        assert res["hits"]["hits"][0]["_source"]["aws"] == logstash_message[0]["aws"]
+        assert res["hits"]["hits"][0]["_source"]["cloud"] == logstash_message[0]["cloud"]
+        assert res["hits"]["hits"][0]["_source"]["log"] == logstash_message[0]["log"]
+        assert res["hits"]["hits"][0]["_source"]["message"] == logstash_message[0]["message"]
+        assert res["hits"]["hits"][0]["_source"]["tags"] == logstash_message[0]["tags"]
+
+        assert res["hits"]["hits"][1]["_source"]["aws"] == logstash_message[1]["aws"]
+        assert res["hits"]["hits"][1]["_source"]["cloud"] == logstash_message[1]["cloud"]
+        assert res["hits"]["hits"][1]["_source"]["log"] == logstash_message[1]["log"]
+        assert res["hits"]["hits"][1]["_source"]["message"] == logstash_message[1]["message"]
+        assert res["hits"]["hits"][1]["_source"]["tags"] == logstash_message[1]["tags"]
 
     def test_continuing(self) -> None:
         assert isinstance(self.elasticsearch, ElasticsearchContainer)

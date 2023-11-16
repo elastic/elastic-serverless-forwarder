@@ -95,7 +95,9 @@ class TestLogstashShipper(TestCase):
                 _payload.append(ujson.loads(event))
 
             expected_event = deepcopy(_dummy_expected_event)
-            expected_event["_id"] = "_id"
+            expected_event["@metadata"] = {"_id": "_id"}
+            del expected_event["_id"]
+
             assert _payload == [expected_event, expected_event]
 
             return 200, {}, "okay"

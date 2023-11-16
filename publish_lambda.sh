@@ -39,7 +39,18 @@ GIT_REPO="https://github.com/elastic/elastic-serverless-forwarder.git"
 
 trap 'rm -rf ${TMPDIR}' EXIT
 
-aws s3api get-bucket-location --bucket "${BUCKET}" || aws s3api create-bucket --acl private --bucket "${BUCKET}" --region "${REGION}" --create-bucket-configuration LocationConstraint="${REGION}"
+aws s3api get-bucket-location --bucket "${BUCKET}" --region "${REGION}" || aws s3api create-bucket --acl private --bucket "${BUCKET}" --region "${REGION}" --create-bucket-configuration LocationConstraint="${REGION}"
+
+# Check if region is in AWS GovCloud and create bucket arn
+if [[ ${REGION} == *"$gov"* ]]; then
+  BUCKET_ARN="arn:aws-us-gov:s3:::${BUCKET}"
+  AWS_OR_AWS_GOV="aws-us-gov"
+else
+  BUCKET_ARN="arn:aws:s3:::${BUCKET}"
+  AWS_OR_AWS_GOV="aws"
+fi
+
+BUCKET_RESOURCE="${BUCKET_ARN}/*"
 
 mkdir -v -p "${CLONED_FOLDER}"
 git clone --depth 1 --branch "${TAG_NAME}" "${GIT_REPO}" "${CLONED_FOLDER}"
@@ -322,7 +333,7 @@ def create_policy(publish_config: dict[str, Any]):
         assert isinstance(publish_config["s3-config-file"], str)
 
         bucket_name_and_object_key = publish_config["s3-config-file"].replace("s3://", "")
-        resource = f"arn:aws:s3:::{bucket_name_and_object_key}"
+        resource = f"arn:${AWS_OR_AWS_GOV}:s3:::{bucket_name_and_object_key}"
         if len(resource) > 0:
             policy_fragment["Properties"]["PolicyDocument"]["Statement"].append(
                 {"Effect": "Allow", "Action": "s3:GetObject", "Resource": resource}
@@ -471,18 +482,18 @@ if __name__ == "__main__":
             },
             "RoleName": "${CUSTOM_ROLE_PREFIX}ApplicationElasticServerlessForwarderRole",
             "ManagedPolicyArns": [
-                "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
-                "arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole"
+                "arn:${AWS_OR_AWS_GOV}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+                "arn:${AWS_OR_AWS_GOV}:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole"
             ],
         },
     }
 
     if vpc_config:
-        customRole["Properties"]["ManagedPolicyArns"].append("arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole")
+        customRole["Properties"]["ManagedPolicyArns"].append("arn:${AWS_OR_AWS_GOV}:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole")
 
     has_kinesis_events: bool = len([created_event for created_event in created_events if created_events[created_event]["Type"] == "Kinesis"]) > 0
     if has_kinesis_events:
-        customRole["Properties"]["ManagedPolicyArns"].append("arn:aws:iam::aws:policy/service-role/AWSLambdaKinesisExecutionRole")
+        customRole["Properties"]["ManagedPolicyArns"].append("arn:${AWS_OR_AWS_GOV}:iam::aws:policy/service-role/AWSLambdaKinesisExecutionRole")
 
     cloudformation_yaml["Resources"]["ApplicationElasticServerlessForwarderCustomRole"] = customRole
     cloudformation_yaml["Resources"]["ApplicationElasticServerlessForwarder"]["Properties"]["Role"] = {"Fn::GetAtt": ["ApplicationElasticServerlessForwarderCustomRole", "Arn"] }

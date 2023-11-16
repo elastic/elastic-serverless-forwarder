@@ -9,7 +9,7 @@ from aws_lambda_typing import context as context_
 
 from share import ExpandEventListFromField, json_parser, parse_config, shared_logger
 from share.secretsmanager import aws_sm_expander
-from shippers import EVENT_IS_FILTERED, EVENT_IS_SENT, CompositeShipper, ProtocolShipper
+from shippers import EVENT_IS_FILTERED, EVENT_IS_SENT, CompositeShipper
 
 from .cloudwatch_logs_trigger import (
     _from_awslogs_data_to_event,
@@ -82,7 +82,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
         replay_queue_arn = lambda_event["Records"][0]["eventSourceARN"]
         replay_handler = ReplayedEventReplayHandler(replay_queue_arn=replay_queue_arn)
-        shipper_cache: dict[str, ProtocolShipper] = {}
+        shipper_cache: dict[str, CompositeShipper] = {}
         for replay_record in lambda_event["Records"]:
             event = json_parser(replay_record["body"])
             input_id = event["event_input_id"]
@@ -107,6 +107,8 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 shipper_cache[shipper_id] = shipper
             else:
                 shipper = shipper_cache[shipper_id]
+
+            assert isinstance(shipper, CompositeShipper)
 
             shipper.send(event["event_payload"])
             event_uniq_id: str = event["event_payload"]["_id"] + output_type
