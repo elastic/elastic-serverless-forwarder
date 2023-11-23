@@ -274,6 +274,10 @@ class JsonCollector:
 
                 yield data, original_starting_offset, original_ending_offset, newline_length, None
         else:
+            event_list_from_field_expander: Optional[
+                ExpandEventListFromField
+            ] = storage.event_list_from_field_expander
+
             newline: bytes = b""
 
             has_an_object_start: bool = False
@@ -289,6 +293,26 @@ class JsonCollector:
             self._is_a_json_object_circuit_broken = False
             self._is_a_json_object_circuit_breaker = 0
 
+            # if we know it's a single json we replace body with the whole content,
+            # and mark the object as started
+            if storage.json_content_type == "single":
+                has_an_object_start = True
+                wait_for_object_start = False
+                # let's collect the whole single json
+                data_for_body = b""
+                for (line, _, _, original_newline_length, _) in self._by_lines_fallback(body.read()):
+                    if original_newline_length == 2:
+                        newline = b"\r\n"
+                    elif original_newline_length == 1:
+                        newline = b"\n"
+                    else:
+                        newline = b""
+
+                    data_for_body += line + newline
+
+                # let's replace body with the whole single json
+                body = BytesIO(data_for_body)
+
             iterator = self._function(storage, range_start, body, is_gzipped)
             for data, original_starting_offset, original_ending_offset, newline_length, _ in iterator:
                 assert isinstance(data, bytes)
@@ -302,7 +326,7 @@ class JsonCollector:
                     else:
                         newline = b""
 
-                # let's check until we got some content from split by lines
+                # we still wait for the object to start
                 if wait_for_object_start:
                     # we check for a potential json object on
                     # we strip leading space to be safe on padding
@@ -326,35 +350,17 @@ class JsonCollector:
                     if not has_an_object_start:
                         if len(wait_for_object_start_buffer) > 0:
                             # let's consume the buffer we set for waiting for object_start before the circuit breaker
-                            for (
-                                line,
-                                starting_offset,
-                                ending_offset,
-                                original_newline_length,
-                                _,
-                            ) in self._by_lines_fallback(wait_for_object_start_buffer):
+                            for (line, _, _, original_newline_length, _) in self._by_lines_fallback(wait_for_object_start_buffer):
                                 self._handle_offset(len(line) + original_newline_length)
                                 yield line, self._starting_offset, self._ending_offset, original_newline_length, None
 
                         # let's reset the buffer
                         wait_for_object_start_buffer = b""
 
-                        # json_content_type as json collected the whole content: let's pass through by_lines()
-                        if storage.json_content_type == "single":
-                            for (
-                                line,
-                                starting_offset,
-                                ending_offset,
-                                original_newline_length,
-                                _,
-                            ) in self._by_lines_fallback(data + newline):
-                                self._handle_offset(len(line) + original_newline_length)
-                                yield line, self._starting_offset, self._ending_offset, original_newline_length, None
-                        else:
-                            yield data, original_starting_offset, original_ending_offset, newline_length, None
+                        yield data, original_starting_offset, original_ending_offset, newline_length, None
                     else:
                         # let's yield wait_for_object_start_buffer: it is newline only content
-                        for line, starting_offset, ending_offset, original_newline_length, _ in self._by_lines_fallback(
+                        for line, _, _, original_newline_length, _ in self._by_lines_fallback(
                             wait_for_object_start_buffer
                         ):
                             self._handle_offset(len(line) + original_newline_length)
@@ -362,35 +368,36 @@ class JsonCollector:
 
                         # let's reset the buffer
                         wait_for_object_start_buffer = b""
-                        for data_to_yield, json_object in self._collector(data, newline, newline_length):
-                            shared_logger.debug("JsonCollector objects", extra={"offset": self._ending_offset})
-                            event_list_from_field_expander: Optional[
-                                ExpandEventListFromField
-                            ] = storage.event_list_from_field_expander
 
-                            if event_list_from_field_expander is not None:
-                                for (
-                                    expanded_log_event,
-                                    expanded_starting_offset,
-                                    expanded_ending_offset,
-                                    expanded_event_n,
-                                ) in event_list_from_field_expander.expand(
-                                    data_to_yield, json_object, self._starting_offset, self._ending_offset
-                                ):
-                                    to_be_yield = (
+                        # let's parse the data only if it is not single, or we have a field expander
+                        if storage.json_content_type != "single" or event_list_from_field_expander is not None:
+                            for data_to_yield, json_object in self._collector(data, newline, newline_length):
+                                shared_logger.debug("JsonCollector objects", extra={"offset": self._ending_offset})
+                                if event_list_from_field_expander is not None:
+                                    for (
                                         expanded_log_event,
                                         expanded_starting_offset,
                                         expanded_ending_offset,
-                                        newline_length,
                                         expanded_event_n,
-                                    )
+                                    ) in event_list_from_field_expander.expand(
+                                        data_to_yield, json_object, self._starting_offset, self._ending_offset
+                                    ):
+                                        to_be_yield = (
+                                            expanded_log_event,
+                                            expanded_starting_offset,
+                                            expanded_ending_offset,
+                                            newline_length,
+                                            expanded_event_n,
+                                        )
 
-                                    yield to_be_yield
+                                        yield to_be_yield
+                                else:
+                                    yield data_to_yield, self._starting_offset, self._ending_offset, newline_length, None
 
                                 del json_object
-                            else:
-                                del json_object
-                                yield data_to_yield, self._starting_offset, self._ending_offset, newline_length, None
+                        else:
+                            # let's parse the data as it is
+                            yield data, self._starting_offset, self._ending_offset, newline_length, None
 
                         if self._is_a_json_object_circuit_broken:
                             # let's yield what we have so far
@@ -412,7 +419,7 @@ class JsonCollector:
                             self._unfinished_line = b""
 
             # in this case we could have a trailing new line in what's left in the buffer
-            # or the content had a leading `{` but was not a json object before the circuit breaker intercepted it
+            # or the content had a leading `{` but was not a json object before the circuit breaker intercepted it,
             # or we waited for the object start and never reached:
             # let's fallback to by_lines()
             if not self._is_a_json_object:
