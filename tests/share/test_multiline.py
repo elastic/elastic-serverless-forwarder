@@ -432,14 +432,14 @@ pattern_multiline_collect_circuitbreaker = [
         b"\r\n",
         b"line1\r\n  line1.1\r\n  line1.2\r\nline2\r\n  line2.1\r\n  line2.2\r\n",
         [(b"line1", 7), (b"  line1.1", 11), (b"  line1.2", 11), (b"line2", 7), (b"  line2.1", 11), (b"  line2.2", 11)],
-        id="circuit breaker: \n",
+        id="circuit breaker: \r\n",
     ),
 ]
 
 
 @pytest.mark.unit
 @pytest.mark.parametrize("newline,feed,expected_events", pattern_multiline_collect_circuitbreaker)
-@mock.patch("share.multiline.timedelta_circuit_breaker", new=datetime.timedelta(seconds=0))
+@mock.patch("share.multiline.timedelta_circuit_breaker", new=datetime.timedelta(seconds=-1))
 def test_pattern_multiline_circuitbreaker(
     newline: bytes,
     feed: bytes,

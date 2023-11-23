@@ -297,21 +297,9 @@ class JsonCollector:
                 has_an_object_start = True
                 wait_for_object_start = False
                 # let's collect the whole single json
-                data_for_body = b""
-                for line, _, _, original_newline_length, _ in self._by_lines_fallback(body.read()):
-                    assert isinstance(line, bytes)
-
-                    if original_newline_length == 2:
-                        newline = b"\r\n"
-                    elif original_newline_length == 1:
-                        newline = b"\n"
-                    else:
-                        newline = b""
-
-                    data_for_body += line + newline
-
+                single = body.read()
                 # let's replace body with the whole single json
-                body = BytesIO(data_for_body)
+                body = BytesIO(single)
 
             iterator = self._function(storage, range_start, body, is_gzipped)
             for data, original_starting_offset, original_ending_offset, newline_length, _ in iterator:
@@ -433,7 +421,7 @@ class JsonCollector:
                 if wait_for_object_start:
                     buffer = wait_for_object_start_buffer
 
-                for line, starting_offset, ending_offset, original_newline_length, _ in self._by_lines_fallback(buffer):
+                for line, _, _, original_newline_length, _ in self._by_lines_fallback(buffer):
                     self._handle_offset(len(line) + original_newline_length)
 
                     yield line, self._starting_offset, self._ending_offset, original_newline_length, None
