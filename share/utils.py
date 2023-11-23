@@ -13,4 +13,5 @@ def get_hex_prefix(src: str) -> str:
 
 def create_user_agent() -> str:
     """Creates the 'User-Agent' header given the library name and version"""
-    return f"ElasticServerlessForwarder/{version} ({os.getenv('AWS_EXECUTION_ENV')}; OTHER)"
+    # AWS_EXECUTION_ENV – The runtime identifier, prefixed by AWS_Lambda_ (for example, AWS_Lambda_Python3.9).
+    return f"ElasticServerlessForwarder/{version} ({os.getenv('AWS_EXECUTION_ENV')})"
