@@ -274,9 +274,7 @@ class JsonCollector:
 
                 yield data, original_starting_offset, original_ending_offset, newline_length, None
         else:
-            event_list_from_field_expander: Optional[
-                ExpandEventListFromField
-            ] = storage.event_list_from_field_expander
+            event_list_from_field_expander: Optional[ExpandEventListFromField] = storage.event_list_from_field_expander
 
             newline: bytes = b""
 
@@ -300,7 +298,9 @@ class JsonCollector:
                 wait_for_object_start = False
                 # let's collect the whole single json
                 data_for_body = b""
-                for (line, _, _, original_newline_length, _) in self._by_lines_fallback(body.read()):
+                for line, _, _, original_newline_length, _ in self._by_lines_fallback(body.read()):
+                    assert isinstance(line, bytes)
+
                     if original_newline_length == 2:
                         newline = b"\r\n"
                     elif original_newline_length == 1:
@@ -350,7 +350,9 @@ class JsonCollector:
                     if not has_an_object_start:
                         if len(wait_for_object_start_buffer) > 0:
                             # let's consume the buffer we set for waiting for object_start before the circuit breaker
-                            for (line, _, _, original_newline_length, _) in self._by_lines_fallback(wait_for_object_start_buffer):
+                            for line, _, _, original_newline_length, _ in self._by_lines_fallback(
+                                wait_for_object_start_buffer
+                            ):
                                 self._handle_offset(len(line) + original_newline_length)
                                 yield line, self._starting_offset, self._ending_offset, original_newline_length, None
 
@@ -382,17 +384,21 @@ class JsonCollector:
                                     ) in event_list_from_field_expander.expand(
                                         data_to_yield, json_object, self._starting_offset, self._ending_offset
                                     ):
-                                        to_be_yield = (
+                                        yield (
                                             expanded_log_event,
                                             expanded_starting_offset,
                                             expanded_ending_offset,
                                             newline_length,
                                             expanded_event_n,
                                         )
-
-                                        yield to_be_yield
                                 else:
-                                    yield data_to_yield, self._starting_offset, self._ending_offset, newline_length, None
+                                    yield (
+                                        data_to_yield,
+                                        self._starting_offset,
+                                        self._ending_offset,
+                                        newline_length,
+                                        None,
+                                    )
 
                                 del json_object
                         else:
