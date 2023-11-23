@@ -10,6 +10,7 @@ from elasticsearch.exceptions import SerializationError
 from elasticsearch.helpers import bulk as es_bulk
 from elasticsearch.serializer import Serializer
 
+import share.utils
 from share import json_dumper, json_parser, normalise_event, shared_logger
 
 from .shipper import EventIdGeneratorCallable, ReplayHandlerCallable
@@ -119,6 +120,7 @@ class ElasticsearchShipper:
         es_client_kwargs["max_retries"] = 4
         es_client_kwargs["http_compress"] = True
         es_client_kwargs["retry_on_timeout"] = True
+        es_client_kwargs["headers"] = {"user-agent": share.utils.create_user_agent()}
 
         return Elasticsearch(**es_client_kwargs)
 
