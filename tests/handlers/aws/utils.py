@@ -227,11 +227,7 @@ def _kinesis_retrieve_event_from_kinesis_stream(
 def _sqs_create_queue(client: BotoBaseClient, queue_name: str, endpoint_url: str = "") -> dict[str, Any]:
     queue_url = client.create_queue(QueueName=queue_name)["QueueUrl"]
     queue_arn = client.get_queue_attributes(QueueUrl=queue_url, AttributeNames=["QueueArn"])["Attributes"]["QueueArn"]
-    return {
-        "QueueArn": queue_arn,
-        "QueueUrl": queue_url,
-        "QueueUrlPath": get_queue_url_from_sqs_arn(queue_arn)
-    }
+    return {"QueueArn": queue_arn, "QueueUrl": queue_url, "QueueUrlPath": get_queue_url_from_sqs_arn(queue_arn)}
 
 
 def _sqs_send_messages(client: BotoBaseClient, queue_url: str, message_body: str) -> None:
