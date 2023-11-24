@@ -62,5 +62,5 @@ class CommonStorage(metaclass=ABCMeta):
 ProtocolStorageType = TypeVar("ProtocolStorageType", bound=ProtocolStorage)
 GetByLinesCallable = Callable[
     [ProtocolStorageType, int, BytesIO, bool],
-    Iterator[tuple[Union[StorageReader, bytes], int, int, int, Optional[int]]],
+    Iterator[tuple[Union[StorageReader, bytes], int, int, bytes, Optional[int]]],
 ]

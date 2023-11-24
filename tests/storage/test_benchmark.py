@@ -170,6 +170,7 @@ class MockContentBase:
                         for _ in range(1, int(length_multiplier / 2))
                     ]
                 )
+                mock_content = mock_content.rstrip(newline)
             elif content_type.startswith("_IS_MULTILINE"):
                 # every line is from 0 to 20 chars, repeated for length_multiplier
                 mock_content = newline.join(

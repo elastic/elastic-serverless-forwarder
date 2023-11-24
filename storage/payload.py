@@ -38,7 +38,7 @@ class PayloadStorage(CommonStorage):
     @inflate
     def _generate(
         self, range_start: int, body: BytesIO, is_gzipped: bool
-    ) -> Iterator[tuple[Union[StorageReader, bytes], int, int, int, Optional[int]]]:
+    ) -> Iterator[tuple[Union[StorageReader, bytes], int, int, bytes, Optional[int]]]:
         """
         Concrete implementation of the iterator for get_by_lines
         """
@@ -50,14 +50,14 @@ class PayloadStorage(CommonStorage):
 
         if is_gzipped:
             reader: StorageReader = StorageReader(raw=body)
-            yield reader, 0, 0, 0, None
+            yield reader, 0, 0, b"", None
         else:
             for chunk in iter(chunk_lambda, b""):
                 file_starting_offset = file_ending_offset
                 file_ending_offset += len(chunk)
 
                 shared_logger.debug("_generate flat", extra={"offset": file_ending_offset})
-                yield chunk, file_starting_offset, file_ending_offset, 0, None
+                yield chunk, file_starting_offset, file_ending_offset, b"", None
 
     def get_by_lines(self, range_start: int) -> Iterator[tuple[bytes, int, int, Optional[int]]]:
         original_range_start: int = range_start

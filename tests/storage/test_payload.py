@@ -14,7 +14,6 @@ import pytest
 from storage import PayloadStorage
 
 from .test_benchmark import (
-    _IS_JSON,
     _IS_PLAIN,
     _LENGTH_ABOVE_THRESHOLD,
     MockContentBase,
@@ -96,6 +95,7 @@ def test_get_by_lines(
     original: bytes = base64.b64decode(MockContent.f_content_plain)
     original_length: int = len(original)
 
+    now = datetime.datetime.utcnow()
     payload_storage = PayloadStorage(
         payload=payload_content_gzip,
         json_content_type=json_content_type,
@@ -110,6 +110,8 @@ def test_get_by_lines(
     )
     plain_full: list[tuple[bytes, int, int, Optional[int]]] = list(payload_storage.get_by_lines(range_start=0))
 
+    print(f"{datetime.datetime.utcnow() - now}: {json_content_type}/{content_type}/{len(newline)}/{length_multiplier}")
+
     diff = set(gzip_full) ^ set(plain_full)
     assert not diff
     assert plain_full == gzip_full
@@ -117,8 +119,6 @@ def test_get_by_lines(
     assert plain_full[-1][2] == original_length
 
     joined = joiner_token.join([x[0] for x in plain_full])
-    if original.endswith(newline) and content_type.startswith(_IS_JSON) and json_content_type != "single":
-        joined += newline
 
     assert joined == original
 

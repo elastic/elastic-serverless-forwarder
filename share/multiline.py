@@ -21,17 +21,17 @@ class CommonMultiline(metaclass=ABCMeta):
     Common class for Multiline components
     """
 
-    _feed: Iterator[tuple[bytes, bytes, int]]
+    _feed: Iterator[tuple[bytes, bytes]]
     _buffer: CollectBuffer
 
     _pre_collect_buffer: bool
 
     @property
-    def feed(self) -> Iterator[tuple[bytes, bytes, int]]:
+    def feed(self) -> Iterator[tuple[bytes, bytes]]:
         return self._feed
 
     @feed.setter
-    def feed(self, value: Iterator[tuple[bytes, bytes, int]]) -> None:
+    def feed(self, value: Iterator[tuple[bytes, bytes]]) -> None:
         self._feed = value
 
 
@@ -40,18 +40,18 @@ class ProtocolMultiline(Protocol):
     Protocol class for Multiline components
     """
 
-    _feed: Iterator[tuple[bytes, bytes, int]]
+    _feed: Iterator[tuple[bytes, bytes]]
     _buffer: CollectBuffer
 
     @property
-    def feed(self) -> Iterator[tuple[bytes, bytes, int]]:
+    def feed(self) -> Iterator[tuple[bytes, bytes]]:
         pass  # pragma: no cover
 
     @feed.setter
-    def feed(self, value: Iterator[tuple[bytes, bytes, int]]) -> None:
+    def feed(self, value: Iterator[tuple[bytes, bytes]]) -> None:
         pass  # pragma: no cover
 
-    def collect(self) -> Iterator[tuple[bytes, int, int]]:
+    def collect(self) -> Iterator[tuple[bytes, int, bytes]]:
         pass  # pragma: no cover
 
 
@@ -169,9 +169,9 @@ class CountMultiline(CommonMultiline):
             and self._skip_newline == self._skip_newline
         )
 
-    def collect(self) -> Iterator[tuple[bytes, int, int]]:
+    def collect(self) -> Iterator[tuple[bytes, int, bytes]]:
         last_iteration_datetime: datetime.datetime = datetime.datetime.utcnow()
-        for data, newline, newline_length in self.feed:
+        for data, newline in self.feed:
             self._buffer.grow(data, newline)
             self._current_count += 1
             if (
@@ -180,18 +180,19 @@ class CountMultiline(CommonMultiline):
             ):
                 self._current_count = 0
                 content, current_length = self._buffer.collect_and_reset()
-                yield content, current_length, newline_length
+                yield content, current_length, newline
 
         if not self._buffer.is_empty():
             content, current_length = self._buffer.collect_and_reset()
 
-            newline_length = 0
             if content.find(b"\r\n") > -1:
-                newline_length = 2
+                newline = b"\r\n"
             elif content.find(b"\n") > -1:
-                newline_length = 1
+                newline = b"\n"
+            else:
+                newline = b""
 
-            yield content, current_length, newline_length
+            yield content, current_length, newline
 
 
 WhileMatcherCallable = Callable[[bytes], bool]
@@ -259,41 +260,42 @@ class WhileMultiline(CommonMultiline):
 
         return negate
 
-    def collect(self) -> Iterator[tuple[bytes, int, int]]:
+    def collect(self) -> Iterator[tuple[bytes, int, bytes]]:
         last_iteration_datetime: datetime.datetime = datetime.datetime.utcnow()
-        for data, newline, newline_length in self.feed:
+        for data, newline in self.feed:
             if not self._matcher(data):
                 if self._buffer.is_empty():
                     self._buffer.grow(data, newline)
                     content, current_length = self._buffer.collect_and_reset()
-                    yield content, current_length, newline_length
+                    yield content, current_length, newline
                 else:
                     content, current_length = self._buffer.collect_and_reset()
                     self._buffer.grow(data, newline)
 
-                    yield content, current_length, newline_length
+                    yield content, current_length, newline
 
                     content, current_length = self._buffer.collect_and_reset()
 
-                    yield content, current_length, newline_length
+                    yield content, current_length, newline
             else:
                 self._buffer.grow(data, newline)
                 # no pre collect buffer in while multiline, let's check the circuit breaker after at least one grow
                 if (datetime.datetime.utcnow() - last_iteration_datetime) > timedelta_circuit_breaker:
                     content, current_length = self._buffer.collect_and_reset()
 
-                    yield content, current_length, newline_length
+                    yield content, current_length, newline
 
         if not self._buffer.is_empty():
             content, current_length = self._buffer.collect_and_reset()
 
-            newline_length = 0
             if content.find(b"\r\n") > -1:
-                newline_length = 2
+                newline = b"\r\n"
             elif content.find(b"\n") > -1:
-                newline_length = 1
+                newline = b"\r\n"
+            else:
+                newline = b""
 
-            yield content, current_length, newline_length
+            yield content, current_length, newline
 
 
 PatternMatcherCallable = Callable[[bytes, bytes], bool]
@@ -390,8 +392,8 @@ class PatternMultiline(CommonMultiline):
     def _check_matcher(self) -> bool:
         return (self._match == "after" and len(self._buffer.previous) > 0) or self._match == "before"
 
-    def collect(self) -> Iterator[tuple[bytes, int, int]]:
-        for data, newline, newline_length in self.feed:
+    def collect(self) -> Iterator[tuple[bytes, int, bytes]]:
+        for data, newline in self.feed:
             last_iteration_datetime: datetime.datetime = datetime.datetime.utcnow()
             if self._pre_collect_buffer:
                 self._buffer.collect_and_reset()
@@ -402,7 +404,7 @@ class PatternMultiline(CommonMultiline):
                 self._pre_collect_buffer = True
 
                 content, current_length = self._buffer.collect_and_reset()
-                yield content, current_length, newline_length
+                yield content, current_length, newline
             elif (
                 not self._buffer.is_empty() and self._check_matcher() and not self._matcher(self._buffer.previous, data)
             ):
@@ -410,22 +412,23 @@ class PatternMultiline(CommonMultiline):
 
                 self._buffer.grow(data, newline)
 
-                yield content, current_length, newline_length
+                yield content, current_length, newline
             else:
                 if (datetime.datetime.utcnow() - last_iteration_datetime) > timedelta_circuit_breaker:
                     content, current_length = self._buffer.collect_and_reset()
 
-                    yield content, current_length, newline_length
+                    yield content, current_length, newline
 
                 self._buffer.grow(data, newline)
 
         if not self._buffer.is_empty():
             content, current_length = self._buffer.collect_and_reset()
 
-            newline_length = 0
             if content.find(b"\r\n") > -1:
-                newline_length = 2
+                newline = b"\r\n"
             elif content.find(b"\n") > -1:
-                newline_length = 1
+                newline = b"\n"
+            else:
+                newline = b""
 
-            yield content, current_length, newline_length
+            yield content, current_length, newline
