@@ -21,6 +21,7 @@ from typing import Any, Union
 
 from botocore.client import BaseClient as BotoBaseClient
 
+from handlers.aws.utils import get_queue_url_from_sqs_arn
 from share import json_dumper
 
 _AWS_REGION = "us-east-1"
@@ -229,7 +230,7 @@ def _sqs_create_queue(client: BotoBaseClient, queue_name: str, endpoint_url: str
     return {
         "QueueArn": queue_arn,
         "QueueUrl": queue_url,
-        "QueueUrlPath": queue_url.replace(endpoint_url, f"https://sqs.{_AWS_REGION}.amazonaws.com"),
+        "QueueUrlPath": get_queue_url_from_sqs_arn(queue_arn)
     }
 
 
