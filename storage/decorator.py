@@ -390,7 +390,7 @@ class JsonCollector:
 
                                 del json_object
                         else:
-                            # let's parse the data as it is
+                            # let's yeild the data as it is
                             yield data, self._starting_offset, self._ending_offset, newline_length, None
 
                         if self._is_a_json_object_circuit_broken:
