@@ -112,8 +112,8 @@ def multi_line(func: GetByLinesCallable[ProtocolStorageType]) -> GetByLinesCalla
 
 
 class JsonCollectorState:
-    def __init__(self, storage: StorageReader):
-        self.storage: StorageReader = storage
+    def __init__(self, storage: ProtocolStorageType):
+        self.storage: ProtocolStorageType = storage
 
         self.starting_offset: int = 0
         self.ending_offset: int = 0
@@ -305,7 +305,13 @@ def json_collector(func: GetByLinesCallable[ProtocolStorageType]) -> GetByLinesC
                                         expanded_event_n,
                                     )
                             else:
-                                yield data_to_yield, json_collector_state.starting_offset, json_collector_state.ending_offset, newline, None
+                                yield (
+                                    data_to_yield,
+                                    json_collector_state.starting_offset,
+                                    json_collector_state.ending_offset,
+                                    newline,
+                                    None,
+                                )
 
                             del json_object
 
@@ -313,7 +319,13 @@ def json_collector(func: GetByLinesCallable[ProtocolStorageType]) -> GetByLinesC
                         if json_collector_state.is_a_json_object_circuit_broken:
                             # let's yield what we have so far
                             for line, _, _, original_newline, _ in _by_lines_fallback(json_collector_state):
-                                yield line, json_collector_state.starting_offset, json_collector_state.ending_offset, original_newline, None
+                                yield (
+                                    line,
+                                    json_collector_state.starting_offset,
+                                    json_collector_state.ending_offset,
+                                    original_newline,
+                                    None,
+                                )
 
             # in this case we could have a trailing new line in what's left in the buffer
             # or the content had a leading `{` but was not a json object before the circuit breaker intercepted it,

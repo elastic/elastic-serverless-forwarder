@@ -9,7 +9,7 @@ from typing import Any, Iterator, Optional, Union
 
 from share import ExpandEventListFromField, ProtocolMultiline, shared_logger
 
-from .decorator import json_collector, by_lines, inflate, multi_line
+from .decorator import by_lines, inflate, json_collector, multi_line
 from .storage import CHUNK_SIZE, CommonStorage, StorageReader, is_gzip_content
 
 
