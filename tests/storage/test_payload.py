@@ -161,8 +161,6 @@ def test_get_by_lines(
         + joiner_token
         + joiner_token.join([x[0] for x in plain_full_02])
     )
-    if original.endswith(newline):
-        joined += newline
 
     assert joined == original
 
@@ -208,8 +206,6 @@ def test_get_by_lines(
         + joiner_token
         + joiner_token.join([x[0] for x in plain_full_03])
     )
-    if original.endswith(newline):
-        joined += newline
 
     assert joined == original
 

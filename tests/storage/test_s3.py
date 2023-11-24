@@ -191,8 +191,6 @@ def test_get_by_lines(
         + joiner_token
         + joiner_token.join([x[0] for x in plain_full_02])
     )
-    if MockContent.f_content_plain.endswith(newline):
-        joined += newline
 
     assert joined == MockContent.f_content_plain
 
@@ -238,8 +236,6 @@ def test_get_by_lines(
         + joiner_token
         + joiner_token.join([x[0] for x in plain_full_03])
     )
-    if MockContent.f_content_plain.endswith(newline):
-        joined += newline
 
     assert joined == MockContent.f_content_plain
 

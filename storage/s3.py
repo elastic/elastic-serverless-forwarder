@@ -12,7 +12,7 @@ from botocore.response import StreamingBody
 
 from share import ExpandEventListFromField, ProtocolMultiline, shared_logger
 
-from .decorator import JsonCollector, by_lines, inflate, multi_line
+from .decorator import json_collector, by_lines, inflate, multi_line
 from .storage import CHUNK_SIZE, CommonStorage, StorageReader, is_gzip_content
 
 
@@ -41,7 +41,7 @@ class S3Storage(CommonStorage):
         self.event_list_from_field_expander = event_list_from_field_expander
 
     @multi_line
-    @JsonCollector
+    @json_collector
     @by_lines
     @inflate
     def _generate(
