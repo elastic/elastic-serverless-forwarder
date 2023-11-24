@@ -147,13 +147,6 @@ def test_get_by_lines(
     assert plain_full[-1][2] == original_length
 
     joined = joiner_token.join([x[0] for x in plain_full])
-    if (
-        MockContent.f_content_plain.endswith(newline)
-        and content_type.startswith(_IS_JSON)
-        and json_content_type != "single"
-    ):
-        joined += newline
-
     assert joined == MockContent.f_content_plain
 
     if len(newline) == 0 or (json_content_type == "single"):

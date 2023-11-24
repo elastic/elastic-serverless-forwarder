@@ -116,7 +116,6 @@ def test_get_by_lines(
     assert plain_full[-1][2] == original_length
 
     joined = joiner_token.join([x[0] for x in plain_full])
-
     assert joined == original
 
     if len(newline) == 0 or (json_content_type == "single"):
