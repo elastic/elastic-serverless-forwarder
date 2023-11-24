@@ -15,7 +15,6 @@ from botocore.response import StreamingBody
 from storage import S3Storage
 
 from .test_benchmark import (
-    _IS_JSON,
     _IS_PLAIN,
     _LENGTH_ABOVE_THRESHOLD,
     MockContentBase,
