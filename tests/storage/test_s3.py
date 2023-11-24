@@ -147,12 +147,16 @@ def test_get_by_lines(
     assert plain_full[-1][2] == original_length
 
     joined = joiner_token.join([x[0] for x in plain_full])
-    if MockContent.f_content_plain.endswith(newline):
+    if (
+        MockContent.f_content_plain.endswith(newline)
+        and content_type.startswith(_IS_JSON)
+        and json_content_type != "single"
+    ):
         joined += newline
 
     assert joined == MockContent.f_content_plain
 
-    if len(newline) == 0 or (content_type == _IS_JSON and json_content_type == "single"):
+    if len(newline) == 0 or (json_content_type == "single"):
         return
 
     gzip_full_01 = gzip_full[: int(len(gzip_full) / 2)]

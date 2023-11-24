@@ -25,82 +25,57 @@ def by_lines(func: GetByLinesCallable[ProtocolStorageType]) -> GetByLinesCallabl
         newline: bytes = b""
         newline_length: int = 0
 
-        json_content_type: Optional[str] = storage.json_content_type
-
         iterator = func(storage, range_start, body, is_gzipped)
-        if json_content_type == "single" and storage.multiline_processor is None:
-            try:
-                while True:
-                    data, _, _, _, _ = next(iterator)
-                    assert isinstance(data, bytes)
 
-                    unfinished_line += data
-            except StopIteration:
-                starting_offset = ending_offset
-                ending_offset += len(unfinished_line)
+        for data, _, _, _, _ in iterator:
+            assert isinstance(data, bytes)
 
-                if unfinished_line.endswith(b"\r\n"):
+            unfinished_line += data
+            lines = unfinished_line.decode("utf-8").splitlines()
+
+            if len(lines) == 0:
+                continue
+
+            if newline_length == 0:
+                if unfinished_line.find(b"\r\n") > -1:
                     newline = b"\r\n"
                     newline_length = 2
-                elif unfinished_line.endswith(b"\n"):
+                elif unfinished_line.find(b"\n") > -1:
                     newline = b"\n"
                     newline_length = 1
 
-                unfinished_line = unfinished_line.rstrip(newline)
+            if unfinished_line.endswith(newline):
+                unfinished_line = lines.pop().encode() + newline
+            else:
+                unfinished_line = lines.pop().encode()
 
-                shared_logger.debug("by_line json_content_type single", extra={"offset": ending_offset})
-
-                yield unfinished_line, starting_offset, ending_offset, newline_length, None
-        else:
-            for data, _, _, _, _ in iterator:
-                assert isinstance(data, bytes)
-
-                unfinished_line += data
-                lines = unfinished_line.decode("utf-8").splitlines()
-
-                if len(lines) == 0:
-                    continue
-
-                if newline_length == 0:
-                    if unfinished_line.find(b"\r\n") > -1:
-                        newline = b"\r\n"
-                        newline_length = 2
-                    elif unfinished_line.find(b"\n") > -1:
-                        newline = b"\n"
-                        newline_length = 1
-
-                if unfinished_line.endswith(newline):
-                    unfinished_line = lines.pop().encode() + newline
-                else:
-                    unfinished_line = lines.pop().encode()
-
-                for line in lines:
-                    line_encoded = line.encode("utf-8")
-                    starting_offset = ending_offset
-                    ending_offset += len(line_encoded) + newline_length
-                    shared_logger.debug("by_line lines", extra={"offset": ending_offset})
-
-                    yield line_encoded, starting_offset, ending_offset, newline_length, None
-
-            if len(unfinished_line) > 0:
+            for line in lines:
+                line_encoded = line.encode("utf-8")
                 starting_offset = ending_offset
-                ending_offset += len(unfinished_line)
+                ending_offset += len(line_encoded) + newline_length
+                shared_logger.debug("by_line lines", extra={"offset": ending_offset})
 
-                if newline_length == 2:
-                    newline = b"\r\n"
-                elif newline_length == 1:
-                    newline = b"\n"
-                else:
-                    newline = b""
+                yield line_encoded, starting_offset, ending_offset, newline_length, None
 
-                if newline_length > 0 and not unfinished_line.endswith(newline):
-                    newline_length = 0
+        if len(unfinished_line) > 0:
+            starting_offset = ending_offset
+            ending_offset += len(unfinished_line)
 
-                unfinished_line = unfinished_line.rstrip(newline)
+            if newline_length == 2:
+                newline = b"\r\n"
+            elif newline_length == 1:
+                newline = b"\n"
+            else:
+                newline = b""
 
-                shared_logger.debug("by_line unfinished_line", extra={"offset": ending_offset})
+            if newline_length > 0 and not unfinished_line.endswith(newline):
+                newline_length = 0
 
-                yield unfinished_line, starting_offset, ending_offset, newline_length, None
+            unfinished_line = unfinished_line.rstrip(newline)
+
+            shared_logger.debug("by_line unfinished_line", extra={"offset": ending_offset})
+
+            yield unfinished_line, starting_offset, ending_offset, newline_length, None
 
     return wrapper
 
@@ -242,7 +217,6 @@ class JsonCollector:
         self, buffer: bytes
     ) -> Iterator[tuple[Union[StorageReader, bytes], int, int, int, Optional[int]]]:
         assert self._storage is not None
-        self._storage.json_content_type = None
 
         @by_lines
         def wrapper(
@@ -256,6 +230,25 @@ class JsonCollector:
         ):
             assert isinstance(line, bytes)
             yield line, starting_offset, ending_offset, original_newline_length, None
+
+    def _collect_single(
+        self, iterator: Iterator[tuple[Union[StorageReader, bytes], int, int, int, Optional[int]]]
+    ) -> Iterator[tuple[Union[StorageReader, bytes], int, int, int, Optional[int]]]:
+        data_to_yield = b""
+        newline_length_to_yield = -1
+        for data, _, _, newline_length, _ in iterator:
+            data_to_yield += data
+            if newline_length == 2:
+                data_to_yield += b"\r\n"
+            elif newline_length == 1:
+                data_to_yield += b"\n"
+
+            self._handle_offset(len(data) + newline_length)
+
+            if newline_length_to_yield == -1:
+                newline_length_to_yield = newline_length
+
+        yield data_to_yield, self._starting_offset, self._ending_offset, newline_length_to_yield, None
 
     def _handle_offset(self, offset_skew: int) -> None:
         self._starting_offset = self._ending_offset
@@ -291,17 +284,15 @@ class JsonCollector:
             self._is_a_json_object_circuit_broken = False
             self._is_a_json_object_circuit_breaker = 0
 
+            iterator = self._function(storage, range_start, body, is_gzipped)
             # if we know it's a single json we replace body with the whole content,
             # and mark the object as started
             if storage.json_content_type == "single":
                 has_an_object_start = True
                 wait_for_object_start = False
-                # let's collect the whole single json
-                single = body.read()
-                # let's replace body with the whole single json
-                body = BytesIO(single)
+                # let's replace the iterator with the whole single json
+                iterator = self._collect_single(iterator)
 
-            iterator = self._function(storage, range_start, body, is_gzipped)
             for data, original_starting_offset, original_ending_offset, newline_length, _ in iterator:
                 assert isinstance(data, bytes)
 
