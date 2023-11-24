@@ -95,7 +95,6 @@ def test_get_by_lines(
     original: bytes = base64.b64decode(MockContent.f_content_plain)
     original_length: int = len(original)
 
-    now = datetime.datetime.utcnow()
     payload_storage = PayloadStorage(
         payload=payload_content_gzip,
         json_content_type=json_content_type,
