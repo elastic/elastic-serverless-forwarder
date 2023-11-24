@@ -110,8 +110,6 @@ def test_get_by_lines(
     )
     plain_full: list[tuple[bytes, int, int, Optional[int]]] = list(payload_storage.get_by_lines(range_start=0))
 
-    print(f"{datetime.datetime.utcnow() - now}: {json_content_type}/{content_type}/{len(newline)}/{length_multiplier}")
-
     diff = set(gzip_full) ^ set(plain_full)
     assert not diff
     assert plain_full == gzip_full
