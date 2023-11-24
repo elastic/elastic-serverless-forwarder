@@ -74,7 +74,7 @@ class CollectBuffer:
         self._processed_lines: int = 0
         self._current_length: int = 0
 
-    def collect_and_reset(self) -> tuple[bytes, int]:
+    def collect_and_reset(self) -> tuple[bytes, int, bytes]:
         data = self._buffer
         current_length = self._current_length
 
@@ -85,7 +85,14 @@ class CollectBuffer:
 
         self.previous = b""
 
-        return data, current_length
+        if data.find(b"\r\n") > -1:
+            newline = b"\r\n"
+        elif data.find(b"\n") > -1:
+            newline = b"\n"
+        else:
+            newline = b""
+
+        return data, current_length, newline
 
     def is_empty(self) -> bool:
         return self._buffer_lines == 0
@@ -179,20 +186,10 @@ class CountMultiline(CommonMultiline):
                 or (datetime.datetime.utcnow() - last_iteration_datetime) > timedelta_circuit_breaker
             ):
                 self._current_count = 0
-                content, current_length = self._buffer.collect_and_reset()
-                yield content, current_length, newline
+                yield self._buffer.collect_and_reset()
 
         if not self._buffer.is_empty():
-            content, current_length = self._buffer.collect_and_reset()
-
-            if content.find(b"\r\n") > -1:
-                newline = b"\r\n"
-            elif content.find(b"\n") > -1:
-                newline = b"\n"
-            else:
-                newline = b""
-
-            yield content, current_length, newline
+            yield self._buffer.collect_and_reset()
 
 
 WhileMatcherCallable = Callable[[bytes], bool]
@@ -266,36 +263,24 @@ class WhileMultiline(CommonMultiline):
             if not self._matcher(data):
                 if self._buffer.is_empty():
                     self._buffer.grow(data, newline)
-                    content, current_length = self._buffer.collect_and_reset()
-                    yield content, current_length, newline
+                    yield self._buffer.collect_and_reset()
                 else:
-                    content, current_length = self._buffer.collect_and_reset()
+                    content, current_length, _ = self._buffer.collect_and_reset()
                     self._buffer.grow(data, newline)
 
                     yield content, current_length, newline
 
-                    content, current_length = self._buffer.collect_and_reset()
+                    content, current_length, _ = self._buffer.collect_and_reset()
 
                     yield content, current_length, newline
             else:
                 self._buffer.grow(data, newline)
                 # no pre collect buffer in while multiline, let's check the circuit breaker after at least one grow
                 if (datetime.datetime.utcnow() - last_iteration_datetime) > timedelta_circuit_breaker:
-                    content, current_length = self._buffer.collect_and_reset()
-
-                    yield content, current_length, newline
+                    yield self._buffer.collect_and_reset()
 
         if not self._buffer.is_empty():
-            content, current_length = self._buffer.collect_and_reset()
-
-            if content.find(b"\r\n") > -1:
-                newline = b"\r\n"
-            elif content.find(b"\n") > -1:
-                newline = b"\r\n"
-            else:
-                newline = b""
-
-            yield content, current_length, newline
+            yield self._buffer.collect_and_reset()
 
 
 PatternMatcherCallable = Callable[[bytes, bytes], bool]
@@ -403,32 +388,19 @@ class PatternMultiline(CommonMultiline):
                 self._buffer.grow(data, newline)
                 self._pre_collect_buffer = True
 
-                content, current_length = self._buffer.collect_and_reset()
-                yield content, current_length, newline
+                yield self._buffer.collect_and_reset()
             elif (
                 not self._buffer.is_empty() and self._check_matcher() and not self._matcher(self._buffer.previous, data)
             ):
-                content, current_length = self._buffer.collect_and_reset()
+                content, current_length, _ = self._buffer.collect_and_reset()
 
                 self._buffer.grow(data, newline)
 
                 yield content, current_length, newline
             else:
                 if (datetime.datetime.utcnow() - last_iteration_datetime) > timedelta_circuit_breaker:
-                    content, current_length = self._buffer.collect_and_reset()
-
-                    yield content, current_length, newline
-
+                    yield self._buffer.collect_and_reset()
                 self._buffer.grow(data, newline)
 
         if not self._buffer.is_empty():
-            content, current_length = self._buffer.collect_and_reset()
-
-            if content.find(b"\r\n") > -1:
-                newline = b"\r\n"
-            elif content.find(b"\n") > -1:
-                newline = b"\n"
-            else:
-                newline = b""
-
-            yield content, current_length, newline
+            yield self._buffer.collect_and_reset()

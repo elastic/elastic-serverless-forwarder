@@ -46,7 +46,7 @@ def test_collect_buffer_grow(
     for i, line in enumerate(lines):
         collect_buffer.grow(data=line, newline=newline)
 
-    content, content_length = collect_buffer.collect_and_reset()
+    content, content_length, _ = collect_buffer.collect_and_reset()
 
     assert content == expected_content
     assert content_length == expected_content_length
@@ -100,7 +100,7 @@ def test_collect_buffer_collect(
     for i, line in enumerate(lines):
         collect_buffer.grow(data=line, newline=newline)
 
-    content, content_length = collect_buffer.collect_and_reset()
+    content, content_length, _ = collect_buffer.collect_and_reset()
 
     assert content == expected_content
     assert content_length == expected_content_length
