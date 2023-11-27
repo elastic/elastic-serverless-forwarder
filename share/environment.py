@@ -4,7 +4,6 @@
 
 import os
 import platform
-import sys
 
 
 def is_aws() -> bool:
