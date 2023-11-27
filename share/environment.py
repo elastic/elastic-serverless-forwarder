@@ -3,6 +3,7 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 import os
+import platform
 import sys
 
 
@@ -14,4 +15,4 @@ def environment() -> str:
     if is_aws():
         return os.environ["AWS_EXECUTION_ENV"]
     else:
-        return sys.version
+        return f"Python/{platform.python_version()} {platform.system()}/{platform.machine()}"
