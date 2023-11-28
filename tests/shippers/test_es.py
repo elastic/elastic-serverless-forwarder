@@ -12,6 +12,9 @@ import mock
 import pytest
 from elasticsearch import SerializationError
 
+import share
+from share.environment import get_environment
+from share.version import version
 from shippers import ElasticsearchShipper, JSONSerializer
 
 _now = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
@@ -48,7 +51,7 @@ _dummy_event: dict[str, Any] = {
 
 class MockTransport(elasticsearch.Transport):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
-        pass
+        self.kwargs = kwargs
 
 
 class MockClient(elasticsearch.Elasticsearch):
@@ -61,13 +64,20 @@ _documents = []
 _failures = []
 
 
-def mock_bulk(client: Any, actions: list[dict[str, Any]], **kwargs: Any) -> tuple[int, list[dict[str, Any]]]:
+def mock_bulk(
+    client: elasticsearch.Elasticsearch, actions: list[dict[str, Any]], **kwargs: Any
+) -> tuple[int, list[dict[str, Any]]]:
     global _documents
     _documents = [actions]
+    assert client.transport.kwargs["headers"] == {
+        "User-Agent": share.utils.create_user_agent(esf_version=version, environment=get_environment())
+    }
     return len(actions), []
 
 
-def mock_bulk_failure(client: Any, actions: list[dict[str, Any]], **kwargs: Any) -> tuple[int, list[dict[str, Any]]]:
+def mock_bulk_failure(
+    client: elasticsearch.Elasticsearch, actions: list[dict[str, Any]], **kwargs: Any
+) -> tuple[int, list[dict[str, Any]]]:
     global _failures
     _failures = list(map(lambda action: {"create": {"_id": action["_id"], "error": "an error"}}, actions))
     return len(actions), _failures
