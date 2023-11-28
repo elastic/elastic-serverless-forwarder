@@ -1,3 +1,7 @@
+### v1.11.0 - 2023/11/27
+##### Features
+* Add user agent with information about ESF version and host environment: [#537](https://github.com/elastic/elastic-serverless-forwarder/pull/537)
+
 ### v1.10.0 - 2023/10/27
 ##### Features
 * Move `_id` field to `@metadata._id` in logstash output: [#507](https://github.com/elastic/elastic-serverless-forwarder/pull/507)

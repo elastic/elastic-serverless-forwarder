@@ -74,7 +74,7 @@ class TestLambdaHandlerIntegration(TestCase):
 
         lsc = LocalStackContainer(image="localstack/localstack:1.4.0")
         lsc.with_env("EAGER_SERVICE_LOADING", "1")
-        lsc.with_services("kinesis", "logs", "s3", "sqs", "secretsmanager")
+        lsc.with_services("kinesis", "logs", "s3", "sqs", "secretsmanager", "ec2")
         cls.localstack = lsc.start()
 
         session = boto3.Session(region_name=_AWS_REGION)
