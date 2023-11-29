@@ -130,6 +130,17 @@ class JsonCollectorState:
 def json_collector(func: GetByLinesCallable[ProtocolStorageType]) -> GetByLinesCallable[ProtocolStorageType]:
     """
     ProtocolStorage decorator for returning content by collected json object (if any) spanning multiple lines
+
+    If `json_content_type` is `single` and we don't have any `expand_event_list_from_field` set, we just collect all the
+    content, and yield. If `json_content_type` is `disabled` or we have a multiline processor set, we yield what we
+    receive from the previous decorator. If `json_content_type` is `None` or `ndjson` we try to parse che content as
+    json if we find the beginning of a potential json object (ie: the `{` char). This is done appending one line after
+    one line and passing the content to the json parser until it will be able to parse a full json object. If the
+    content is ndjson every json parsing attempt will be successful, in case it isn't the parsing will succeed only
+    after we collect a full json object spanning multiple lines. A circuit breaker is present in order to stop trying to
+    parse the json if we reached 1000 lines: in this case we yield the content as it is, line by line.
+    Once a json object is parsed, if we have an `expand_event_list_from_field` set we pass the json the "events list
+    from field expander" and yield the expanded events list instead.
     """
 
     def _handle_offset(offset_skew: int, json_collector_state: JsonCollectorState) -> None:
@@ -200,6 +211,12 @@ def json_collector(func: GetByLinesCallable[ProtocolStorageType]) -> GetByLinesC
     def _by_lines_fallback(
         json_collector_state: JsonCollectorState,
     ) -> Iterator[tuple[Union[StorageReader, bytes], int, int, bytes, Optional[int]]]:
+        # let's reset the buffer
+        json_collector_state.unfinished_line = b""
+
+        # let's set the flag for direct yield from now on
+        json_collector_state.has_an_object_start = False
+
         @by_lines
         def wrapper(
             storage: ProtocolStorageType, range_start: int, body: BytesIO, is_gzipped: bool
@@ -216,12 +233,6 @@ def json_collector(func: GetByLinesCallable[ProtocolStorageType]) -> GetByLinesC
             assert isinstance(line, bytes)
 
             _handle_offset(len(line) + len(newline), json_collector_state)
-
-            # let's reset the buffer
-            json_collector_state.unfinished_line = b""
-
-            # let's set the flag for direct yield from now on
-            json_collector_state.has_an_object_start = False
 
             yield line, _, _, newline, None
 
