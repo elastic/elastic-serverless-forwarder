@@ -211,12 +211,6 @@ def json_collector(func: GetByLinesCallable[ProtocolStorageType]) -> GetByLinesC
     def _by_lines_fallback(
         json_collector_state: JsonCollectorState,
     ) -> Iterator[tuple[Union[StorageReader, bytes], int, int, bytes, Optional[int]]]:
-        # let's reset the buffer
-        json_collector_state.unfinished_line = b""
-
-        # let's set the flag for direct yield from now on
-        json_collector_state.has_an_object_start = False
-
         @by_lines
         def wrapper(
             storage: ProtocolStorageType, range_start: int, body: BytesIO, is_gzipped: bool
@@ -233,6 +227,12 @@ def json_collector(func: GetByLinesCallable[ProtocolStorageType]) -> GetByLinesC
             assert isinstance(line, bytes)
 
             _handle_offset(len(line) + len(newline), json_collector_state)
+
+            # let's reset the buffer
+            json_collector_state.unfinished_line = b""
+
+            # let's set the flag for direct yield from now on
+            json_collector_state.has_an_object_start = False
 
             yield line, _, _, newline, None
 
