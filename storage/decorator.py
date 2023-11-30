@@ -6,19 +6,19 @@ import gzip
 from io import BytesIO
 from typing import Any, Iterator, Optional, Union
 
-from share import ExpandEventListFromField, ProtocolMultiline, json_parser, shared_logger
+from share import ExpandEventListFromField, FeedIterator, ProtocolMultiline, json_parser, shared_logger
 
-from .storage import CHUNK_SIZE, GetByLinesCallable, ProtocolStorageType, StorageReader
+from .storage import CHUNK_SIZE, ProtocolStorageType, StorageDecoratorCallable, StorageDecoratorIterator, StorageReader
 
 
-def by_lines(func: GetByLinesCallable[ProtocolStorageType]) -> GetByLinesCallable[ProtocolStorageType]:
+def by_lines(func: StorageDecoratorCallable[ProtocolStorageType]) -> StorageDecoratorCallable[ProtocolStorageType]:
     """
     ProtocolStorage decorator for returning content split by lines
     """
 
     def wrapper(
         storage: ProtocolStorageType, range_start: int, body: BytesIO, is_gzipped: bool
-    ) -> Iterator[tuple[Union[StorageReader, bytes], int, int, bytes, Optional[int]]]:
+    ) -> StorageDecoratorIterator:
         ending_offset: int = range_start
         unfinished_line: bytes = b""
 
@@ -74,14 +74,14 @@ def by_lines(func: GetByLinesCallable[ProtocolStorageType]) -> GetByLinesCallabl
     return wrapper
 
 
-def multi_line(func: GetByLinesCallable[ProtocolStorageType]) -> GetByLinesCallable[ProtocolStorageType]:
+def multi_line(func: StorageDecoratorCallable[ProtocolStorageType]) -> StorageDecoratorCallable[ProtocolStorageType]:
     """
     ProtocolStorage decorator for returning content collected by multiline
     """
 
     def wrapper(
         storage: ProtocolStorageType, range_start: int, body: BytesIO, is_gzipped: bool
-    ) -> Iterator[tuple[Union[StorageReader, bytes], int, int, bytes, Optional[int]]]:
+    ) -> StorageDecoratorIterator:
         multiline_processor: Optional[ProtocolMultiline] = storage.multiline_processor
         if not multiline_processor:
             iterator = func(storage, range_start, body, is_gzipped)
@@ -94,7 +94,7 @@ def multi_line(func: GetByLinesCallable[ProtocolStorageType]) -> GetByLinesCalla
         else:
             ending_offset = range_start
 
-            def iterator_to_multiline_feed() -> Iterator[tuple[bytes, bytes]]:
+            def iterator_to_multiline_feed() -> FeedIterator:
                 for data, _, _, newline, _ in func(storage, range_start, body, is_gzipped):
                     assert isinstance(data, bytes)
                     yield data, newline
@@ -127,7 +127,9 @@ class JsonCollectorState:
         self.is_a_json_object_circuit_breaker: int = 0
 
 
-def json_collector(func: GetByLinesCallable[ProtocolStorageType]) -> GetByLinesCallable[ProtocolStorageType]:
+def json_collector(
+    func: StorageDecoratorCallable[ProtocolStorageType],
+) -> StorageDecoratorCallable[ProtocolStorageType]:
     """
     ProtocolStorage decorator for returning content by collected json object (if any) spanning multiple lines
 
@@ -208,13 +210,11 @@ def json_collector(func: GetByLinesCallable[ProtocolStorageType]) -> GetByLinesC
                 if json_collector_state.is_a_json_object_circuit_breaker > 1000:
                     json_collector_state.is_a_json_object_circuit_broken = True
 
-    def _by_lines_fallback(
-        json_collector_state: JsonCollectorState,
-    ) -> Iterator[tuple[Union[StorageReader, bytes], int, int, bytes, Optional[int]]]:
+    def _by_lines_fallback(json_collector_state: JsonCollectorState) -> StorageDecoratorIterator:
         @by_lines
         def wrapper(
             storage: ProtocolStorageType, range_start: int, body: BytesIO, is_gzipped: bool
-        ) -> Iterator[tuple[Union[StorageReader, bytes], int, int, bytes, Optional[int]]]:
+        ) -> StorageDecoratorIterator:
             data_to_yield: bytes = body.read()
             yield data_to_yield, 0, range_start, b"", None
 
@@ -238,7 +238,7 @@ def json_collector(func: GetByLinesCallable[ProtocolStorageType]) -> GetByLinesC
 
     def wrapper(
         storage: ProtocolStorageType, range_start: int, body: BytesIO, is_gzipped: bool
-    ) -> Iterator[tuple[Union[StorageReader, bytes], int, int, bytes, Optional[int]]]:
+    ) -> StorageDecoratorIterator:
         json_collector_state = JsonCollectorState(storage=storage)
 
         multiline_processor: Optional[ProtocolMultiline] = storage.multiline_processor
@@ -349,14 +349,14 @@ def json_collector(func: GetByLinesCallable[ProtocolStorageType]) -> GetByLinesC
     return wrapper
 
 
-def inflate(func: GetByLinesCallable[ProtocolStorageType]) -> GetByLinesCallable[ProtocolStorageType]:
+def inflate(func: StorageDecoratorCallable[ProtocolStorageType]) -> StorageDecoratorCallable[ProtocolStorageType]:
     """
     ProtocolStorage decorator for returning inflated content in case the original is gzipped
     """
 
     def wrapper(
         storage: ProtocolStorageType, range_start: int, body: BytesIO, is_gzipped: bool
-    ) -> Iterator[tuple[Union[StorageReader, bytes], int, int, bytes, Optional[int]]]:
+    ) -> StorageDecoratorIterator:
         iterator = func(storage, range_start, body, is_gzipped)
         for data, _, _, _, _ in iterator:
             if is_gzipped:

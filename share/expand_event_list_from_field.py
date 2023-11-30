@@ -5,6 +5,8 @@
 from copy import deepcopy
 from typing import Any, Callable, Iterator, Optional, Union
 
+from storage import GetByLinesIterator
+
 from .json import json_dumper
 from .logger import logger as shared_logger
 
@@ -74,7 +76,7 @@ class ExpandEventListFromField:
 
     def expand(
         self, log_event: bytes, json_object: Optional[dict[str, Any]], starting_offset: int, ending_offset: int
-    ) -> Iterator[tuple[bytes, int, int, Optional[int]]]:
+    ) -> GetByLinesIterator:
         if json_object is None:
             yield log_event, starting_offset, ending_offset, None
         else:

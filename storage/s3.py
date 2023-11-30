@@ -3,7 +3,7 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 from io import SEEK_SET, BytesIO
-from typing import Any, Iterator, Optional, Union
+from typing import Any, Optional
 
 import boto3
 import botocore.client
@@ -13,7 +13,14 @@ from botocore.response import StreamingBody
 from share import ExpandEventListFromField, ProtocolMultiline, shared_logger
 
 from .decorator import by_lines, inflate, json_collector, multi_line
-from .storage import CHUNK_SIZE, CommonStorage, StorageReader, is_gzip_content
+from .storage import (
+    CHUNK_SIZE,
+    CommonStorage,
+    GetByLinesIterator,
+    StorageDecoratorIterator,
+    StorageReader,
+    is_gzip_content,
+)
 
 
 class S3Storage(CommonStorage):
@@ -44,9 +51,7 @@ class S3Storage(CommonStorage):
     @json_collector
     @by_lines
     @inflate
-    def _generate(
-        self, range_start: int, body: BytesIO, is_gzipped: bool
-    ) -> Iterator[tuple[Union[StorageReader, bytes], int, int, bytes, Optional[int]]]:
+    def _generate(self, range_start: int, body: BytesIO, is_gzipped: bool) -> StorageDecoratorIterator:
         """
         Concrete implementation of the iterator for get_by_lines
         """
@@ -67,7 +72,7 @@ class S3Storage(CommonStorage):
                 shared_logger.debug("_generate flat", extra={"offset": file_ending_offset})
                 yield chunk, file_ending_offset, file_starting_offset, b"", None
 
-    def get_by_lines(self, range_start: int) -> Iterator[tuple[bytes, int, int, Optional[int]]]:
+    def get_by_lines(self, range_start: int) -> GetByLinesIterator:
         original_range_start: int = range_start
 
         s3_object_head = self._s3_client.head_object(Bucket=self._bucket_name, Key=self._object_key)

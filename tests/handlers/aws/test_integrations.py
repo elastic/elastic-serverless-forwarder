@@ -72,7 +72,7 @@ class TestLambdaHandlerIntegration(TestCase):
         lgc = LogstashContainer(es_container=esc)
         cls.logstash = lgc.start()
 
-        lsc = LocalStackContainer(image="localstack/localstack:3.0.0")
+        lsc = LocalStackContainer(image="localstack/localstack:3.0.1")
         lsc.with_env("EAGER_SERVICE_LOADING", "1")
         lsc.with_env("SQS_DISABLE_CLOUDWATCH_METRICS", "1")
         lsc.with_services("ec2", "kinesis", "logs", "s3", "sqs", "secretsmanager")

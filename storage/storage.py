@@ -6,6 +6,8 @@ from abc import ABCMeta
 from io import BytesIO
 from typing import Any, Callable, Iterator, Optional, Protocol, TypeVar, Union
 
+from typing_extensions import TypeAlias
+
 from share import ExpandEventListFromField, ProtocolMultiline
 
 # CHUNK_SIZE is how much we read from the gzip stream at every iteration in the inflate decorator
@@ -33,6 +35,9 @@ class StorageReader:
         return getattr(self._raw, item)
 
 
+GetByLinesIterator: TypeAlias = Iterator[tuple[bytes, int, int, Optional[int]]]
+
+
 class ProtocolStorage(Protocol):
     """
     Protocol for Storage components
@@ -42,7 +47,7 @@ class ProtocolStorage(Protocol):
     multiline_processor: Optional[ProtocolMultiline]
     event_list_from_field_expander: Optional[ExpandEventListFromField]
 
-    def get_by_lines(self, range_start: int) -> Iterator[tuple[bytes, int, int, Optional[int]]]:
+    def get_by_lines(self, range_start: int) -> GetByLinesIterator:
         pass  # pragma: no cover
 
     def get_as_string(self) -> str:
@@ -60,7 +65,5 @@ class CommonStorage(metaclass=ABCMeta):
 
 
 ProtocolStorageType = TypeVar("ProtocolStorageType", bound=ProtocolStorage)
-GetByLinesCallable = Callable[
-    [ProtocolStorageType, int, BytesIO, bool],
-    Iterator[tuple[Union[StorageReader, bytes], int, int, bytes, Optional[int]]],
-]
+StorageDecoratorIterator: TypeAlias = Iterator[tuple[Union[StorageReader, bytes], int, int, bytes, Optional[int]]]
+StorageDecoratorCallable = Callable[[ProtocolStorageType, int, BytesIO, bool], StorageDecoratorIterator]

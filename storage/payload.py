@@ -5,12 +5,19 @@ import base64
 import binascii
 import gzip
 from io import SEEK_SET, BytesIO
-from typing import Any, Iterator, Optional, Union
+from typing import Any, Optional
 
 from share import ExpandEventListFromField, ProtocolMultiline, shared_logger
 
 from .decorator import by_lines, inflate, json_collector, multi_line
-from .storage import CHUNK_SIZE, CommonStorage, StorageReader, is_gzip_content
+from .storage import (
+    CHUNK_SIZE,
+    CommonStorage,
+    GetByLinesIterator,
+    StorageDecoratorIterator,
+    StorageReader,
+    is_gzip_content,
+)
 
 
 class PayloadStorage(CommonStorage):
@@ -36,9 +43,7 @@ class PayloadStorage(CommonStorage):
     @json_collector
     @by_lines
     @inflate
-    def _generate(
-        self, range_start: int, body: BytesIO, is_gzipped: bool
-    ) -> Iterator[tuple[Union[StorageReader, bytes], int, int, bytes, Optional[int]]]:
+    def _generate(self, range_start: int, body: BytesIO, is_gzipped: bool) -> StorageDecoratorIterator:
         """
         Concrete implementation of the iterator for get_by_lines
         """
@@ -59,7 +64,7 @@ class PayloadStorage(CommonStorage):
                 shared_logger.debug("_generate flat", extra={"offset": file_ending_offset})
                 yield chunk, file_starting_offset, file_ending_offset, b"", None
 
-    def get_by_lines(self, range_start: int) -> Iterator[tuple[bytes, int, int, Optional[int]]]:
+    def get_by_lines(self, range_start: int) -> GetByLinesIterator:
         original_range_start: int = range_start
 
         is_gzipped: bool = False

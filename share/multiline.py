@@ -12,11 +12,17 @@ import re
 from abc import ABCMeta
 from typing import Callable, Iterator, Optional, Protocol
 
+from typing_extensions import TypeAlias
+
 default_max_bytes: int = 10485760  # Default maximum number of bytes to return in one multi-line event
 default_max_lines: int = 500  # Default maximum number of lines to return in one multi-line event
 default_multiline_timeout: int = 5  # Default timeout in secs to finish a multi-line event.
 
 timedelta_circuit_breaker: datetime.timedelta = datetime.timedelta(seconds=5)
+
+CollectTuple: TypeAlias = tuple[bytes, int, bytes]
+CollectIterator: TypeAlias = Iterator[CollectTuple]
+FeedIterator: TypeAlias = Iterator[tuple[bytes, bytes]]
 
 
 class CommonMultiline(metaclass=ABCMeta):
@@ -24,17 +30,17 @@ class CommonMultiline(metaclass=ABCMeta):
     Common class for Multiline components
     """
 
-    _feed: Iterator[tuple[bytes, bytes]]
+    _feed: FeedIterator
     _buffer: CollectBuffer
 
     _pre_collect_buffer: bool
 
     @property
-    def feed(self) -> Iterator[tuple[bytes, bytes]]:
+    def feed(self) -> FeedIterator:
         return self._feed
 
     @feed.setter
-    def feed(self, value: Iterator[tuple[bytes, bytes]]) -> None:
+    def feed(self, value: FeedIterator) -> None:
         self._feed = value
 
 
@@ -43,18 +49,18 @@ class ProtocolMultiline(Protocol):
     Protocol class for Multiline components
     """
 
-    _feed: Iterator[tuple[bytes, bytes]]
+    _feed: FeedIterator
     _buffer: CollectBuffer
 
     @property
-    def feed(self) -> Iterator[tuple[bytes, bytes]]:
+    def feed(self) -> FeedIterator:
         pass  # pragma: no cover
 
     @feed.setter
-    def feed(self, value: Iterator[tuple[bytes, bytes]]) -> None:
+    def feed(self, value: FeedIterator) -> None:
         pass  # pragma: no cover
 
-    def collect(self) -> Iterator[tuple[bytes, int, bytes]]:
+    def collect(self) -> CollectIterator:
         pass  # pragma: no cover
 
 
@@ -77,7 +83,7 @@ class CollectBuffer:
         self._processed_lines: int = 0
         self._current_length: int = 0
 
-    def collect_and_reset(self) -> tuple[bytes, int, bytes]:
+    def collect_and_reset(self) -> CollectTuple:
         data = self._buffer
         current_length = self._current_length
 
@@ -179,7 +185,7 @@ class CountMultiline(CommonMultiline):
             and self._skip_newline == self._skip_newline
         )
 
-    def collect(self) -> Iterator[tuple[bytes, int, bytes]]:
+    def collect(self) -> CollectIterator:
         last_iteration_datetime: datetime.datetime = datetime.datetime.utcnow()
         for data, newline in self.feed:
             self._buffer.grow(data, newline)
@@ -260,7 +266,7 @@ class WhileMultiline(CommonMultiline):
 
         return negate
 
-    def collect(self) -> Iterator[tuple[bytes, int, bytes]]:
+    def collect(self) -> CollectIterator:
         last_iteration_datetime: datetime.datetime = datetime.datetime.utcnow()
         for data, newline in self.feed:
             if not self._matcher(data):
@@ -380,7 +386,7 @@ class PatternMultiline(CommonMultiline):
     def _check_matcher(self) -> bool:
         return (self._match == "after" and len(self._buffer.previous) > 0) or self._match == "before"
 
-    def collect(self) -> Iterator[tuple[bytes, int, bytes]]:
+    def collect(self) -> CollectIterator:
         for data, newline in self.feed:
             last_iteration_datetime: datetime.datetime = datetime.datetime.utcnow()
             if self._pre_collect_buffer:

@@ -2,13 +2,13 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 import datetime
-from typing import Iterator, Optional
+from typing import Optional
 from unittest import TestCase
 
 import mock
 import pytest
 
-from share import CollectBuffer, CountMultiline, PatternMultiline, WhileMultiline
+from share import CollectBuffer, CountMultiline, FeedIterator, PatternMultiline, WhileMultiline
 
 collect_buffer_grow = [
     pytest.param(
@@ -406,7 +406,7 @@ def test_pattern_multiline(
         pattern=pattern, match=match, flush_pattern=flush_pattern, negate=negate, max_lines=max_lines
     )
 
-    def feed_iterator(content: bytes) -> Iterator[tuple[bytes, bytes]]:
+    def feed_iterator(content: bytes) -> FeedIterator:
         for line in content.splitlines():
             yield line, newline
 
@@ -445,7 +445,7 @@ def test_pattern_multiline_circuitbreaker(
 ) -> None:
     pattern_multiline: PatternMultiline = PatternMultiline(pattern="^[ \t] +", match="after")
 
-    def feed_iterator(content: bytes) -> Iterator[tuple[bytes, bytes]]:
+    def feed_iterator(content: bytes) -> FeedIterator:
         for line in content.splitlines():
             yield line, newline
 
@@ -570,7 +570,7 @@ def test_count_multiline(
 
     count_multiline: CountMultiline = CountMultiline(count_lines=count_lines, max_lines=max_lines)
 
-    def feed_iterator(content: bytes) -> Iterator[tuple[bytes, bytes]]:
+    def feed_iterator(content: bytes) -> FeedIterator:
         for line in content.splitlines():
             yield line, newline
 
@@ -605,7 +605,7 @@ count_multiline_collect_circuitbreaker = [
 def test_count_multiline_circuitbreaker(newline: bytes, feed: bytes, expected_events: list[tuple[bytes, int]]) -> None:
     count_multiline: CountMultiline = CountMultiline(count_lines=2)
 
-    def feed_iterator(content: bytes) -> Iterator[tuple[bytes, bytes]]:
+    def feed_iterator(content: bytes) -> FeedIterator:
         for line in content.splitlines():
             yield line, newline
 
@@ -727,7 +727,7 @@ def test_while_multiline(
 
     while_multiline: WhileMultiline = WhileMultiline(pattern=pattern, negate=negate, max_lines=max_lines)
 
-    def feed_iterator(content: bytes) -> Iterator[tuple[bytes, bytes]]:
+    def feed_iterator(content: bytes) -> FeedIterator:
         for line in content.splitlines():
             yield line, newline
 
@@ -762,7 +762,7 @@ while_multiline_collect_circuitbreaker = [
 def test_while_multiline_circuitbreaker(newline: bytes, feed: bytes, expected_events: list[tuple[bytes, int]]) -> None:
     while_multiline: WhileMultiline = WhileMultiline(pattern="^{")
 
-    def feed_iterator(content: bytes) -> Iterator[tuple[bytes, bytes]]:
+    def feed_iterator(content: bytes) -> FeedIterator:
         for line in content.splitlines():
             yield line, newline
 
