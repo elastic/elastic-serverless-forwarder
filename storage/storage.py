@@ -68,8 +68,8 @@ class CommonStorage(metaclass=ABCMeta):
 
 ProtocolStorageType = TypeVar("ProtocolStorageType", bound=ProtocolStorage)
 
-# GetByLinesIterator yields a tuple of content (expressed as `StorageReader` or bytes), starting offset, ending offset,
-# newline and optional offset of a list of expanded events
+# StorageDecoratorIterator yields a tuple of content (expressed as `StorageReader` or bytes), starting offset,
+# ending offset, newline and optional offset of a list of expanded events
 StorageDecoratorIterator: TypeAlias = Iterator[tuple[Union[StorageReader, bytes], int, int, bytes, Optional[int]]]
 
 StorageDecoratorCallable = Callable[[ProtocolStorageType, int, BytesIO, bool], StorageDecoratorIterator]
