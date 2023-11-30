@@ -20,8 +20,15 @@ default_multiline_timeout: int = 5  # Default timeout in secs to finish a multi-
 
 timedelta_circuit_breaker: datetime.timedelta = datetime.timedelta(seconds=5)
 
+# CollectTuple is a tuple representing the multilines bytes content, the length of the content and the newline found
+# These data is instrumental to the `StorageDecoratorIterator` that needs the content to yield, the starting and ending
+# offsets and the newline
 CollectTuple: TypeAlias = tuple[bytes, int, bytes]
+
+# CollectIterator yields a `CollectTuple`
 CollectIterator: TypeAlias = Iterator[CollectTuple]
+
+# FeedIterator yields a tuple representing the content and its newline to feed of the `ProtocolMultiline` implementation
 FeedIterator: TypeAlias = Iterator[tuple[bytes, bytes]]
 
 
