@@ -208,6 +208,8 @@ class CountMultiline(CommonMultiline):
             yield self._buffer.collect_and_reset()
 
 
+# WhileMatcherCallable accepts a pattern in bytes to be compiled as regex.
+# It returns a boolean indicating if the content matches a "while" multiline pattern or not.
 WhileMatcherCallable = Callable[[bytes], bool]
 
 
@@ -299,7 +301,12 @@ class WhileMultiline(CommonMultiline):
             yield self._buffer.collect_and_reset()
 
 
+# WhileMatcherCallable accepts the previous and the current content as arguments.
+# It returns a boolean indicating if the content matches a "pattern" multiline pattern or not.
 PatternMatcherCallable = Callable[[bytes, bytes], bool]
+
+# SelectCallable accepts the previous and the current content as arguments.
+# It returns either the previous or current content according to the matching type ("before" or "after").
 SelectCallable = Callable[[bytes, bytes], bytes]
 
 

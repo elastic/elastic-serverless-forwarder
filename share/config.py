@@ -14,8 +14,6 @@ from .multiline import ProtocolMultiline
 _available_input_types: list[str] = ["cloudwatch-logs", "s3-sqs", "sqs", "kinesis-data-stream"]
 _available_output_types: list[str] = ["elasticsearch", "logstash"]
 
-IntegrationScopeDiscovererCallable = Callable[[dict[str, Any], int], str]
-
 
 class Output:
     """

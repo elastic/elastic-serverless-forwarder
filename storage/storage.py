@@ -72,4 +72,6 @@ ProtocolStorageType = TypeVar("ProtocolStorageType", bound=ProtocolStorage)
 # ending offset, newline and optional offset of a list of expanded events
 StorageDecoratorIterator: TypeAlias = Iterator[tuple[Union[StorageReader, bytes], int, int, bytes, Optional[int]]]
 
+# StorageDecoratorCallable accepts a `ProtocolStorageType`, the range start offset, the content as BytesIO and a boolean
+# flag indicating if the content is gzipped as arguments. It returns a `StorageDecoratorIterator`
 StorageDecoratorCallable = Callable[[ProtocolStorageType, int, BytesIO, bool], StorageDecoratorIterator]

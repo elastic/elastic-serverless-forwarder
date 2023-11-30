@@ -10,6 +10,8 @@ from storage import GetByLinesIterator
 from .json import json_dumper
 from .logger import logger as shared_logger
 
+# ExpandEventListFromFieldResolverCallable accepts an integration_scope and the field to expand events list from as
+# arguments. It returns the resolved name of the field to expand the events list from.
 ExpandEventListFromFieldResolverCallable = Callable[[str, str], str]
 
 
