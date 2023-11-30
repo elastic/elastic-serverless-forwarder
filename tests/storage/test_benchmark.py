@@ -68,7 +68,7 @@ def get_by_lines_parameters() -> list[tuple[int, str, bytes]]:
             _IS_MULTILINE_PATTERN,
             _IS_MULTILINE_WHILE,
         ]:
-            for newline in [b"\n", b"\r\n"]:
+            for newline in [b"", b"\n", b"\r\n"]:
                 for json_content_type in [None, "single", "ndjson", "disabled"]:
                     parameters.append(
                         pytest.param(
