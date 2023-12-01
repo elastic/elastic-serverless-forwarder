@@ -76,6 +76,7 @@ class TestLambdaHandlerIntegration(TestCase):
         lsc.with_env("EAGER_SERVICE_LOADING", "1")
         lsc.with_env("SQS_DISABLE_CLOUDWATCH_METRICS", "1")
         lsc.with_services("ec2", "kinesis", "logs", "s3", "sqs", "secretsmanager")
+
         cls.localstack = lsc.start()
 
         session = boto3.Session(region_name=_AWS_REGION)
