@@ -371,11 +371,8 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                     )
 
         previous_sqs_record: int = 0
-        last_sqs_record: Optional[dict[str, Any]] = None
         for current_sqs_record, sqs_record in enumerate(lambda_event["Records"]):
-            last_sqs_record = sqs_record
             if current_sqs_record > previous_sqs_record:
-
                 previous_sqs_record = current_sqs_record
 
             continuing_original_input_type = get_continuing_original_input_type(sqs_record)

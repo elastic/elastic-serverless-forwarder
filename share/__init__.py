@@ -9,6 +9,6 @@ from .factory import MultilineFactory
 from .include_exlude import IncludeExcludeFilter, IncludeExcludeRule
 from .json import json_dumper, json_parser
 from .logger import logger as shared_logger
-from .multiline import CollectBuffer, CountMultiline, PatternMultiline, ProtocolMultiline, WhileMultiline
+from .multiline import CollectBuffer, CountMultiline, FeedIterator, PatternMultiline, ProtocolMultiline, WhileMultiline
 from .secretsmanager import aws_sm_expander
 from .utils import get_hex_prefix

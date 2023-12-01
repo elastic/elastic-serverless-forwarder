@@ -1,3 +1,8 @@
+### v1.11.0 - 2023/11/27
+##### Features
+* Add user agent with information about ESF version and host environment: [#537](https://github.com/elastic/elastic-serverless-forwarder/pull/537)
+* Remove calls to `sqs.DeleteMessage` and refactor storage decorators: [#534](https://github.com/elastic/elastic-serverless-forwarder/pull/534)
+
 ### v1.10.0 - 2023/10/27
 ##### Features
 * Move `_id` field to `@metadata._id` in logstash output: [#507](https://github.com/elastic/elastic-serverless-forwarder/pull/507)
