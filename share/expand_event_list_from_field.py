@@ -5,8 +5,6 @@
 from copy import deepcopy
 from typing import Any, Callable, Iterator, Optional, Union
 
-from storage import GetByLinesIterator
-
 from .json import json_dumper
 from .logger import logger as shared_logger
 
@@ -30,9 +28,9 @@ class ExpandEventListFromField:
 
     def _expand_event_list_from_field(
         self, json_object: dict[str, Any], starting_offset: int, ending_offset: int
-    ) -> Iterator[tuple[Any, int, Optional[int], bool, bool]]:
+    ) -> Iterator[tuple[Any, int, int, Optional[int], bool, bool]]:
         if len(self._field_to_expand_event_list_from) == 0 or self._field_to_expand_event_list_from not in json_object:
-            yield None, starting_offset, 0, True, False
+            yield None, starting_offset, ending_offset, 0, True, False
         else:
             events_list: list[Any] = json_object[self._field_to_expand_event_list_from]
             # let's set to 1 if empty list to avoid division by zero in the line below,
@@ -72,21 +70,20 @@ class ExpandEventListFromField:
                         shared_logger.debug("root fields to be added on a non json object event")
 
                 event_n += offset_skew
-                yield event, int(
-                    starting_offset + (event_n * avg_event_length)
+                yield event, int(starting_offset + (event_n * avg_event_length)), int(
+                    starting_offset + ((event_n + 1) * avg_event_length)
                 ), event_n, event_n == events_list_length - 1, True
 
     def expand(
         self, log_event: bytes, json_object: Optional[dict[str, Any]], starting_offset: int, ending_offset: int
-    ) -> GetByLinesIterator:
+    ) -> Iterator[tuple[bytes, int, int, Optional[int]]]:
         if json_object is None:
             yield log_event, starting_offset, ending_offset, None
         else:
-            expanded_ending_offset: int = starting_offset
-
             for (
                 expanded_event,
                 expanded_starting_offset,
+                expanded_ending_offset,
                 expanded_event_n,
                 is_last_expanded_event,
                 event_was_expanded,
