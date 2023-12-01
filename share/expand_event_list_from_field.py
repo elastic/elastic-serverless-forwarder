@@ -28,9 +28,9 @@ class ExpandEventListFromField:
 
     def _expand_event_list_from_field(
         self, json_object: dict[str, Any], starting_offset: int, ending_offset: int
-    ) -> Iterator[tuple[Any, int, int, Optional[int], bool, bool]]:
+    ) -> Iterator[tuple[Any, int, Optional[int], bool, bool]]:
         if len(self._field_to_expand_event_list_from) == 0 or self._field_to_expand_event_list_from not in json_object:
-            yield None, starting_offset, ending_offset, 0, True, False
+            yield None, starting_offset, 0, True, False
         else:
             events_list: list[Any] = json_object[self._field_to_expand_event_list_from]
             # let's set to 1 if empty list to avoid division by zero in the line below,
@@ -70,8 +70,8 @@ class ExpandEventListFromField:
                         shared_logger.debug("root fields to be added on a non json object event")
 
                 event_n += offset_skew
-                yield event, int(starting_offset + (event_n * avg_event_length)), int(
-                    starting_offset + ((event_n + 1) * avg_event_length)
+                yield event, int(
+                    starting_offset + (event_n * avg_event_length)
                 ), event_n, event_n == events_list_length - 1, True
 
     def expand(
@@ -80,10 +80,14 @@ class ExpandEventListFromField:
         if json_object is None:
             yield log_event, starting_offset, ending_offset, None
         else:
+            # expanded_ending_offset is set to the starting_offset because if we want to set it to the beginning of the
+            # json object in case of a message from the continuation queue. if we update it, if the payload is continued
+            # we will fetch the content of the payload from the middle of the json object, failing to parse it
+            expanded_ending_offset: int = starting_offset
+
             for (
                 expanded_event,
                 expanded_starting_offset,
-                expanded_ending_offset,
                 expanded_event_n,
                 is_last_expanded_event,
                 event_was_expanded,
@@ -98,6 +102,7 @@ class ExpandEventListFromField:
 
                     if is_last_expanded_event:
                         expanded_event_n = None
+                        # only when we reach the last expanded event we can move the ending offset
                         expanded_ending_offset = ending_offset
                 else:
                     expanded_event_n = None

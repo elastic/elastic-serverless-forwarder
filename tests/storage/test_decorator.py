@@ -148,9 +148,9 @@ class TestDecorator(TestCase):
         )
         fixtures = BytesIO(b'{"Records": [{"line": 1},\n{"line": 2},\n{"line": 3}\n]}\n')
         expected = [
-            (b'{"line":1}', 0, 18, b"\n", 0),
-            (b'{"line":2}', 18, 36, b"\n", 1),
-            (b'{"line":3}', 36, 54, b"\n", None),
+            (b'{"line":1}', 0, 0, b"\n", 0),  # ending_offset is not set with event list from field expander
+            (b'{"line":2}', 18, 0, b"\n", 1),  # ending_offset is not set with event list from field expander
+            (b'{"line":3}', 36, 54, b"\n", None),  # ending_offset is set only for the last expanded event
         ]
 
         decorated: list[tuple[Union[StorageReader, bytes], int, int, bytes, Optional[int]]] = list(
@@ -175,7 +175,7 @@ class TestDecorator(TestCase):
         )
         fixtures = BytesIO(b'{"Records": [{"line": 1},\n{"line": 2},\n{"line": 3}\n]}\n')
         expected = [
-            (b'{"line":2}', 18, 36, b"\n", 1),
+            (b'{"line":2}', 18, 0, b"\n", 1),
             (b'{"line":3}', 36, 54, b"\n", None),
         ]
 
