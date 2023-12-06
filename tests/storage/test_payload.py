@@ -14,7 +14,6 @@ import pytest
 from storage import PayloadStorage
 
 from .test_benchmark import (
-    _IS_JSON,
     _IS_PLAIN,
     _LENGTH_ABOVE_THRESHOLD,
     MockContentBase,
@@ -117,12 +116,9 @@ def test_get_by_lines(
     assert plain_full[-1][2] == original_length
 
     joined = joiner_token.join([x[0] for x in plain_full])
-    if original.endswith(newline):
-        joined += newline
-
     assert joined == original
 
-    if len(newline) == 0 or (content_type == _IS_JSON and json_content_type == "single"):
+    if len(newline) == 0 or (json_content_type == "single"):
         return
 
     gzip_full_01 = gzip_full[: int(len(gzip_full) / 2)]
@@ -165,8 +161,6 @@ def test_get_by_lines(
         + joiner_token
         + joiner_token.join([x[0] for x in plain_full_02])
     )
-    if original.endswith(newline):
-        joined += newline
 
     assert joined == original
 
@@ -212,8 +206,6 @@ def test_get_by_lines(
         + joiner_token
         + joiner_token.join([x[0] for x in plain_full_03])
     )
-    if original.endswith(newline):
-        joined += newline
 
     assert joined == original
 

@@ -72,9 +72,11 @@ class TestLambdaHandlerIntegration(TestCase):
         lgc = LogstashContainer(es_container=esc)
         cls.logstash = lgc.start()
 
-        lsc = LocalStackContainer(image="localstack/localstack:1.4.0")
+        lsc = LocalStackContainer(image="localstack/localstack:3.0.1")
         lsc.with_env("EAGER_SERVICE_LOADING", "1")
-        lsc.with_services("kinesis", "logs", "s3", "sqs", "secretsmanager", "ec2")
+        lsc.with_env("SQS_DISABLE_CLOUDWATCH_METRICS", "1")
+        lsc.with_services("ec2", "kinesis", "logs", "s3", "sqs", "secretsmanager")
+
         cls.localstack = lsc.start()
 
         session = boto3.Session(region_name=_AWS_REGION)
@@ -386,7 +388,7 @@ class TestLambdaHandlerIntegration(TestCase):
                 tags: {self.default_tags}
                 outputs: {self.default_outputs}
               - type: "cloudwatch-logs"
-                id: "{cloudwatch_group_arn}:*"
+                id: "{cloudwatch_group_arn}"
                 tags: {self.default_tags}
                 outputs: {self.default_outputs}
               - type: sqs
@@ -859,7 +861,7 @@ class TestLambdaHandlerIntegration(TestCase):
                       username: "wrong_username"
                       password: "wrong_username"
               - type: "cloudwatch-logs"
-                id: "{cloudwatch_group_arn}:*"
+                id: "{cloudwatch_group_arn}"
                 tags: {self.default_tags}
                 outputs:
                   - type: "elasticsearch"
@@ -1200,7 +1202,7 @@ class TestLambdaHandlerIntegration(TestCase):
                 tags: {self.default_tags}
                 outputs: {self.default_outputs}
               - type: "cloudwatch-logs"
-                id: "{cloudwatch_group_arn}:*"
+                id: "{cloudwatch_group_arn}"
                 tags: {self.default_tags}
                 outputs: {self.default_outputs}
               - type: sqs
@@ -1454,7 +1456,7 @@ class TestLambdaHandlerIntegration(TestCase):
                 id: "{kinesis_stream_arn}"
                 outputs: {self.default_outputs}
               - type: "cloudwatch-logs"
-                id: "{cloudwatch_group_arn}:*"
+                id: "{cloudwatch_group_arn}"
                 outputs: {self.default_outputs}
               - type: sqs
                 id: "{sqs_queue_arn}"
@@ -1595,7 +1597,7 @@ class TestLambdaHandlerIntegration(TestCase):
                   - "excluded"
                 outputs: {self.default_outputs}
               - type: "cloudwatch-logs"
-                id: "{cloudwatch_group_arn}:*"
+                id: "{cloudwatch_group_arn}"
                 exclude:
                   - "excluded"
                 outputs: {self.default_outputs}
@@ -2527,7 +2529,7 @@ class TestLambdaHandlerIntegration(TestCase):
             messages_body=[fixtures[1]],
         )
 
-        cloudwatch_group_arn = cloudwatch_group["arn"]
+        cloudwatch_group_arn = cloudwatch_group["arn"][0:-2]
 
         cloudwatch_group_name = cloudwatch_group_name
         cloudwatch_stream_name = cloudwatch_stream_name
@@ -2633,7 +2635,7 @@ class TestLambdaHandlerIntegration(TestCase):
         config_yaml: str = f"""
             inputs:
               - type: "cloudwatch-logs"
-                id: "{cloudwatch_group_arn}:*"
+                id: "{cloudwatch_group_arn}"
                 tags: {self.default_tags}
                 outputs:
                   - type: "logstash"
@@ -2746,7 +2748,7 @@ class TestLambdaHandlerIntegration(TestCase):
         config_yaml: str = f"""
             inputs:
               - type: "cloudwatch-logs"
-                id: "{cloudwatch_group_arn}:*"
+                id: "{cloudwatch_group_arn}"
                 expand_event_list_from_field: aField
                 tags: {self.default_tags}
                 outputs:

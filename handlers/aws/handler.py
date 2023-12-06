@@ -28,7 +28,6 @@ from .utils import (
     capture_serverless,
     config_yaml_from_payload,
     config_yaml_from_s3,
-    delete_sqs_record,
     expand_event_list_from_field_resolver,
     get_continuing_original_input_type,
     get_input_from_log_group_subscription_data,
@@ -371,16 +370,9 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                         config_yaml=timeout_config_yaml,
                     )
 
-                delete_sqs_record(sqs_record["eventSourceARN"], sqs_record["receiptHandle"])
-
         previous_sqs_record: int = 0
-        last_sqs_record: Optional[dict[str, Any]] = None
         for current_sqs_record, sqs_record in enumerate(lambda_event["Records"]):
-            last_sqs_record = sqs_record
             if current_sqs_record > previous_sqs_record:
-                deleting_sqs_record = lambda_event["Records"][previous_sqs_record]
-                delete_sqs_record(deleting_sqs_record["eventSourceARN"], deleting_sqs_record["receiptHandle"])
-
                 previous_sqs_record = current_sqs_record
 
             continuing_original_input_type = get_continuing_original_input_type(sqs_record)
@@ -503,8 +495,5 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             "lambda processed all the events",
             extra={"sent_events": sent_events, "empty_events": empty_events, "skipped_events": skipped_events},
         )
-
-        assert last_sqs_record is not None
-        delete_sqs_record(last_sqs_record["eventSourceARN"], last_sqs_record["receiptHandle"])
 
     return "completed"

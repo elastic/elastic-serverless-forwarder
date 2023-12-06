@@ -2,13 +2,13 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 import datetime
-from typing import Iterator, Optional
+from typing import Optional
 from unittest import TestCase
 
 import mock
 import pytest
 
-from share import CollectBuffer, CountMultiline, PatternMultiline, WhileMultiline
+from share import CollectBuffer, CountMultiline, FeedIterator, PatternMultiline, WhileMultiline
 
 collect_buffer_grow = [
     pytest.param(
@@ -46,7 +46,7 @@ def test_collect_buffer_grow(
     for i, line in enumerate(lines):
         collect_buffer.grow(data=line, newline=newline)
 
-    content, content_length = collect_buffer.collect_and_reset()
+    content, content_length, _ = collect_buffer.collect_and_reset()
 
     assert content == expected_content
     assert content_length == expected_content_length
@@ -100,7 +100,7 @@ def test_collect_buffer_collect(
     for i, line in enumerate(lines):
         collect_buffer.grow(data=line, newline=newline)
 
-    content, content_length = collect_buffer.collect_and_reset()
+    content, content_length, _ = collect_buffer.collect_and_reset()
 
     assert content == expected_content
     assert content_length == expected_content_length
@@ -406,11 +406,9 @@ def test_pattern_multiline(
         pattern=pattern, match=match, flush_pattern=flush_pattern, negate=negate, max_lines=max_lines
     )
 
-    newline_length: int = len(newline)
-
-    def feed_iterator(content: bytes) -> Iterator[tuple[bytes, bytes, int]]:
+    def feed_iterator(content: bytes) -> FeedIterator:
         for line in content.splitlines():
-            yield line, newline, newline_length
+            yield line, newline
 
     pattern_multiline.feed = feed_iterator(feed)
 
@@ -432,14 +430,14 @@ pattern_multiline_collect_circuitbreaker = [
         b"\r\n",
         b"line1\r\n  line1.1\r\n  line1.2\r\nline2\r\n  line2.1\r\n  line2.2\r\n",
         [(b"line1", 7), (b"  line1.1", 11), (b"  line1.2", 11), (b"line2", 7), (b"  line2.1", 11), (b"  line2.2", 11)],
-        id="circuit breaker: \n",
+        id="circuit breaker: \r\n",
     ),
 ]
 
 
 @pytest.mark.unit
 @pytest.mark.parametrize("newline,feed,expected_events", pattern_multiline_collect_circuitbreaker)
-@mock.patch("share.multiline.timedelta_circuit_breaker", new=datetime.timedelta(seconds=0))
+@mock.patch("share.multiline.timedelta_circuit_breaker", new=datetime.timedelta(seconds=-1))
 def test_pattern_multiline_circuitbreaker(
     newline: bytes,
     feed: bytes,
@@ -447,11 +445,9 @@ def test_pattern_multiline_circuitbreaker(
 ) -> None:
     pattern_multiline: PatternMultiline = PatternMultiline(pattern="^[ \t] +", match="after")
 
-    newline_length: int = len(newline)
-
-    def feed_iterator(content: bytes) -> Iterator[tuple[bytes, bytes, int]]:
+    def feed_iterator(content: bytes) -> FeedIterator:
         for line in content.splitlines():
-            yield line, newline, newline_length
+            yield line, newline
 
     pattern_multiline.feed = feed_iterator(feed)
 
@@ -574,11 +570,9 @@ def test_count_multiline(
 
     count_multiline: CountMultiline = CountMultiline(count_lines=count_lines, max_lines=max_lines)
 
-    newline_length: int = len(newline)
-
-    def feed_iterator(content: bytes) -> Iterator[tuple[bytes, bytes, int]]:
+    def feed_iterator(content: bytes) -> FeedIterator:
         for line in content.splitlines():
-            yield line, newline, newline_length
+            yield line, newline
 
     count_multiline.feed = feed_iterator(feed)
 
@@ -611,11 +605,9 @@ count_multiline_collect_circuitbreaker = [
 def test_count_multiline_circuitbreaker(newline: bytes, feed: bytes, expected_events: list[tuple[bytes, int]]) -> None:
     count_multiline: CountMultiline = CountMultiline(count_lines=2)
 
-    newline_length: int = len(newline)
-
-    def feed_iterator(content: bytes) -> Iterator[tuple[bytes, bytes, int]]:
+    def feed_iterator(content: bytes) -> FeedIterator:
         for line in content.splitlines():
-            yield line, newline, newline_length
+            yield line, newline
 
     count_multiline.feed = feed_iterator(feed)
 
@@ -735,11 +727,9 @@ def test_while_multiline(
 
     while_multiline: WhileMultiline = WhileMultiline(pattern=pattern, negate=negate, max_lines=max_lines)
 
-    newline_length: int = len(newline)
-
-    def feed_iterator(content: bytes) -> Iterator[tuple[bytes, bytes, int]]:
+    def feed_iterator(content: bytes) -> FeedIterator:
         for line in content.splitlines():
-            yield line, newline, newline_length
+            yield line, newline
 
     while_multiline.feed = feed_iterator(feed)
 
@@ -772,11 +762,9 @@ while_multiline_collect_circuitbreaker = [
 def test_while_multiline_circuitbreaker(newline: bytes, feed: bytes, expected_events: list[tuple[bytes, int]]) -> None:
     while_multiline: WhileMultiline = WhileMultiline(pattern="^{")
 
-    newline_length: int = len(newline)
-
-    def feed_iterator(content: bytes) -> Iterator[tuple[bytes, bytes, int]]:
+    def feed_iterator(content: bytes) -> FeedIterator:
         for line in content.splitlines():
-            yield line, newline, newline_length
+            yield line, newline
 
     while_multiline.feed = feed_iterator(feed)
 

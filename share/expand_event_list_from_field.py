@@ -8,6 +8,8 @@ from typing import Any, Callable, Iterator, Optional, Union
 from .json import json_dumper
 from .logger import logger as shared_logger
 
+# ExpandEventListFromFieldResolverCallable accepts an integration_scope and the field to expand events list from as
+# arguments. It returns the resolved name of the field to expand the events list from.
 ExpandEventListFromFieldResolverCallable = Callable[[str, str], str]
 
 
@@ -78,6 +80,9 @@ class ExpandEventListFromField:
         if json_object is None:
             yield log_event, starting_offset, ending_offset, None
         else:
+            # expanded_ending_offset is set to the starting_offset because if we want to set it to the beginning of the
+            # json object in case of a message from the continuation queue. if we update it, if the payload is continued
+            # we will fetch the content of the payload from the middle of the json object, failing to parse it
             expanded_ending_offset: int = starting_offset
 
             for (
@@ -97,6 +102,7 @@ class ExpandEventListFromField:
 
                     if is_last_expanded_event:
                         expanded_event_n = None
+                        # only when we reach the last expanded event we can move the ending offset
                         expanded_ending_offset = ending_offset
                 else:
                     expanded_event_n = None
