@@ -67,6 +67,70 @@ def _get_random_digit_string_of_size(size: int) -> str:
 
 
 @pytest.mark.unit
+class TestGetTriggerTypeAndConfigSource(TestCase):
+    def test_get_trigger_type_and_config_source(self) -> None:
+        from handlers.aws.utils import CONFIG_FROM_PAYLOAD, CONFIG_FROM_S3FILE, get_trigger_type_and_config_source
+
+        with self.subTest("cloudwatch-logs and CONFIG_FROM_S3FILE"):
+            event: dict[str, Any] = {"awslogs": {"data": ""}}
+
+            assert get_trigger_type_and_config_source(event=event) == ("cloudwatch-logs", CONFIG_FROM_S3FILE)
+
+        with self.subTest("no Records"):
+            with self.assertRaisesRegexp(Exception, "Not supported trigger"):
+                event = {}
+
+                get_trigger_type_and_config_source(event=event)
+
+        with self.subTest("len(Records) < 1"):
+            with self.assertRaisesRegexp(Exception, "Not supported trigger"):
+                event = {"Records": []}
+
+                get_trigger_type_and_config_source(event=event)
+
+        with self.subTest("body in first record: replay-sqs CONFIG_FROM_S3FILE"):
+            event = {
+                "Records": [
+                    {
+                        "body": '{"output_type": "output_type", '
+                        '"output_args": "output_args", "event_payload": "event_payload"}'
+                    }
+                ]
+            }
+
+            assert get_trigger_type_and_config_source(event=event) == ("replay-sqs", CONFIG_FROM_S3FILE)
+
+        with self.subTest("body in first record: eventSource override"):
+            event = {"Records": [{"body": '{"Records": [{"eventSource":"aws:s3"}]}', "eventSource": "aws:kinesis"}]}
+
+            assert get_trigger_type_and_config_source(event=event) == ("s3-sqs", CONFIG_FROM_S3FILE)
+
+        with self.subTest("body in first record: eventSource not override"):
+            event = {
+                "Records": [
+                    {"body": '{"Records": [{"eventSource":"not-available-trigger"}]', "eventSource": "aws:kinesis"}
+                ]
+            }
+
+            assert get_trigger_type_and_config_source(event=event) == ("kinesis-data-stream", CONFIG_FROM_S3FILE)
+
+        with self.subTest("body not in first record: eventSource not override"):
+            event = {"Records": [{"eventSource": "aws:kinesis"}]}
+
+            assert get_trigger_type_and_config_source(event=event) == ("kinesis-data-stream", CONFIG_FROM_S3FILE)
+
+        with self.subTest("messageAttributes without originalEventSourceARN in first record, CONFIG_FROM_S3FILE"):
+            event = {"Records": [{"messageAttributes": {}, "eventSource": "aws:kinesis"}]}
+
+            assert get_trigger_type_and_config_source(event=event) == ("kinesis-data-stream", CONFIG_FROM_S3FILE)
+
+        with self.subTest("messageAttributes with originalEventSourceARN in first record, CONFIG_FROM_PAYLOAD"):
+            event = {"Records": [{"messageAttributes": {"originalEventSourceARN": ""}, "eventSource": "aws:kinesis"}]}
+
+            assert get_trigger_type_and_config_source(event=event) == ("kinesis-data-stream", CONFIG_FROM_PAYLOAD)
+
+
+@pytest.mark.unit
 class TestDiscoverIntegrationScope(TestCase):
     def test_discover_integration_scope(self) -> None:
         from handlers.aws.utils import discover_integration_scope
