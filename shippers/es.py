@@ -97,6 +97,7 @@ class ElasticsearchShipper:
             es_client_kwargs["ssl_assert_fingerprint"] = ssl_assert_fingerprint
 
         es_client_kwargs["serializer"] = JSONSerializer()
+        es_client_kwargs["http_compress"] = False
 
         self._replay_args: dict[str, Any] = {}
 
