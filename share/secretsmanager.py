@@ -7,7 +7,7 @@ from typing import Any, Union
 
 import boto3
 from botocore.client import BaseClient as BotoBaseClient
-from ujson import JSONDecodeError
+from orjson import JSONDecodeError
 
 from .json import json_parser
 from .logger import logger as shared_logger
