@@ -120,7 +120,7 @@ class ElasticsearchShipper:
 
         es_client_kwargs["timeout"] = 30
         es_client_kwargs["max_retries"] = 4
-        es_client_kwargs["http_compress"] = False
+        es_client_kwargs["http_compress"] = True
         es_client_kwargs["retry_on_timeout"] = True
         es_client_kwargs["headers"] = {
             "User-Agent": share.utils.create_user_agent(esf_version=version, environment=get_environment())
