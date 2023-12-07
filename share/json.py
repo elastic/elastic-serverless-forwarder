@@ -4,12 +4,12 @@
 
 from typing import Any, AnyStr
 
-import ujson
+import orjson
 
 
 def json_dumper(json_object: Any) -> str:
-    return ujson.dumps(json_object, ensure_ascii=False, reject_bytes=False)
+    return orjson.dumps(json_object).decode("utf-8")
 
 
 def json_parser(payload: AnyStr) -> Any:
-    return ujson.loads(payload)
+    return orjson.loads(payload)

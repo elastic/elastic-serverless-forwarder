@@ -4,7 +4,7 @@ pytest-cov==4.1.0
 pytest-benchmark==4.0.0
 coverage==7.3.2
 simplejson==3.19.2
-orjson==3.9.10
+ujson==5.8.0
 pysimdjson==5.0.2
 python-rapidjson==1.13
 cysimdjson==23.8

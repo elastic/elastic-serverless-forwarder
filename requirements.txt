@@ -4,7 +4,7 @@ ecs_logging==2.1.0
 elasticsearch==7.17.9
 PyYAML==6.0.1
 aws_lambda_typing==2.18.0
-ujson==5.8.0
+orjson==3.9.10
 requests==2.31.0
 urllib3==1.26.18
 typing-extensions==4.8.0
