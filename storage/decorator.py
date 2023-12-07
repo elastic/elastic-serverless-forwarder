@@ -236,6 +236,21 @@ def json_collector(
 
             yield line, _, _, newline, None
 
+    def _collect_single(iterator: StorageDecoratorIterator) -> StorageDecoratorIterator:
+        single: list[tuple[Union[StorageReader, bytes], int, int, bytes]] = list(
+            [
+                (data, starting_offset, ending_offset, newline)
+                for data, starting_offset, ending_offset, newline, _ in iterator
+            ]
+        )
+
+        newline = single[0][-1]
+        starting_offset = single[0][1]
+        ending_offset = single[-1][2]
+
+        data_to_yield: bytes = newline.join([x[0] for x in single])
+        yield data_to_yield, starting_offset, ending_offset, newline, None
+
     def wrapper(
         storage: ProtocolStorageType, range_start: int, body: BytesIO, is_gzipped: bool
     ) -> StorageDecoratorIterator:
@@ -255,43 +270,36 @@ def json_collector(
             json_collector_state.ending_offset = range_start
 
             iterator = func(storage, range_start, body, is_gzipped)
-            # if we know it's a single json we replace body with the whole content,
-            # and mark the object as started
-            if storage.json_content_type == "single" and event_list_from_field_expander is None:
-                single: list[tuple[Union[StorageReader, bytes], int, int, bytes]] = list(
-                    [
-                        (data, starting_offset, ending_offset, newline)
-                        for data, starting_offset, ending_offset, newline, _ in iterator
-                    ]
-                )
+            # if we know it's a single json we wrap the iterator with _collect_single
+            # and mark the object as json as started
+            if storage.json_content_type == "single":
+                iterator = _collect_single(iterator=iterator)
+                json_collector_state.is_a_json_object = True
+                json_collector_state.has_an_object_start = True
 
-                newline = single[0][-1]
-                starting_offset = single[0][1]
-                ending_offset = single[-1][2]
+            for data, starting_offset, ending_offset, newline, _ in iterator:
+                assert isinstance(data, bytes)
 
-                data_to_yield: bytes = newline.join([x[0] for x in single])
-                yield data_to_yield, starting_offset, ending_offset, newline, None
-            else:
-                for data, starting_offset, ending_offset, newline, _ in iterator:
-                    assert isinstance(data, bytes)
+                # if it's not a json object we can just forward the content by lines
+                if not json_collector_state.has_an_object_start:
+                    # if range_start is greater than zero, or we have leading space, data can be empty
+                    stripped_data = data.decode("utf-8").lstrip()
+                    if len(stripped_data) > 0 and stripped_data[0] == "{":
+                        # we mark the potentiality of a json object start
+                        # CAVEAT: if the log entry starts with `{` but the
+                        # content is not json, we buffer the first 10k lines
+                        # before the circuit breaker kicks in
+                        json_collector_state.has_an_object_start = True
 
-                    # if it's not a json object we can just forward the content by lines
                     if not json_collector_state.has_an_object_start:
-                        # if range_start is greater than zero, or we have leading space, data can be empty
-                        stripped_data = data.decode("utf-8").lstrip()
-                        if len(stripped_data) > 0 and stripped_data[0] == "{":
-                            # we mark the potentiality of a json object start
-                            # CAVEAT: if the log entry starts with `{` but the
-                            # content is not json, we buffer the first 10k lines
-                            # before the circuit breaker kicks in
-                            json_collector_state.has_an_object_start = True
+                        _handle_offset(len(data) + len(newline), json_collector_state)
+                        yield data, starting_offset, ending_offset, newline, None
 
-                        if not json_collector_state.has_an_object_start:
-                            _handle_offset(len(data) + len(newline), json_collector_state)
-                            yield data, starting_offset, ending_offset, newline, None
-
-                    if json_collector_state.has_an_object_start:
-                        # let's parse the data only if it is not single, or we have a field expander
+                if json_collector_state.has_an_object_start:
+                    # let's parse the data only if it is not single, or we have a field expander
+                    if event_list_from_field_expander is None and storage.json_content_type == "single":
+                        yield data, starting_offset, ending_offset, newline, None
+                    else:
                         for data_to_yield, json_object in _collector(data, newline, json_collector_state):
                             shared_logger.debug(
                                 "json_collector objects", extra={"offset": json_collector_state.ending_offset}
@@ -326,17 +334,17 @@ def json_collector(
 
                             del json_object
 
-                        # check if we hit the circuit broken
-                        if json_collector_state.is_a_json_object_circuit_broken:
-                            # let's yield what we have so far
-                            for line, _, _, original_newline, _ in _by_lines_fallback(json_collector_state):
-                                yield (
-                                    line,
-                                    json_collector_state.starting_offset,
-                                    json_collector_state.ending_offset,
-                                    original_newline,
-                                    None,
-                                )
+                    # check if we hit the circuit broken
+                    if json_collector_state.is_a_json_object_circuit_broken:
+                        # let's yield what we have so far
+                        for line, _, _, original_newline, _ in _by_lines_fallback(json_collector_state):
+                            yield (
+                                line,
+                                json_collector_state.starting_offset,
+                                json_collector_state.ending_offset,
+                                original_newline,
+                                None,
+                            )
 
             # in this case we could have a trailing new line in what's left in the buffer
             # or the content had a leading `{` but was not a json object before the circuit breaker intercepted it,
