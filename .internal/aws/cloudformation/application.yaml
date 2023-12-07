@@ -60,6 +60,7 @@ Resources:
   ApplicationElasticServerlessForwarder:
     Type: AWS::Serverless::Function
     Properties:
+      FunctionName: %sarAppName%-lambda-function
       Timeout: 900
       MemorySize: 512
       CodeUri: %codeUri%
@@ -93,3 +94,13 @@ Metadata:
     LicenseUrl: %codeUri%/LICENSE.txt
     HomePageUrl: https://github.com/elastic/elastic-serverless-forwarder
     SourceCodeUrl: https://github.com/elastic/elastic-serverless-forwarder
+Outputs:
+  EsfLambdaFunctionARN:
+    Description: ARN of the ESF Lambda Function
+    Value: !GetAtt ApplicationElasticServerlessForwarder.Arn
+  EsfLambdaFunctionName:
+    Description: Name of the ESF Lambda Function
+    Value: %sarAppName%-lambda-function
+  EsfLambdaFunctionRole:
+    Description: ARN of the IAM role associated with the ESF Lambda function
+    Value: !GetAtt ApplicationElasticServerlessForwarderRole.Arn

@@ -3,7 +3,7 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
-set -e
+set -ex
 
 echo "    AWS CLI (https://aws.amazon.com/cli/), AWS SAM CLI (https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html), docker and Python3.9 with pip3 required"
 echo "    Please, execute from root folder of the repo"
@@ -38,7 +38,7 @@ trap "rm -rf ${TMPDIR}" EXIT
 aws s3api get-bucket-location --bucket "${BUCKET}" --region "${REGION}" || aws s3api create-bucket --acl private --bucket "${BUCKET}" --region "${REGION}" --create-bucket-configuration LocationConstraint="${REGION}"
 
 # Check if region is in AWS GovCloud and create bucket arn
-if [[ ${REGION} == *"$gov"* ]]; then
+if [[ "${REGION}" == *gov* ]]; then
   BUCKET_ARN="arn:aws-us-gov:s3:::${BUCKET}"
   AWS_OR_AWS_GOV="aws-us-gov"
 else
