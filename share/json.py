@@ -8,6 +8,9 @@ import orjson
 
 
 def json_dumper(json_object: Any) -> str:
+    if isinstance(json_object, bytes):
+        json_object = json_object.decode("utf-8")
+
     return orjson.dumps(json_object).decode("utf-8")
 
 
