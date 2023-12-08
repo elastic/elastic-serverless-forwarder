@@ -237,6 +237,7 @@ def json_collector(
             yield line, _, _, newline, None
 
     def _collect_single(iterator: StorageDecoratorIterator) -> StorageDecoratorIterator:
+        # we get the original iterator, we collect everything in a list that we merge later and extract values from
         single: list[tuple[Union[StorageReader, bytes], int, int, bytes]] = list(
             [
                 (data, starting_offset, ending_offset, newline)
@@ -280,7 +281,7 @@ def json_collector(
             for data, starting_offset, ending_offset, newline, _ in iterator:
                 assert isinstance(data, bytes)
 
-                # if it's not a json object we can just forward the content by lines
+                # let's wait for the start of a json object
                 if not json_collector_state.has_an_object_start:
                     # if range_start is greater than zero, or we have leading space, data can be empty
                     stripped_data = data.decode("utf-8").lstrip()
@@ -291,19 +292,23 @@ def json_collector(
                         # before the circuit breaker kicks in
                         json_collector_state.has_an_object_start = True
 
+                    # if it has not a json object start we can just forward the content by lines
                     if not json_collector_state.has_an_object_start:
                         _handle_offset(len(data) + len(newline), json_collector_state)
                         yield data, starting_offset, ending_offset, newline, None
 
+                # it has not a json object start, let's apply our logic
                 if json_collector_state.has_an_object_start:
-                    # let's parse the data only if it is not single, or we have a field expander
+                    # it is a single json and we have a field expander, let's yield the content
                     if event_list_from_field_expander is None and storage.json_content_type == "single":
                         yield data, starting_offset, ending_offset, newline, None
                     else:
+                        # it is not single, or we have a field expander. let's try to collect the data as json
                         for data_to_yield, json_object in _collector(data, newline, json_collector_state):
                             shared_logger.debug(
                                 "json_collector objects", extra={"offset": json_collector_state.ending_offset}
                             )
+                            # we have a field expander, let's yield the expansion
                             if event_list_from_field_expander is not None:
                                 for (
                                     expanded_log_event,
@@ -324,6 +329,7 @@ def json_collector(
                                         expanded_event_n,
                                     )
                             else:
+                                # we do not have a field expander, let's yield the expansion
                                 yield (
                                     data_to_yield,
                                     json_collector_state.starting_offset,
