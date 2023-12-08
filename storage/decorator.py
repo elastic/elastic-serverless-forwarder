@@ -271,7 +271,7 @@ def json_collector(
 
             iterator = func(storage, range_start, body, is_gzipped)
             # if we know it's a single json we wrap the iterator with _collect_single
-            # and mark the object as json as started
+            # and mark the object as json and started
             if storage.json_content_type == "single":
                 iterator = _collect_single(iterator=iterator)
                 json_collector_state.is_a_json_object = True
