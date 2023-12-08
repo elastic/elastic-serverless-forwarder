@@ -108,7 +108,7 @@ class TestGetTriggerTypeAndConfigSource(TestCase):
         with self.subTest("body in first record: eventSource not override"):
             event = {
                 "Records": [
-                    {"body": '{"Records": [{"eventSource":"not-available-trigger"}]', "eventSource": "aws:kinesis"}
+                    {"body": '{"Records": [{"eventSource":"not-available-trigger"}]}', "eventSource": "aws:kinesis"}
                 ]
             }
 

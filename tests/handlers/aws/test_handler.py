@@ -959,7 +959,7 @@ class TestLambdaHandlerFailure(TestCase):
 
                 handler(event, ctx)  # type:ignore
 
-        with self.subTest("invalid secretsmanager: json TypeError risen"):
+        with self.subTest("invalid secretsmanager: json TypeError raised"):
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
             with self.assertRaisesRegex(
                 ConfigFileException,

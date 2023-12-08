@@ -27,7 +27,7 @@ def aws_sm_expander(config_yaml: str) -> str:
     Secrets Manager expander for config file
     It scans the file for the secrets manager arn pattern, checks for correct configuration,
     retrieves the values from the secret manager and replaces them in the config file.
-    Exceptions will be risen for the following scenarios:
+    Exceptions will be raised for the following scenarios:
         - Not respecting the arn pattern
         - Input is for both plain text and json keys for the same secret manager name
         - The fetched value is empty
@@ -153,8 +153,6 @@ def parse_secrets_str(secrets: str, secret_arn: str) -> Union[str, dict[str, Any
     except JSONDecodeError:
         shared_logger.debug("parsed secrets as plaintext")
         return secrets
-    except Exception as e:
-        raise Exception(f"{e} while parsing {secret_arn}")
     else:
         shared_logger.debug("parsed secrets as json")
         return parsed_secrets
