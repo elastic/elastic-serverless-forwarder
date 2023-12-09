@@ -297,9 +297,9 @@ def json_collector(
                         _handle_offset(len(data) + len(newline), json_collector_state)
                         yield data, starting_offset, ending_offset, newline, None
 
-                # it has not a json object start, let's apply our logic
+                # it has a json object start, let's apply our logic
                 if json_collector_state.has_an_object_start:
-                    # it is a single json and we have a field expander, let's yield the content
+                    # it is a single json and we have not a field expander, let's yield the content
                     if event_list_from_field_expander is None and storage.json_content_type == "single":
                         yield data, starting_offset, ending_offset, newline, None
                     else:
