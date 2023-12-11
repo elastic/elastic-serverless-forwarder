@@ -313,8 +313,11 @@ def get_trigger_type_and_config_source(event: dict[str, Any]) -> tuple[str, str]
                 and "eventSource" in body["Records"][0]
             ):
                 event_source = body["Records"][0]["eventSource"]
+                if event_source not in _available_triggers:
+                    raise Exception("except in the function")
             else:
-                raise Exception
+                raise Exception("except in the function")
+
         except Exception:
             if "eventSource" not in first_record:
                 raise Exception("Not supported trigger")
