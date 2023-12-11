@@ -2,7 +2,7 @@
 ##### Features
 * Add user agent with information about ESF version and host environment: [#537](https://github.com/elastic/elastic-serverless-forwarder/pull/537)
 * Remove calls to `sqs.DeleteMessage` and refactor storage decorators: [#544](https://github.com/elastic/elastic-serverless-forwarder/pull/544)
-* Add outputs for Lambda function name, Lambda function ARN and IAM Role ARN [#552](https://github.com/elastic/elastic-serverless-forwarder/pull/552)
+* Add outputs for Lambda function ARN and IAM Role ARN [#552](https://github.com/elastic/elastic-serverless-forwarder/pull/552)
 
 ### v1.10.0 - 2023/10/27
 ##### Features

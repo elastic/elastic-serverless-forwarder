@@ -131,9 +131,6 @@ Outputs:
   EsfLambdaFunctionARN:
     Description: ARN of the ESF Lambda Function
     Value: !GetAtt ElasticServerlessForwarderApplication.Outputs.EsfLambdaFunctionARN
-  EsfLambdaFunctionName:
-    Description: The name of ESF Lambda Function
-    Value: !GetAtt ElasticServerlessForwarderApplication.Outputs.EsfLambdaFunctionName
-  EsfLambdaFunctionRole:
+  EsfLambdaFunctionRoleARN:
       Description: The name of ESF Lambda Function
-      Value: !GetAtt ElasticServerlessForwarderApplication.Outputs.EsfLambdaFunctionRole
+      Value: !GetAtt ElasticServerlessForwarderApplication.Outputs.EsfLambdaFunctionRoleARN
