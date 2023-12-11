@@ -190,6 +190,41 @@ class TestDecorator(TestCase):
 
         assert expected == decorated
 
+    def test_expand_event_list_from_field_json_content_type_single_no_circuit_breaker(self) -> None:
+        def resolver(_: str, field_to_expand_event_list_from: str) -> str:
+            return field_to_expand_event_list_from
+
+        event_list_from_field_expander = ExpandEventListFromField("Records", "", resolver, None, None)
+
+        storage = DummyStorage(
+            event_list_from_field_expander=event_list_from_field_expander, json_content_type="single"
+        )
+        data: bytes = (
+            b'{"Records": ['
+            + b",\n".join([b'{"a line":"' + str(i).encode("utf-8") + b'"}' for i in range(0, 2000)])
+            + b"]}\n"
+        )
+        fixtures = BytesIO(data)
+        expected: list[tuple[Union[StorageReader, bytes], int, int, bytes, Optional[int]]] = list(
+            [
+                (b'{"a line":"' + str(i).encode("utf-8") + b'"}', int(i * (len(data) / 2000)), 0, b"\n", i)
+                for i in range(0, 2000)
+            ]
+        )
+        expected.pop()
+        expected.append((b'{"a line":"1999"}', int(len(data) - (len(data) / 2000)), len(data), b"\n", None))
+
+        decorated: list[tuple[Union[StorageReader, bytes], int, int, bytes, Optional[int]]] = list(
+            [
+                (data, starting_offset, ending_offset, newline, event_expanded_offset)
+                for data, starting_offset, ending_offset, newline, event_expanded_offset in storage.generate(
+                    0, fixtures, False
+                )
+            ]
+        )
+
+        assert expected == decorated
+
     def test_multiline_processor(self) -> None:
         multiline_processor = MultilineFactory.create(multiline_type="count", count_lines=3)
 
