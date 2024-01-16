@@ -80,6 +80,26 @@ The forwarder can ingest logs contained within the payload of an Amazon SQS body
 You can set up a separate SQS queue for each type of log. The config parameter for {es} output `es_datastream_name` is mandatory. If this value is set to an {es} data stream, the type of log must be correctly defined with configuration parameters. A single configuration file can have many input sections, pointing to different SQS queues that match specific log types.
 
 [discrete]
+[[at-least-once-delivery]]
+== At-least-once delivery
+
+Elastic Serverless Forwarder ensures "at-least-once" delivery of the forwarded message.
+
+The `Continuing quque` and `Replay queue` are programmatically populated by Elastic Serverless Forwarder.
+This happens for the `Continuing quque` in the last two minutes of the lambda execution, if any message in the original trigger is left to be processed before that time (including the original triggers and the continuing and replay queues themselves).
+In the case of the `Replay queue` at any time an event is failed to be ingested (excluding an event already routed to the `Replay queue` itself, in case it fails again)
+
+In the case of the `Continuing queue` Elastic Serverless Forwarder can fail to process the messages only if the lambda timeouts or if some unexpected exception is raised during the lambda execution. In all the other cases the original message that triggered the lambda is deleted from the `Continuing queue`, regardless the lambda processed it or not. If the message was not processed we send a copy of the original message to the `Continuing queue`: this has the effect of zeroing the number of the max retries and the mechanism is in place to enforce at-least-once delivery. It should be pretty rare to have messages in the continuing queue DLQ unless the lambda keeps timing out.
+
+In the case of the `Replay queue` the same considerations regarding lambda timeouts and unexpected exceptions apply.
+When processing messages from the `Replay queue`, at the end of the lambda execution, processed replayed messages that didn't fail to be ingested again will be deleted. Messages failed again to be ingested won't be deleted, and a specific expected exception is raised, that will mark the lambda as failed. Yhis has the outcome of having only the messages that failed again to go back to the `Replay queue`. Being the same messages the retries count will increase, if it will reach the max value they will end up in the `Replay DLQ` as managed automatically by the {aws} SQS service.
+
+The corresponding DLQs are handled automatically by the SQS service in {aws}: there's the option to set the max retries of a queue, ie, the total amount of times the same message in a queue will trigger the lambda if the lambda won't successfully process the message. Once this limit is reached the message will go to the corresponding DLQ.
+
+For both `Continuing queue` and `Replay queue`, the max retries value is set to 3
+
+
+[discrete]
 [[aws-serverless-forwarder-get-started]]
 = Get started
 

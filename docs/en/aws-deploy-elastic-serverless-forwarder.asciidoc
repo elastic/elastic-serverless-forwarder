@@ -276,6 +276,8 @@ These parameters define the permissions required in order to access the associat
 
 [discrete]
 === Network
+It is not possible to define directly the ID of the {aws} VPC the Elastic Serverless Forwarder lambda belongs to.
+The {aws} VPC is defined instead by its security group IDs and subnet IDs. 
 These parameters define the network settings for your environment.
 
 - `ElasticServerlessForwarderSecurityGroups`: Add a comma delimited list of security group IDs to attach to the forwarder. Along with `ElasticServerlessForwarderSubnets`, these settings will define the {aws} VPC the forwarder will belong to. Leave blank if you don't want the forwarder to belong to any specific {aws} VPC.
