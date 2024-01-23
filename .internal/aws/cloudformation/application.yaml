@@ -93,3 +93,10 @@ Metadata:
     LicenseUrl: %codeUri%/LICENSE.txt
     HomePageUrl: https://github.com/elastic/elastic-serverless-forwarder
     SourceCodeUrl: https://github.com/elastic/elastic-serverless-forwarder
+Outputs:
+  EsfLambdaFunctionARN:
+    Description: ARN of the ESF Lambda Function
+    Value: !GetAtt ApplicationElasticServerlessForwarder.Arn
+  EsfLambdaFunctionRoleARN:
+    Description: ARN of the IAM role associated with the ESF Lambda function
+    Value: !GetAtt ApplicationElasticServerlessForwarderRole.Arn

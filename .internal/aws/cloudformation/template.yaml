@@ -127,3 +127,10 @@ Metadata:
     ReadmeUrl: %codeUri%/README.md
     HomePageUrl: https://github.com/elastic/elastic-serverless-forwarder
     SourceCodeUrl: https://github.com/elastic/elastic-serverless-forwarder
+Outputs:
+  EsfLambdaFunctionARN:
+    Description: ARN of the ESF Lambda Function
+    Value: !GetAtt ElasticServerlessForwarderApplication.Outputs.EsfLambdaFunctionARN
+  EsfLambdaFunctionRoleARN:
+      Description: The name of ESF Lambda Function
+      Value: !GetAtt ElasticServerlessForwarderApplication.Outputs.EsfLambdaFunctionRoleARN
