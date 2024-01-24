@@ -35,7 +35,7 @@ CODE_URI="${TMPDIR}/sources"
 
 trap "rm -rf ${TMPDIR}" EXIT
 
-aws s3api get-bucket-location --bucket "${BUCKET}" --region "${REGION}" || aws s3api create-bucket --acl private --bucket "${BUCKET}" --region "${REGION}" --create-bucket-configuration LocationConstraint="${REGION}"
+aws s3api get-bucket-location --bucket "${BUCKET}" --region "${REGION}" || aws s3api create-bucket --acl private --bucket "${BUCKET}" --region "${REGION}" --create-bucket-configuration LocationConstraint="${REGION}" || aws s3api create-bucket --acl private --bucket "${BUCKET}" --region "${REGION}"
 
 # Check if region is in AWS GovCloud and create bucket arn
 if [[ "${REGION}" == *gov* ]]; then
