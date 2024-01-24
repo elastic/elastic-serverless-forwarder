@@ -85,7 +85,7 @@ You can set up a separate SQS queue for each type of log. The config parameter f
 
 Elastic Serverless Forwarder ensures "at-least-once" delivery of the forwarded message.
 
-The `Continuing quque` and `Replay queue` are programmatically populated by Elastic Serverless Forwarder.
+The `Continuing queue` and `Replay queue` are programmatically populated by Elastic Serverless Forwarder.
 This happens for the `Continuing quque` in the last two minutes of the lambda execution, if any message in the original trigger is left to be processed before that time (including the original triggers and the continuing and replay queues themselves).
 In the case of the `Replay queue` at any time an event is failed to be ingested (excluding an event already routed to the `Replay queue` itself, in case it fails again)
 
