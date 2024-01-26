@@ -276,17 +276,20 @@ These parameters define the permissions required in order to access the associat
 
 [discrete]
 === Network
-It is not possible to define directly the ID of the {aws} VPC the Elastic Serverless Forwarder lambda belongs to.
-The {aws} VPC is defined instead by its security group IDs and subnet IDs. 
-These parameters define the network settings for your environment.
+The way to attach the Elastic Serverless Forwarder to a specific {aws} VPC is by defining both the security groups IDs and subnet IDs belonging to the {aws} VPC. The limit is related to the https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-function-vpcconfig.html[CloudFormation VPCConfig property]
 
-- `ElasticServerlessForwarderSecurityGroups`: Add a comma delimited list of security group IDs to attach to the forwarder. Along with `ElasticServerlessForwarderSubnets`, these settings will define the {aws} VPC the forwarder will belong to. Leave blank if you don't want the forwarder to belong to any specific {aws} VPC.
-- `ElasticServerlessForwarderSubnets`: Add a comma delimited list of subnet IDs for to the forwarder. Along with `ElasticServerlessForwarderSecurityGroups`, these settings will define the {aws} VPC the forwarder will belong to. Leave blank if you don't want the forwarder to belong to any specific {aws} VPC.
+These are the parameters:
 
-[NOTE]
-====
-If you are setting up an an {aws} VPC for the forwarder, review the <<aws-serverless-troubleshooting-vpc-prerequisites,VPC prerequisites>>.
-====
+- `ElasticServerlessForwarderSecurityGroups`: Add a comma delimited list of security group IDs to attach to the forwarder. 
+- `ElasticServerlessForwarderSubnets`: Add a comma delimited list of subnet IDs for to the forwarder.
+
+Both parameters are required in order to attach the Elastic Serverless Forwarder to a specific {aws} VPC.
+Leave both parameters blank if you don't want the forwarder to belong to any specific {aws} VPC.
+
+
+If the Elastic Serverless Forwarder is attached to a VPC, you need to https://docs.aws.amazon.com/vpc/latest/privatelink/create-interface-endpoint.html[create VPC Endpoints] for S3 and SQS, and for *every* service you define as an input for the forwarder. S3 and SQS VPC Endpoints are always required for reading the `config.yaml` uploaded to S3 and managing the _Continuing queue_ and the _Replay queue_, regardless of the <<aws-serverless-forwarder-inputs>> used. If you use <<aws-serverless-forwarder-inputs-cloudwatch>> you need to create a VPC Endpoint for EC2 as well.
+
+NOTE: Refer to documentation for https://www.elastic.co/guide/en/cloud/current/ec-traffic-filtering-vpc.html[AWS PrivateLink traffic filters] in order to find your VPC endpoint ID, and the hostname to use in the `config.yml` in order to access your Elasticsearch cluster over PrivateLink. 
 
 [discrete]
 [[aws-serverless-forwarder-deploy-sar]]

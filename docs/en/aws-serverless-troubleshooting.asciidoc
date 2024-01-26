@@ -10,14 +10,9 @@
 You can view the status of deployment actions and get additional information on events, including why a particular event fails e.g. misconfiguration details.
 
 . On the Applications page for **serverlessrepo-elastic-serverless-forwarder**, click **Deployments**.
-. You can view the **Deployment history** here and refresh the page for updates as the application deploys. It should take around 5 minutes to deploy &mdash; if the deployment fails for any reason, the create events will be rolled back and you will be able to see an explanation for which event failed.
+. You can view the **Deployment history** here and refresh the page for updates as the application deploys. It should take around 5 minutes to deploy &mdash; if the deployment fails for any reason, the create events will be rolled back, and you will be able to see an explanation for which event failed.
 
 NOTE: For example, if you don't increase the visibility timeout for an SQS queue as described in <<aws-serverless-forwarder-inputs-s3>>, you will see a `CREATE_FAILED`**Status** for the event, and the **Status reason** provides additional detail.
-
-[discrete]
-[[aws-serverless-troubleshooting-vpc-prerequisites]]
-== Prerequisites when attached to a VPC
-If the Elastic Serverless Forwarder is attached to a VPC, you need to https://docs.aws.amazon.com/vpc/latest/privatelink/create-interface-endpoint.html[create VPC Endpoints] for S3 and SQS, and for *every* service you define as an input for the forwarder. S3 and SQS VPC Endpoints are always required for reading the `config.yaml` uploaded to S3 and managing the _Continuing queue_ and the _Replay queue_, regardless of the <<aws-serverless-forwarder-inputs>> used.
 
 [discrete]
 [[preventing-unexpected-costs]]
