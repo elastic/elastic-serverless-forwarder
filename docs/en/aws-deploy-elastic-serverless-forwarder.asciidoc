@@ -287,7 +287,7 @@ These are the parameters:
 Both parameters are required in order to attach the Elastic Serverless Forwarder to a specific {aws} VPC.
 Leave both parameters blank if you don't want the forwarder to belong to any specific {aws} VPC.
 
-If the Elastic Serverless Forwarder is attached to a VPC, you need to https://docs.aws.amazon.com/vpc/latest/privatelink/create-interface-endpoint.html[create VPC endpoints] for S3 and SQS, and for *every* service you define as an input for the forwarder. S3 and SQS VPC endpoints are always required for reading the `config.yaml` uploaded to S3 and managing the _Continuing queue_ and the _Replay queue_, regardless of the <<aws-serverless-forwarder-inputs>> used. If you use <<aws-serverless-forwarder-inputs-cloudwatch>>, you need to create a VPC endpoint for EC2, too.
+If the Elastic Serverless Forwarder is attached to a VPC, you need to https://docs.aws.amazon.com/vpc/latest/privatelink/create-interface-endpoint.html[create VPC endpoints] for S3 and SQS, and for *every* service you define as an input for the forwarder. S3 and SQS VPC endpoints are always required for reading the `config.yaml` uploaded to S3 and managing the continuing queue and the replay queue, regardless of the <<aws-serverless-forwarder-inputs>> used. If you use <<aws-serverless-forwarder-inputs-cloudwatch>>, you need to create a VPC endpoint for EC2, too.
 
 NOTE: Refer to the {cloud}/ec-traffic-filtering-vpc.html[AWS PrivateLink traffic filters] documentation to find your VPC endpoint ID and the hostname to use in the `config.yml` in order to access your Elasticsearch cluster over PrivateLink.
 
@@ -543,9 +543,9 @@ continuing-queue:
 
 | `s3-config-file` | Set this value to the location of your forwarder configuration file in S3 URL format: `s3://bucket-name/config-file-name`. This will populate the `S3_CONFIG_FILE` environment variable for the forwarder.
 
-| `continuing-queue.batch_size` | Set this value above the default (`10`) if you experience ingestion delays in your output *and* `ApproximateNumberOfMessagesVisible` and `ApproximateAgeOfOldestMessage` SQS CloudWatch metrics for the _Continuing queue_ keep increasing *and* the average execution time of the forwarder is below 14 minutes. This will increase the number of messages the forwarder will process in a single execution for the _Continuing queue_.
+| `continuing-queue.batch_size` | Set this value above the default (`10`) if you experience ingestion delays in your output *and* `ApproximateNumberOfMessagesVisible` and `ApproximateAgeOfOldestMessage` SQS CloudWatch metrics for the continuing queue keep increasing *and* the average execution time of the forwarder is below 14 minutes. This will increase the number of messages the forwarder will process in a single execution for the continuing queue.
 
-| `continuing-queue.batching_window_in_second` | Set this value above the default (`0`) if you experience ingestion delays in your output *and* `ApproximateNumberOfMessagesVisible` and `ApproximateAgeOfOldestMessage` SQS CloudWatch metrics for the _Continuing queue_ keep increasing *and* the average execution time of the forwarder is below 14 minutes. This will increase the number of messages the forwarder will process in a single execution for the _Continuing queue_.
+| `continuing-queue.batching_window_in_second` | Set this value above the default (`0`) if you experience ingestion delays in your output *and* `ApproximateNumberOfMessagesVisible` and `ApproximateAgeOfOldestMessage` SQS CloudWatch metrics for the continuing queue keep increasing *and* the average execution time of the forwarder is below 14 minutes. This will increase the number of messages the forwarder will process in a single execution for the continuing queue.
 
 |===
 
