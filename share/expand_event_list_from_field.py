@@ -56,9 +56,9 @@ class ExpandEventListFromField:
                             assert isinstance(self._root_fields_to_add_to_expanded_event, list)
                             for root_field_to_add_to_expanded_event in self._root_fields_to_add_to_expanded_event:
                                 if root_field_to_add_to_expanded_event in json_object:
-                                    root_fields_to_add_to_expanded_event[
-                                        root_field_to_add_to_expanded_event
-                                    ] = json_object[root_field_to_add_to_expanded_event]
+                                    root_fields_to_add_to_expanded_event[root_field_to_add_to_expanded_event] = (
+                                        json_object[root_field_to_add_to_expanded_event]
+                                    )
                                 else:
                                     shared_logger.debug(
                                         f"`{root_field_to_add_to_expanded_event}` field to be added"
