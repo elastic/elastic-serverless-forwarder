@@ -1,8 +1,15 @@
+### v1.13.0 - 2024/02/23
+##### Features
+* Go beyond 4096b limit on CF Parameter for event triggers on SAR deployment [#627](https://github.com/elastic/elastic-serverless-forwarder/pull/627)
+
+### v1.12.0 - 2024/02/13
+##### Features
+* Add outputs for Lambda function ARN and IAM Role ARN [#552](https://github.com/elastic/elastic-serverless-forwarder/pull/552)
+
 ### v1.11.0 - 2023/12/08
 ##### Features
 * Add user agent with information about ESF version and host environment: [#537](https://github.com/elastic/elastic-serverless-forwarder/pull/537)
 * Remove calls to `sqs.DeleteMessage` and refactor storage decorators: [#544](https://github.com/elastic/elastic-serverless-forwarder/pull/544)
-* Add outputs for Lambda function ARN and IAM Role ARN [#552](https://github.com/elastic/elastic-serverless-forwarder/pull/552)
 ##### Bug fixes
 * Fix regression when both `json_content_type: single` and `expand_event_list_from_field` are set: [#553](https://github.com/elastic/elastic-serverless-forwarder/pull/553)
 
