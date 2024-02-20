@@ -14,11 +14,19 @@ Parameters:
     Type: CommaDelimitedList
   ElasticServerlessForwarderSQSEvents:
     Type: CommaDelimitedList
+  ElasticServerlessForwarderSQSEvents2:
+    Type: CommaDelimitedList
   ElasticServerlessForwarderS3SQSEvents:
+    Type: CommaDelimitedList
+  ElasticServerlessForwarderS3SQSEvents2:
     Type: CommaDelimitedList
   ElasticServerlessForwarderKinesisEvents:
     Type: CommaDelimitedList
+  ElasticServerlessForwarderKinesisEvents2:
+    Type: CommaDelimitedList
   ElasticServerlessForwarderCloudWatchLogsEvents:
+    Type: CommaDelimitedList
+  ElasticServerlessForwarderCloudWatchLogsEvents2:
     Type: CommaDelimitedList
   ElasticServerlessForwarderS3Buckets:
     Type: CommaDelimitedList
