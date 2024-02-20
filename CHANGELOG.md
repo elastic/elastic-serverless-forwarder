@@ -1,6 +1,6 @@
 ### v1.13.0 - 2024/02/23
 ##### Features
-* Go beyond 4096b limit on CF Parameter for event triggers on SAR deployment [#](https://github.com/elastic/elastic-serverless-forwarder/pull/)
+* Go beyond 4096b limit on CF Parameter for event triggers on SAR deployment [#627](https://github.com/elastic/elastic-serverless-forwarder/pull/627)
 
 ### v1.12.0 - 2024/02/13
 ##### Features
