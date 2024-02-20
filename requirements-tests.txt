@@ -8,6 +8,6 @@ ujson==5.9.0
 pysimdjson==5.0.2
 python-rapidjson==1.14
 cysimdjson==23.8
-responses==0.24.1
+responses==0.25.0
 testcontainers==3.7.1
 pyOpenSSL==24.0.0
