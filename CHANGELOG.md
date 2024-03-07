@@ -1,3 +1,7 @@
+### v1.13.1 - 2024/03/07
+##### Features
+* Add documentation and optimise performance for `root_fields_to_add_to_expanded_event` [#642](https://github.com/elastic/elastic-serverless-forwarder/pull/642)
+
 ### v1.13.0 - 2024/02/23
 ##### Features
 * Go beyond 4096b limit on CF Parameter for event triggers on SAR deployment [#627](https://github.com/elastic/elastic-serverless-forwarder/pull/627)
