@@ -56,7 +56,7 @@ class ExpandEventListFromField:
                         ]
                     else:
                         shared_logger.debug(
-                            f"`{root_field_to_add_to_expanded_event}` field to be added"
+                            f"`{root_field_to_add_to_expanded_event}` field specified in `root_fields_to_add_to_expanded_event` parameter is not present at root level"
                             f" to expanded event not present at root level"
                         )
 
