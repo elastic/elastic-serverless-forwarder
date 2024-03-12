@@ -290,7 +290,7 @@ inputs:
 
 You can define `inputs.[].expand_event_list_from_field` as a string with the value of a key in the JSON that contains a list of elements that must be sent as events instead of the encompassing JSON.
 
-If you want to inject in the expanded events, fields from the root of the JSON object that you are expanding from, you can define `inputs.[].root_fields_to_add_to_expanded_event`. The config takes two different type of value:
+To inject root fields from the JSON object into the expanded events, define `inputs.[].root_fields_to_add_to_expanded_event`. The config takes one of the following values:
 
 . the literal string "**all**", in order to inject all the fields at root level (but for the one you are expanding events from): `root_fields_to_add_to_expanded_event: "all"`
 . a list of the names of the fields at root level that you want to inject: for example  `root_fields_to_add_to_expanded_event: ["owner", "logGroup", "logStream"]` 
