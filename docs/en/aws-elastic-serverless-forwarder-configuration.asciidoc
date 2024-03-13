@@ -277,6 +277,8 @@ inputs:
   - type: "s3-sqs"
     id: "arn:aws:sqs:%REGION%:%ACCOUNT%:%QUEUENAME%"
     expand_event_list_from_field: "Records"
+    # root_fields_to_add_to_expanded_event: "all"
+    # root_fields_to_add_to_expanded_event: ["owner", "logGroup", "logStream"]
     outputs:
       - type: "elasticsearch"
         args:
@@ -288,10 +290,17 @@ inputs:
 
 You can define `inputs.[].expand_event_list_from_field` as a string with the value of a key in the JSON that contains a list of elements that must be sent as events instead of the encompassing JSON.
 
+To inject root fields from the JSON object into the expanded events, define `inputs.[].root_fields_to_add_to_expanded_event`. The config takes one of the following values:
+
+* the literal string "**all**" to inject all root fields (except the field you are expanding events from). For example, `root_fields_to_add_to_expanded_event: "all"`
+* a list of the root fields that you want to inject. For example,  `root_fields_to_add_to_expanded_event: ["owner", "logGroup", "logStream"]` 
+
+
+
 NOTE: When <<aws-serverless-route-service-logs, routing service logs>>, any value set for the `expand_event_list_from_field` configuration parameter will be ignored, because this will be automatically handled by the Elastic Serverless Forwarder.
 
 [discrete]
-=== Example
+=== Example without `root_fields_to_add_to_expanded_event`
 
 With the following input:
 
@@ -317,6 +326,37 @@ If `expand_event_list_from_field` is set to `Records`, four events will be forwa
 {"@timestamp": "2022-06-16T04:06:27.204Z", "message": "{\"key\": \"value #2\"}"}
 {"@timestamp": "2022-06-16T04:06:31.154Z", "message": "{\"key\": \"value #3\"}"}
 {"@timestamp": "2022-06-16T04:06:36.189Z", "message": "{\"key\": \"value #4\"}"}
+----
+
+[discrete]
+=== Example with `root_fields_to_add_to_expanded_event`
+
+With the following input:
+
+[source, json]
+----
+{"Records":[{"key": "value #1"},{"key": "value #2"}], "field1": "value 1a", "field2": "value 2a"}
+{"Records":[{"key": "value #3"},{"key": "value #4"}], "field1": "value 1b", "field2": "value 2b"}
+----
+
+If `expand_event_list_from_field` is set to `Records`, and `root_fields_to_add_to_expanded_event` to `all`, four events will be forwarded:
+
+[source, json]
+----
+{"@timestamp": "2022-06-16T04:06:21.105Z", "message": "{\"key\": \"value #1\", \"field1\": \"value 1a\", \"field2\": \"value 2a\""}
+{"@timestamp": "2022-06-16T04:06:27.204Z", "message": "{\"key\": \"value #2\", \"field1\": \"value 1a\", \"field2\": \"value 2a\""}
+{"@timestamp": "2022-06-16T04:06:31.154Z", "message": "{\"key\": \"value #3\", \"field1\": \"value 1b\", \"field2\": \"value 2b\""}
+{"@timestamp": "2022-06-16T04:06:36.189Z", "message": "{\"key\": \"value #4\", \"field1\": \"value 1b\", \"field2\": \"value 2b\""}
+----
+
+If `expand_event_list_from_field` is set to `Records`, and `root_fields_to_add_to_expanded_event` to `["field1"]`, four events will be forwarded:
+
+[source, json]
+----
+{"@timestamp": "2022-06-16T04:06:21.105Z", "message": "{\"key\": \"value #1\", \"field1\": \"value 1a\""}
+{"@timestamp": "2022-06-16T04:06:27.204Z", "message": "{\"key\": \"value #2\", \"field1\": \"value 1a\""}
+{"@timestamp": "2022-06-16T04:06:31.154Z", "message": "{\"key\": \"value #3\", \"field1\": \"value 1b\""}
+{"@timestamp": "2022-06-16T04:06:36.189Z", "message": "{\"key\": \"value #4\", \"field1\": \"value 1b\""}
 ----
 
 
