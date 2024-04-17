@@ -195,16 +195,16 @@ class TestLambdaHandlerIntegration(TestCase):
                 outputs: {self.default_outputs}
         """
 
-        config_file_path = "config.yaml"
-        config_bucket_name = _time_based_id(suffix="config-bucket")
-        _s3_upload_content_to_bucket(
-            client=self.s3_client,
-            content=config_yaml.encode("utf-8"),
-            content_type="text/plain",
-            bucket_name=config_bucket_name,
-            key=config_file_path,
-        )
-
+        #config_file_path = "config.yaml"
+        #config_bucket_name = _time_based_id(suffix="config-bucket")
+        #_s3_upload_content_to_bucket(
+        #    client=self.s3_client,
+        #    content=config_yaml.encode("utf-8"),
+        #    content_type="text/plain",
+        #    bucket_name=config_bucket_name,
+        #    key=config_file_path,
+        #)
+#
         #os.environ["S3_CONFIG_FILE"] = f"s3://{config_bucket_name}/{config_file_path}"
         #fixtures = [
         #    _load_file_fixture("cloudwatch-log-1.json"),
