@@ -5,6 +5,7 @@
 import base64
 import datetime
 import importlib
+import logging
 import os
 import sys
 from copy import deepcopy
@@ -394,6 +395,13 @@ class TestLambdaHandlerNoop(TestCase):
         new={"aws:s3": "s3-sqs", "aws:sqs": "sqs", "aws:kinesis": "kinesis-data-stream", "dummy": "s3-sqs"},
     )
     def test_lambda_handler_noop(self) -> None:
+        print("Test lambda handler noop")
+
+        logger = logging.getLogger()
+        logger.info(
+            "Test lambda handler noop"
+        )
+
         reload_handlers_aws_handler()
 
         with self.subTest("no originalEventSourceARN in messageAttributes"):
