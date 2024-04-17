@@ -31,7 +31,7 @@ class ElasticsearchContainer(DockerContainer):  # type: ignore
     """
 
     _DEFAULT_IMAGE = "docker.elastic.co/elasticsearch/elasticsearch"
-    _DEFAULT_VERSION = "7.17.9"
+    _DEFAULT_VERSION = "7.17.20"
     _DEFAULT_PORT = 9200
     _DEFAULT_USERNAME = DEFAULT_USERNAME
     _DEFAULT_PASSWORD = DEFAULT_PASSWORD
