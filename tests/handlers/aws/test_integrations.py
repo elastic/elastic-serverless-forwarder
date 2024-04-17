@@ -182,18 +182,18 @@ class TestLambdaHandlerIntegration(TestCase):
 
         s3_sqs_queue_name = _time_based_id(suffix="source-s3-sqs")
 
-        s3_sqs_queue = _sqs_create_queue(self.sqs_client, s3_sqs_queue_name, self.localstack.get_url())
-
-        s3_sqs_queue_arn = s3_sqs_queue["QueueArn"]
-        s3_sqs_queue_url = s3_sqs_queue["QueueUrl"]
-
-        config_yaml: str = f"""
-            inputs:
-              - type: s3-sqs
-                id: "{s3_sqs_queue_arn}"
-                tags: {self.default_tags}
-                outputs: {self.default_outputs}
-        """
+        #s3_sqs_queue = _sqs_create_queue(self.sqs_client, s3_sqs_queue_name, self.localstack.get_url())
+#
+        #s3_sqs_queue_arn = s3_sqs_queue["QueueArn"]
+        #s3_sqs_queue_url = s3_sqs_queue["QueueUrl"]
+#
+        #config_yaml: str = f"""
+        #    inputs:
+        #      - type: s3-sqs
+        #        id: "{s3_sqs_queue_arn}"
+        #        tags: {self.default_tags}
+        #        outputs: {self.default_outputs}
+        #"""
 
         #config_file_path = "config.yaml"
         #config_bucket_name = _time_based_id(suffix="config-bucket")
