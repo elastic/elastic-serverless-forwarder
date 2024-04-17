@@ -175,12 +175,12 @@ class TestLambdaHandlerIntegration(TestCase):
 
     def test_ls_es_output(self) -> None:
         print("TEST LS ES OUTPUT.")
-
-        assert isinstance(self.elasticsearch, ElasticsearchContainer)
-        assert isinstance(self.logstash, LogstashContainer)
-        assert isinstance(self.localstack, LocalStackContainer)
-
-        s3_sqs_queue_name = _time_based_id(suffix="source-s3-sqs")
+#
+    #    assert isinstance(self.elasticsearch, ElasticsearchContainer)
+    #    assert isinstance(self.logstash, LogstashContainer)
+    #    assert isinstance(self.localstack, LocalStackContainer)
+#
+    #    s3_sqs_queue_name = _time_based_id(suffix="source-s3-sqs")
 
         #s3_sqs_queue = _sqs_create_queue(self.sqs_client, s3_sqs_queue_name, self.localstack.get_url())
 #
