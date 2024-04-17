@@ -405,6 +405,9 @@ class TestLambdaHandlerNoop(TestCase):
         reload_handlers_aws_handler()
 
         with self.subTest("no originalEventSourceARN in messageAttributes"):
+            logger.info(
+                ">> TESTE no originalEventSourceARN in messageAttributes"
+            )
             ctx = ContextMock()
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
             lambda_event = deepcopy(_dummy_lambda_event)
@@ -412,6 +415,9 @@ class TestLambdaHandlerNoop(TestCase):
             assert handler(lambda_event, ctx) == "completed"  # type:ignore
 
         with self.subTest("no input defined for cloudwatch_logs"):
+            logger.info(
+                ">> TESTE no input defined for cloudwatch_logs"
+            )
             ctx = ContextMock()
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
             lambda_event = {
@@ -424,6 +430,9 @@ class TestLambdaHandlerNoop(TestCase):
             assert handler(lambda_event, ctx) == "completed"  # type:ignore
 
         with self.subTest("output not elasticsearch from payload config"):
+            logger.info(
+                ">> TESTE output not elasticsearch from payload config"
+            )
             with mock.patch(
                 "handlers.aws.handler.get_shipper_for_replay_event",
                 lambda config, output_type, output_args, event_input_id, replay_handler: None,
@@ -509,6 +518,9 @@ class TestLambdaHandlerNoop(TestCase):
             assert handler(lambda_event, ctx) == "completed"  # type:ignore
 
         with self.subTest("raising unexpected exception"):
+            logger.info(
+                ">> TESTE raising unexpected exception"
+            )
             ctx = ContextMock()
             lambda_event = deepcopy(_dummy_lambda_event)
             lambda_event_body = json_parser(lambda_event["Records"][0]["body"])
