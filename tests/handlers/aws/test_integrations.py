@@ -321,8 +321,8 @@ class TestLambdaHandlerIntegration(TestCase):
 
     def test_continuing(self) -> None:
         assert isinstance(self.elasticsearch, ElasticsearchContainer)
-        #assert isinstance(self.logstash, LogstashContainer)
-        #assert isinstance(self.localstack, LocalStackContainer)
+        assert isinstance(self.logstash, LogstashContainer)
+        assert isinstance(self.localstack, LocalStackContainer)
 
 #        fixtures = [
 #            _load_file_fixture("cloudwatch-log-1.json"),
