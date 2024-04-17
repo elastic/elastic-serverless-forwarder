@@ -174,6 +174,7 @@ class TestLambdaHandlerIntegration(TestCase):
         os.environ["SQS_REPLAY_URL"] = ""
 
     def test_ls_es_output(self) -> None:
+        print("Test ES output")
         assert isinstance(self.elasticsearch, ElasticsearchContainer)
         assert isinstance(self.logstash, LogstashContainer)
         assert isinstance(self.localstack, LocalStackContainer)
