@@ -530,619 +530,620 @@ class TestLambdaHandlerNoop(TestCase):
                 assert handler(lambda_event, ctx) == "exception raised: Exception('raised')"  # type:ignore
 
 
-@pytest.mark.unit
-class TestLambdaHandlerFailure(TestCase):
-    def setUp(self) -> None:
-        revert_handlers_aws_handler()
-
-    @mock.patch("share.config._available_output_types", new=["elasticsearch", "logstash", "output_type"])
-    @mock.patch(
-        "share.config._available_input_types", new=["cloudwatch-logs", "s3-sqs", "sqs", "kinesis-data-stream", "dummy"]
-    )
-    @mock.patch("share.secretsmanager._get_aws_sm_client", new=MockContent._get_aws_sm_client)
-    @mock.patch("handlers.aws.utils.get_ec2_client", lambda: _ec2_client_mock)
-    @mock.patch("handlers.aws.handler.get_sqs_client", lambda: _sqs_client_mock)
-    @mock.patch("storage.S3Storage._s3_client", _s3_client_mock)
-    def test_lambda_handler_failure(self) -> None:
-        dummy_event: dict[str, Any] = {
-            "Records": [
-                {
-                    "eventSource": "aws:sqs",
-                    "eventSourceARN": "arn:aws:sqs",
-                },
-            ]
-        }
-
-        with self.subTest("output not in config from replay payload body"):
-            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
-            event = {
-                "Records": [
-                    {
-                        "eventSourceARN": "arn:aws:sqs:eu-central-1:123456789:replay-queue",
-                        "receiptHandle": "receiptHandle",
-                        "body": '{"output_type": "output_type", "output_args": {},'
-                        '"event_input_id": "arn:aws:dummy:eu-central-1:123456789:input", '
-                        '"event_payload": {"_id": "_id"}}',
-                    }
-                ]
-            }
-            with self.assertRaisesRegex(OutputConfigException, "Cannot load output of type output_type"):
-                ctx = ContextMock()
-
-                handler(event, ctx)  # type:ignore
-
-        with self.subTest("input not in config from replay payload body"):
-            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
-            event = {
-                "Records": [
-                    {
-                        "eventSourceARN": "arn:aws:sqs:eu-central-1:123456789:replay-queue",
-                        "receiptHandle": "receiptHandle",
-                        "body": '{"output_type": "output_type", "output_args": {},'
-                        '"event_input_id": "arn:aws:dummy:eu-central-1:123456789:not-existing-input", '
-                        '"event_payload": {"_id": "_id"}}',
-                    }
-                ]
-            }
-            with self.assertRaisesRegex(
-                InputConfigException,
-                "Cannot load input for input id arn:aws:dummy:eu-central-1:123456789:not-existing-input",
-            ):
-                ctx = ContextMock()
-
-                handler(event, ctx)  # type:ignore
-
-        with self.subTest("empty config"):
-            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
-            with self.assertRaisesRegex(ConfigFileException, "Empty config"):
-                ctx = ContextMock()
-                _s3_client_mock.config_content = b""
-
-                handler(dummy_event, ctx)  # type:ignore
-
-        with self.subTest("Invalid s3 uri apm client not None"):
-            with mock.patch("handlers.aws.utils.get_apm_client", lambda: mock.MagicMock()):
-                with self.assertRaisesRegex(ConfigFileException, "Invalid s3 uri provided: ``"):
-                    os.environ["S3_CONFIG_FILE"] = ""
-                    ctx = ContextMock()
-
-                    handler(dummy_event, ctx)  # type:ignore
-
-        with self.subTest("Invalid s3 uri"):
-            with self.assertRaisesRegex(ConfigFileException, "Invalid s3 uri provided: ``"):
-                os.environ["S3_CONFIG_FILE"] = ""
-                ctx = ContextMock()
-
-                handler(dummy_event, ctx)  # type:ignore
-
-        with self.subTest("Invalid s3 uri no bucket and key"):
-            with self.assertRaisesRegex(ConfigFileException, "Invalid s3 uri provided: `s3://`"):
-                os.environ["S3_CONFIG_FILE"] = "s3://"
-                ctx = ContextMock()
-
-                handler(dummy_event, ctx)  # type:ignore
-
-        with self.subTest("Invalid s3 uri no key"):
-            with self.assertRaisesRegex(ConfigFileException, "Invalid s3 uri provided: `s3://bucket`"):
-                os.environ["S3_CONFIG_FILE"] = "s3://bucket"
-                ctx = ContextMock()
-
-                handler(dummy_event, ctx)  # type:ignore
-
-        with self.subTest("no Records in event"):
-            with self.assertRaisesRegex(TriggerTypeException, "Not supported trigger"):
-                ctx = ContextMock()
-                event = {}
-
-                handler(event, ctx)  # type:ignore
-
-        with self.subTest("empty Records in event"):
-            with self.assertRaisesRegex(TriggerTypeException, "Not supported trigger"):
-                ctx = ContextMock()
-                event = {"Records": []}
-
-                handler(event, ctx)  # type:ignore
-
-        with self.subTest("no eventSource in Records in event"):
-            with self.assertRaisesRegex(TriggerTypeException, "Not supported trigger"):
-                ctx = ContextMock()
-                event = {"Records": [{}]}
-
-                handler(event, ctx)  # type:ignore
-
-        with self.subTest("no valid eventSource in Records in event"):
-            with self.assertRaisesRegex(TriggerTypeException, "Not supported trigger"):
-                ctx = ContextMock()
-                event = {"Records": [{"eventSource": "invalid"}]}
-
-                handler(event, ctx)  # type:ignore
-
-        with self.subTest("no eventSource in body Records in event"):
-            with self.assertRaisesRegex(TriggerTypeException, "Not supported trigger"):
-                ctx = ContextMock()
-                event = {"Records": [{"body": ""}]}
-
-                handler(event, ctx)  # type:ignore
-
-        with self.subTest("no valid eventSource in body Records in event"):
-            with self.assertRaisesRegex(TriggerTypeException, "Not supported trigger"):
-                ctx = ContextMock()
-                event = {"Records": [{"body": "", "eventSource": "invalid"}]}
-
-                handler(event, ctx)  # type:ignore
-
-        with self.subTest("replay event loads config from s3"):
-            with self.assertRaisesRegex(ConfigFileException, "Invalid s3 uri provided: `s3://bucket`"):
-                ctx = ContextMock()
-                event = {
-                    "Records": [
-                        {
-                            "body": '{"output_type": "", "output_args": "", "event_payload": ""}',
-                        }
-                    ]
-                }
-                handler(event, ctx)  # type:ignore
-
-        with self.subTest("invalid secretsmanager: arn format too long"):
-            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
-            with self.assertRaisesRegex(
-                ConfigFileException,
-                "Invalid arn format: "
-                "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret:THIS:IS:INVALID",
-            ):
-                ctx = ContextMock()
-                _s3_client_mock.config_content = b"""
-                    inputs:
-                      - type: "s3-sqs"
-                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret:THIS:IS:INVALID"
-                        outputs:
-                          - type: "elasticsearch"
-                            args:
-                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
-                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
-                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
-                              es_datastream_name: "logs-redis.log-default"
-                """
-
-                event = deepcopy(dummy_event)
-
-                handler(event, ctx)  # type:ignore
-
-        with self.subTest("invalid secretsmanager: empty region"):
-            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
-            with self.assertRaisesRegex(
-                ConfigFileException,
-                "Must be provided region in arn: " "arn:aws:secretsmanager::123456789:secret:plain_secret",
-            ):
-                ctx = ContextMock()
-                # BEWARE region is empty at id
-                _s3_client_mock.config_content = b"""
-                    inputs:
-                      - type: "s3-sqs"
-                        id: "arn:aws:secretsmanager::123456789:secret:plain_secret"
-                        outputs:
-                          - type: "elasticsearch"
-                            args:
-                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets"
-                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
-                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
-                              es_datastream_name: "logs-redis.log-default"
-                """
-
-                event = deepcopy(dummy_event)
-
-                handler(event, ctx)  # type:ignore
-
-        with self.subTest("invalid secretsmanager: empty secrets manager name"):
-            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
-            with self.assertRaisesRegex(
-                ConfigFileException,
-                "Must be provided secrets manager name in arn: "
-                "arn:aws:secretsmanager:eu-central-1:123456789:secret:",
-            ):
-                ctx = ContextMock()
-                # BEWARE empty secrets manager name at id
-                _s3_client_mock.config_content = b"""
-                    inputs:
-                      - type: "s3-sqs"
-                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:"
-                        outputs:
-                          - type: "elasticsearch"
-                            args:
-                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets"
-                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
-                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
-                              es_datastream_name: "logs-redis.log-default"
-                """
-
-                event = deepcopy(dummy_event)
-
-                handler(event, ctx)  # type:ignore
-
-        with self.subTest("invalid secretsmanager: cannot use both plain text and key/value pairs"):
-            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
-            with self.assertRaisesRegex(
-                ConfigFileException,
-                "You cannot have both plain text and json key for the same "
-                "secret: arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username",
-            ):
-                ctx = ContextMock()
-                # BEWARE using es_secrets plain text for elasticsearch_url and es_secrets:username for username
-                _s3_client_mock.config_content = b"""
-                    inputs:
-                      - type: "s3-sqs"
-                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secrets"
-                        outputs:
-                          - type: "elasticsearch"
-                            args:
-                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets"
-                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
-                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
-                              es_datastream_name: "logs-redis.log-default"
-                """
-
-                event = deepcopy(dummy_event)
-
-                handler(event, ctx)  # type:ignore
-
-        with self.subTest("invalid secretsmanager: empty secret key"):
-            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
-            with self.assertRaisesRegex(
-                ConfigFileException,
-                "Error for secret "
-                "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:: key must "
-                "not be empty",
-            ):
-                ctx = ContextMock()
-                # BEWARE empty key at elasticsearch_url
-                _s3_client_mock.config_content = b"""
-                    inputs:
-                      - type: "s3-sqs"
-                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret"
-                        outputs:
-                          - type: "elasticsearch"
-                            args:
-                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:"
-                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
-                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
-                              es_datastream_name: "logs-redis.log-default"
-                """
-
-                event = deepcopy(dummy_event)
-
-                handler(event, ctx)  # type:ignore
-
-        with self.subTest("invalid secretsmanager: secret does not exist"):
-            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
-            with self.assertRaisesRegex(
-                ConfigFileException,
-                r"An error occurred \(ResourceNotFoundException\) when calling "
-                "the GetSecretValue operation: Secrets Manager can't find the specified secret.",
-            ):
-                ctx = ContextMock()
-                _s3_client_mock.config_content = b"""
-                    inputs:
-                      - type: "s3-sqs"
-                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:DOES_NOT_EXIST"
-                        outputs:
-                          - type: "elasticsearch"
-                            args:
-                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
-                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
-                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
-                              es_datastream_name: "logs-redis.log-default"
-                """
-
-                event = deepcopy(dummy_event)
-
-                handler(event, ctx)  # type:ignore
-
-        with self.subTest("invalid secretsmanager: empty plain secret value"):
-            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
-            with self.assertRaisesRegex(
-                ConfigFileException,
-                "Error for secret "
-                "arn:aws:secretsmanager:eu-central-1:123456789:secret:empty_secret: must "
-                "not be empty",
-            ):
-                ctx = ContextMock()
-                _s3_client_mock.config_content = b"""
-                    inputs:
-                      - type: "s3-sqs"
-                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:empty_secret"
-                        outputs:
-                          - type: "elasticsearch"
-                            args:
-                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
-                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
-                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
-                              es_datastream_name: "logs-redis.log-default"
-                """
-
-                event = deepcopy(dummy_event)
-
-                handler(event, ctx)  # type:ignore
-
-        with self.subTest("invalid secretsmanager: empty key/value secret value"):
-            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
-            with self.assertRaisesRegex(
-                ConfigFileException,
-                "Error for secret "
-                "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:empty: must "
-                "not be empty",
-            ):
-                ctx = ContextMock()
-                _s3_client_mock.config_content = b"""
-                    inputs:
-                      - type: "s3-sqs"
-                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:empty"
-                        outputs:
-                          - type: "elasticsearch"
-                            args:
-                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
-                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
-                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
-                              es_datastream_name: "logs-redis.log-default"
-                """
-
-                event = deepcopy(dummy_event)
-
-                handler(event, ctx)  # type:ignore
-
-        with self.subTest("invalid secretsmanager: plain text used as key/value"):
-            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
-            with self.assertRaisesRegex(
-                ConfigFileException,
-                "Error for secret "
-                "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret:SHOULD_NOT_HAVE_A_KEY: "
-                "expected to be keys/values pair",
-            ):
-                ctx = ContextMock()
-                _s3_client_mock.config_content = b"""
-                    inputs:
-                      - type: "s3-sqs"
-                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret:SHOULD_NOT_HAVE_A_KEY"
-                        outputs:
-                          - type: "elasticsearch"
-                            args:
-                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
-                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
-                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
-                              es_datastream_name: "logs-redis.log-default"
-                """
-
-                event = deepcopy(dummy_event)
-
-                handler(event, ctx)  # type:ignore
-
-        with self.subTest("invalid secretsmanager: key does not exist in secret manager"):
-            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
-            with self.assertRaisesRegex(
-                ConfigFileException,
-                "Error for secret "
-                "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:I_DO_NOT_EXIST: "
-                "key not found",
-            ):
-                ctx = ContextMock()
-                _s3_client_mock.config_content = b"""
-                    inputs:
-                      - type: "s3-sqs"
-                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:I_DO_NOT_EXIST"
-                        outputs:
-                          - type: "elasticsearch"
-                            args:
-                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
-                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
-                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
-                              es_datastream_name: "logs-redis.log-default"
-                """
-
-                event = deepcopy(dummy_event)
-
-                handler(event, ctx)  # type:ignore
-
-        with self.subTest("invalid secretsmanager: plain text secret not str"):
-            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
-            with self.assertRaisesRegex(
-                ConfigFileException,
-                "Error for secret "
-                "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret_not_str_byte: "
-                "expected to be a string",
-            ):
-                ctx = ContextMock()
-                _s3_client_mock.config_content = b"""
-                    inputs:
-                      - type: "s3-sqs"
-                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret_not_str_byte"
-                        outputs:
-                          - type: "elasticsearch"
-                            args:
-                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
-                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
-                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
-                              es_datastream_name: "logs-redis.log-default"
-                """
-
-                event = deepcopy(dummy_event)
-
-                handler(event, ctx)  # type:ignore
-
-        with self.subTest("invalid secretsmanager: json TypeError raised"):
-            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
-            with self.assertRaisesRegex(
-                ConfigFileException,
-                "Error for secret "
-                "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret_not_str_int: "
-                "expected to be a string",
-            ):
-                ctx = ContextMock()
-                _s3_client_mock.config_content = b"""
-                    inputs:
-                      - type: "s3-sqs"
-                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret_not_str_int"
-                        outputs:
-                          - type: "elasticsearch"
-                            args:
-                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
-                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
-                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
-                              es_datastream_name: "logs-redis.log-default"
-                """
-
-                event = deepcopy(dummy_event)
-
-                handler(event, ctx)  # type:ignore
-
-        with self.subTest("tags not list"):
-            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
-            with self.assertRaisesRegex(
-                ConfigFileException, "`tags` must be provided as list for input mock_plain_text_sqs_arn"
-            ):
-                ctx = ContextMock()
-                _s3_client_mock.config_content = b"""
-                    inputs:
-                      - type: "s3-sqs"
-                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret"
-                        tags: "tag1"
-                        outputs:
-                          - type: "elasticsearch"
-                            args:
-                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
-                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
-                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
-                              es_datastream_name: "logs-redis.log-default"
-                """
-
-                event = deepcopy(dummy_event)
-
-                handler(event, ctx)  # type:ignore
-
-        with self.subTest("each tag must be of type str"):
-            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
-            with self.assertRaisesRegex(
-                ConfigFileException,
-                r"Each tag in `tags` must be provided as string for input "
-                r"mock_plain_text_sqs_arn, given: \['tag1', 2, 'tag3'\]",
-            ):
-                ctx = ContextMock()
-                _s3_client_mock.config_content = b"""
-                    inputs:
-                      - type: "s3-sqs"
-                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret"
-                        tags:
-                          - "tag1"
-                          - 2
-                          - "tag3"
-                        outputs:
-                          - type: "elasticsearch"
-                            args:
-                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
-                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
-                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
-                              es_datastream_name: "logs-redis.log-default"
-                """
-
-                event = deepcopy(dummy_event)
-
-                handler(event, ctx)  # type:ignore
-
-        with self.subTest("expand_event_list_from_field not str"):
-            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
-            with self.assertRaisesRegex(
-                ConfigFileException,
-                "`expand_event_list_from_field` must be provided as string for input mock_plain_text_sqs_arn",
-            ):
-                ctx = ContextMock()
-                _s3_client_mock.config_content = b"""
-                    inputs:
-                      - type: "s3-sqs"
-                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret"
-                        expand_event_list_from_field: 0
-                        outputs:
-                          - type: "elasticsearch"
-                            args:
-                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
-                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
-                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
-                              es_datastream_name: "logs-redis.log-default"
-                """
-
-                event = deepcopy(dummy_event)
-
-                handler(event, ctx)  # type:ignore
-
-        with self.subTest("root_fields_to_add_to_expanded_event not `all` when string"):
-            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
-            with self.assertRaisesRegex(
-                ConfigFileException,
-                "`root_fields_to_add_to_expanded_event` must be provided as `all` or a list of strings",
-            ):
-                ctx = ContextMock()
-                _s3_client_mock.config_content = b"""
-                    inputs:
-                      - type: "s3-sqs"
-                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret"
-                        root_fields_to_add_to_expanded_event: not_all
-                        outputs:
-                          - type: "elasticsearch"
-                            args:
-                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
-                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
-                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
-                              es_datastream_name: "logs-redis.log-default"
-                """
-
-                event = deepcopy(dummy_event)
-
-                handler(event, ctx)  # type:ignore
-
-        with self.subTest("root_fields_to_add_to_expanded_event not `all` neither list of strings"):
-            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
-            with self.assertRaisesRegex(
-                ConfigFileException,
-                "`root_fields_to_add_to_expanded_event` must be provided as `all` or a list of strings",
-            ):
-                ctx = ContextMock()
-                _s3_client_mock.config_content = b"""
-                    inputs:
-                      - type: "s3-sqs"
-                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret"
-                        root_fields_to_add_to_expanded_event: 0
-                        outputs:
-                          - type: "elasticsearch"
-                            args:
-                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
-                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
-                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
-                              es_datastream_name: "logs-redis.log-default"
-                """
-
-                event = deepcopy(dummy_event)
-
-                handler(event, ctx)  # type:ignore
-
-        with self.subTest("json_content_type not valid"):
-            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
-            with self.assertRaisesRegex(
-                ConfigFileException,
-                "`json_content_type` must be one of ndjson,single,disabled "
-                "for input mock_plain_text_sqs_arn: whatever given",
-            ):
-                ctx = ContextMock()
-                _s3_client_mock.config_content = b"""
-                    inputs:
-                      - type: "s3-sqs"
-                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret"
-                        json_content_type: whatever
-                        outputs:
-                          - type: "elasticsearch"
-                            args:
-                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
-                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
-                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
-                              es_datastream_name: "logs-redis.log-default"
-                """
-
-                event = deepcopy(dummy_event)
-
-                handler(event, ctx)  # type:ignore
+#@pytest.mark.unit
+#class TestLambdaHandlerFailure(TestCase):
+#    def setUp(self) -> None:
+#        revert_handlers_aws_handler()
+#
+#    @mock.patch("share.config._available_output_types", new=["elasticsearch", "logstash", "output_type"])
+#    @mock.patch(
+#        "share.config._available_input_types", new=["cloudwatch-logs", "s3-sqs", "sqs", "kinesis-data-stream", "dummy"]
+#    )
+#    @mock.patch("share.secretsmanager._get_aws_sm_client", new=MockContent._get_aws_sm_client)
+#    @mock.patch("handlers.aws.utils.get_ec2_client", lambda: _ec2_client_mock)
+#    @mock.patch("handlers.aws.handler.get_sqs_client", lambda: _sqs_client_mock)
+#    @mock.patch("storage.S3Storage._s3_client", _s3_client_mock)
+#    def test_lambda_handler_failure(self) -> None:
+#        dummy_event: dict[str, Any] = {
+#            "Records": [
+#                {
+#                    "eventSource": "aws:sqs",
+#                    "eventSourceARN": "arn:aws:sqs",
+#                },
+#            ]
+#        }
+#
+#        with self.subTest("output not in config from replay payload body"):
+#            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
+#            event = {
+#                "Records": [
+#                    {
+#                        "eventSourceARN": "arn:aws:sqs:eu-central-1:123456789:replay-queue",
+#                        "receiptHandle": "receiptHandle",
+#                        "body": '{"output_type": "output_type", "output_args": {},'
+#                        '"event_input_id": "arn:aws:dummy:eu-central-1:123456789:input", '
+#                        '"event_payload": {"_id": "_id"}}',
+#                    }
+#                ]
+#            }
+#            with self.assertRaisesRegex(OutputConfigException, "Cannot load output of type output_type"):
+#                ctx = ContextMock()
+#
+#                handler(event, ctx)  # type:ignore
+#
+#        with self.subTest("input not in config from replay payload body"):
+#            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
+#            event = {
+#                "Records": [
+#                    {
+#                        "eventSourceARN": "arn:aws:sqs:eu-central-1:123456789:replay-queue",
+#                        "receiptHandle": "receiptHandle",
+#                        "body": '{"output_type": "output_type", "output_args": {},'
+#                        '"event_input_id": "arn:aws:dummy:eu-central-1:123456789:not-existing-input", '
+#                        '"event_payload": {"_id": "_id"}}',
+#                    }
+#                ]
+#            }
+#            with self.assertRaisesRegex(
+#                InputConfigException,
+#                "Cannot load input for input id arn:aws:dummy:eu-central-1:123456789:not-existing-input",
+#            ):
+#                ctx = ContextMock()
+#
+#                handler(event, ctx)  # type:ignore
+#
+#        with self.subTest("empty config"):
+#            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
+#            with self.assertRaisesRegex(ConfigFileException, "Empty config"):
+#                ctx = ContextMock()
+#                _s3_client_mock.config_content = b""
+#
+#                handler(dummy_event, ctx)  # type:ignore
+#
+#        with self.subTest("Invalid s3 uri apm client not None"):
+#            with mock.patch("handlers.aws.utils.get_apm_client", lambda: mock.MagicMock()):
+#                with self.assertRaisesRegex(ConfigFileException, "Invalid s3 uri provided: ``"):
+#                    os.environ["S3_CONFIG_FILE"] = ""
+#                    ctx = ContextMock()
+#
+#                    handler(dummy_event, ctx)  # type:ignore
+#
+#        with self.subTest("Invalid s3 uri"):
+#            with self.assertRaisesRegex(ConfigFileException, "Invalid s3 uri provided: ``"):
+#                os.environ["S3_CONFIG_FILE"] = ""
+#                ctx = ContextMock()
+#
+#                handler(dummy_event, ctx)  # type:ignore
+#
+#        with self.subTest("Invalid s3 uri no bucket and key"):
+#            with self.assertRaisesRegex(ConfigFileException, "Invalid s3 uri provided: `s3://`"):
+#                os.environ["S3_CONFIG_FILE"] = "s3://"
+#                ctx = ContextMock()
+#
+#                handler(dummy_event, ctx)  # type:ignore
+#
+#        with self.subTest("Invalid s3 uri no key"):
+#            with self.assertRaisesRegex(ConfigFileException, "Invalid s3 uri provided: `s3://bucket`"):
+#                os.environ["S3_CONFIG_FILE"] = "s3://bucket"
+#                ctx = ContextMock()
+#
+#                handler(dummy_event, ctx)  # type:ignore
+#
+#        with self.subTest("no Records in event"):
+#            with self.assertRaisesRegex(TriggerTypeException, "Not supported trigger"):
+#                ctx = ContextMock()
+#                event = {}
+#
+#                handler(event, ctx)  # type:ignore
+#
+#        with self.subTest("empty Records in event"):
+#            with self.assertRaisesRegex(TriggerTypeException, "Not supported trigger"):
+#                ctx = ContextMock()
+#                event = {"Records": []}
+#
+#                handler(event, ctx)  # type:ignore
+#
+#        with self.subTest("no eventSource in Records in event"):
+#            with self.assertRaisesRegex(TriggerTypeException, "Not supported trigger"):
+#                ctx = ContextMock()
+#                event = {"Records": [{}]}
+#
+#                handler(event, ctx)  # type:ignore
+#
+#        with self.subTest("no valid eventSource in Records in event"):
+#            with self.assertRaisesRegex(TriggerTypeException, "Not supported trigger"):
+#                ctx = ContextMock()
+#                event = {"Records": [{"eventSource": "invalid"}]}
+#
+#                handler(event, ctx)  # type:ignore
+#
+#        with self.subTest("no eventSource in body Records in event"):
+#            with self.assertRaisesRegex(TriggerTypeException, "Not supported trigger"):
+#                ctx = ContextMock()
+#                event = {"Records": [{"body": ""}]}
+#
+#                handler(event, ctx)  # type:ignore
+#
+#        with self.subTest("no valid eventSource in body Records in event"):
+#            with self.assertRaisesRegex(TriggerTypeException, "Not supported trigger"):
+#                ctx = ContextMock()
+#                event = {"Records": [{"body": "", "eventSource": "invalid"}]}
+#
+#                handler(event, ctx)  # type:ignore
+#
+#        with self.subTest("replay event loads config from s3"):
+#            with self.assertRaisesRegex(ConfigFileException, "Invalid s3 uri provided: `s3://bucket`"):
+#                ctx = ContextMock()
+#                event = {
+#                    "Records": [
+#                        {
+#                            "body": '{"output_type": "", "output_args": "", "event_payload": ""}',
+#                        }
+#                    ]
+#                }
+#                handler(event, ctx)  # type:ignore
+#
+#        with self.subTest("invalid secretsmanager: arn format too long"):
+#            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
+#            with self.assertRaisesRegex(
+#                ConfigFileException,
+#                "Invalid arn format: "
+#                "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret:THIS:IS:INVALID",
+#            ):
+#                ctx = ContextMock()
+#                _s3_client_mock.config_content = b"""
+#                    inputs:
+#                      - type: "s3-sqs"
+#                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret:THIS:IS:INVALID"
+#                        outputs:
+#                          - type: "elasticsearch"
+#                            args:
+#                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+#                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
+#                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
+#                              es_datastream_name: "logs-redis.log-default"
+#                """
+#
+#                event = deepcopy(dummy_event)
+#
+#                handler(event, ctx)  # type:ignore
+#
+#        with self.subTest("invalid secretsmanager: empty region"):
+#            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
+#            with self.assertRaisesRegex(
+#                ConfigFileException,
+#                "Must be provided region in arn: " "arn:aws:secretsmanager::123456789:secret:plain_secret",
+#            ):
+#                ctx = ContextMock()
+#                # BEWARE region is empty at id
+#                _s3_client_mock.config_content = b"""
+#                    inputs:
+#                      - type: "s3-sqs"
+#                        id: "arn:aws:secretsmanager::123456789:secret:plain_secret"
+#                        outputs:
+#                          - type: "elasticsearch"
+#                            args:
+#                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets"
+#                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
+#                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
+#                              es_datastream_name: "logs-redis.log-default"
+#                """
+#
+#                event = deepcopy(dummy_event)
+#
+#                handler(event, ctx)  # type:ignore
+#
+#        with self.subTest("invalid secretsmanager: empty secrets manager name"):
+#            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
+#            with self.assertRaisesRegex(
+#                ConfigFileException,
+#                "Must be provided secrets manager name in arn: "
+#                "arn:aws:secretsmanager:eu-central-1:123456789:secret:",
+#            ):
+#                ctx = ContextMock()
+#                # BEWARE empty secrets manager name at id
+#                _s3_client_mock.config_content = b"""
+#                    inputs:
+#                      - type: "s3-sqs"
+#                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:"
+#                        outputs:
+#                          - type: "elasticsearch"
+#                            args:
+#                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets"
+#                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
+#                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
+#                              es_datastream_name: "logs-redis.log-default"
+#                """
+#
+#                event = deepcopy(dummy_event)
+#
+#                handler(event, ctx)  # type:ignore
+#
+#        with self.subTest("invalid secretsmanager: cannot use both plain text and key/value pairs"):
+#            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
+#            with self.assertRaisesRegex(
+#                ConfigFileException,
+#                "You cannot have both plain text and json key for the same "
+#                "secret: arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username",
+#            ):
+#                ctx = ContextMock()
+#                # BEWARE using es_secrets plain text for elasticsearch_url and es_secrets:username for username
+#                _s3_client_mock.config_content = b"""
+#                    inputs:
+#                      - type: "s3-sqs"
+#                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secrets"
+#                        outputs:
+#                          - type: "elasticsearch"
+#                            args:
+#                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets"
+#                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
+#                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
+#                              es_datastream_name: "logs-redis.log-default"
+#                """
+#
+#                event = deepcopy(dummy_event)
+#
+#                handler(event, ctx)  # type:ignore
+#
+#        with self.subTest("invalid secretsmanager: empty secret key"):
+#            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
+#            with self.assertRaisesRegex(
+#                ConfigFileException,
+#                "Error for secret "
+#                "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:: key must "
+#                "not be empty",
+#            ):
+#                ctx = ContextMock()
+#                # BEWARE empty key at elasticsearch_url
+#                _s3_client_mock.config_content = b"""
+#                    inputs:
+#                      - type: "s3-sqs"
+#                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret"
+#                        outputs:
+#                          - type: "elasticsearch"
+#                            args:
+#                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:"
+#                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
+#                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
+#                              es_datastream_name: "logs-redis.log-default"
+#                """
+#
+#                event = deepcopy(dummy_event)
+#
+#                handler(event, ctx)  # type:ignore
+#
+#        with self.subTest("invalid secretsmanager: secret does not exist"):
+#            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
+#            with self.assertRaisesRegex(
+#                ConfigFileException,
+#                r"An error occurred \(ResourceNotFoundException\) when calling "
+#                "the GetSecretValue operation: Secrets Manager can't find the specified secret.",
+#            ):
+#                ctx = ContextMock()
+#                _s3_client_mock.config_content = b"""
+#                    inputs:
+#                      - type: "s3-sqs"
+#                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:DOES_NOT_EXIST"
+#                        outputs:
+#                          - type: "elasticsearch"
+#                            args:
+#                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+#                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
+#                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
+#                              es_datastream_name: "logs-redis.log-default"
+#                """
+#
+#                event = deepcopy(dummy_event)
+#
+#                handler(event, ctx)  # type:ignore
+#
+#        with self.subTest("invalid secretsmanager: empty plain secret value"):
+#            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
+#            with self.assertRaisesRegex(
+#                ConfigFileException,
+#                "Error for secret "
+#                "arn:aws:secretsmanager:eu-central-1:123456789:secret:empty_secret: must "
+#                "not be empty",
+#            ):
+#                ctx = ContextMock()
+#                _s3_client_mock.config_content = b"""
+#                    inputs:
+#                      - type: "s3-sqs"
+#                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:empty_secret"
+#                        outputs:
+#                          - type: "elasticsearch"
+#                            args:
+#                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+#                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
+#                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
+#                              es_datastream_name: "logs-redis.log-default"
+#                """
+#
+#                event = deepcopy(dummy_event)
+#
+#                handler(event, ctx)  # type:ignore
+#
+#        with self.subTest("invalid secretsmanager: empty key/value secret value"):
+#            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
+#            with self.assertRaisesRegex(
+#                ConfigFileException,
+#                "Error for secret "
+#                "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:empty: must "
+#                "not be empty",
+#            ):
+#                ctx = ContextMock()
+#                _s3_client_mock.config_content = b"""
+#                    inputs:
+#                      - type: "s3-sqs"
+#                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:empty"
+#                        outputs:
+#                          - type: "elasticsearch"
+#                            args:
+#                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+#                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
+#                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
+#                              es_datastream_name: "logs-redis.log-default"
+#                """
+#
+#                event = deepcopy(dummy_event)
+#
+#                handler(event, ctx)  # type:ignore
+#
+#        with self.subTest("invalid secretsmanager: plain text used as key/value"):
+#            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
+#            with self.assertRaisesRegex(
+#                ConfigFileException,
+#                "Error for secret "
+#                "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret:SHOULD_NOT_HAVE_A_KEY: "
+#                "expected to be keys/values pair",
+#            ):
+#                ctx = ContextMock()
+#                _s3_client_mock.config_content = b"""
+#                    inputs:
+#                      - type: "s3-sqs"
+#                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret:SHOULD_NOT_HAVE_A_KEY"
+#                        outputs:
+#                          - type: "elasticsearch"
+#                            args:
+#                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+#                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
+#                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
+#                              es_datastream_name: "logs-redis.log-default"
+#                """
+#
+#                event = deepcopy(dummy_event)
+#
+#                handler(event, ctx)  # type:ignore
+#
+#        with self.subTest("invalid secretsmanager: key does not exist in secret manager"):
+#            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
+#            with self.assertRaisesRegex(
+#                ConfigFileException,
+#                "Error for secret "
+#                "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:I_DO_NOT_EXIST: "
+#                "key not found",
+#            ):
+#                ctx = ContextMock()
+#                _s3_client_mock.config_content = b"""
+#                    inputs:
+#                      - type: "s3-sqs"
+#                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:I_DO_NOT_EXIST"
+#                        outputs:
+#                          - type: "elasticsearch"
+#                            args:
+#                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+#                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
+#                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
+#                              es_datastream_name: "logs-redis.log-default"
+#                """
+#
+#                event = deepcopy(dummy_event)
+#
+#                handler(event, ctx)  # type:ignore
+#
+#        with self.subTest("invalid secretsmanager: plain text secret not str"):
+#            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
+#            with self.assertRaisesRegex(
+#                ConfigFileException,
+#                "Error for secret "
+#                "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret_not_str_byte: "
+#                "expected to be a string",
+#            ):
+#                ctx = ContextMock()
+#                _s3_client_mock.config_content = b"""
+#                    inputs:
+#                      - type: "s3-sqs"
+#                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret_not_str_byte"
+#                        outputs:
+#                          - type: "elasticsearch"
+#                            args:
+#                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+#                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
+#                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
+#                              es_datastream_name: "logs-redis.log-default"
+#                """
+#
+#                event = deepcopy(dummy_event)
+#
+#                handler(event, ctx)  # type:ignore
+#
+#        with self.subTest("invalid secretsmanager: json TypeError raised"):
+#            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
+#            with self.assertRaisesRegex(
+#                ConfigFileException,
+#                "Error for secret "
+#                "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret_not_str_int: "
+#                "expected to be a string",
+#            ):
+#                ctx = ContextMock()
+#                _s3_client_mock.config_content = b"""
+#                    inputs:
+#                      - type: "s3-sqs"
+#                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret_not_str_int"
+#                        outputs:
+#                          - type: "elasticsearch"
+#                            args:
+#                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+#                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
+#                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
+#                              es_datastream_name: "logs-redis.log-default"
+#                """
+#
+#                event = deepcopy(dummy_event)
+#
+#                handler(event, ctx)  # type:ignore
+#
+#        with self.subTest("tags not list"):
+#            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
+#            with self.assertRaisesRegex(
+#                ConfigFileException, "`tags` must be provided as list for input mock_plain_text_sqs_arn"
+#            ):
+#                ctx = ContextMock()
+#                _s3_client_mock.config_content = b"""
+#                    inputs:
+#                      - type: "s3-sqs"
+#                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret"
+#                        tags: "tag1"
+#                        outputs:
+#                          - type: "elasticsearch"
+#                            args:
+#                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+#                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
+#                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
+#                              es_datastream_name: "logs-redis.log-default"
+#                """
+#
+#                event = deepcopy(dummy_event)
+#
+#                handler(event, ctx)  # type:ignore
+#
+#        with self.subTest("each tag must be of type str"):
+#            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
+#            with self.assertRaisesRegex(
+#                ConfigFileException,
+#                r"Each tag in `tags` must be provided as string for input "
+#                r"mock_plain_text_sqs_arn, given: \['tag1', 2, 'tag3'\]",
+#            ):
+#                ctx = ContextMock()
+#                _s3_client_mock.config_content = b"""
+#                    inputs:
+#                      - type: "s3-sqs"
+#                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret"
+#                        tags:
+#                          - "tag1"
+#                          - 2
+#                          - "tag3"
+#                        outputs:
+#                          - type: "elasticsearch"
+#                            args:
+#                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+#                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
+#                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
+#                              es_datastream_name: "logs-redis.log-default"
+#                """
+#
+#                event = deepcopy(dummy_event)
+#
+#                handler(event, ctx)  # type:ignore
+#
+#        with self.subTest("expand_event_list_from_field not str"):
+#            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
+#            with self.assertRaisesRegex(
+#                ConfigFileException,
+#                "`expand_event_list_from_field` must be provided as string for input mock_plain_text_sqs_arn",
+#            ):
+#                ctx = ContextMock()
+#                _s3_client_mock.config_content = b"""
+#                    inputs:
+#                      - type: "s3-sqs"
+#                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret"
+#                        expand_event_list_from_field: 0
+#                        outputs:
+#                          - type: "elasticsearch"
+#                            args:
+#                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+#                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
+#                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
+#                              es_datastream_name: "logs-redis.log-default"
+#                """
+#
+#                event = deepcopy(dummy_event)
+#
+#                handler(event, ctx)  # type:ignore
+#
+#        with self.subTest("root_fields_to_add_to_expanded_event not `all` when string"):
+#            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
+#            with self.assertRaisesRegex(
+#                ConfigFileException,
+#                "`root_fields_to_add_to_expanded_event` must be provided as `all` or a list of strings",
+#            ):
+#                ctx = ContextMock()
+#                _s3_client_mock.config_content = b"""
+#                    inputs:
+#                      - type: "s3-sqs"
+#                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret"
+#                        root_fields_to_add_to_expanded_event: not_all
+#                        outputs:
+#                          - type: "elasticsearch"
+#                            args:
+#                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+#                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
+#                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
+#                              es_datastream_name: "logs-redis.log-default"
+#                """
+#
+#                event = deepcopy(dummy_event)
+#
+#                handler(event, ctx)  # type:ignore
+#
+#        with self.subTest("root_fields_to_add_to_expanded_event not `all` neither list of strings"):
+#            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
+#            with self.assertRaisesRegex(
+#                ConfigFileException,
+#                "`root_fields_to_add_to_expanded_event` must be provided as `all` or a list of strings",
+#            ):
+#                ctx = ContextMock()
+#                _s3_client_mock.config_content = b"""
+#                    inputs:
+#                      - type: "s3-sqs"
+#                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret"
+#                        root_fields_to_add_to_expanded_event: 0
+#                        outputs:
+#                          - type: "elasticsearch"
+#                            args:
+#                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+#                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
+#                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
+#                              es_datastream_name: "logs-redis.log-default"
+#                """
+#
+#                event = deepcopy(dummy_event)
+#
+#                handler(event, ctx)  # type:ignore
+#
+#        with self.subTest("json_content_type not valid"):
+#            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
+#            with self.assertRaisesRegex(
+#                ConfigFileException,
+#                "`json_content_type` must be one of ndjson,single,disabled "
+#                "for input mock_plain_text_sqs_arn: whatever given",
+#            ):
+#                ctx = ContextMock()
+#                _s3_client_mock.config_content = b"""
+#                    inputs:
+#                      - type: "s3-sqs"
+#                        id: "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret"
+#                        json_content_type: whatever
+#                        outputs:
+#                          - type: "elasticsearch"
+#                            args:
+#                              elasticsearch_url: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:url"
+#                              username: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:username"
+#                              password: "arn:aws:secretsmanager:eu-central-1:123456789:secret:es_secrets:password"
+#                              es_datastream_name: "logs-redis.log-default"
+#                """
+#
+#                event = deepcopy(dummy_event)
+#
+#                handler(event, ctx)  # type:ignore
+#
