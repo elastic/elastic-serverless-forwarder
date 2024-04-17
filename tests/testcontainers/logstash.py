@@ -201,8 +201,8 @@ EOF
         self._last_reset_message_count = self._previous_message_count
 
     def start(self) -> LogstashContainer:
-        self._configure()
         super().start()
+        self._configure()
         self._connect()
         return self
 
