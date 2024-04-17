@@ -204,6 +204,8 @@ class TestLambdaHandlerIntegration(TestCase):
             key=config_file_path,
         )
 
+        print("-1")
+
         os.environ["S3_CONFIG_FILE"] = f"s3://{config_bucket_name}/{config_file_path}"
         fixtures = [
             _load_file_fixture("cloudwatch-log-1.json"),
@@ -228,6 +230,8 @@ class TestLambdaHandlerIntegration(TestCase):
             bucket_name=s3_bucket_name,
             key=cloudtrail_filename_digest,
         )
+
+        print("-2")
 
         _s3_upload_content_to_bucket(
             client=self.s3_client,
@@ -256,6 +260,8 @@ class TestLambdaHandlerIntegration(TestCase):
 
         res = self.elasticsearch.search(index="logs-aws.cloudtrail-default", sort="_seq_no")
         assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
+
+        print("-3")
 
         assert res["hits"]["hits"][0]["_source"]["message"] == fixtures[0].rstrip("\n")
         assert res["hits"]["hits"][0]["_source"]["log"]["offset"] == 0
@@ -296,6 +302,8 @@ class TestLambdaHandlerIntegration(TestCase):
         assert res["hits"]["hits"][0]["_source"]["message"] == logstash_message[0]["message"]
         assert res["hits"]["hits"][0]["_source"]["tags"] == logstash_message[0]["tags"]
 
+        print("-4")
+
         assert res["hits"]["hits"][1]["_source"]["aws"] == logstash_message[1]["aws"]
         assert res["hits"]["hits"][1]["_source"]["cloud"] == logstash_message[1]["cloud"]
         assert res["hits"]["hits"][1]["_source"]["log"] == logstash_message[1]["log"]
@@ -308,6 +316,8 @@ class TestLambdaHandlerIntegration(TestCase):
         res = self.elasticsearch.search(index="logs-stash.elasticsearch-output", sort="_seq_no")
         assert res["hits"]["total"] == {"value": 2, "relation": "eq"}
 
+        print("-5")
+        
         assert res["hits"]["hits"][0]["_source"]["aws"] == logstash_message[0]["aws"]
         assert res["hits"]["hits"][0]["_source"]["cloud"] == logstash_message[0]["cloud"]
         assert res["hits"]["hits"][0]["_source"]["log"] == logstash_message[0]["log"]
