@@ -1,0 +1,37 @@
+---
+## Workflow to check CHANGELOG was updated when version gets updated in share/version.py
+name: changelog
+
+on:
+  pull_request:
+    paths:
+      - 'share/version.py'
+
+jobs:
+
+  changelog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+
+      - uses: actions/checkout@v4
+
+      - name: Get version number
+        shell: bash
+        run: |
+          VERSION=$(grep -oE '[0-9]+\.[0-9]+\.[0-9]+(\-[a-zA-Z]+[0-9]+)?' share/version.py)
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "::notice::ESF version is $VERSION."
+
+      - name: Check changelog
+        shell: bash
+        run: |
+          first_line=$(awk 'NR==1' CHANGELOG.md)
+
+          if [[ $first_line != *" v${{ env.VERSION }} "* ]]; then
+            error="CHANGELOG should contain the new version in its first line, like this ' v1.1.1 '."
+            reminder="Do not forget to add space before and after the version in the CHANGELOG first line."
+            echo "::error::$error $reminder"
+            exit 1
+          fi
