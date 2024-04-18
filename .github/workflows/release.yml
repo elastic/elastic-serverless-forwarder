@@ -48,7 +48,7 @@ jobs:
           do
             if [[ ${new_numbers[i]} > ${old_numbers[i]} ]]
             then
-              create_tag=true
+              CREATE_TAG==true
               break
             elif [[ ${new_numbers[i]} < ${old_numbers[i]} ]]
             then
