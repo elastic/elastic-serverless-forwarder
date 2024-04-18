@@ -20,22 +20,55 @@ jobs:
 
     steps:
 
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Get version number
-      shell: bash
-      run: |
-        VERSION=$(grep -oE '[0-9]+\.[0-9]+\.[0-9]+(\-[a-zA-Z]+[0-9]+)?' share/version.py)
-        echo "VERSION=${VERSION}" >> $GITHUB_ENV
-        echo "::notice::ESF version is $VERSION."
+      - name: Get version number
+        shell: bash
+        run: |
+          VERSION=$(grep -oE '[0-9]+\.[0-9]+\.[0-9]+(\-[a-zA-Z]+[0-9]+)?' share/version.py)
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "::notice::ESF version is $VERSION."
 
-    - name: Create tag
-      uses: actions/github-script@v7
-      with:
-        script: |
-          github.rest.git.createRef({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            ref: 'refs/tags/lambda-v' + "${{ env.VERSION }}",
-            sha: context.sha
-          })
+      - name: Check if version increased
+        shell: bash
+        run: |
+          git fetch --tags
+
+          # We will list all tags sorted by the version after the prefix lambda-v.
+          # We retrieve only the first line - that is, the most recent version.
+          # After that, we remove the prefix to only get the version number.
+          old_version=$(git tag --list --sort=-version:refname "lambda-v*" | awk 'NR==1{print $1}' | awk -F"lambda-v" '{ print $NF }')
+
+          # We now need to compare the current version inside version.py.
+          IFS='.' read -a new_numbers <<< ${{ env.VERSION }}
+          IFS='.' read -a old_numbers <<< $old_version
+
+          create_tag=false # only create tag if version increased
+          for i in 0 1 2
+          do
+            if [[ ${new_numbers[i]} > ${old_numbers[i]} ]]
+            then
+              create_tag=true
+              break
+            elif [[ ${new_numbers[i]} < ${old_numbers[i]} ]]
+            then
+              break
+            fi
+          done
+
+          echo "CREATE_TAG=${create_tag}" >> $GITHUB_ENV
+          echo "::notice::Latest version is $old_version."
+          echo "::notice::Current version is ${{ env.VERSION }}."
+          echo "::notice::The result for creating tag is $create_tag."
+
+      - name: Create tag
+        if: env.CREATE_TAG == 'true' # run only in case CREATE_TAG is true
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.git.createRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: 'refs/tags/lambda-v' + "${{ env.VERSION }}",
+              sha: context.sha
+            })
