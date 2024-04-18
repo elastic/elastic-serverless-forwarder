@@ -59,7 +59,7 @@ jobs:
           echo "CREATE_TAG=${CREATE_TAG}" >> $GITHUB_ENV
           echo "::notice::Latest version is $old_version."
           echo "::notice::Current version is ${{ env.VERSION }}."
-          echo "::notice::The result for creating tag is $create_tag."
+          echo "::notice::The result for creating tag is $CREATE_TAG."
 
       - name: Create tag
         if: env.CREATE_TAG == 'true' # run only in case CREATE_TAG is true
