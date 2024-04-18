@@ -54,6 +54,9 @@ jobs:
         run: |
           zip -r ./lambda-v${{ env.VERSION }}.zip main_aws.py
           zip -r ./lambda-v${{ env.VERSION }}.zip handlers
+          zip -r ./lambda-v${{ env.VERSION }}.zip share
+          zip -r ./lambda-v${{ env.VERSION }}.zip storage
+          zip -r ./lambda-v${{ env.VERSION }}.zip shippers
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
