@@ -43,7 +43,7 @@ jobs:
           IFS='.' read -a new_numbers <<< ${{ env.VERSION }}
           IFS='.' read -a old_numbers <<< $old_version
 
-          create_tag=false # only create tag if version increased
+          CREATE_TAG=false # only create tag if version increased
           for i in 0 1 2
           do
             if [[ ${new_numbers[i]} > ${old_numbers[i]} ]]
