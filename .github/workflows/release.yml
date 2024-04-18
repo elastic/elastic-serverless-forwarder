@@ -56,7 +56,7 @@ jobs:
             fi
           done
 
-          echo "CREATE_TAG=${create_tag}" >> $GITHUB_ENV
+          echo "CREATE_TAG=${CREATE_TAG}" >> $GITHUB_ENV
           echo "::notice::Latest version is $old_version."
           echo "::notice::Current version is ${{ env.VERSION }}."
           echo "::notice::The result for creating tag is $create_tag."
