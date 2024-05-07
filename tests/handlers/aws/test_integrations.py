@@ -3247,7 +3247,10 @@ class TestLambdaHandlerIntegration(TestCase):
         assert len(messages_sqs) == 3
         assert len(replayed_messages) == 3
         for i, message in enumerate(replayed_messages):
-            assert messages_sqs[i]["eventSourceARN"] == message["messageAttributes"]["originalEventSourceARN"]["stringValue"]
+            assert (
+                messages_sqs[i]["eventSourceARN"]
+                == message["messageAttributes"]["originalEventSourceARN"]["stringValue"]
+            )
 
     def test_sqs_last_ending_offset_reset(self) -> None:
         assert isinstance(self.logstash, LogstashContainer)

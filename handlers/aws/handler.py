@@ -229,8 +229,12 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         composite_shipper.flush()
         shared_logger.info(
             "lambda processed all the events",
-            extra={"sent_events": sent_events, "empty_events": empty_events, "skipped_events": skipped_events,
-                   "error_events": error_events},
+            extra={
+                "sent_events": sent_events,
+                "empty_events": empty_events,
+                "skipped_events": skipped_events,
+                "error_events": error_events,
+            },
         )
 
     if trigger_type == "kinesis-data-stream":
@@ -330,8 +334,12 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         composite_shipper.flush()
         shared_logger.info(
             "lambda processed all the events",
-            extra={"sent_events": sent_events, "empty_events": empty_events, "skipped_events": skipped_events,
-                   "error_events": error_events},
+            extra={
+                "sent_events": sent_events,
+                "empty_events": empty_events,
+                "skipped_events": skipped_events,
+                "error_events": error_events,
+            },
         )
 
     if trigger_type == "s3-sqs" or trigger_type == "sqs":
@@ -553,8 +561,12 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
         shared_logger.info(
             "lambda processed all the events",
-            extra={"sent_events": sent_events, "empty_events": empty_events, "skipped_events": skipped_events,
-                   "error_events": error_events},
+            extra={
+                "sent_events": sent_events,
+                "empty_events": empty_events,
+                "skipped_events": skipped_events,
+                "error_events": error_events,
+            },
         )
 
     return "completed"
