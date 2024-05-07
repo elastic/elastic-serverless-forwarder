@@ -1,0 +1,49 @@
+version: '3'
+
+env:
+    # Directory to place the dependencies - just internal to this taskfile
+    DIR: dependencies
+
+dotenv: ['.env']
+
+tasks:
+    default:
+        cmds:
+            - task: install-requirements
+            - task: build-zip-file
+            - task: remove-dependencies-dir
+            - task: add-to-zip
+
+    install-requirements:
+        desc: "Install requirements from $REQUIREMENTS."
+        internal: true
+        requires:
+            var: REQUIREMENTS
+        cmds:
+            - rm -rf $DIR
+            - for:
+                var: REQUIREMENTS
+                split: ','
+              cmd: pip3.9 install -r ../{{ .ITEM }} -t $DIR
+
+    build-zip-file:
+        desc: "Zip $DIR to build $FILENAME."
+        internal: true
+        cmds:
+            - rm -rf $FILENAME
+            - cd $DIR && zip -r ../$FILENAME .
+
+    remove-dependencies-dir:
+        desc: "Delete $DIR."
+        internal: true
+        cmds:
+            - rm -rf $DIR
+
+    add-to-zip:
+        desc: "Add $DEPENDENCIES to zip file."
+        internal: true
+        cmds:
+            - for:
+                var: DEPENDENCIES
+                split: ','
+              cmd: zip -r $FILENAME ../{{ .ITEM }}

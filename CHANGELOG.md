@@ -1,3 +1,9 @@
+### v1.14.0 - 2024/05/07
+##### Features
+...
+##### Bug fixes
+...
+
 ### v1.13.1 - 2024/03/07
 ##### Features
 * Add documentation and optimise performance for `root_fields_to_add_to_expanded_event` [#642](https://github.com/elastic/elastic-serverless-forwarder/pull/642)

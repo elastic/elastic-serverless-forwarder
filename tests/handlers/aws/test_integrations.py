@@ -2602,6 +2602,82 @@ class TestLambdaHandlerIntegration(TestCase):
         assert logstash_message[1]["cloud"]["account"]["id"] == "000000000000"
         assert logstash_message[1]["tags"] == ["forwarded", "tag1", "tag2", "tag3"]
 
+    def test_cloudwatch_logs_no_input_defined(self) -> None:
+        assert isinstance(self.logstash, LogstashContainer)
+        assert isinstance(self.localstack, LocalStackContainer)
+
+        fixtures = [
+            _load_file_fixture("cloudwatch-log-1.json"),
+            _load_file_fixture("cloudwatch-log-2.json"),
+            _load_file_fixture("cloudwatch-log-3.json"),
+        ]
+
+        cloudwatch_group_name = _time_based_id(suffix="source-group")
+        cloudwatch_group = _logs_create_cloudwatch_logs_group(self.logs_client, group_name=cloudwatch_group_name)
+
+        cloudwatch_stream_name = _time_based_id(suffix="source-stream")
+        _logs_create_cloudwatch_logs_stream(
+            self.logs_client, group_name=cloudwatch_group_name, stream_name=cloudwatch_stream_name
+        )
+
+        _logs_upload_event_to_cloudwatch_logs(
+            self.logs_client,
+            group_name=cloudwatch_group_name,
+            stream_name=cloudwatch_stream_name,
+            messages_body=fixtures,
+        )
+
+        cloudwatch_group_arn = cloudwatch_group["arn"]
+        cloudwatch_group_name = cloudwatch_group_name
+        cloudwatch_stream_name = cloudwatch_stream_name
+
+        config_yaml: str = f"""
+            inputs:
+              - type: "cloudwatch-logs"
+                id: "misconfigured-cloudwatch-logs"
+                tags: {self.default_tags}
+                outputs:
+                  - type: "logstash"
+                    args:
+                      logstash_url: "{self.logstash.get_url()}"
+                      ssl_assert_fingerprint: {self.logstash.ssl_assert_fingerprint}
+                      username: "{self.logstash.logstash_user}"
+                      password: "{self.logstash.logstash_password}"
+        """
+
+        config_file_path = "config.yaml"
+        config_bucket_name = _time_based_id(suffix="config-bucket")
+        _s3_upload_content_to_bucket(
+            client=self.s3_client,
+            content=config_yaml.encode("utf-8"),
+            content_type="text/plain",
+            bucket_name=config_bucket_name,
+            key=config_file_path,
+        )
+
+        os.environ["S3_CONFIG_FILE"] = f"s3://{config_bucket_name}/{config_file_path}"
+
+        events_cloudwatch_logs, event_ids_cloudwatch_logs, _ = _logs_retrieve_event_from_cloudwatch_logs(
+            self.logs_client, cloudwatch_group_name, cloudwatch_stream_name
+        )
+
+        ctx = ContextMock()
+        first_call = handler(events_cloudwatch_logs, ctx)  # type:ignore
+
+        assert first_call == "completed"
+
+        replayed_events, _ = _sqs_get_messages(self.sqs_client, os.environ["SQS_REPLAY_URL"], self.sqs_replay_queue_arn)
+        replayed_messages = replayed_events["Records"]
+
+        assert len(replayed_messages) == 3
+
+        arn_components = cloudwatch_group_arn.split(":")
+        arn_components[3] = "%AWS_REGION%"
+        cloudwatch_group_arn = ":".join(arn_components)
+
+        for message in replayed_messages:
+            assert message["messageAttributes"]["originalEventSourceARN"]["stringValue"] == cloudwatch_group_arn
+
     def test_cloudwatch_logs_last_ending_offset_reset(self) -> None:
         assert isinstance(self.logstash, LogstashContainer)
         assert isinstance(self.localstack, LocalStackContainer)
@@ -2829,6 +2905,65 @@ class TestLambdaHandlerIntegration(TestCase):
         assert logstash_message[2]["cloud"]["account"]["id"] == "000000000000"
         assert logstash_message[2]["tags"] == ["forwarded", "tag1", "tag2", "tag3"]
 
+    def test_kinesis_data_stream_no_input_defined(self) -> None:
+        assert isinstance(self.logstash, LogstashContainer)
+        assert isinstance(self.localstack, LocalStackContainer)
+
+        fixtures = [
+            _load_file_fixture("cloudwatch-log-1.json"),
+            _load_file_fixture("cloudwatch-log-2.json"),
+            _load_file_fixture("cloudwatch-log-3.json"),
+        ]
+
+        kinesis_stream_name = _time_based_id(suffix="source-kinesis")
+        kinesis_stream = _kinesis_create_stream(self.kinesis_client, kinesis_stream_name)
+        kinesis_stream_arn = kinesis_stream["StreamDescription"]["StreamARN"]
+
+        _kinesis_put_records(self.kinesis_client, kinesis_stream_name, fixtures)
+
+        config_yaml: str = f"""
+            inputs:
+              - type: "kinesis-data-stream"
+                id: "misconfigured-id"
+                tags: {self.default_tags}
+                outputs:
+                  - type: "logstash"
+                    args:
+                      logstash_url: "{self.logstash.get_url()}"
+                      ssl_assert_fingerprint: {self.logstash.ssl_assert_fingerprint}
+                      username: "{self.logstash.logstash_user}"
+                      password: "{self.logstash.logstash_password}"
+        """
+
+        config_file_path = "config.yaml"
+        config_bucket_name = _time_based_id(suffix="config-bucket")
+        _s3_upload_content_to_bucket(
+            client=self.s3_client,
+            content=config_yaml.encode("utf-8"),
+            content_type="text/plain",
+            bucket_name=config_bucket_name,
+            key=config_file_path,
+        )
+
+        os.environ["S3_CONFIG_FILE"] = f"s3://{config_bucket_name}/{config_file_path}"
+
+        events_kinesis, _ = _kinesis_retrieve_event_from_kinesis_stream(
+            self.kinesis_client, kinesis_stream_name, kinesis_stream_arn
+        )
+
+        ctx = ContextMock()
+        first_call = handler(events_kinesis, ctx)  # type:ignore
+
+        assert first_call == "completed"
+
+        replayed_events, _ = _sqs_get_messages(self.sqs_client, os.environ["SQS_REPLAY_URL"], self.sqs_replay_queue_arn)
+        replayed_messages = replayed_events["Records"]
+
+        assert len(replayed_messages) == 3
+
+        for message in replayed_messages:
+            assert kinesis_stream_arn == message["messageAttributes"]["originalEventSourceARN"]["stringValue"]
+
     def test_kinesis_data_stream_last_ending_offset_reset(self) -> None:
         assert isinstance(self.logstash, LogstashContainer)
         assert isinstance(self.localstack, LocalStackContainer)
@@ -3051,6 +3186,68 @@ class TestLambdaHandlerIntegration(TestCase):
         assert logstash_message[2]["cloud"]["region"] == "us-east-1"
         assert logstash_message[2]["cloud"]["account"]["id"] == "000000000000"
         assert logstash_message[2]["tags"] == ["forwarded", "tag1", "tag2", "tag3"]
+
+    def test_sqs_no_input_defined(self) -> None:
+        assert isinstance(self.logstash, LogstashContainer)
+        assert isinstance(self.localstack, LocalStackContainer)
+
+        fixtures = [
+            _load_file_fixture("cloudwatch-log-1.json"),
+            _load_file_fixture("cloudwatch-log-2.json"),
+            _load_file_fixture("cloudwatch-log-3.json"),
+        ]
+
+        sqs_queue_name = _time_based_id(suffix="source-sqs")
+
+        sqs_queue = _sqs_create_queue(self.sqs_client, sqs_queue_name, self.localstack.get_url())
+
+        sqs_queue_arn = sqs_queue["QueueArn"]
+        sqs_queue_url = sqs_queue["QueueUrl"]
+
+        for fixture in fixtures:
+            _sqs_send_messages(self.sqs_client, sqs_queue_url, fixture)
+
+        config_yaml: str = f"""
+            inputs:
+              - type: "sqs"
+                id: "misconfigured-id"
+                tags: {self.default_tags}
+                outputs:
+                  - type: "logstash"
+                    args:
+                      logstash_url: "{self.logstash.get_url()}"
+                      ssl_assert_fingerprint: {self.logstash.ssl_assert_fingerprint}
+                      username: "{self.logstash.logstash_user}"
+                      password: "{self.logstash.logstash_password}"
+        """
+
+        config_file_path = "config.yaml"
+        config_bucket_name = _time_based_id(suffix="config-bucket")
+        _s3_upload_content_to_bucket(
+            client=self.s3_client,
+            content=config_yaml.encode("utf-8"),
+            content_type="text/plain",
+            bucket_name=config_bucket_name,
+            key=config_file_path,
+        )
+
+        os.environ["S3_CONFIG_FILE"] = f"s3://{config_bucket_name}/{config_file_path}"
+
+        events_sqs, _ = _sqs_get_messages(self.sqs_client, sqs_queue_url, sqs_queue_arn)
+        messages_sqs = events_sqs["Records"]
+
+        ctx = ContextMock()
+        first_call = handler(events_sqs, ctx)  # type:ignore
+
+        assert first_call == "completed"
+
+        replayed_events, _ = _sqs_get_messages(self.sqs_client, os.environ["SQS_REPLAY_URL"], self.sqs_replay_queue_arn)
+        replayed_messages = replayed_events["Records"]
+
+        assert len(messages_sqs) == 3
+        assert len(replayed_messages) == 3
+        for i, message in enumerate(replayed_messages):
+            assert messages_sqs[i]["eventSourceARN"] == message["messageAttributes"]["originalEventSourceARN"]["stringValue"]
 
     def test_sqs_last_ending_offset_reset(self) -> None:
         assert isinstance(self.logstash, LogstashContainer)

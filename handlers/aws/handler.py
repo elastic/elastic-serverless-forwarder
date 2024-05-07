@@ -13,13 +13,13 @@ from shippers import EVENT_IS_FILTERED, EVENT_IS_SENT, CompositeShipper
 
 from .cloudwatch_logs_trigger import (
     _from_awslogs_data_to_event,
-    _handle_cloudwatch_logs_continuation,
+    _handle_cloudwatch_logs_move,
     _handle_cloudwatch_logs_event,
 )
-from .kinesis_trigger import _handle_kinesis_continuation, _handle_kinesis_record
+from .kinesis_trigger import _handle_kinesis_move, _handle_kinesis_record
 from .replay_trigger import ReplayedEventReplayHandler, get_shipper_for_replay_event
-from .s3_sqs_trigger import _handle_s3_sqs_continuation, _handle_s3_sqs_event
-from .sqs_trigger import _handle_sqs_continuation, _handle_sqs_event
+from .s3_sqs_trigger import _handle_s3_sqs_move, _handle_s3_sqs_event
+from .sqs_trigger import handle_sqs_move, _handle_sqs_event
 from .utils import (
     CONFIG_FROM_PAYLOAD,
     INTEGRATION_SCOPE_GENERIC,
@@ -130,6 +130,10 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
     sent_events: int = 0
     empty_events: int = 0
     skipped_events: int = 0
+    error_events: int = 0
+
+    sqs_replaying_queue = os.environ["SQS_REPLAY_URL"]
+    sqs_continuing_queue = os.environ["SQS_CONTINUE_URL"]
 
     if trigger_type == "cloudwatch-logs":
         cloudwatch_logs_event = _from_awslogs_data_to_event(lambda_event["awslogs"]["data"])
@@ -144,8 +148,25 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         )
 
         if event_input is None:
-            shared_logger.warning("no input defined", extra={"input_type": trigger_type, "input_id": input_id})
-
+            shared_logger.error("no input defined", extra={"input_id": input_id})
+            error_events += 1
+            _handle_cloudwatch_logs_move(
+                sqs_client=sqs_client,
+                sqs_destination_queue=sqs_replaying_queue,
+                cloudwatch_logs_event=cloudwatch_logs_event,
+                input_id=input_id,
+                config_yaml=config_yaml,
+                continuing_queue=False,
+            )
+            shared_logger.info(
+                "lambda is going to shutdown",
+                extra={
+                    "error_events": error_events,
+                    "sent_events": sent_events,
+                    "empty_events": empty_events,
+                    "skipped_events": skipped_events,
+                },
+            )
             return "completed"
 
         aws_region = input_id.split(":")[3]
@@ -180,8 +201,6 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 empty_events += 1
 
             if lambda_context is not None and lambda_context.get_remaining_time_in_millis() < _completion_grace_period:
-                sqs_continuing_queue = os.environ["SQS_CONTINUE_URL"]
-
                 shared_logger.info(
                     "lambda is going to shutdown, continuing on dedicated sqs queue",
                     extra={
@@ -194,14 +213,14 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
                 composite_shipper.flush()
 
-                _handle_cloudwatch_logs_continuation(
+                _handle_cloudwatch_logs_move(
                     sqs_client=sqs_client,
-                    sqs_continuing_queue=sqs_continuing_queue,
+                    sqs_destination_queue=sqs_continuing_queue,
                     last_ending_offset=last_ending_offset,
                     last_event_expanded_offset=last_event_expanded_offset,
                     cloudwatch_logs_event=cloudwatch_logs_event,
                     current_log_event=current_log_event_n,
-                    event_input_id=input_id,
+                    input_id=input_id,
                     config_yaml=config_yaml,
                 )
 
@@ -210,7 +229,8 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         composite_shipper.flush()
         shared_logger.info(
             "lambda processed all the events",
-            extra={"sent_event": sent_events, "empty_events": empty_events, "skipped_events": skipped_events},
+            extra={"sent_events": sent_events, "empty_events": empty_events, "skipped_events": skipped_events,
+                   "error_events": error_events},
         )
 
     if trigger_type == "kinesis-data-stream":
@@ -218,9 +238,30 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
         input_id = lambda_event["Records"][0]["eventSourceARN"]
         event_input = config.get_input_by_id(input_id)
-        if event_input is None:
-            shared_logger.warning("no input defined", extra={"input_id": input_id})
 
+        if event_input is None:
+            shared_logger.error("no input defined", extra={"input_id": input_id})
+            error_events += len(lambda_event["Records"])
+
+            for kinesis_record in lambda_event["Records"]:
+                _handle_kinesis_move(
+                    sqs_client=sqs_client,
+                    sqs_destination_queue=sqs_replaying_queue,
+                    kinesis_record=kinesis_record,
+                    event_input_id=input_id,
+                    config_yaml=config_yaml,
+                    continuing_queue=False,
+                )
+
+            shared_logger.info(
+                "lambda is going to shutdown",
+                extra={
+                    "sent_events": sent_events,
+                    "empty_events": empty_events,
+                    "skipped_events": skipped_events,
+                    "error_events": error_events,
+                },
+            )
             return "completed"
 
         composite_shipper = get_shipper_from_input(event_input=event_input, config_yaml=config_yaml)
@@ -253,8 +294,6 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 empty_events += 1
 
             if lambda_context is not None and lambda_context.get_remaining_time_in_millis() < _completion_grace_period:
-                sqs_continuing_queue = os.environ["SQS_CONTINUE_URL"]
-
                 shared_logger.info(
                     "lambda is going to shutdown, continuing on dedicated sqs queue",
                     extra={
@@ -262,6 +301,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                         "sent_events": sent_events,
                         "empty_events": empty_events,
                         "skipped_events": skipped_events,
+                        "error_events": error_events,
                     },
                 )
 
@@ -275,9 +315,9 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                         continuing_last_ending_offset = None
                         continuing_last_event_expanded_offset = None
 
-                    _handle_kinesis_continuation(
+                    _handle_kinesis_move(
                         sqs_client=sqs_client,
-                        sqs_continuing_queue=sqs_continuing_queue,
+                        sqs_destination_queue=sqs_continuing_queue,
                         last_ending_offset=continuing_last_ending_offset,
                         last_event_expanded_offset=continuing_last_event_expanded_offset,
                         kinesis_record=kinesis_record,
@@ -290,7 +330,8 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         composite_shipper.flush()
         shared_logger.info(
             "lambda processed all the events",
-            extra={"sent_event": sent_events, "empty_events": empty_events, "skipped_events": skipped_events},
+            extra={"sent_events": sent_events, "empty_events": empty_events, "skipped_events": skipped_events,
+                   "error_events": error_events},
         )
 
     if trigger_type == "s3-sqs" or trigger_type == "sqs":
@@ -318,12 +359,10 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             timeout_config_yaml: str,
             timeout_current_s3_record: int = 0,
         ) -> None:
-            timeout_sqs_continuing_queue = os.environ["SQS_CONTINUE_URL"]
-
             shared_logger.info(
                 "lambda is going to shutdown, continuing on dedicated sqs queue",
                 extra={
-                    "sqs_queue": timeout_sqs_continuing_queue,
+                    "sqs_queue": sqs_continuing_queue,
                     "sent_events": timeout_sent_events,
                     "empty_events": timeout_empty_events,
                     "skipped_events": timeout_skipped_events,
@@ -349,24 +388,24 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                     continue
 
                 if timeout_input.type == "s3-sqs":
-                    _handle_s3_sqs_continuation(
+                    _handle_s3_sqs_move(
                         sqs_client=sqs_client,
-                        sqs_continuing_queue=timeout_sqs_continuing_queue,
+                        sqs_destination_queue=sqs_continuing_queue,
                         last_ending_offset=timeout_last_ending_offset,
                         last_event_expanded_offset=timeout_last_event_expanded_offset,
                         sqs_record=timeout_sqs_record,
                         current_s3_record=timeout_current_s3_record,
-                        event_input_id=timeout_input_id,
+                        input_id=timeout_input_id,
                         config_yaml=timeout_config_yaml,
                     )
                 else:
-                    _handle_sqs_continuation(
+                    handle_sqs_move(
                         sqs_client=sqs_client,
-                        sqs_continuing_queue=timeout_sqs_continuing_queue,
+                        sqs_destination_queue=sqs_continuing_queue,
                         last_ending_offset=timeout_last_ending_offset,
                         last_event_expanded_offset=timeout_last_event_expanded_offset,
                         sqs_record=timeout_sqs_record,
-                        event_input_id=timeout_input_id,
+                        input_id=timeout_input_id,
                         config_yaml=timeout_config_yaml,
                     )
 
@@ -382,15 +421,36 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 input_id = sqs_record["messageAttributes"]["originalEventSourceARN"]["stringValue"]
 
             event_input = config.get_input_by_id(input_id)
+
             if event_input is None:
-                shared_logger.warning("no input defined", extra={"input_id": input_id})
+                # This could happen if aws_lambda_event_source_mapping is set correctly, but
+                # the id on the config.yaml was writen incorrectly.
+                shared_logger.error("no input defined", extra={"input_id": input_id})
+                if trigger_type == "s3-sqs":
+                    _handle_s3_sqs_move(
+                        sqs_client=sqs_client,
+                        sqs_destination_queue=sqs_replaying_queue,
+                        sqs_record=sqs_record,
+                        input_id=input_id,
+                        config_yaml=config_yaml,
+                        continuing_queue=False,
+                    )
+                elif trigger_type == "sqs":
+                    handle_sqs_move(
+                        sqs_client=sqs_client,
+                        sqs_destination_queue=sqs_replaying_queue,
+                        sqs_record=sqs_record,
+                        input_id=input_id,
+                        config_yaml=config_yaml,
+                        continuing_queue=False,
+                    )
+                error_events += 1
                 continue
 
             if input_id in composite_shipper_cache:
                 composite_shipper = composite_shipper_cache[input_id]
             else:
                 composite_shipper = get_shipper_from_input(event_input=event_input, config_yaml=config_yaml)
-
                 composite_shipper_cache[event_input.id] = composite_shipper
 
             continuing_event_expanded_offset: Optional[int] = None
@@ -493,7 +553,8 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
         shared_logger.info(
             "lambda processed all the events",
-            extra={"sent_events": sent_events, "empty_events": empty_events, "skipped_events": skipped_events},
+            extra={"sent_events": sent_events, "empty_events": empty_events, "skipped_events": skipped_events,
+                   "error_events": error_events},
         )
 
     return "completed"
