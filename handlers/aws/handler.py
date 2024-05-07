@@ -13,13 +13,13 @@ from shippers import EVENT_IS_FILTERED, EVENT_IS_SENT, CompositeShipper
 
 from .cloudwatch_logs_trigger import (
     _from_awslogs_data_to_event,
-    _handle_cloudwatch_logs_move,
     _handle_cloudwatch_logs_event,
+    _handle_cloudwatch_logs_move,
 )
 from .kinesis_trigger import _handle_kinesis_move, _handle_kinesis_record
 from .replay_trigger import ReplayedEventReplayHandler, get_shipper_for_replay_event
-from .s3_sqs_trigger import _handle_s3_sqs_move, _handle_s3_sqs_event
-from .sqs_trigger import handle_sqs_move, _handle_sqs_event
+from .s3_sqs_trigger import _handle_s3_sqs_event, _handle_s3_sqs_move
+from .sqs_trigger import _handle_sqs_event, handle_sqs_move
 from .utils import (
     CONFIG_FROM_PAYLOAD,
     INTEGRATION_SCOPE_GENERIC,
