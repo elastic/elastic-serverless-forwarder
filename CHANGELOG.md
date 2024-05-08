@@ -1,8 +1,6 @@
 ### v1.14.0 - 2024/05/07
-##### Features
-...
 ##### Bug fixes
-...
+* Report misconfigured input ids as an error instead of warning, and place those messages in the replaying queue [#711](https://github.com/elastic/elastic-serverless-forwarder/pull/711).
 
 ### v1.13.1 - 2024/03/07
 ##### Features
