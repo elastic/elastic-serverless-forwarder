@@ -399,8 +399,8 @@ class TestLambdaHandlerNoop(TestCase):
         with self.subTest("no originalEventSourceARN in messageAttributes"):
             ctx = ContextMock()
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
-            os.environ["SQS_REPLAY_URL"] = "https://sqs.us-east-2.amazonaws.com/123456789012/replay_queue"
-            os.environ["SQS_CONTINUE_URL"] = "https://sqs.us-east-2.amazonaws.com/123456789012/continue_queue"
+            os.environ["SQS_REPLAY_URL"] = "https://sqs.eu-central-1.amazonaws.com/123456789012/replay_queue"
+            os.environ["SQS_CONTINUE_URL"] = "https://sqs.eu-central-1.amazonaws.com/123456789012/continue_queue"
             lambda_event = deepcopy(_dummy_lambda_event)
             del lambda_event["Records"][0]["messageAttributes"]["originalEventSourceARN"]
             assert handler(lambda_event, ctx) == "completed"  # type:ignore
