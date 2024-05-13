@@ -8,6 +8,8 @@ This is just an example of how to build and run ESF locally.
 
 ## Steps
 
+**Important note**: ESF dependencies have been testing on architecture `x86_64`. Make sure to use it as well.
+
 ### Step 1: Build your dependencies zip file
 
 You can build your own, or you can choose to run:
