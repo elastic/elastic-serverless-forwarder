@@ -8,7 +8,7 @@ This is just an example of how to build and run ESF locally.
 
 ## Steps
 
-**Important note**: ESF dependencies have been testing on architecture `x86_64`. Make sure to use it as well.
+**Important note**: ESF dependencies have been tested on architecture `x86_64`. Make sure to use it as well.
 
 ### Step 1: Build your dependencies zip file
 
@@ -27,6 +27,9 @@ You can update the task variables in the `.env` file:
 ### Step 2: Run ESF terraform
 
 Use the code in [ESF terraform repository](https://github.com/elastic/terraform-elastic-esf).
+
+> **NOTE**: ESF lambda function is using architecture `x86_64`.
+
 
 Place your `local_esf.zip` (or `<FILENAME>` if you changed the value) in the same directory as ESF terraform.
 
