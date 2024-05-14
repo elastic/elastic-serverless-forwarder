@@ -13,21 +13,26 @@ from storage import ProtocolStorage, StorageFactory
 from .utils import get_account_id_from_arn, get_kinesis_stream_name_type_and_region_from_arn
 
 
-def _handle_kinesis_continuation(
+def _handle_kinesis_move(
     sqs_client: BotoBaseClient,
-    sqs_continuing_queue: str,
-    last_ending_offset: Optional[int],
-    last_event_expanded_offset: Optional[int],
+    sqs_destination_queue: str,
     kinesis_record: dict[str, Any],
     event_input_id: str,
     config_yaml: str,
+    continuing_queue: bool = True,
+    last_ending_offset: Optional[int] = None,
+    last_event_expanded_offset: Optional[int] = None,
 ) -> None:
     """
-    Handler of the continuation queue for kinesis data stream inputs
-    If a kinesis data stream records batch cannot be fully processed before the
-    timeout of the lambda this handler will be called: it will
-    send new sqs messages for the unprocessed records in the batch to the
-    internal continuing sqs queue
+    Handler of the continuation/replay queue for kinesis data stream inputs.
+    If a kinesis data stream records batch cannot be fully processed before the timeout of the lambda, the handler will
+    be called for the continuation queue: it will send new sqs messages for the unprocessed records to the
+    internal continuing sqs queue.
+    If a sqs message has an eventSourceARN not present in the config.yaml ids, then the handler should be called,
+    so it can get placed in the internal replay queue.
+
+    :param continuing_queue: should be set to true if the sqs message is going to be placed in the continuing
+    queue. Otherwise, we assume it will be placed in the replaying queue, and, in that case, it should be set to false.
     """
 
     sequence_number = kinesis_record["kinesis"]["sequenceNumber"]
@@ -60,22 +65,33 @@ def _handle_kinesis_continuation(
     kinesis_data: str = kinesis_record["kinesis"]["data"]
 
     sqs_client.send_message(
-        QueueUrl=sqs_continuing_queue,
+        QueueUrl=sqs_destination_queue,
         MessageBody=kinesis_data,
         MessageAttributes=message_attributes,
     )
 
-    shared_logger.debug(
-        "continuing",
-        extra={
-            "sqs_continuing_queue": sqs_continuing_queue,
-            "last_ending_offset": last_ending_offset,
-            "last_event_expanded_offset": last_event_expanded_offset,
-            "partition_key": partition_key,
-            "approximate_arrival_timestamp": approximate_arrival_timestamp,
-            "sequence_number": sequence_number,
-        },
-    )
+    if continuing_queue:
+        shared_logger.debug(
+            "continuing",
+            extra={
+                "sqs_continuing_queue": sqs_destination_queue,
+                "last_ending_offset": last_ending_offset,
+                "last_event_expanded_offset": last_event_expanded_offset,
+                "partition_key": partition_key,
+                "approximate_arrival_timestamp": approximate_arrival_timestamp,
+                "sequence_number": sequence_number,
+            },
+        )
+    else:
+        shared_logger.debug(
+            "replaying",
+            extra={
+                "sqs_replaying_queue": sqs_destination_queue,
+                "partition_key": partition_key,
+                "approximate_arrival_timestamp": approximate_arrival_timestamp,
+                "sequence_number": sequence_number,
+            },
+        )
 
 
 def _handle_kinesis_record(

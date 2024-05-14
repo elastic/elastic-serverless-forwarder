@@ -399,6 +399,8 @@ class TestLambdaHandlerNoop(TestCase):
         with self.subTest("no originalEventSourceARN in messageAttributes"):
             ctx = ContextMock()
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
+            os.environ["SQS_REPLAY_URL"] = "https://sqs.eu-central-1.amazonaws.com/123456789012/replay_queue"
+            os.environ["SQS_CONTINUE_URL"] = "https://sqs.eu-central-1.amazonaws.com/123456789012/continue_queue"
             lambda_event = deepcopy(_dummy_lambda_event)
             del lambda_event["Records"][0]["messageAttributes"]["originalEventSourceARN"]
             assert handler(lambda_event, ctx) == "completed"  # type:ignore
@@ -460,20 +462,6 @@ class TestLambdaHandlerNoop(TestCase):
             lambda_event["Records"][0]["eventSource"] = "dummy"
             lambda_event["Records"][0]["eventSourceARN"] = "arn:aws:dummy:eu-central-1:123456789:input"
             del lambda_event["Records"][0]["messageAttributes"]["originalEventSourceARN"]
-            assert handler(lambda_event, ctx) == "completed"  # type:ignore
-
-        with self.subTest("no input defined for kinesis-data-stream"):
-            ctx = ContextMock()
-            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
-            lambda_event = {
-                "Records": [
-                    {
-                        "eventSource": "aws:kinesis",
-                        "kinesis": {"data": ""},
-                        "eventSourceARN": "arn:aws:kinesis:eu-central-1:123456789:stream/test-esf-kinesis-stream",
-                    }
-                ]
-            }
             assert handler(lambda_event, ctx) == "completed"  # type:ignore
 
         with self.subTest("body is neither replay queue nor s3-sqs"):

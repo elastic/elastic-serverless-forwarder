@@ -13,21 +13,26 @@ from storage import ProtocolStorage, StorageFactory
 from .utils import get_account_id_from_arn, get_queue_url_from_sqs_arn, get_sqs_queue_name_and_region_from_arn
 
 
-def _handle_sqs_continuation(
+def handle_sqs_move(
     sqs_client: BotoBaseClient,
-    sqs_continuing_queue: str,
-    last_ending_offset: Optional[int],
-    last_event_expanded_offset: Optional[int],
+    sqs_destination_queue: str,
     sqs_record: dict[str, Any],
-    event_input_id: str,
+    input_id: str,
     config_yaml: str,
+    continuing_queue: bool = True,
+    last_ending_offset: Optional[int] = None,
+    last_event_expanded_offset: Optional[int] = None,
 ) -> None:
     """
-    Handler of the continuation queue for sqs inputs
-    If a sqs message cannot be fully processed before the
-    timeout of the lambda this handler will be called: it will
-    send new sqs messages for the unprocessed records to the
-    internal continuing sqs queue
+    Handler of the continuation/replay queue for sqs inputs.
+    If a sqs message cannot be fully processed before the timeout of the lambda, the handler will be called
+    for the continuation queue: it will send new sqs messages for the unprocessed records to the
+    internal continuing sqs queue.
+    If a sqs message has an eventSourceARN not present in the config.yaml ids, then the handler should be called,
+    so it can get placed in the internal replay queue.
+
+    :param continuing_queue: should be set to true if the sqs message is going to be placed in the continuing
+    queue. Otherwise, we assume it will be placed in the replaying queue, and, in that case, it should be set to false.
     """
 
     message_attributes = {}
@@ -48,7 +53,7 @@ def _handle_sqs_continuation(
                 "StringValue": str(sqs_record["attributes"]["SentTimestamp"]),
                 "DataType": "Number",
             },
-            "originalEventSourceARN": {"StringValue": event_input_id, "DataType": "String"},
+            "originalEventSourceARN": {"StringValue": input_id, "DataType": "String"},
         }
 
     if last_ending_offset is not None:
@@ -61,20 +66,30 @@ def _handle_sqs_continuation(
         }
 
     sqs_client.send_message(
-        QueueUrl=sqs_continuing_queue,
+        QueueUrl=sqs_destination_queue,
         MessageBody=sqs_record["body"],
         MessageAttributes=message_attributes,
     )
 
-    shared_logger.debug(
-        "continuing",
-        extra={
-            "sqs_continuing_queue": sqs_continuing_queue,
-            "last_ending_offset": last_ending_offset,
-            "last_event_expanded_offset": last_event_expanded_offset,
-            "message_id": sqs_record["messageId"],
-        },
-    )
+    if continuing_queue:
+        shared_logger.debug(
+            "continuing",
+            extra={
+                "sqs_continuing_queue": sqs_destination_queue,
+                "last_ending_offset": last_ending_offset,
+                "last_event_expanded_offset": last_event_expanded_offset,
+                "message_id": sqs_record["messageId"],
+            },
+        )
+    else:
+        shared_logger.debug(
+            "replaying",
+            extra={
+                "sqs_replaying_queue": sqs_destination_queue,
+                "input_id": input_id,
+                "message_id": sqs_record["messageId"],
+            },
+        )
 
 
 def _handle_sqs_event(

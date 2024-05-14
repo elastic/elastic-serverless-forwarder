@@ -397,6 +397,9 @@ def get_input_from_log_group_subscription_data(
     all_regions = get_ec2_client().describe_regions(AllRegions=True)
     assert "Regions" in all_regions
     for region_data in all_regions["Regions"]:
+
+        # arn:aws:logs:region:account-id:log-group:log_group_name:*
+
         region = region_data["RegionName"]
 
         aws_or_gov = "aws"
@@ -418,7 +421,7 @@ def get_input_from_log_group_subscription_data(
         if event_input is not None:
             return log_group_arn, event_input
 
-    return "", None
+    return f"arn:aws:logs:%AWS_REGION%:{account_id}:log-group:{log_group_name}:*", None
 
 
 def delete_sqs_record(sqs_arn: str, receipt_handle: str) -> None:
