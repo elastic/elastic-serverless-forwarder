@@ -53,7 +53,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
     try:
         trigger_type, config_source = get_trigger_type_and_config_source(lambda_event)
-        shared_logger.info("trigger", extra={"type": trigger_type})
+        shared_logger.info(f"trigger TYPE IS {trigger_type}", extra={"type": trigger_type})
     except Exception as e:
         raise TriggerTypeException(e)
 
@@ -78,20 +78,31 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
     sqs_client = get_sqs_client()
 
     if trigger_type == "replay-sqs":
+        shared_logger.info("TRIGGERED THE REPLAY SQS.")
+
         shared_logger.info("trigger", extra={"size": len(lambda_event["Records"])})
 
         replay_queue_arn = lambda_event["Records"][0]["eventSourceARN"]
         replay_handler = ReplayedEventReplayHandler(replay_queue_arn=replay_queue_arn)
         shipper_cache: dict[str, CompositeShipper] = {}
         for replay_record in lambda_event["Records"]:
+            # TODO How to trigger this...
             event = json_parser(replay_record["body"])
+
+            shared_logger.info(f">> TRIGGERED THE REPLAY SQS: event is {event}")
+
             input_id = event["event_input_id"]
             output_type = event["output_type"]
             shipper_id = input_id + output_type
+
             if shipper_id not in shipper_cache:
+
+                # IN THE DLQ
+
                 shipper = get_shipper_for_replay_event(
                     config=config,
-                    output_type=output_type,
+                    #output_type=output_type,
+                    output_destination="TODO",
                     output_args=event["output_args"],
                     event_input_id=input_id,
                     replay_handler=replay_handler,
@@ -170,7 +181,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             return "completed"
 
         aws_region = input_id.split(":")[3]
-        composite_shipper = get_shipper_from_input(event_input=event_input, config_yaml=config_yaml)
+        composite_shipper = get_shipper_from_input(event_input=event_input)
 
         event_list_from_field_expander = ExpandEventListFromField(
             event_input.expand_event_list_from_field,
@@ -268,7 +279,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             )
             return "completed"
 
-        composite_shipper = get_shipper_from_input(event_input=event_input, config_yaml=config_yaml)
+        composite_shipper = get_shipper_from_input(event_input=event_input)
 
         event_list_from_field_expander = ExpandEventListFromField(
             event_input.expand_event_list_from_field,
@@ -458,7 +469,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             if input_id in composite_shipper_cache:
                 composite_shipper = composite_shipper_cache[input_id]
             else:
-                composite_shipper = get_shipper_from_input(event_input=event_input, config_yaml=config_yaml)
+                composite_shipper = get_shipper_from_input(event_input=event_input)
                 composite_shipper_cache[event_input.id] = composite_shipper
 
             continuing_event_expanded_offset: Optional[int] = None

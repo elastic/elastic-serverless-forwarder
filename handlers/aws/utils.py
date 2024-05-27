@@ -134,27 +134,27 @@ def discover_integration_scope(s3_object_key: str) -> str:
             return INTEGRATION_SCOPE_GENERIC
 
 
-def get_shipper_from_input(event_input: Input, config_yaml: str) -> CompositeShipper:
+def get_shipper_from_input(event_input: Input) -> CompositeShipper:
     composite_shipper: CompositeShipper = CompositeShipper()
 
-    for output_type in event_input.get_output_types():
-        if output_type == "elasticsearch":
+    for output_destination in event_input.get_output_destinations():
+        output: Optional[Output] = event_input.get_output_by_destination(output_destination)
+        assert output is not None
+
+        if output.type == "elasticsearch":
             shared_logger.debug("setting ElasticSearch shipper")
-            elasticsearch_output: Optional[Output] = event_input.get_output_by_type("elasticsearch")
-            assert elasticsearch_output is not None
 
             elasticsearch_shipper: ProtocolShipper = ShipperFactory.create_from_output(
-                output_type="elasticsearch", output=elasticsearch_output
+                output_type="elasticsearch", output=output
             )
+
             composite_shipper.add_shipper(shipper=elasticsearch_shipper)
 
-        if output_type == "logstash":
+        if output.type == "logstash":
             shared_logger.debug("setting Logstash shipper")
-            logstash_output: Optional[Output] = event_input.get_output_by_type("logstash")
-            assert logstash_output is not None
 
             logstash_shipper: ProtocolShipper = ShipperFactory.create_from_output(
-                output_type="logstash", output=logstash_output
+                output_type="logstash", output=output
             )
 
             composite_shipper.add_shipper(shipper=logstash_shipper)
@@ -294,10 +294,18 @@ def get_trigger_type_and_config_source(event: dict[str, Any]) -> tuple[str, str]
 
     event_source = ""
     first_record = event["Records"][0]
+
+    shared_logger.info(f"FIRST RECORD IS {first_record}")
+
     if "body" in first_record:
         event_body = first_record["body"]
         try:
             body = json_parser(event_body)
+
+            print(f">>> EVENT IN JSON {body}")
+
+            # When could this happen... Put wrong password for cloud - also no
+
             if (
                 isinstance(body, dict)
                 and "output_type" in event_body
