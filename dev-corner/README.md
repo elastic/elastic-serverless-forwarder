@@ -3,6 +3,19 @@ This directory is meant to include resources to help the maintenance of ESF. Thi
 
 Contents of this file:
 
+- [Errors on replay queue](#errors-on-replay-queue)
+- [Understanding triggers](#understanding-triggers)
+  * [Replay queue triggers](#replay-queue-triggers)
+    + [Example 1: Ingestion error](#example-1--ingestion-error)
+      - [Patch 1: replay queue is the only input](#patch-1--replay-queue-is-the-only-input)
+      - [Patch 2: replay queue and cloudwatch logs (wrong password) are inputs](#patch-2--replay-queue-and-cloudwatch-logs--wrong-password--are-inputs)
+      - [Patch 3: replay queue and cloudwatch logs (correct password) are inputs](#patch-3--replay-queue-and-cloudwatch-logs--correct-password--are-inputs)
+    + [Example 2: Configuration error](#example-2--configuration-error)
+      - [Patch 1: replay queue is the only input](#patch-1--replay-queue-is-the-only-input-1)
+      - [Patch 2: replay queue and cloudwatch logs are inputs](#patch-2--replay-queue-and-cloudwatch-logs-are-inputs)
+    + [Conclusion on errors and replay queue](#conclusion-on-errors-and-replay-queue)
+
+
 
 
 # Errors on replay queue
@@ -28,7 +41,7 @@ There are two triggers associated with the replay queue: `replay-sqs` and `sqs`.
 
 The trigger `replay-sqs` is only returned if the event that ESF lambda is processing matches a certain condition. Currently, we can find that condition in [this part of the code](https://github.com/elastic/elastic-serverless-forwarder/blob/acbe70242afad1d5061d64fd4d12b7e647de3768/handlers/aws/utils.py#L301-L306), which analyzes the `body` of a message. Like explained in the previous section, ingestion errors transform the `body` of a message before placing it in the replay queue. This transformation will match the condition, and the trigger returned will be `replay-sqs`. Otherwise, the trigger will be `sqs` (this should be set by the user in the `config.yaml` file).
 
-Below you can find an example for each type of error, and how ESF processes it. If you prefer to skip the examples, you can move to CONCLUSIONS TODO for the most important points of this process.
+Below you can find an example for each type of error, and how ESF processes it. If you prefer to skip the examples, you can move to [Conclusion on errors and replay queue](#conclusion-on-errors-and-replay-queue) for the most important points of this process.
 
 ### Example 1: Ingestion error
 
