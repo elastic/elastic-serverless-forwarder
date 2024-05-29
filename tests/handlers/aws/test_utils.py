@@ -92,7 +92,7 @@ class TestGetTriggerTypeAndConfigSource(TestCase):
             event = {
                 "Records": [
                     {
-                        "body": '{"output_type": "output_type", '
+                        "body": '{"output_destination": "output_destination", '
                                 '"output_args": "output_args", "event_payload": "event_payload"}'
                     }
                 ]

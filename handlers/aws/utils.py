@@ -294,21 +294,13 @@ def get_trigger_type_and_config_source(event: dict[str, Any]) -> tuple[str, str]
 
     event_source = ""
     first_record = event["Records"][0]
-
-    shared_logger.info(f"FIRST RECORD IS {first_record}")
-
     if "body" in first_record:
         event_body = first_record["body"]
         try:
             body = json_parser(event_body)
-
-            print(f">>> EVENT IN JSON {body}")
-
-            # When could this happen... Put wrong password for cloud - also no
-
             if (
                 isinstance(body, dict)
-                and "output_type" in event_body
+                and "output_destination" in event_body
                 and "output_args" in event_body
                 and "event_payload" in event_body
             ):
@@ -356,13 +348,13 @@ class ReplayEventHandler:
     def __init__(self, event_input: Input):
         self._event_input_id: str = event_input.id
 
-    def replay_handler(self, output_type: str, output_args: dict[str, Any], event_payload: dict[str, Any]) -> None:
+    def replay_handler(self, output_destination: str, output_args: dict[str, Any], event_payload: dict[str, Any]) -> None:
         sqs_replay_queue = os.environ["SQS_REPLAY_URL"]
 
         sqs_client = get_sqs_client()
 
         message_payload: dict[str, Any] = {
-            "output_type": output_type,
+            "output_destination": output_destination,
             "output_args": output_args,
             "event_payload": event_payload,
             "event_input_id": self._event_input_id,
@@ -371,7 +363,7 @@ class ReplayEventHandler:
         sqs_client.send_message(QueueUrl=sqs_replay_queue, MessageBody=json_dumper(message_payload))
 
         shared_logger.debug(
-            "sent to replay queue", extra={"output_type": output_type, "event_input_id": self._event_input_id}
+            "sent to replay queue", extra={"output_destination": output_destination, "event_input_id": self._event_input_id}
         )
 
 

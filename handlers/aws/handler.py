@@ -53,7 +53,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
     try:
         trigger_type, config_source = get_trigger_type_and_config_source(lambda_event)
-        shared_logger.info(f"trigger TYPE IS {trigger_type}", extra={"type": trigger_type})
+        shared_logger.info("trigger", extra={"type": trigger_type})
     except Exception as e:
         raise TriggerTypeException(e)
 
@@ -78,31 +78,21 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
     sqs_client = get_sqs_client()
 
     if trigger_type == "replay-sqs":
-        shared_logger.info("TRIGGERED THE REPLAY SQS.")
-
         shared_logger.info("trigger", extra={"size": len(lambda_event["Records"])})
 
         replay_queue_arn = lambda_event["Records"][0]["eventSourceARN"]
         replay_handler = ReplayedEventReplayHandler(replay_queue_arn=replay_queue_arn)
         shipper_cache: dict[str, CompositeShipper] = {}
         for replay_record in lambda_event["Records"]:
-            # TODO How to trigger this...
             event = json_parser(replay_record["body"])
-
-            shared_logger.info(f">> TRIGGERED THE REPLAY SQS: event is {event}")
-
             input_id = event["event_input_id"]
-            output_type = event["output_type"]
-            shipper_id = input_id + output_type
+            output_destination = event["output_destination"]
+            shipper_id = input_id + output_destination
 
             if shipper_id not in shipper_cache:
-
-                # IN THE DLQ
-
                 shipper = get_shipper_for_replay_event(
                     config=config,
-                    #output_type=output_type,
-                    output_destination="TODO",
+                    output_destination=output_destination,
                     output_args=event["output_args"],
                     event_input_id=input_id,
                     replay_handler=replay_handler,
@@ -111,7 +101,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 if shipper is None:
                     shared_logger.warning(
                         "no shipper for output in replay queue",
-                        extra={"output_type": event["output_type"], "event_input_id": event["event_input_id"]},
+                        extra={"output_destination": event["output_destination"], "event_input_id": event["event_input_id"]},
                     )
                     continue
 
@@ -122,7 +112,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             assert isinstance(shipper, CompositeShipper)
 
             shipper.send(event["event_payload"])
-            event_uniq_id: str = event["event_payload"]["_id"] + output_type
+            event_uniq_id: str = event["event_payload"]["_id"] + output_destination
             replay_handler.add_event_with_receipt_handle(
                 event_uniq_id=event_uniq_id, receipt_handle=replay_record["receiptHandle"]
             )

@@ -407,7 +407,6 @@ class Input:
 
         return list(self._outputs.keys())
 
-    # TODO
     def delete_output_by_destination(self, output_destination: str) -> None:
         """
         Output deleter.
@@ -431,7 +430,6 @@ class Input:
                 raise ValueError("Either `elasticsearch_url` or `cloud_id` must be set")
             # elasticsearch_url takes precedence over cloud_id
             if "elasticsearch_url" not in kwargs:
-
                 output_dest = kwargs["cloud_id"]
             else:
                 output_dest = kwargs["elasticsearch_url"]
@@ -440,8 +438,6 @@ class Input:
                 raise ValueError(f"Output type {output_type} requires logstash_url to be set")
             output_dest = kwargs["logstash_url"]
 
-        print("Outpus is ", self._outputs)
-        print(f"Output dest is {output_dest}")
         if output_dest in self._outputs:
             # Since logstash destination can only be set as logstash_url, we do not have to account
             # for the same url/cloud_id for both types logstash or elasticsearch

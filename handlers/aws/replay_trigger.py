@@ -20,8 +20,8 @@ class ReplayedEventReplayHandler:
     def add_event_with_receipt_handle(self, event_uniq_id: str, receipt_handle: str) -> None:
         self._events_with_receipt_handle[event_uniq_id] = receipt_handle
 
-    def replay_handler(self, output_type: str, output_args: dict[str, Any], event_payload: dict[str, Any]) -> None:
-        event_uniq_id: str = event_payload["_id"] + output_type
+    def replay_handler(self, output_destination: str, output_args: dict[str, Any], event_payload: dict[str, Any]) -> None:
+        event_uniq_id: str = event_payload["_id"] + output_destination
         self._failed_event_ids.append(event_uniq_id)
 
     def flush(self) -> None:
