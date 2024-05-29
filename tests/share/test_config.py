@@ -591,8 +591,9 @@ class TestInput(TestCase):
                 batch_max_bytes=1,
             )
 
-            assert isinstance(input_sqs.get_output_by_destination(output_destination="elasticsearch_url"),
-                              ElasticsearchOutput)
+            assert isinstance(
+                input_sqs.get_output_by_destination(output_destination="elasticsearch_url"), ElasticsearchOutput
+            )
 
         with self.subTest("logstash output"):
             input_sqs = Input(input_type="s3-sqs", input_id="id")
@@ -616,8 +617,9 @@ class TestInput(TestCase):
                 batch_max_bytes=1,
             )
 
-            assert isinstance(input_sqs.get_output_by_destination(output_destination="elasticsearch_url"),
-                              ElasticsearchOutput)
+            assert isinstance(
+                input_sqs.get_output_by_destination(output_destination="elasticsearch_url"), ElasticsearchOutput
+            )
 
         with self.subTest("logstash output"):
             input_sqs = Input(input_type="s3-sqs", input_id="id")

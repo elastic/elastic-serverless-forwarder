@@ -93,7 +93,7 @@ class TestGetTriggerTypeAndConfigSource(TestCase):
                 "Records": [
                     {
                         "body": '{"output_destination": "output_destination", '
-                                '"output_args": "output_args", "event_payload": "event_payload"}'
+                        '"output_args": "output_args", "event_payload": "event_payload"}'
                     }
                 ]
             }
@@ -261,8 +261,9 @@ class TestGetShipperFromInput(TestCase):
             assert len(shipper._shippers) == 1
             assert isinstance(shipper._shippers[0], LogstashShipper)
 
-            event_input_kinesis = config.get_input_by_id("arn:aws:kinesis:eu-central-1:123456789:stream/test-esf"
-                                                         "-kinesis-stream")
+            event_input_kinesis = config.get_input_by_id(
+                "arn:aws:kinesis:eu-central-1:123456789:stream/test-esf" "-kinesis-stream"
+            )
             assert event_input_kinesis is not None
             shipper = get_shipper_from_input(event_input=event_input_kinesis)
             assert len(shipper._shippers) == 1

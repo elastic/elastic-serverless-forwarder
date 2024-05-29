@@ -153,9 +153,7 @@ def get_shipper_from_input(event_input: Input) -> CompositeShipper:
         if output.type == "logstash":
             shared_logger.debug("setting Logstash shipper")
 
-            logstash_shipper: ProtocolShipper = ShipperFactory.create_from_output(
-                output_type="logstash", output=output
-            )
+            logstash_shipper: ProtocolShipper = ShipperFactory.create_from_output(output_type="logstash", output=output)
 
             composite_shipper.add_shipper(shipper=logstash_shipper)
 
@@ -348,7 +346,9 @@ class ReplayEventHandler:
     def __init__(self, event_input: Input):
         self._event_input_id: str = event_input.id
 
-    def replay_handler(self, output_destination: str, output_args: dict[str, Any], event_payload: dict[str, Any]) -> None:
+    def replay_handler(
+        self, output_destination: str, output_args: dict[str, Any], event_payload: dict[str, Any]
+    ) -> None:
         sqs_replay_queue = os.environ["SQS_REPLAY_URL"]
 
         sqs_client = get_sqs_client()
@@ -363,7 +363,8 @@ class ReplayEventHandler:
         sqs_client.send_message(QueueUrl=sqs_replay_queue, MessageBody=json_dumper(message_payload))
 
         shared_logger.debug(
-            "sent to replay queue", extra={"output_destination": output_destination, "event_input_id": self._event_input_id}
+            "sent to replay queue",
+            extra={"output_destination": output_destination, "event_input_id": self._event_input_id},
         )
 
 

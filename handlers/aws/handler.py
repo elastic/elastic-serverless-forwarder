@@ -101,7 +101,10 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 if shipper is None:
                     shared_logger.warning(
                         "no shipper for output in replay queue",
-                        extra={"output_destination": event["output_destination"], "event_input_id": event["event_input_id"]},
+                        extra={
+                            "output_destination": event["output_destination"],
+                            "event_input_id": event["event_input_id"],
+                        },
                     )
                     continue
 

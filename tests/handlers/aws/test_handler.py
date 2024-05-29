@@ -546,7 +546,9 @@ class TestLambdaHandlerFailure(TestCase):
                     }
                 ]
             }
-            with self.assertRaisesRegex(OutputConfigException, "Cannot load output with destination output_destination"):
+            with self.assertRaisesRegex(
+                OutputConfigException, "Cannot load output with destination output_destination"
+            ):
                 ctx = ContextMock()
 
                 handler(event, ctx)  # type:ignore
