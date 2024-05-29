@@ -1,6 +1,6 @@
 ### v1.15.0 - 2024/05/29
 ##### Features
-* Enable multiple outputs for each input []()
+* Enable multiple outputs for each input [725](https://github.com/elastic/elastic-serverless-forwarder/pull/725).
 
 ### v1.14.0 - 2024/05/07
 ##### Bug fixes
