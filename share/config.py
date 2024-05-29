@@ -443,6 +443,7 @@ class Input:
             # for the same url/cloud_id for both types logstash or elasticsearch
             raise ValueError(f"Duplicated output destination {output_dest} for type {output_type}")
 
+        output: Optional[Output] = None
         if output_type == "elasticsearch":
             output = ElasticsearchOutput(**kwargs)
         elif output_type == "logstash":

@@ -239,7 +239,7 @@ class TestGetShipperFromInput(TestCase):
             assert isinstance(shipper._shippers[0], LogstashShipper)
 
         with self.subTest("Logstash shipper from each input"):
-            config_yaml_cw: str = """
+            config_yaml_cw = """
                                 inputs:
                                   - type: cloudwatch-logs
                                     id: arn:aws:logs:eu-central-1:123456789:stream/test-cw-logs
@@ -273,7 +273,7 @@ class TestGetShipperFromInput(TestCase):
             event_input_kinesis.delete_output_by_destination("logstash_url")
 
         with self.subTest("Two Logstash shippers from Cloudwatch logs input"):
-            config_yaml_cw: str = """
+            config_yaml_cw = """
                                 inputs:
                                   - type: cloudwatch-logs
                                     id: arn:aws:logs:eu-central-1:123456789:stream/test-cw-logs
@@ -296,7 +296,7 @@ class TestGetShipperFromInput(TestCase):
             event_input.delete_output_by_destination("logstash_url-2")
 
         with self.subTest("Two outputs with the same logstash_url"):
-            config_yaml_cw: str = """
+            config_yaml_cw = """
                                 inputs:
                                   - type: cloudwatch-logs
                                     id: arn:aws:logs:eu-central-1:123456789:stream/test-cw-logs
