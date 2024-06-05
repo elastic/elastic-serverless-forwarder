@@ -1,3 +1,7 @@
+### v1.15.0 - 2024/06/05
+##### Bug fixes
+* Fixed deployment script bug that always set S3 region to `gov` [#727](https://github.com/elastic/elastic-serverless-forwarder/pull/727).
+
 ### v1.14.0 - 2024/05/07
 ##### Bug fixes
 * Report misconfigured input ids as an error instead of warning, and place those messages in the replaying queue [#711](https://github.com/elastic/elastic-serverless-forwarder/pull/711).
