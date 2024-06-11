@@ -4202,3 +4202,65 @@ class TestLambdaHandlerIntegration(TestCase):
         assert second_body["event_payload"]["cloud"]["region"] == "us-east-1"
         assert second_body["event_payload"]["cloud"]["account"]["id"] == "000000000000"
         assert second_body["event_payload"]["tags"] == ["forwarded", "tag1", "tag2", "tag3"]
+
+    def test_es_version_conflict_exception(self) -> None:
+        assert isinstance(self.elasticsearch, ElasticsearchContainer)
+        assert isinstance(self.localstack, LocalStackContainer)
+
+        sqs_queue_name = _time_based_id(suffix="source-sqs")
+        sqs_queue = _sqs_create_queue(self.sqs_client, sqs_queue_name, self.localstack.get_url())
+
+        sqs_queue_arn = sqs_queue["QueueArn"]
+        sqs_queue_url = sqs_queue["QueueUrl"]
+
+        config_yaml: str = f"""
+            inputs:
+              - type: sqs
+                id: "{sqs_queue_arn}"
+                tags: {self.default_tags}
+                outputs:
+                  - type: "elasticsearch"
+                    args:
+                      elasticsearch_url: "{self.elasticsearch.get_url()}"
+                      ssl_assert_fingerprint: {self.elasticsearch.ssl_assert_fingerprint}
+                      username: "{self.secret_arn}:username"
+                      password: "{self.secret_arn}:password"
+        """
+
+        config_file_path = "config.yaml"
+        config_bucket_name = _time_based_id(suffix="config-bucket")
+        _s3_upload_content_to_bucket(
+            client=self.s3_client,
+            content=config_yaml.encode("utf-8"),
+            content_type="text/plain",
+            bucket_name=config_bucket_name,
+            key=config_file_path,
+        )
+
+        os.environ["S3_CONFIG_FILE"] = f"s3://{config_bucket_name}/{config_file_path}"
+
+        fixtures = [
+            _load_file_fixture("cloudwatch-log-1.json"),
+        ]
+
+        _sqs_send_messages(self.sqs_client, sqs_queue_url, "".join(fixtures))
+
+        event, _ = _sqs_get_messages(self.sqs_client, sqs_queue_url, sqs_queue_arn)
+
+        ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
+        first_call = handler(event, ctx)  # type:ignore
+
+        assert first_call == "completed"
+
+        # Index event a second time to trigger version conflict
+        second_call = handler(event, ctx)  # type:ignore
+
+        assert second_call == "completed"
+
+        self.elasticsearch.refresh(index="logs-generic-default")
+
+        assert self.elasticsearch.count(index="logs-generic-default")["count"] == 1
+
+        # Test no duplicate events end in the replay queue
+        events, _ = _sqs_get_messages(self.sqs_client, os.environ["SQS_REPLAY_URL"], self.sqs_replay_queue_arn)
+        assert len(events["Records"]) == 0

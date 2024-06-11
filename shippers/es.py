@@ -19,7 +19,7 @@ from .shipper import EventIdGeneratorCallable, ReplayHandlerCallable
 
 _EVENT_BUFFERED = "_EVENT_BUFFERED"
 _EVENT_SENT = "_EVENT_SENT"
-
+_VERSION_CONFLICT = 409
 
 class JSONSerializer(Serializer):
     mimetype = "application/json"
@@ -166,6 +166,11 @@ class ElasticsearchShipper:
             shared_logger.warning(
                 "elasticsearch shipper", extra={"error": error["create"]["error"], "_id": error["create"]["_id"]}
             )
+
+            if "status" in error["create"] and  error["create"]["status"] == 409:
+                    # Skip duplicate events on replay queue
+                    continue
+             
             shared_logger.debug("elasticsearch shipper", extra={"action": action_failed[0]})
             if self._replay_handler is not None:
                 self._replay_handler(self._output_destination, self._replay_args, action_failed[0])
