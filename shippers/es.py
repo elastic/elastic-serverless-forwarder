@@ -167,7 +167,7 @@ class ElasticsearchShipper:
                 "elasticsearch shipper", extra={"error": error["create"]["error"], "_id": error["create"]["_id"]}
             )
 
-            if "status" in error["create"] and  error["create"]["status"] == 409:
+            if "status" in error["create"] and  error["create"]["status"] == _VERSION_CONFLICT:
                     # Skip duplicate events on replay queue
                     continue
              
