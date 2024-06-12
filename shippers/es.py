@@ -166,8 +166,8 @@ class ElasticsearchShipper:
             )
 
             if "status" in error["create"] and  error["create"]["status"] == _VERSION_CONFLICT:
-                    # Skip duplicate events on replay queue
-                    continue
+                # Skip duplicate events on replay queue
+                continue
              
             shared_logger.debug("elasticsearch shipper", extra={"action": action_failed[0]})
             if self._replay_handler is not None:
