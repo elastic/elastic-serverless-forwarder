@@ -962,33 +962,33 @@ class TestLambdaHandlerIntegration(TestCase):
                 {
                     "fail": {
                         "message": "test_replay_fail_pipeline_s3",
-                        "if": f"ctx[\"_id\"] == \"{prefix_s3_first}-000000000000\"",
+                        "if": f'ctx["_id"] == "{prefix_s3_first}-000000000000"',
                     }
                 },
                 {
                     "fail": {
                         "message": "test_replay_fail_pipeline_sqs",
-                        "if": f"ctx[\"_id\"] == \"{prefix_sqs}-000000000000\"",
+                        "if": f'ctx["_id"] == "{prefix_sqs}-000000000000"',
                     }
                 },
                 {
                     "fail": {
                         "message": "test_replay_fail_pipeline_cloudwatch",
-                        "if": f"ctx[\"_id\"] == \"{prefix_cloudwatch_logs}-000000000000\"",
+                        "if": f'ctx["_id"] == "{prefix_cloudwatch_logs}-000000000000"',
                     }
                 },
                 {
                     "fail": {
                         "message": "test_replay_fail_pipeline_kinesis",
-                        "if": f"ctx[\"_id\"] == \"{prefix_kinesis}-000000000000\"",
+                        "if": f'ctx["_id"] == "{prefix_kinesis}-000000000000"',
                     }
                 },
             ]
         }
 
         self.elasticsearch.put_pipeline(id="test_replay_fail_pipeline", body=processors)
-        
-        self.elasticsearch.create_data_stream(index='logs-generic-default')
+
+        self.elasticsearch.create_data_stream(index="logs-generic-default")
         self.elasticsearch.put_settings(
             index="logs-generic-default", body={"index.default_pipeline": "test_replay_fail_pipeline"}
         )
@@ -1120,9 +1120,7 @@ class TestLambdaHandlerIntegration(TestCase):
         self.elasticsearch.refresh(index="logs-generic-default")
 
         # Remove pipeline processors
-        processors = {
-            "processors": []
-        }
+        processors = {"processors": []}
 
         self.elasticsearch.put_pipeline(id="test_replay_fail_pipeline", body=processors)
         self.elasticsearch.refresh(index="logs-generic-default")
