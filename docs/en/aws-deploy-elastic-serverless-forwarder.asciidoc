@@ -311,7 +311,7 @@ There are several deployment methods available via the {aws} Serverless Applicat
 
 * <<aws-serverless-forwarder-deploy-console>>
 * <<aws-serverless-forwarder-deploy-cloudformation>>
-* <<aws-serverless-forwarder-deploy-terraform>>
+* <<aws-serverless-forwarder-deploy-sar-terraform>>
 
 NOTE: To deploy the forwarder directly without using SAR, refer to <<aws-serverless-forwarder-direct-deploy>>
 
@@ -397,8 +397,8 @@ aws serverlessrepo list-application-versions --application-id arn:aws:serverless
 NOTE: Starting from **v1.4.0**, if you want to update the Events settings for the forwarder, you do not need to manually delete existing settings before applying new settings.
 
 [discrete]
-[[aws-serverless-forwarder-deploy-terraform]]
-=== Deploy using Terraform
+[[aws-serverless-forwarder-deploy-sar-terraform]]
+=== Deploy the SAR using Terraform
 
 . Save the following yaml content as `sar-application.tf` and fill in the correct parameters according to <<aws-serverless-forwarder-define-deploy-parameters>>:
 +
