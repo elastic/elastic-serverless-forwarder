@@ -214,4 +214,4 @@ class ElasticsearchContainer(DockerContainer):  # type: ignore
         if "index" in kwargs:
             self._index_indices.add(kwargs["index"])
 
-        return self.es_client.indices.create_data_stream(kwargs["index"])
+        return self.es_client.indices.create_data_stream(**kwargs)
