@@ -398,7 +398,7 @@ NOTE: Starting from **v1.4.0**, if you want to update the Events settings for th
 
 [discrete]
 [[aws-serverless-forwarder-deploy-sar-terraform]]
-=== Deploy the SAR using Terraform
+=== Deploy from SAR using Terraform
 
 . Save the following yaml content as `sar-application.tf` and fill in the correct parameters according to <<aws-serverless-forwarder-define-deploy-parameters>>:
 +
