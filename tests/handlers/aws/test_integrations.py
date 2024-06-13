@@ -988,7 +988,7 @@ class TestLambdaHandlerIntegration(TestCase):
 
         self.elasticsearch.put_pipeline(id="test_replay_fail_pipeline", body=processors)
 
-        self.elasticsearch.create_data_stream(index="logs-generic-default")
+        self.elasticsearch.create_data_stream(name="logs-generic-default")
         self.elasticsearch.put_settings(
             index="logs-generic-default", body={"index.default_pipeline": "test_replay_fail_pipeline"}
         )

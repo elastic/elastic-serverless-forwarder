@@ -211,7 +211,7 @@ class ElasticsearchContainer(DockerContainer):  # type: ignore
         return self.es_client.index(**kwargs)
 
     def create_data_stream(self, **kwargs: Any) -> dict[str, Any]:
-        if "index" in kwargs:
-            self._index_indices.add(kwargs["index"])
+        if "name" in kwargs:
+            self._index_indices.add(kwargs["name"])
 
         return self.es_client.indices.create_data_stream(**kwargs)
