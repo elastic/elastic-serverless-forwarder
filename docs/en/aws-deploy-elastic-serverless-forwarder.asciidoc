@@ -19,8 +19,7 @@ To deploy Elastic Serverless Forwarder, you have to:
 [discrete]
 [[aws-serverless-forwarder-deploy-prereq]]
 == Prerequisites
-This documentation assumes you have some familiarity with {aws} services and you have correctly created and configured the necessary {aws} objects. For example, if you want to use an Amazon S3 (via SQS event notifications) input then you must ensure that you have enabled AWS VPC flow logs to be sent to that bucket, and created an SQS queue to receive those logs. For more information, refer to the relevant https://docs.aws.amazon.com/[{aws} docs].
-
+This documentation assumes you have some familiarity with {aws} services, and you have correctly created and configured the necessary {aws} objects.
 // Need more details on pre-reqs for other input types
 
 NOTE: This page describes the basic steps required to deploy Elastic Serverless
@@ -180,6 +179,8 @@ inputs:
           ssl_assert_fingerprint: "22:F7:FB:84:1D:43:3E:E7:BB:F9:72:F3:D8:97:AD:7C:86:E3:08:42" #optional
 ----
 
+WARNING: All versions up to 1.14.0 (included) only allow one output per type. So if the `output.type` chosen by a user is `elasticsearch`, then the user can only configure one output for it.
+
 [discrete]
 [[s3-config-file-fields]]
 === Fields
@@ -210,7 +211,7 @@ The type of the forwarding target output. Currently only the following outputs a
  * `elasticsearch`
  * preview:[] `logstash`
 
-If {ls} is chosen as an output, Elastic Serverless Forwarder expects the {logstash-ref}/plugins-inputs-elastic_serverless_forwarder.html[`elastic_serverless_forwarder`] Logstash input to be installed, enabled, and properly configured. For more information about installing Logstash plugins, refer to the {logstash-ref}/working-with-plugins.html#installing-plugins[Logstash documentation].
+Each type can only be used for a maximum of one output up to and including 1.14.0 version. If {ls} is chosen as an output, Elastic Serverless Forwarder expects the {logstash-ref}/plugins-inputs-elastic_serverless_forwarder.html[`elastic_serverless_forwarder`] Logstash input to be installed, enabled, and properly configured. For more information about installing Logstash plugins, refer to the {logstash-ref}/working-with-plugins.html#installing-plugins[Logstash documentation].
 
 `inputs.[].outputs.[].args`:
 Custom init arguments for the specified forwarding target output.
@@ -294,6 +295,13 @@ Leave both parameters blank if you don't want the forwarder to belong to any spe
 If the Elastic Serverless Forwarder is attached to a VPC, you need to https://docs.aws.amazon.com/vpc/latest/privatelink/create-interface-endpoint.html[create VPC endpoints] for S3 and SQS, and for *every* service you define as an input for the forwarder. S3 and SQS VPC endpoints are always required for reading the `config.yaml` uploaded to S3 and managing the continuing queue and the replay queue, regardless of the <<aws-serverless-forwarder-inputs>> used. If you use <<aws-serverless-forwarder-inputs-cloudwatch>>, you need to create a VPC endpoint for EC2, too.
 
 NOTE: Refer to the {cloud}/ec-traffic-filtering-vpc.html[AWS PrivateLink traffic filters] documentation to find your VPC endpoint ID and the hostname to use in the `config.yml` in order to access your Elasticsearch cluster over PrivateLink.
+
+[discrete]
+[[aws-serverless-forwarder-deploy-terraform]]
+== Deploy Elastic Serverless Forwarder from Terraform
+
+The terraform files to deploy ESF can be found in https://github.com/elastic/terraform-elastic-esf[`esf-terraform` repository]. There are two requirements to deploy these files: https://curl.se/download.html[curl] and https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli[terraform]. Refer to the https://github.com/elastic/terraform-elastic-esf/blob/main/README.md[README file] to learn how to use it.
+
 
 [discrete]
 [[aws-serverless-forwarder-deploy-sar]]
