@@ -8,6 +8,7 @@ from unittest import TestCase
 import mock
 import pytest
 
+from handlers.aws import OutputConfigException
 from handlers.aws.replay_trigger import ReplayedEventReplayHandler, get_shipper_for_replay_event
 from share import parse_config
 from shippers import CompositeShipper, ElasticsearchShipper, LogstashShipper
@@ -31,7 +32,7 @@ class TestReplayTrigger(TestCase):
             replay_handler = ReplayedEventReplayHandler("arn:aws:sqs:eu-central-1:123456789:queue/replayqueue")
             logstash_shipper: Optional[CompositeShipper] = get_shipper_for_replay_event(
                 config,
-                "logstash",
+                "logstash_url",
                 {},
                 "arn:aws:kinesis:eu-central-1:123456789:stream/test-esf-kinesis-stream",
                 replay_handler,
@@ -56,7 +57,7 @@ class TestReplayTrigger(TestCase):
             replay_handler = ReplayedEventReplayHandler("arn:aws:sqs:eu-central-1:123456789:queue/replayqueue")
             elasticsearch_shipper: Optional[CompositeShipper] = get_shipper_for_replay_event(
                 config,
-                "elasticsearch",
+                "elasticsearch_url",
                 {"es_datastream_name": "es_datastream_name"},
                 "arn:aws:kinesis:eu-central-1:123456789:stream/test-esf-kinesis-stream",
                 replay_handler,
@@ -65,7 +66,7 @@ class TestReplayTrigger(TestCase):
             assert isinstance(elasticsearch_shipper, CompositeShipper)
             assert isinstance(elasticsearch_shipper._shippers[0], ElasticsearchShipper)
 
-        with self.subTest("None shipper from replay event"):
+        with self.subTest("Exception from output destination"):
             config_yaml_kinesis = """
                                 inputs:
                                   - type: kinesis-data-stream
@@ -77,11 +78,11 @@ class TestReplayTrigger(TestCase):
                             """
             config = parse_config(config_yaml_kinesis)
             replay_handler = ReplayedEventReplayHandler("arn:aws:sqs:eu-central-1:123456789:queue/replayqueue")
-            none_shipper = get_shipper_for_replay_event(
-                config,
-                "output_type",
-                {},
-                "arn:aws:kinesis:eu-central-1:123456789:stream/test-esf-kinesis-stream",
-                replay_handler,
-            )
-            assert none_shipper is None
+            with self.assertRaisesRegex(OutputConfigException, "test"):
+                get_shipper_for_replay_event(
+                    config,
+                    "test",
+                    {},
+                    "arn:aws:kinesis:eu-central-1:123456789:stream/test-esf-kinesis-stream",
+                    replay_handler,
+                )

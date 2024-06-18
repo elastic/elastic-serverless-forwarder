@@ -420,7 +420,7 @@ class TestLambdaHandlerNoop(TestCase):
         with self.subTest("output not elasticsearch from payload config"):
             with mock.patch(
                 "handlers.aws.handler.get_shipper_for_replay_event",
-                lambda config, output_type, output_args, event_input_id, replay_handler: None,
+                lambda config, output_destination, output_args, event_input_id, replay_handler: None,
             ):
                 ctx = ContextMock()
                 event = {
@@ -428,7 +428,7 @@ class TestLambdaHandlerNoop(TestCase):
                         {
                             "eventSourceARN": "arn:aws:sqs:eu-central-1:123456789:replay-queue",
                             "receiptHandle": "receiptHandle",
-                            "body": '{"output_type": "output_type", "output_args": {},'
+                            "body": '{"output_destination": "output_destination", "output_args": {},'
                             '"event_input_id": "arn:aws:sqs:eu-central-1:123456789:s3-sqs-queue", '
                             '"event_payload": {"_id": "_id"}}',
                         }
@@ -540,13 +540,15 @@ class TestLambdaHandlerFailure(TestCase):
                     {
                         "eventSourceARN": "arn:aws:sqs:eu-central-1:123456789:replay-queue",
                         "receiptHandle": "receiptHandle",
-                        "body": '{"output_type": "output_type", "output_args": {},'
+                        "body": '{"output_destination": "output_destination", "output_args": {},'
                         '"event_input_id": "arn:aws:dummy:eu-central-1:123456789:input", '
                         '"event_payload": {"_id": "_id"}}',
                     }
                 ]
             }
-            with self.assertRaisesRegex(OutputConfigException, "Cannot load output of type output_type"):
+            with self.assertRaisesRegex(
+                OutputConfigException, "Cannot load output with destination output_destination"
+            ):
                 ctx = ContextMock()
 
                 handler(event, ctx)  # type:ignore
@@ -558,7 +560,7 @@ class TestLambdaHandlerFailure(TestCase):
                     {
                         "eventSourceARN": "arn:aws:sqs:eu-central-1:123456789:replay-queue",
                         "receiptHandle": "receiptHandle",
-                        "body": '{"output_type": "output_type", "output_args": {},'
+                        "body": '{"output_destination": "output_destination", "output_args": {},'
                         '"event_input_id": "arn:aws:dummy:eu-central-1:123456789:not-existing-input", '
                         '"event_payload": {"_id": "_id"}}',
                     }
@@ -657,7 +659,7 @@ class TestLambdaHandlerFailure(TestCase):
                 event = {
                     "Records": [
                         {
-                            "body": '{"output_type": "", "output_args": "", "event_payload": ""}',
+                            "body": '{"output_destination": "", "output_args": "", "event_payload": ""}',
                         }
                     ]
                 }

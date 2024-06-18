@@ -134,10 +134,6 @@ class TestElasticsearchOutput(TestCase):
             assert elasticsearch.batch_max_bytes == 1
             assert elasticsearch.ssl_assert_fingerprint == ""
 
-        with self.subTest("neither elasticsearch_url or cloud_id"):
-            with self.assertRaisesRegex(ValueError, "`elasticsearch_url` or `cloud_id` must be set"):
-                ElasticsearchOutput(elasticsearch_url="", cloud_id="")
-
         with self.subTest("both elasticsearch_url and cloud_id"):
             elasticsearch = ElasticsearchOutput(
                 elasticsearch_url="elasticsearch_url",
@@ -581,7 +577,7 @@ class TestInput(TestCase):
     def test_get_output_by_type(self) -> None:
         with self.subTest("none output"):
             input_sqs = Input(input_type="s3-sqs", input_id="id")
-            assert input_sqs.get_output_by_type(output_type="test") is None
+            assert input_sqs.get_output_by_destination(output_destination="test") is None
 
         with self.subTest("elasticsearch output"):
             input_sqs = Input(input_type="s3-sqs", input_id="id")
@@ -595,7 +591,9 @@ class TestInput(TestCase):
                 batch_max_bytes=1,
             )
 
-            assert isinstance(input_sqs.get_output_by_type(output_type="elasticsearch"), ElasticsearchOutput)
+            assert isinstance(
+                input_sqs.get_output_by_destination(output_destination="elasticsearch_url"), ElasticsearchOutput
+            )
 
         with self.subTest("logstash output"):
             input_sqs = Input(input_type="s3-sqs", input_id="id")
@@ -604,7 +602,7 @@ class TestInput(TestCase):
                 logstash_url="logstash_url",
             )
 
-            assert isinstance(input_sqs.get_output_by_type(output_type="logstash"), LogstashOutput)
+            assert isinstance(input_sqs.get_output_by_destination(output_destination="logstash_url"), LogstashOutput)
 
     def test_add_output(self) -> None:
         with self.subTest("elasticsearch output"):
@@ -619,7 +617,9 @@ class TestInput(TestCase):
                 batch_max_bytes=1,
             )
 
-            assert isinstance(input_sqs.get_output_by_type(output_type="elasticsearch"), ElasticsearchOutput)
+            assert isinstance(
+                input_sqs.get_output_by_destination(output_destination="elasticsearch_url"), ElasticsearchOutput
+            )
 
         with self.subTest("logstash output"):
             input_sqs = Input(input_type="s3-sqs", input_id="id")
@@ -631,49 +631,19 @@ class TestInput(TestCase):
                 ssl_assert_fingerprint="fingerprint",
             )
 
-            assert isinstance(input_sqs.get_output_by_type(output_type="logstash"), LogstashOutput)
+            assert isinstance(input_sqs.get_output_by_destination(output_destination="logstash_url"), LogstashOutput)
 
         with self.subTest("not elasticsearch or logstash output"):
             input_sqs = Input(input_type="s3-sqs", input_id="id")
-            with self.assertRaisesRegex(
-                ValueError, "^`type` must be one of elasticsearch,logstash: another-type given$"
-            ):
+            with self.assertRaisesRegex(ValueError, "another-type"):
                 input_sqs.add_output(output_type="another-type")
 
-        with self.subTest("type is not str"):
-            input_sqs = Input(input_type="s3-sqs", input_id="id")
-            with self.assertRaisesRegex(ValueError, "`type` must be provided as string"):
-                input_sqs.add_output(output_type=0)  # type:ignore
-
-        with self.subTest("type is duplicated"):
-            input_sqs = Input(input_type="s3-sqs", input_id="id")
-            input_sqs.add_output(
-                output_type="elasticsearch",
-                elasticsearch_url="elasticsearch_url",
-                username="username",
-                password="password",
-                es_datastream_name="es_datastream_name",
-                batch_max_actions=1,
-                batch_max_bytes=1,
-            )
-
-            with self.assertRaisesRegex(ValueError, "Duplicated `type` elasticsearch"):
-                input_sqs.add_output(
-                    output_type="elasticsearch",
-                    elasticsearch_url="elasticsearch_url",
-                    username="username",
-                    password="password",
-                    es_datastream_name="es_datastream_name",
-                    batch_max_actions=1,
-                    batch_max_bytes=1,
-                )
-
-    def test_get_output_types(self) -> None:
+    def test_get_output_destinations(self) -> None:
         with self.subTest("none output"):
             input_sqs = Input(input_type="s3-sqs", input_id="id")
-            assert input_sqs.get_output_types() == []
+            assert input_sqs.get_output_destinations() == []
 
-        with self.subTest("elasticsearch output"):
+        with self.subTest("elasticsearch output with only elasticsearch_url set"):
             input_sqs = Input(input_type="s3-sqs", input_id="id")
             input_sqs.add_output(
                 output_type="elasticsearch",
@@ -685,7 +655,36 @@ class TestInput(TestCase):
                 batch_max_bytes=1,
             )
 
-            assert input_sqs.get_output_types() == ["elasticsearch"]
+            assert input_sqs.get_output_destinations() == ["elasticsearch_url"]
+
+        with self.subTest("elasticsearch output with only cloud_id set"):
+            input_sqs = Input(input_type="s3-sqs", input_id="id")
+            input_sqs.add_output(
+                output_type="elasticsearch",
+                cloud_id="cloud_id",
+                username="username",
+                password="password",
+                es_datastream_name="es_datastream_name",
+                batch_max_actions=1,
+                batch_max_bytes=1,
+            )
+
+            assert input_sqs.get_output_destinations() == ["cloud_id"]
+
+        with self.subTest("elasticsearch output with elasticsearch_url and cloud_id set"):
+            input_sqs = Input(input_type="s3-sqs", input_id="id")
+            input_sqs.add_output(
+                output_type="elasticsearch",
+                elasticsearch_url="elasticsearch_url",
+                cloud_id="cloud_id",
+                username="username",
+                password="password",
+                es_datastream_name="es_datastream_name",
+                batch_max_actions=1,
+                batch_max_bytes=1,
+            )
+
+            assert input_sqs.get_output_destinations() == ["elasticsearch_url"]
 
     def test_delete_output_by_type(self) -> None:
         with self.subTest("delete elasticsearch output"):
@@ -700,13 +699,13 @@ class TestInput(TestCase):
                 batch_max_bytes=1,
             )
 
-            input_sqs.delete_output_by_type("elasticsearch")
-            assert input_sqs.get_output_types() == []
+            input_sqs.delete_output_by_destination("elasticsearch_url")
+            assert input_sqs.get_output_destinations() == []
 
         with self.subTest("delete not existing output"):
             input_sqs = Input(input_type="s3-sqs", input_id="id")
-            with self.assertRaisesRegex(KeyError, "'type"):
-                input_sqs.delete_output_by_type("type")
+            with self.assertRaisesRegex(KeyError, "destination"):
+                input_sqs.delete_output_by_destination("destination")
 
 
 @pytest.mark.unit
@@ -899,36 +898,6 @@ class TestParseConfig(TestCase):
             """
                 )
 
-        with self.subTest("not valid input output"):
-            with self.assertRaisesRegex(
-                ValueError,
-                "^An error occurred while applying output configuration at position 1 for input id: "
-                "`type` must be one of elasticsearch,logstash: another-type given$",
-            ):
-                parse_config(
-                    config_yaml="""
-            inputs:
-              - type: s3-sqs
-                id: id
-                outputs:
-                  - type: another-type
-                    args:
-                      key: value
-            """
-                )
-
-            with self.assertRaisesRegex(ValueError, "One between `elasticsearch_url` or `cloud_id` must be set"):
-                parse_config(
-                    config_yaml="""
-            inputs:
-              - type: s3-sqs
-                id: id
-                outputs:
-                  - type: elasticsearch
-                    args: {}
-            """
-                )
-
         with self.subTest("batch_max_actions not int"):
             with self.assertRaisesRegex(
                 ValueError,
@@ -1070,7 +1039,7 @@ class TestParseConfig(TestCase):
             assert input_sqs.type == "s3-sqs"
             assert input_sqs.id == "id"
             assert input_sqs.expand_event_list_from_field == "aField"
-            elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
+            elasticsearch = input_sqs.get_output_by_destination(output_destination="cloud_id")
 
             assert elasticsearch is not None
             assert isinstance(elasticsearch, ElasticsearchOutput)
@@ -1123,7 +1092,7 @@ class TestParseConfig(TestCase):
             assert input_sqs.type == "s3-sqs"
             assert input_sqs.id == "id"
             assert input_sqs.root_fields_to_add_to_expanded_event == "all"
-            elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
+            elasticsearch = input_sqs.get_output_by_destination(output_destination="cloud_id")
 
             assert elasticsearch is not None
             assert isinstance(elasticsearch, ElasticsearchOutput)
@@ -1157,7 +1126,7 @@ class TestParseConfig(TestCase):
             assert input_sqs.type == "s3-sqs"
             assert input_sqs.id == "id"
             assert input_sqs.root_fields_to_add_to_expanded_event == ["one", "two"]
-            elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
+            elasticsearch = input_sqs.get_output_by_destination(output_destination="cloud_id")
 
             assert elasticsearch is not None
             assert isinstance(elasticsearch, ElasticsearchOutput)
@@ -1399,7 +1368,7 @@ class TestParseConfig(TestCase):
             assert input_sqs.id == "id"
             assert input_sqs.tags == ["tag1", "tag2", "tag3"]
 
-            elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
+            elasticsearch = input_sqs.get_output_by_destination(output_destination="elasticsearch_url")
 
             assert elasticsearch is not None
             assert isinstance(elasticsearch, ElasticsearchOutput)
@@ -1438,7 +1407,7 @@ class TestParseConfig(TestCase):
             assert input_sqs.id == "id"
             assert input_sqs.tags == ["tag1", "tag2", "tag3"]
 
-            elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
+            elasticsearch = input_sqs.get_output_by_destination(output_destination="elasticsearch_url")
 
             assert elasticsearch is not None
             assert isinstance(elasticsearch, ElasticsearchOutput)
@@ -1477,7 +1446,7 @@ class TestParseConfig(TestCase):
             assert input_sqs.id == "id"
             assert input_sqs.tags == ["tag1", "tag2", "tag3"]
 
-            elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
+            elasticsearch = input_sqs.get_output_by_destination(output_destination="cloud_id")
 
             assert elasticsearch is not None
             assert isinstance(elasticsearch, ElasticsearchOutput)
@@ -1516,7 +1485,7 @@ class TestParseConfig(TestCase):
             assert input_sqs.id == "id"
             assert input_sqs.tags == ["tag1", "tag2", "tag3"]
 
-            elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
+            elasticsearch = input_sqs.get_output_by_destination(output_destination="cloud_id")
 
             assert elasticsearch is not None
             assert isinstance(elasticsearch, ElasticsearchOutput)
@@ -1554,7 +1523,7 @@ class TestParseConfig(TestCase):
             assert input_sqs.id == "id"
             assert input_sqs.tags == []
 
-            elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
+            elasticsearch = input_sqs.get_output_by_destination(output_destination="cloud_id")
 
             assert elasticsearch is not None
             assert isinstance(elasticsearch, ElasticsearchOutput)
@@ -1595,7 +1564,7 @@ class TestParseConfig(TestCase):
             assert input_sqs.id == "id"
             assert input_sqs.tags == ["input_tag1", "input_tag2"]
 
-            elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
+            elasticsearch = input_sqs.get_output_by_destination(output_destination="cloud_id")
 
             assert elasticsearch is not None
             assert isinstance(elasticsearch, ElasticsearchOutput)
@@ -1633,7 +1602,7 @@ class TestParseConfig(TestCase):
             assert input_sqs.id == "id"
             assert input_sqs.tags == ["tag1", "tag2", "tag3"]
 
-            elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
+            elasticsearch = input_sqs.get_output_by_destination(output_destination="cloud_id")
 
             assert elasticsearch is not None
             assert isinstance(elasticsearch, ElasticsearchOutput)
@@ -1682,7 +1651,7 @@ class TestParseConfig(TestCase):
                 ],
             )
 
-            elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
+            elasticsearch = input_sqs.get_output_by_destination(output_destination="cloud_id")
 
             assert elasticsearch is not None
             assert isinstance(elasticsearch, ElasticsearchOutput)
@@ -1697,7 +1666,7 @@ class TestParseConfig(TestCase):
 
         with self.subTest("no list for include"):
             with self.assertRaisesRegex(ValueError, "`include` must be provided as list for input id"):
-                config = parse_config(
+                parse_config(
                     config_yaml="""
                 inputs:
                   - type: s3-sqs
@@ -1718,7 +1687,7 @@ class TestParseConfig(TestCase):
 
         with self.subTest("no list for exclude"):
             with self.assertRaisesRegex(ValueError, "`exclude` must be provided as list for input id"):
-                config = parse_config(
+                parse_config(
                     config_yaml="""
                 inputs:
                   - type: s3-sqs
@@ -1936,7 +1905,7 @@ class TestParseConfig(TestCase):
             assert input_sqs.id == "id"
             assert input_sqs.tags == []
 
-            elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
+            elasticsearch = input_sqs.get_output_by_destination(output_destination="cloud_id")
 
             assert elasticsearch is not None
             assert isinstance(elasticsearch, ElasticsearchOutput)
@@ -1971,7 +1940,7 @@ class TestParseConfig(TestCase):
             assert input_sqs.id == "id"
             assert input_sqs.tags == []
 
-            elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
+            elasticsearch = input_sqs.get_output_by_destination(output_destination="cloud_id")
 
             assert elasticsearch is not None
             assert isinstance(elasticsearch, ElasticsearchOutput)
@@ -2006,7 +1975,7 @@ class TestParseConfig(TestCase):
             assert input_sqs.id == "id"
             assert input_sqs.tags == []
 
-            elasticsearch = input_sqs.get_output_by_type(output_type="elasticsearch")
+            elasticsearch = input_sqs.get_output_by_destination(output_destination="cloud_id")
 
             assert elasticsearch is not None
             assert isinstance(elasticsearch, ElasticsearchOutput)
