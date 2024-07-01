@@ -481,19 +481,108 @@ if __name__ == "__main__":
                 ],
             },
             "RoleName": "${CUSTOM_ROLE_PREFIX}ApplicationElasticServerlessForwarderRole",
-            "ManagedPolicyArns": [
-                "arn:${AWS_OR_AWS_GOV}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
-                "arn:${AWS_OR_AWS_GOV}:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole"
-            ],
-        },
+            "Policies": [
+                {
+                    "PolicyName": "CustomPolicyForAWSLambdaBasicExecutionRole",
+                    "PolicyDocument": {
+                        "Version": "2012-10-17",
+                        "Statement": [
+                            {
+                                "Effect": "Allow",
+                                "Action": [
+                                    "logs:CreateLogGroup",
+                                    "logs:CreateLogStream",
+                                    "logs:PutLogEvents"
+                                ],
+                                "Resource": f"arn:${AWS_OR_AWS_GOV}:logs:::log-group:/aws/lambda/*"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "PolicyName": "CustomPolicyForAWSLambdaSQSQueueExecutionRole",
+                    "PolicyDocument": {
+                        "Version": "2012-10-17",
+                        "Statement": [
+                            {
+                                "Effect": "Allow",
+                                "Action": [
+                                    "sqs:ReceiveMessage",
+                                    "sqs:DeleteMessage",
+                                    "sqs:GetQueueAttributes",
+                                    "logs:CreateLogGroup",
+                                    "logs:CreateLogStream",
+                                    "logs:PutLogEvents"
+                                ],
+                                "Resource": [
+                                    f"arn:${AWS_OR_AWS_GOV}:sqs:::elastic-serverless-forwarder-*",
+                                    f"arn:${AWS_OR_AWS_GOV}:logs:::log-group:/aws/lambda/*",
+                                ]
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
     }
 
     if vpc_config:
-        customRole["Properties"]["ManagedPolicyArns"].append("arn:${AWS_OR_AWS_GOV}:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole")
+        customRole["Properties"]["Policies"].append("{
+                    "PolicyName": "CustomPolicyForAWSLambdaVPCAccessExecutionRole",
+                    "PolicyDocument": {
+                        "Version": "2012-10-17",
+                        "Statement": [
+                            {
+                                "Effect": "Allow",
+                                "Action": [
+                                    "logs:CreateLogGroup",
+                                    "logs:CreateLogStream",
+                                    "logs:PutLogEvents",
+                                    "ec2:CreateNetworkInterface",
+                                    "ec2:DescribeNetworkInterfaces",
+                                    "ec2:DescribeSubnets",
+                                    "ec2:DeleteNetworkInterface",
+                                    "ec2:AssignPrivateIpAddresses",
+                                    "ec2:UnassignPrivateIpAddresses"
+                                ],
+                                "Resource": [
+                                    f"arn:${AWS_OR_AWS_GOV}:logs:::log-group:*",
+                                    f"arn:${AWS_OR_AWS_GOV}:ec2:::vpc/*",
+                                ]
+                            }
+                        ]
+                    }
+                }")
 
     has_kinesis_events: bool = len([created_event for created_event in created_events if created_events[created_event]["Type"] == "Kinesis"]) > 0
     if has_kinesis_events:
-        customRole["Properties"]["ManagedPolicyArns"].append("arn:${AWS_OR_AWS_GOV}:iam::aws:policy/service-role/AWSLambdaKinesisExecutionRole")
+        customRole["Properties"]["Policies"].append("{
+                    "PolicyName": "CustomPolicyForAWSLambdaSQSQueueExecutionRole",
+                    "PolicyDocument": {
+                        "Version": "2012-10-17",
+                        "Statement": [
+                            {
+                                "Effect": "Allow",
+                                "Action": [
+                                    "kinesis:DescribeStream",
+                                    "kinesis:DescribeStreamSummary",
+                                    "kinesis:GetRecords",
+                                    "kinesis:GetShardIterator",
+                                    "kinesis:ListShards",
+                                    "kinesis:ListStreams",
+                                    "kinesis:SubscribeToShard",
+                                    "logs:CreateLogGroup",
+                                    "logs:CreateLogStream",
+                                    "logs:PutLogEvents"
+                                ],
+                                "Resource": [
+                                    f"arn:${AWS_OR_AWS_GOV}:kinesis:::stream/*",
+                                    f"arn:${AWS_OR_AWS_GOV}:logs:::log-group:*",
+                                ]
+                            }
+                        ]
+                    }
+                }")
 
     cloudformation_yaml["Resources"]["ApplicationElasticServerlessForwarderCustomRole"] = customRole
     cloudformation_yaml["Resources"]["ApplicationElasticServerlessForwarder"]["Properties"]["Role"] = {"Fn::GetAtt": ["ApplicationElasticServerlessForwarderCustomRole", "Arn"] }
