@@ -50,6 +50,7 @@ class ElasticsearchOutput(Output):
         batch_max_actions: int = 500,
         batch_max_bytes: int = 10 * 1024 * 1024,
         ssl_assert_fingerprint: str = "",
+        es_dead_letter_index: str = "",
     ):
         super().__init__(output_type="elasticsearch")
         self.elasticsearch_url = elasticsearch_url
@@ -62,6 +63,7 @@ class ElasticsearchOutput(Output):
         self.batch_max_actions = batch_max_actions
         self.batch_max_bytes = batch_max_bytes
         self.ssl_assert_fingerprint = ssl_assert_fingerprint
+        self.es_dead_letter_index = es_dead_letter_index
 
         if self.cloud_id and self.elasticsearch_url:
             shared_logger.warning("both `elasticsearch_url` and `cloud_id` set in config: using `elasticsearch_url`")
@@ -181,6 +183,17 @@ class ElasticsearchOutput(Output):
             raise ValueError("`ssl_assert_fingerprint` must be provided as string")
 
         self._ssl_assert_fingerprint = value
+
+    @property
+    def es_dead_letter_index(self) -> str:
+        return self._es_dead_letter_index
+
+    @es_dead_letter_index.setter
+    def es_dead_letter_index(self, value: str) -> None:
+        if not isinstance(value, str):
+            raise ValueError("`es_dead_letter_index` must be provided as string")
+
+        self._es_dead_letter_index = value
 
 
 class LogstashOutput(Output):
