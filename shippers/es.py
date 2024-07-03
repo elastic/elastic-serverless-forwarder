@@ -262,7 +262,7 @@ class ElasticsearchShipper:
         failed = self._handle_outcome(actions=encoded_actions, errors=errors)
 
         if not isinstance(failed, list) or len(failed) == 0:
-            return []
+            return dead_letter_errors
 
         for action in failed:
             event_payload = self._decode_dead_letter(action)
