@@ -244,7 +244,7 @@ class ElasticsearchShipper:
 
     def _send_dead_letter_index(self, actions: list[Any]) -> list[Any]:
         encoded_actions = []
-        dead_letter_errors = []
+        dead_letter_errors: list[Any] = []
         for action in actions:
             # Reshape event to dead letter index
             encoded = self._encode_dead_letter(action)
@@ -291,7 +291,7 @@ class ElasticsearchShipper:
 
     def _decode_dead_letter(self, dead_letter_outcome: dict[str, Any]) -> dict[str, Any]:
         if "action" not in dead_letter_outcome or "message" not in dead_letter_outcome["action"]:
-            return
+            return {}
 
         return {"action": json_parser(dead_letter_outcome["action"]["message"])}
 
