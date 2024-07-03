@@ -3,8 +3,8 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 import datetime
-from typing import Any, Dict, Optional, Union
 import uuid
+from typing import Any, Dict, Optional, Union
 
 import elasticapm  # noqa: F401
 from elasticsearch import Elasticsearch
