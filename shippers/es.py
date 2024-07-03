@@ -276,7 +276,7 @@ class ElasticsearchShipper:
 
     def _encode_dead_letter(self, outcome: dict[str, Any]) -> dict[str, Any]:
         if "action" not in outcome or "error" not in outcome:
-            return
+            return {}
 
         # Assign random id in case bulk() results in error, it can be matched to the original
         # action
