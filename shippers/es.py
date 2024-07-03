@@ -282,7 +282,7 @@ class ElasticsearchShipper:
         # action
         return {
             "@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
-            "_id": f'{uuid.uuid4()}',
+            "_id": f"{uuid.uuid4()}",
             "_index": self._es_dead_letter_index,
             "_op_type": "create",
             "message": json_dumper(outcome["action"]),
