@@ -1,3 +1,7 @@
+### v1.16.0 - 2024/07/09
+##### Features
+* Prevent duplicate _id events from reaching the replay queue [729](https://github.com/elastic/elastic-serverless-forwarder/pull/729).
+
 ### v1.15.0 - 2024/05/29
 ##### Features
 * Enable multiple outputs for each input [725](https://github.com/elastic/elastic-serverless-forwarder/pull/725).
