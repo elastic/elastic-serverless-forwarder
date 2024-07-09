@@ -20,8 +20,10 @@ class ReplayedEventReplayHandler:
     def add_event_with_receipt_handle(self, event_uniq_id: str, receipt_handle: str) -> None:
         self._events_with_receipt_handle[event_uniq_id] = receipt_handle
 
-    def replay_handler(self, output_type: str, output_args: dict[str, Any], event_payload: dict[str, Any]) -> None:
-        event_uniq_id: str = event_payload["_id"] + output_type
+    def replay_handler(
+        self, output_destination: str, output_args: dict[str, Any], event_payload: dict[str, Any]
+    ) -> None:
+        event_uniq_id: str = event_payload["_id"] + output_destination
         self._failed_event_ids.append(event_uniq_id)
 
     def flush(self) -> None:
@@ -37,7 +39,7 @@ class ReplayedEventReplayHandler:
 
 def get_shipper_for_replay_event(
     config: Config,
-    output_type: str,
+    output_destination: str,
     output_args: dict[str, Any],
     event_input_id: str,
     replay_handler: ReplayedEventReplayHandler,
@@ -46,28 +48,28 @@ def get_shipper_for_replay_event(
     if event_input is None:
         raise InputConfigException(f"Cannot load input for input id {event_input_id}")
 
-    output: Optional[Output] = event_input.get_output_by_type(output_type)
+    output: Optional[Output] = event_input.get_output_by_destination(output_destination)
     if output is None:
-        raise OutputConfigException(f"Cannot load output of type {output_type}")
+        raise OutputConfigException(f"Cannot load output with destination {output_destination}")
 
     # Let's wrap the specific output shipper in the composite one, since the composite deepcopy the mutating events
     shipper: CompositeShipper = CompositeShipper()
 
-    if output_type == "elasticsearch":
+    if output.type == "elasticsearch":
         assert isinstance(output, ElasticsearchOutput)
         output.es_datastream_name = output_args["es_datastream_name"]
         shared_logger.debug("setting ElasticSearch shipper")
-        elasticsearch: ProtocolShipper = ShipperFactory.create_from_output(output_type=output_type, output=output)
+        elasticsearch: ProtocolShipper = ShipperFactory.create_from_output(output_type=output.type, output=output)
 
         shipper.add_shipper(elasticsearch)
         shipper.set_replay_handler(replay_handler=replay_handler.replay_handler)
 
         return shipper
 
-    if output_type == "logstash":
+    if output.type == "logstash":
         assert isinstance(output, LogstashOutput)
         shared_logger.debug("setting Logstash shipper")
-        logstash: ProtocolShipper = ShipperFactory.create_from_output(output_type=output_type, output=output)
+        logstash: ProtocolShipper = ShipperFactory.create_from_output(output_type=output.type, output=output)
 
         shipper.add_shipper(logstash)
         shipper.set_replay_handler(replay_handler=replay_handler.replay_handler)

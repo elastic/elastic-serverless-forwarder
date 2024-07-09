@@ -86,12 +86,13 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         for replay_record in lambda_event["Records"]:
             event = json_parser(replay_record["body"])
             input_id = event["event_input_id"]
-            output_type = event["output_type"]
-            shipper_id = input_id + output_type
+            output_destination = event["output_destination"]
+            shipper_id = input_id + output_destination
+
             if shipper_id not in shipper_cache:
                 shipper = get_shipper_for_replay_event(
                     config=config,
-                    output_type=output_type,
+                    output_destination=output_destination,
                     output_args=event["output_args"],
                     event_input_id=input_id,
                     replay_handler=replay_handler,
@@ -100,7 +101,10 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 if shipper is None:
                     shared_logger.warning(
                         "no shipper for output in replay queue",
-                        extra={"output_type": event["output_type"], "event_input_id": event["event_input_id"]},
+                        extra={
+                            "output_destination": event["output_destination"],
+                            "event_input_id": event["event_input_id"],
+                        },
                     )
                     continue
 
@@ -111,7 +115,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             assert isinstance(shipper, CompositeShipper)
 
             shipper.send(event["event_payload"])
-            event_uniq_id: str = event["event_payload"]["_id"] + output_type
+            event_uniq_id: str = event["event_payload"]["_id"] + output_destination
             replay_handler.add_event_with_receipt_handle(
                 event_uniq_id=event_uniq_id, receipt_handle=replay_record["receiptHandle"]
             )
@@ -170,7 +174,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             return "completed"
 
         aws_region = input_id.split(":")[3]
-        composite_shipper = get_shipper_from_input(event_input=event_input, config_yaml=config_yaml)
+        composite_shipper = get_shipper_from_input(event_input=event_input)
 
         event_list_from_field_expander = ExpandEventListFromField(
             event_input.expand_event_list_from_field,
@@ -268,7 +272,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             )
             return "completed"
 
-        composite_shipper = get_shipper_from_input(event_input=event_input, config_yaml=config_yaml)
+        composite_shipper = get_shipper_from_input(event_input=event_input)
 
         event_list_from_field_expander = ExpandEventListFromField(
             event_input.expand_event_list_from_field,
@@ -458,7 +462,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             if input_id in composite_shipper_cache:
                 composite_shipper = composite_shipper_cache[input_id]
             else:
-                composite_shipper = get_shipper_from_input(event_input=event_input, config_yaml=config_yaml)
+                composite_shipper = get_shipper_from_input(event_input=event_input)
                 composite_shipper_cache[event_input.id] = composite_shipper
 
             continuing_event_expanded_offset: Optional[int] = None

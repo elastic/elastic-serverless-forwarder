@@ -81,8 +81,10 @@ class ElasticsearchShipper:
         es_client_kwargs: dict[str, Any] = {}
         if elasticsearch_url:
             es_client_kwargs["hosts"] = [elasticsearch_url]
+            self._output_destination = elasticsearch_url
         elif cloud_id:
             es_client_kwargs["cloud_id"] = cloud_id
+            self._output_destination = cloud_id
         else:
             raise ValueError("You must provide one between elasticsearch_url or cloud_id")
 
@@ -172,7 +174,7 @@ class ElasticsearchShipper:
 
             shared_logger.debug("elasticsearch shipper", extra={"action": action_failed[0]})
             if self._replay_handler is not None:
-                self._replay_handler("elasticsearch", self._replay_args, action_failed[0])
+                self._replay_handler(self._output_destination, self._replay_args, action_failed[0])
 
         if failed > 0:
             shared_logger.warning("elasticsearch shipper", extra={"success": success, "failed": failed})

@@ -155,4 +155,4 @@ class LogstashShipper:
                         event["_id"] = event["@metadata"]["_id"]
                         del event["@metadata"]
 
-                    self._replay_handler("logstash", self._replay_args, event)
+                    self._replay_handler(self._logstash_url, self._replay_args, event)

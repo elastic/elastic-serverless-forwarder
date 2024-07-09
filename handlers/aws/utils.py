@@ -134,28 +134,26 @@ def discover_integration_scope(s3_object_key: str) -> str:
             return INTEGRATION_SCOPE_GENERIC
 
 
-def get_shipper_from_input(event_input: Input, config_yaml: str) -> CompositeShipper:
+def get_shipper_from_input(event_input: Input) -> CompositeShipper:
     composite_shipper: CompositeShipper = CompositeShipper()
 
-    for output_type in event_input.get_output_types():
-        if output_type == "elasticsearch":
+    for output_destination in event_input.get_output_destinations():
+        output: Optional[Output] = event_input.get_output_by_destination(output_destination)
+        assert output is not None
+
+        if output.type == "elasticsearch":
             shared_logger.debug("setting ElasticSearch shipper")
-            elasticsearch_output: Optional[Output] = event_input.get_output_by_type("elasticsearch")
-            assert elasticsearch_output is not None
 
             elasticsearch_shipper: ProtocolShipper = ShipperFactory.create_from_output(
-                output_type="elasticsearch", output=elasticsearch_output
+                output_type="elasticsearch", output=output
             )
+
             composite_shipper.add_shipper(shipper=elasticsearch_shipper)
 
-        if output_type == "logstash":
+        if output.type == "logstash":
             shared_logger.debug("setting Logstash shipper")
-            logstash_output: Optional[Output] = event_input.get_output_by_type("logstash")
-            assert logstash_output is not None
 
-            logstash_shipper: ProtocolShipper = ShipperFactory.create_from_output(
-                output_type="logstash", output=logstash_output
-            )
+            logstash_shipper: ProtocolShipper = ShipperFactory.create_from_output(output_type="logstash", output=output)
 
             composite_shipper.add_shipper(shipper=logstash_shipper)
 
@@ -300,7 +298,7 @@ def get_trigger_type_and_config_source(event: dict[str, Any]) -> tuple[str, str]
             body = json_parser(event_body)
             if (
                 isinstance(body, dict)
-                and "output_type" in event_body
+                and "output_destination" in event_body
                 and "output_args" in event_body
                 and "event_payload" in event_body
             ):
@@ -348,13 +346,15 @@ class ReplayEventHandler:
     def __init__(self, event_input: Input):
         self._event_input_id: str = event_input.id
 
-    def replay_handler(self, output_type: str, output_args: dict[str, Any], event_payload: dict[str, Any]) -> None:
+    def replay_handler(
+        self, output_destination: str, output_args: dict[str, Any], event_payload: dict[str, Any]
+    ) -> None:
         sqs_replay_queue = os.environ["SQS_REPLAY_URL"]
 
         sqs_client = get_sqs_client()
 
         message_payload: dict[str, Any] = {
-            "output_type": output_type,
+            "output_destination": output_destination,
             "output_args": output_args,
             "event_payload": event_payload,
             "event_input_id": self._event_input_id,
@@ -363,7 +363,8 @@ class ReplayEventHandler:
         sqs_client.send_message(QueueUrl=sqs_replay_queue, MessageBody=json_dumper(message_payload))
 
         shared_logger.debug(
-            "sent to replay queue", extra={"output_type": output_type, "event_input_id": self._event_input_id}
+            "sent to replay queue",
+            extra={"output_destination": output_destination, "event_input_id": self._event_input_id},
         )
 
 
