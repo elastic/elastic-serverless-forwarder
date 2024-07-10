@@ -1,3 +1,7 @@
+### v1.17.0 - 2024/07/10
+##### Features
+* Add dead letter index for ES outputs [733](https://github.com/elastic/elastic-serverless-forwarder/pull/733).
+
 ### v1.16.0 - 2024/07/09
 ##### Features
 * Prevent duplicate _id events from reaching the replay queue [729](https://github.com/elastic/elastic-serverless-forwarder/pull/729).
