@@ -248,7 +248,7 @@ class ElasticsearchShipper:
         for action in actions:
             # Reshape event to dead letter index
             encoded = self._encode_dead_letter(action)
-            if encoded is None:
+            if not encoded:
                 shared_logger.error("cannot encode dead letter index event from payload", extra={"action": action})
                 dead_letter_errors.append(action)
 
@@ -267,7 +267,8 @@ class ElasticsearchShipper:
         for action in failed:
             event_payload = self._decode_dead_letter(action)
 
-            if event_payload is None:
+            if not event_payload:
+                shared_logger.error("cannot decode dead letter index event from payload", extra={"action": action})
                 continue
 
             dead_letter_errors.append(event_payload)
@@ -276,7 +277,7 @@ class ElasticsearchShipper:
 
     def _encode_dead_letter(self, outcome: dict[str, Any]) -> dict[str, Any]:
         if "action" not in outcome or "error" not in outcome:
-            return None
+            return {}
 
         # Assign random id in case bulk() results in error, it can be matched to the original
         # action
@@ -291,7 +292,7 @@ class ElasticsearchShipper:
 
     def _decode_dead_letter(self, dead_letter_outcome: dict[str, Any]) -> dict[str, Any]:
         if "action" not in dead_letter_outcome or "message" not in dead_letter_outcome["action"]:
-            return None
+            return {}
 
         return {"action": json_parser(dead_letter_outcome["action"]["message"])}
 
