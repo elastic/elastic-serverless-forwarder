@@ -276,7 +276,7 @@ class ElasticsearchShipper:
 
     def _encode_dead_letter(self, outcome: dict[str, Any]) -> dict[str, Any]:
         if "action" not in outcome or "error" not in outcome:
-            return {}
+            return None
 
         # Assign random id in case bulk() results in error, it can be matched to the original
         # action
@@ -291,7 +291,7 @@ class ElasticsearchShipper:
 
     def _decode_dead_letter(self, dead_letter_outcome: dict[str, Any]) -> dict[str, Any]:
         if "action" not in dead_letter_outcome or "message" not in dead_letter_outcome["action"]:
-            return {}
+            return None
 
         return {"action": json_parser(dead_letter_outcome["action"]["message"])}
 
