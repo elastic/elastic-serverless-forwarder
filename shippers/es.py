@@ -2,6 +2,8 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
+import datetime
+import uuid
 from typing import Any, Dict, Optional, Union
 
 import elasticapm  # noqa: F401
@@ -58,6 +60,7 @@ class ElasticsearchShipper:
         cloud_id: str = "",
         api_key: str = "",
         es_datastream_name: str = "",
+        es_dead_letter_index: str = "",
         tags: list[str] = [],
         batch_max_actions: int = 500,
         batch_max_bytes: int = 10 * 1024 * 1024,
@@ -108,6 +111,7 @@ class ElasticsearchShipper:
         self._event_id_generator: Optional[EventIdGeneratorCallable] = None
 
         self._es_datastream_name = es_datastream_name
+        self._es_dead_letter_index = es_dead_letter_index
         self._tags = tags
 
         self._es_index = ""
@@ -153,13 +157,13 @@ class ElasticsearchShipper:
 
         event_payload["tags"] += self._tags
 
-    def _handle_outcome(self, errors: tuple[int, Union[int, list[Any]]]) -> None:
+    def _handle_outcome(self, actions: list[dict[str, Any]], errors: tuple[int, Union[int, list[Any]]]) -> list[Any]:
         assert isinstance(errors[1], list)
 
         success = errors[0]
-        failed = len(errors[1])
+        failed: list[Any] = []
         for error in errors[1]:
-            action_failed = [action for action in self._bulk_actions if action["_id"] == error["create"]["_id"]]
+            action_failed = [action for action in actions if action["_id"] == error["create"]["_id"]]
             # an ingestion pipeline might override the _id, we can only skip in this case
             if len(action_failed) != 1:
                 continue
@@ -169,20 +173,17 @@ class ElasticsearchShipper:
             )
 
             if "status" in error["create"] and error["create"]["status"] == _VERSION_CONFLICT:
-                # Skip duplicate events on replay queue
+                # Skip duplicate events on dead letter index and replay queue
                 continue
 
-            shared_logger.debug("elasticsearch shipper", extra={"action": action_failed[0]})
-            if self._replay_handler is not None:
-                self._replay_handler(self._output_destination, self._replay_args, action_failed[0])
+            failed.append({"error": error["create"]["error"], "action": action_failed[0]})
 
-        if failed > 0:
-            shared_logger.warning("elasticsearch shipper", extra={"success": success, "failed": failed})
-            return
+        if len(failed) > 0:
+            shared_logger.warning("elasticsearch shipper", extra={"success": success, "failed": len(failed)})
+        else:
+            shared_logger.info("elasticsearch shipper", extra={"success": success, "failed": len(failed)})
 
-        shared_logger.info("elasticsearch shipper", extra={"success": success, "failed": failed})
-
-        return
+        return failed
 
     def set_event_id_generator(self, event_id_generator: EventIdGeneratorCallable) -> None:
         self._event_id_generator = event_id_generator
@@ -213,20 +214,87 @@ class ElasticsearchShipper:
         if len(self._bulk_actions) < self._bulk_batch_size:
             return _EVENT_BUFFERED
 
-        errors = es_bulk(self._es_client, self._bulk_actions, **self._bulk_kwargs)
-        self._handle_outcome(errors=errors)
-        self._bulk_actions = []
+        self.flush()
 
         return _EVENT_SENT
 
     def flush(self) -> None:
-        if len(self._bulk_actions) > 0:
-            errors = es_bulk(self._es_client, self._bulk_actions, **self._bulk_kwargs)
-            self._handle_outcome(errors=errors)
+        if len(self._bulk_actions) == 0:
+            return
+
+        errors = es_bulk(self._es_client, self._bulk_actions, **self._bulk_kwargs)
+        failed = self._handle_outcome(actions=self._bulk_actions, errors=errors)
+
+        # Send failed requests to dead letter index, if enabled
+        if len(failed) > 0 and self._es_dead_letter_index:
+            failed = self._send_dead_letter_index(failed)
+
+        # Send remaining failed requests to replay queue, if enabled
+        if isinstance(failed, list) and len(failed) > 0 and self._replay_handler is not None:
+            for outcome in failed:
+                if "action" not in outcome:
+                    shared_logger.error("action could not be extracted to be replayed", extra={"outcome": outcome})
+                    continue
+
+                self._replay_handler(self._output_destination, self._replay_args, outcome["action"])
 
         self._bulk_actions = []
 
         return
+
+    def _send_dead_letter_index(self, actions: list[Any]) -> list[Any]:
+        encoded_actions = []
+        dead_letter_errors: list[Any] = []
+        for action in actions:
+            # Reshape event to dead letter index
+            encoded = self._encode_dead_letter(action)
+            if not encoded:
+                shared_logger.error("cannot encode dead letter index event from payload", extra={"action": action})
+                dead_letter_errors.append(action)
+
+            encoded_actions.append(encoded)
+
+        # If no action can be encoded, return original action list as failed
+        if len(encoded_actions) == 0:
+            return dead_letter_errors
+
+        errors = es_bulk(self._es_client, encoded_actions, **self._bulk_kwargs)
+        failed = self._handle_outcome(actions=encoded_actions, errors=errors)
+
+        if not isinstance(failed, list) or len(failed) == 0:
+            return dead_letter_errors
+
+        for action in failed:
+            event_payload = self._decode_dead_letter(action)
+
+            if not event_payload:
+                shared_logger.error("cannot decode dead letter index event from payload", extra={"action": action})
+                continue
+
+            dead_letter_errors.append(event_payload)
+
+        return dead_letter_errors
+
+    def _encode_dead_letter(self, outcome: dict[str, Any]) -> dict[str, Any]:
+        if "action" not in outcome or "error" not in outcome:
+            return {}
+
+        # Assign random id in case bulk() results in error, it can be matched to the original
+        # action
+        return {
+            "@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+            "_id": f"{uuid.uuid4()}",
+            "_index": self._es_dead_letter_index,
+            "_op_type": "create",
+            "message": json_dumper(outcome["action"]),
+            "error": outcome["error"],
+        }
+
+    def _decode_dead_letter(self, dead_letter_outcome: dict[str, Any]) -> dict[str, Any]:
+        if "action" not in dead_letter_outcome or "message" not in dead_letter_outcome["action"]:
+            return {}
+
+        return {"action": json_parser(dead_letter_outcome["action"]["message"])}
 
     def _discover_dataset(self, event_payload: Dict[str, Any]) -> None:
         if self._es_datastream_name != "":
