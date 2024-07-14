@@ -36,7 +36,7 @@ jobs:
           --dir .
         env:
           GH_TOKEN: ${{ github.token }}
-      - uses: 5monkeys/cobertura-action@4157521550018abbbd29dfdf1b5963e907ea37f0
+      - uses: 5monkeys/cobertura-action@ee5787cc56634acddedc51f21c7947985531e6eb
         with:
           path: "**/coverage.xml"
           skip_covered: false
