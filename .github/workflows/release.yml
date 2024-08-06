@@ -18,6 +18,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      enabled: ${{ steps.version.outputs.enabled }}
+      tag: ${{ steps.version.outputs.tag }}
     steps:
 
       - uses: actions/checkout@v4
@@ -30,6 +34,7 @@ jobs:
           echo "::notice::ESF version is $VERSION."
 
       - name: Check if version increased
+        id: version
         shell: bash
         run: |
           git fetch --tags
@@ -61,6 +66,10 @@ jobs:
           echo "::notice::Current version is ${{ env.VERSION }}."
           echo "::notice::The result for creating tag is $CREATE_TAG."
 
+          echo "version=${{ env.VERSION }}" >> "$GITHUB_OUTPUT"
+          echo "enabled=${CREATE_TAG}""     >> "$GITHUB_OUTPUT"
+          echo "tag=lambda-v${{ env.VERSION }}" >> "$GITHUB_OUTPUT"
+
       - name: Create tag
         if: env.CREATE_TAG == 'true' # run only in case CREATE_TAG is true
         uses: actions/github-script@v7
@@ -69,6 +78,43 @@ jobs:
             github.rest.git.createRef({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              ref: 'refs/tags/lambda-v' + "${{ env.VERSION }}",
+              ref: 'refs/tags/' + "${{ steps.version.outputs.tag }}",
               sha: context.sha
             })
+
+  regular-sar:
+    if: ${{ needs.release.outputs.enabled == 'true' }}
+    runs-on: ubuntu-latest
+    needs: release
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      BUCKET_NAME : "esf-dependencies"
+      AWS_REGION : "eu-central-1"
+      # elastic-observability-prod
+      AWS_ACCOUNT_ID: "267093732750"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+
+      - uses: elastic/oblt-actions/aws/auth@v1
+        with:
+          aws-account-id: "${{ env.AWS_ACCOUNT_ID}}"
+          aws-region: "${{ env.AWS_REGION }}"
+
+      - uses: aws-actions/setup-sam@2360ef6d90015369947b45b496193ab9976a9b04 # v2
+        with:
+          use-installer: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and package
+        run: |
+          .internal/aws/scripts/dist.sh \
+            elastic-serverless-forwarder \
+            ${{ needs.release.outputs.version }} \
+            elastic-serverless-forwarder-artifacts \
+            ${{ env.AWS_ACCOUNT_ID }} \
+            ${{ env.AWS_REGION }} \
+            "GitHub Bot"
