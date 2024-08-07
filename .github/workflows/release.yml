@@ -42,7 +42,6 @@ jobs:
 
       - name: Build and package
         run: |
-          exit 0
           .internal/aws/scripts/dist.sh \
             elastic-serverless-forwarder \
             1.17.0 \
