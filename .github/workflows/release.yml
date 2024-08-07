@@ -9,83 +9,14 @@ on:
   push:
     branches:
       - 'main'
+      - 'test/support-sar-automation'
     paths:
       - 'share/version.py'
+      - '.github/workflows/release.yml'
 
 jobs:
-
-  release:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-      enabled: ${{ steps.version.outputs.enabled }}
-      tag: ${{ steps.version.outputs.tag }}
-    steps:
-
-      - uses: actions/checkout@v4
-
-      - name: Get version number
-        shell: bash
-        run: |
-          VERSION=$(grep -oE '[0-9]+\.[0-9]+\.[0-9]+(\-[a-zA-Z]+[0-9]+)?' share/version.py)
-          echo "VERSION=${VERSION}" >> $GITHUB_ENV
-          echo "::notice::ESF version is $VERSION."
-
-      - name: Check if version increased
-        id: version
-        shell: bash
-        run: |
-          git fetch --tags
-
-          # We will list all tags sorted by the version after the prefix lambda-v.
-          # We retrieve only the first line - that is, the most recent version.
-          # After that, we remove the prefix to only get the version number.
-          old_version=$(git tag --list --sort=-version:refname "lambda-v*" | awk 'NR==1{print $1}' | awk -F"lambda-v" '{ print $NF }')
-
-          # We now need to compare the current version inside version.py.
-          IFS='.' read -a new_numbers <<< ${{ env.VERSION }}
-          IFS='.' read -a old_numbers <<< $old_version
-
-          CREATE_TAG=false # only create tag if version increased
-          for i in 0 1 2
-          do
-            if [[ ${new_numbers[i]} > ${old_numbers[i]} ]]
-            then
-              CREATE_TAG=true
-              break
-            elif [[ ${new_numbers[i]} < ${old_numbers[i]} ]]
-            then
-              break
-            fi
-          done
-
-          echo "CREATE_TAG=${CREATE_TAG}" >> $GITHUB_ENV
-          echo "::notice::Latest version is $old_version."
-          echo "::notice::Current version is ${{ env.VERSION }}."
-          echo "::notice::The result for creating tag is $CREATE_TAG."
-
-          echo "version=${{ env.VERSION }}" >> "$GITHUB_OUTPUT"
-          echo "enabled=${CREATE_TAG}""     >> "$GITHUB_OUTPUT"
-          echo "tag=lambda-v${{ env.VERSION }}" >> "$GITHUB_OUTPUT"
-
-      - name: Create tag
-        if: env.CREATE_TAG == 'true' # run only in case CREATE_TAG is true
-        uses: actions/github-script@v7
-        with:
-          script: |
-            github.rest.git.createRef({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              ref: 'refs/tags/' + "${{ steps.version.outputs.tag }}",
-              sha: context.sha
-            })
-
   regular-sar:
-    if: ${{ needs.release.outputs.enabled == 'true' }}
     runs-on: ubuntu-latest
-    needs: release
     permissions:
       id-token: write
       contents: read
@@ -93,11 +24,11 @@ jobs:
       BUCKET_NAME : "esf-dependencies"
       AWS_REGION : "eu-central-1"
       # elastic-observability-prod
-      AWS_ACCOUNT_ID: "267093732750"
+      AWS_ACCOUNT_ID: "627286350134"
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.release.outputs.tag }}
+          ref: "lambda-v1.17.0"
 
       - uses: elastic/oblt-actions/aws/auth@v1
         with:
@@ -111,10 +42,11 @@ jobs:
 
       - name: Build and package
         run: |
+          exit 0
           .internal/aws/scripts/dist.sh \
             elastic-serverless-forwarder \
-            ${{ needs.release.outputs.version }} \
-            elastic-serverless-forwarder-artifacts \
+            1.17.0 \
+            victor-martinez-sar-testing \
             ${{ env.AWS_ACCOUNT_ID }} \
             ${{ env.AWS_REGION }} \
             "GitHub Bot"
