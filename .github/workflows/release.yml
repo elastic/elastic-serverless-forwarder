@@ -21,8 +21,10 @@ jobs:
       id-token: write
       contents: read
     env:
-      BUCKET_NAME : "esf-dependencies"
-      AWS_REGION : "eu-central-1"
+      #BUCKET_NAME : "esf-dependencies"
+      BUCKET_NAME : "victor-martinez-sar-testing"
+      AWS_REGION : "us-east-1"
+      #AWS_REGION : "eu-central-1
       # elastic-observability-prod
       AWS_ACCOUNT_ID: "627286350134"
     steps:
@@ -45,7 +47,7 @@ jobs:
           .internal/aws/scripts/dist.sh \
             elastic-serverless-forwarder \
             1.17.0 \
-            victor-martinez-sar-testing \
+            ${{ env.BUCKET_NAME }} \
             ${{ env.AWS_ACCOUNT_ID }} \
             ${{ env.AWS_REGION }} \
             "GitHub Bot"
