@@ -325,6 +325,8 @@ NOTE: To deploy the forwarder directly without using SAR, refer to <<aws-serverl
 [[aws-serverless-forwarder-deploy-console]]
 === Deploy using {aws} Console
 
+NOTE: Only one deployment per region is allowed when using the {aws} console directly. 
+
 . Log in to {aws} console and open **Lambda**.
 . Click **Applications** and then **Create application**.
 . Click **Serverless application** and search for **elastic-serverless-forwarder**.
@@ -333,7 +335,8 @@ NOTE: To deploy the forwarder directly without using SAR, refer to <<aws-serverl
 [role="screenshot"]
 image::images/aws-serverless-forwarder-create-function.png[Create Elastic Serverless Forwarder Lambda function within SAR]
 +
-. Complete the **Application settings** according to <<aws-serverless-forwarder-define-deploy-parameters>>.
+. Complete the **Application settings** according to <<aws-serverless-forwarder-define-deploy-parameters>>. 
+Please specify the parameters even if it's already exist in the `config.yaml` file.
 . After your settings have been added, click **Deploy**.
 . On the Applications page for **serverlessrepo-elastic-serverless-forwarder**, click **Deployments**.
 . Refresh the **Deployment history** until you see the `Create complete` status update. It should take around 5 minutes to deploy &mdash; if the deployment fails for any reason, the create events will be rolled back and you will be able to see an explanation for which event failed.
