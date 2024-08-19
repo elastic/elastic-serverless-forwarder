@@ -80,19 +80,28 @@ license:  ## Run license validation in the project
 all-requirements: requirements-lint requirements-tests requirements ## Install all requirements on the host
 
 requirements: .makecache/requirements.txt  ## Install app requirements on the host
+requirements: .makecache/constraints.txt
+requirements: export PIP_ARGS=-c .makecache/constraints.txt
+requirements: install-requirements
 
 requirements-lint: .makecache/requirements-lint.txt  ## Install all linting requirements on the host
+requirements-lint: .makecache/constraints.txt
+requirements-lint: export PIP_ARGS=-c .makecache/constraints.txt
+requirements-lint: install-requirements-lint
 
 requirements-tests: .makecache/requirements-tests.txt  ## Install tests requirements on the host
+requirements-tests: .makecache/constraints.txt
+requirements-tests: export PIP_ARGS=-c .makecache/constraints.txt
+requirements-tests: install-requirements-tests
 
-.makecache/requirements.txt: requirements.txt
-	pip3 install -r requirements.txt
+install-requirements:
+	pip3 install -r requirements.txt $(PIP_ARGS)
 	touch .makecache/requirements.txt
 
-.makecache/requirements-lint.txt: requirements-lint.txt
-	pip3 install -r requirements-lint.txt
+install-requirements-lint:
+	pip3 install -r requirements-lint.txt $(PIP_ARGS)
 	touch .makecache/requirements-lint.txt
 
-.makecache/requirements-tests.txt: requirements-tests.txt
-	pip3 install -r requirements-tests.txt
+install-requirements-tests:
+	pip3 install -r requirements-tests.txt $(PIP_ARGS)
 	touch .makecache/requirements-tests.txt
