@@ -339,7 +339,6 @@ image::images/aws-serverless-forwarder-create-function.png[Create Elastic Server
 You must specify the parameters even if they already exist in the `config.yaml` file. Depends on the input type, at least
 one if the parameters `ElasticServerlessForwarderSQSEvents`, `ElasticServerlessForwarderS3SQSEvents`, 
 `ElasticServerlessForwarderKinesisEvents`, `ElasticServerlessForwarderCloudWatchLogsEvents` should de defined.
-
 . After your settings have been added, click **Deploy**.
 . On the Applications page for **serverlessrepo-elastic-serverless-forwarder**, click **Deployments**.
 . Refresh the **Deployment history** until you see the `Create complete` status update. It should take around 5 minutes to deploy &mdash; if the deployment fails for any reason, the create events will be rolled back and you will be able to see an explanation for which event failed.
