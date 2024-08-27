@@ -117,4 +117,4 @@ jobs:
             elastic-serverless-forwarder \
             ${{ env.AWS_ACCOUNT_ID }} \
             ${{ env.AWS_REGION }} \
-            "GitHub Bot"
+            "Elastic"
