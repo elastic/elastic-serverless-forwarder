@@ -114,7 +114,7 @@ jobs:
           .internal/aws/scripts/dist.sh \
             elastic-serverless-forwarder \
             ${{ needs.release.outputs.version }} \
-            elastic-serverless-forwarder-artifacts \
+            elastic-serverless-forwarder \
             ${{ env.AWS_ACCOUNT_ID }} \
             ${{ env.AWS_REGION }} \
             "GitHub Bot"
