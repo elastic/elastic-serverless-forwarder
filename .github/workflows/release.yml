@@ -87,7 +87,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: release
     permissions:
-      # See https://github.com/elastic/oblt-infra/tree/main/conf/resources/repos/elastic-serverless-forwarder/01-release.tf
+      # The OIDC permissions can be found at https://github.com/elastic/oblt-infra/tree/main/conf/resources/repos/elastic-serverless-forwarder
       id-token: write
       contents: read
     env:
