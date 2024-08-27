@@ -91,7 +91,7 @@ jobs:
       id-token: write
       contents: read
     env:
-      BUCKET_NAME : "esf-dependencies"
+      BUCKET_NAME : "elastic-serverless-forwarder"
       AWS_REGION : "eu-central-1"
       # elastic-observability-prod
       AWS_ACCOUNT_ID: "267093732750"
@@ -115,7 +115,7 @@ jobs:
           .internal/aws/scripts/dist.sh \
             elastic-serverless-forwarder \
             ${{ needs.release.outputs.version }} \
-            elastic-serverless-forwarder \
+            ${{ env. BUCKET_NAME }} \
             ${{ env.AWS_ACCOUNT_ID }} \
             ${{ env.AWS_REGION }} \
             "Elastic"
