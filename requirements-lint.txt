@@ -2,7 +2,7 @@ black
 flake8
 flake8-per-file-ignores
 isort
-mypy
+mypy==1.10.1
 types-PyYAML
 types-mock
 pyflakes>=3.0.0,<3.3.0
