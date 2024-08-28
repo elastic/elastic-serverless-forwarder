@@ -102,7 +102,7 @@ jobs:
 
       - uses: elastic/oblt-actions/aws/auth@v1
         with:
-          aws-account-id: "${{ env.AWS_ACCOUNT_ID}}"
+          aws-account-id: "${{ env.AWS_ACCOUNT_ID }}"
           aws-region: "${{ env.AWS_REGION }}"
 
       - uses: aws-actions/setup-sam@2360ef6d90015369947b45b496193ab9976a9b04 # v2
