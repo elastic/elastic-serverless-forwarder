@@ -115,7 +115,7 @@ jobs:
           .internal/aws/scripts/dist.sh \
             elastic-serverless-forwarder \
             ${{ needs.release.outputs.version }} \
-            ${{ env. BUCKET_NAME }} \
+            ${{ env.BUCKET_NAME }} \
             ${{ env.AWS_ACCOUNT_ID }} \
             ${{ env.AWS_REGION }} \
             "Elastic"
