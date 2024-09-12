@@ -11,14 +11,15 @@ on:
 permissions:
   contents: read
   actions: read
+  checks: write
 
 jobs:
   report:
     runs-on: ubuntu-latest
     steps:
-      - uses: elastic/apm-pipeline-library/.github/actions/test-report@current
+      - uses: elastic/oblt-actions/test-report@v1
         with:
-          artifact: test-results            # artifact name
+          artifact: /test-results(.*)/     # artifact name pattern
           name: JUnit Tests                 # Name of the check run which will be created
           path: "**/elastic-serverless-forwarder-junit.xml"                  # Path to test results (inside artifact .zip)
           reporter: java-junit              # Format of test results
@@ -28,14 +29,11 @@ jobs:
     if: ${{ github.event.workflow_run.event == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Download artifacts
-        run: >
-          gh run download ${{ github.event.workflow_run.id }}
-          --name test-results
-          --repo "${GITHUB_REPOSITORY}"
-          --dir .
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: test-results*
+          merge-multiple: true
+          run-id: ${{ github.event.workflow_run.id }}
       - uses: 5monkeys/cobertura-action@ee5787cc56634acddedc51f21c7947985531e6eb
         with:
           path: "**/coverage.xml"
