@@ -176,7 +176,20 @@ class ElasticsearchShipper:
                 # Skip duplicate events on dead letter index and replay queue
                 continue
 
-            failed.append({"error": error["create"]["error"], "action": action_failed[0]})
+            failed_error = {"action": action_failed[0], "error": {}}
+            error_field = error.get("create", {}).get("error", None)
+            if error_field:
+                if "reason" in error_field:
+                    failed_error["error"]["message"] = error_field["reason"]
+                if "type" in error_field:
+                    failed_error["error"]["type"] = error_field["type"]
+            else:
+                failed_error["error"]["message"] = error_field
+
+            if "exception" in error["create"]:
+                failed_error["error"]["stack_trace"] = error["create"]["exception"]
+
+            failed.append(failed_error)
 
         if len(failed) > 0:
             shared_logger.warning("elasticsearch shipper", extra={"success": success, "failed": len(failed)})

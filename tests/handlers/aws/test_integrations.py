@@ -4292,7 +4292,7 @@ class TestLambdaHandlerIntegration(TestCase):
         assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
 
         assert (
-            res["hits"]["hits"][0]["_source"]["error"]["reason"]
+            res["hits"]["hits"][0]["_source"]["error"]["message"]
             == "test_es_non_indexable_dead_letter_index fail message"
         )
         assert res["hits"]["hits"][0]["_source"]["error"]["type"] == "fail_processor_exception"
