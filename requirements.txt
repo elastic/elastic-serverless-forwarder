@@ -6,5 +6,5 @@ PyYAML==6.0.1
 aws_lambda_typing==2.18.0
 orjson==3.9.14
 requests==2.31.0
-urllib3==1.26.18
+urllib3==2.2.3
 typing-extensions==4.9.0
