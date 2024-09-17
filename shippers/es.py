@@ -176,10 +176,8 @@ class ElasticsearchShipper:
                 # Skip duplicate events on dead letter index and replay queue
                 continue
 
-            failed_error = {
-                "action": action_failed[0],
-                "error": self._parse_error(error["create"]),
-            }
+            failed_error = {"action": action_failed[0]} | self._parse_error(error["create"])
+
             # error_field = error.get("create", {}).get("error", None)
             # if error_field:
             #     if "reason" in error_field:
