@@ -19,8 +19,7 @@ To deploy Elastic Serverless Forwarder, you have to:
 [discrete]
 [[aws-serverless-forwarder-deploy-prereq]]
 == Prerequisites
-This documentation assumes you have some familiarity with {aws} services and you have correctly created and configured the necessary {aws} objects. For example, if you want to use an Amazon S3 (via SQS event notifications) input then you must ensure that you have enabled AWS VPC flow logs to be sent to that bucket, and created an SQS queue to receive those logs. For more information, refer to the relevant https://docs.aws.amazon.com/[{aws} docs].
-
+This documentation assumes you have some familiarity with {aws} services, and you have correctly created and configured the necessary {aws} objects.
 // Need more details on pre-reqs for other input types
 
 NOTE: This page describes the basic steps required to deploy Elastic Serverless
@@ -76,6 +75,7 @@ inputs:
           username: "username"
           password: "password"
           es_datastream_name: "logs-generic-default"
+          es_dead_letter_index: "esf-dead-letter-index" # optional
           batch_max_actions: 500 # optional: default value is 500
           batch_max_bytes: 10485760 # optional: default value is 10485760
       - type: "logstash"
@@ -99,6 +99,7 @@ inputs:
           username: "username"
           password: "password"
           es_datastream_name: "logs-generic-default"
+          es_dead_letter_index: "esf-dead-letter-index" # optional
           batch_max_actions: 500 # optional: default value is 500
           batch_max_bytes: 10485760 # optional: default value is 10485760
       - type: "logstash"
@@ -122,6 +123,7 @@ inputs:
           username: "username"
           password: "password"
           es_datastream_name: "logs-generic-default"
+          es_dead_letter_index: "esf-dead-letter-index" # optional
           batch_max_actions: 500 # optional: default value is 500
           batch_max_bytes: 10485760 # optional: default value is 10485760
       - type: "logstash"
@@ -145,6 +147,7 @@ inputs:
           username: "username"
           password: "password"
           es_datastream_name: "logs-generic-default"
+          es_dead_letter_index: "esf-dead-letter-index" # optional
           batch_max_actions: 500 # optional: default value is 500
           batch_max_bytes: 10485760 # optional: default value is 10485760
       - type: "logstash"
@@ -168,6 +171,7 @@ inputs:
           username: "username"
           password: "password"
           es_datastream_name: "logs-generic-default"
+          es_dead_letter_index: "esf-dead-letter-index" # optional
           batch_max_actions: 500 # optional: default value is 500
           batch_max_bytes: 10485760 # optional: default value is 10485760
       - type: "logstash"
@@ -179,6 +183,8 @@ inputs:
           compression_level: 1 #optional
           ssl_assert_fingerprint: "22:F7:FB:84:1D:43:3E:E7:BB:F9:72:F3:D8:97:AD:7C:86:E3:08:42" #optional
 ----
+
+WARNING: All versions up to 1.14.0 (included) only allow one output per type. So if the `output.type` chosen by a user is `elasticsearch`, then the user can only configure one output for it.
 
 [discrete]
 [[s3-config-file-fields]]
@@ -210,7 +216,7 @@ The type of the forwarding target output. Currently only the following outputs a
  * `elasticsearch`
  * preview:[] `logstash`
 
-If {ls} is chosen as an output, Elastic Serverless Forwarder expects the {logstash-ref}/plugins-inputs-elastic_serverless_forwarder.html[`elastic_serverless_forwarder`] Logstash input to be installed, enabled, and properly configured. For more information about installing Logstash plugins, refer to the {logstash-ref}/working-with-plugins.html#installing-plugins[Logstash documentation].
+Each type can only be used for a maximum of one output up to and including 1.14.0 version. If {ls} is chosen as an output, Elastic Serverless Forwarder expects the {logstash-ref}/plugins-inputs-elastic_serverless_forwarder.html[`elastic_serverless_forwarder`] Logstash input to be installed, enabled, and properly configured. For more information about installing Logstash plugins, refer to the {logstash-ref}/working-with-plugins.html#installing-plugins[Logstash documentation].
 
 `inputs.[].outputs.[].args`:
 Custom init arguments for the specified forwarding target output.
@@ -223,6 +229,7 @@ For `elasticsearch` the following arguments are supported:
   * `args.password` Password of the elasticsearch instance to connect to. Mandatory when `args.api_key` is not provided. Will take precedence over `args.api_key` if both are defined.
   * `args.api_key`:  API key of elasticsearch endpoint in the format `base64encode(api_key_id:api_key_secret)`. Mandatory when `args.username`  and `args.password` are not provided. Will be ignored if `args.username`/`args.password` are defined.
   * `args.es_datastream_name`: Name of data stream or index where logs should be forwarded to. Lambda supports automatic routing of various {aws} service logs to the corresponding data streams for further processing and storage in the {es} cluster. It supports automatic routing of `aws.cloudtrail`, `aws.cloudwatch_logs`, `aws.elb_logs`, `aws.firewall_logs`, `aws.vpcflow`, and `aws.waf` logs. For other log types, if using data streams, you can optionally set its value in the configuration file according to the naming convention for data streams and available integrations. If the `es_datastream_name` is not specified and it cannot be matched with any of the above {aws} services, then the value will be set to `logs-generic-default`. In versions **v0.29.1** and below, this configuration parameter was named `es_index_or_datastream_name`. Rename the configuration parameter to `es_datastream_name` in your `config.yaml` file on the S3 bucket to continue using it in the future version. The older name `es_index_or_datastream_name` is deprecated as of version **v0.30.0**. The related backward compatibility code is removed from version **v1.0.0**.
+  * `args.es_dead_letter_index`: Name of data stream or index where logs should be redirected to, in case indexing to `args.es_datastream_name` returned an error.
   * `args.batch_max_actions`: (Optional) Maximum number of actions to send in a single bulk request. Default value: 500.
   * `args.batch_max_bytes`: (Optional) Maximum size in bytes to send in a single bulk request. Default value: 10485760 (10MB).
   * `args.ssl_assert_fingerprint`: (Optional) SSL fingerprint for self-signed SSL certificate on HTTPS transport. The default value is an empty string, meaning the HTTP client requires a valid certificate.
@@ -296,6 +303,13 @@ If the Elastic Serverless Forwarder is attached to a VPC, you need to https://do
 NOTE: Refer to the {cloud}/ec-traffic-filtering-vpc.html[AWS PrivateLink traffic filters] documentation to find your VPC endpoint ID and the hostname to use in the `config.yml` in order to access your Elasticsearch cluster over PrivateLink.
 
 [discrete]
+[[aws-serverless-forwarder-deploy-terraform]]
+== Deploy Elastic Serverless Forwarder from Terraform
+
+The terraform files to deploy ESF can be found in https://github.com/elastic/terraform-elastic-esf[`esf-terraform` repository]. There are two requirements to deploy these files: https://curl.se/download.html[curl] and https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli[terraform]. Refer to the https://github.com/elastic/terraform-elastic-esf/blob/main/README.md[README file] to learn how to use it.
+
+
+[discrete]
 [[aws-serverless-forwarder-deploy-sar]]
 == Deploy Elastic Serverless Forwarder from SAR
 
@@ -303,13 +317,15 @@ There are several deployment methods available via the {aws} Serverless Applicat
 
 * <<aws-serverless-forwarder-deploy-console>>
 * <<aws-serverless-forwarder-deploy-cloudformation>>
-* <<aws-serverless-forwarder-deploy-terraform>>
+* <<aws-serverless-forwarder-deploy-sar-terraform>>
 
 NOTE: To deploy the forwarder directly without using SAR, refer to <<aws-serverless-forwarder-direct-deploy>>
 
 [discrete]
 [[aws-serverless-forwarder-deploy-console]]
 === Deploy using {aws} Console
+
+NOTE: Only one deployment per region is allowed when using the {aws} console directly. 
 
 . Log in to {aws} console and open **Lambda**.
 . Click **Applications** and then **Create application**.
@@ -319,7 +335,10 @@ NOTE: To deploy the forwarder directly without using SAR, refer to <<aws-serverl
 [role="screenshot"]
 image::images/aws-serverless-forwarder-create-function.png[Create Elastic Serverless Forwarder Lambda function within SAR]
 +
-. Complete the **Application settings** according to <<aws-serverless-forwarder-define-deploy-parameters>>.
+. Complete the **Application settings** according to <<aws-serverless-forwarder-define-deploy-parameters>>. 
+You must specify the parameters even if they already exist in the `config.yaml` file. Depends on the input type, at least
+one if the parameters `ElasticServerlessForwarderSQSEvents`, `ElasticServerlessForwarderS3SQSEvents`, 
+`ElasticServerlessForwarderKinesisEvents`, `ElasticServerlessForwarderCloudWatchLogsEvents` should de defined.
 . After your settings have been added, click **Deploy**.
 . On the Applications page for **serverlessrepo-elastic-serverless-forwarder**, click **Deployments**.
 . Refresh the **Deployment history** until you see the `Create complete` status update. It should take around 5 minutes to deploy &mdash; if the deployment fails for any reason, the create events will be rolled back and you will be able to see an explanation for which event failed.
@@ -389,8 +408,8 @@ aws serverlessrepo list-application-versions --application-id arn:aws:serverless
 NOTE: Starting from **v1.4.0**, if you want to update the Events settings for the forwarder, you do not need to manually delete existing settings before applying new settings.
 
 [discrete]
-[[aws-serverless-forwarder-deploy-terraform]]
-=== Deploy using Terraform
+[[aws-serverless-forwarder-deploy-sar-terraform]]
+=== Deploy from SAR using Terraform
 
 . Save the following yaml content as `sar-application.tf` and fill in the correct parameters according to <<aws-serverless-forwarder-define-deploy-parameters>>:
 +

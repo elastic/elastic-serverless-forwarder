@@ -133,7 +133,7 @@ class TestLogstashShipper(TestCase):
             logstash_shipper.set_replay_handler(replay_handler)
             event = deepcopy(_dummy_event)
             assert logstash_shipper.send(event) == _EVENT_SENT
-            replay_handler.assert_called_once_with("logstash", {}, event)
+            replay_handler.assert_called_once_with(url, {}, event)
         with self.subTest("Exceeds max retries, replay handler not set"):
             for i in range(_MAX_RETRIES):
                 responses.put(url=url, status=429)
@@ -150,7 +150,7 @@ class TestLogstashShipper(TestCase):
             logstash_shipper.set_replay_handler(replay_handler)
             event = deepcopy(_dummy_event)
             assert logstash_shipper.send(event) == _EVENT_SENT
-            replay_handler.assert_called_once_with("logstash", {}, event)
+            replay_handler.assert_called_once_with(url, {}, event)
 
     @responses.activate
     def test_flush(self) -> None:

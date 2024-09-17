@@ -1,6 +1,18 @@
-### v1.15.0 - 2024/06/05
+### v1.17.1 - 2024/09/17
 ##### Bug fixes
 * Fixed deployment script bug that always set S3 region to `gov` [#727](https://github.com/elastic/elastic-serverless-forwarder/pull/727).
+
+### v1.17.0 - 2024/07/10
+##### Features
+* Add dead letter index for ES outputs [733](https://github.com/elastic/elastic-serverless-forwarder/pull/733).
+
+### v1.16.0 - 2024/07/09
+##### Features
+* Prevent duplicate _id events from reaching the replay queue [729](https://github.com/elastic/elastic-serverless-forwarder/pull/729).
+
+### v1.15.0 - 2024/05/29
+##### Features
+* Enable multiple outputs for each input [725](https://github.com/elastic/elastic-serverless-forwarder/pull/725).
 
 ### v1.14.0 - 2024/05/07
 ##### Bug fixes

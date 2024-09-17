@@ -92,7 +92,7 @@ class TestGetTriggerTypeAndConfigSource(TestCase):
             event = {
                 "Records": [
                     {
-                        "body": '{"output_type": "output_type", '
+                        "body": '{"output_destination": "output_destination", '
                         '"output_args": "output_args", "event_payload": "event_payload"}'
                     }
                 ]
@@ -216,9 +216,10 @@ class TestGetShipperFromInput(TestCase):
                 "arn:aws:kinesis:eu-central-1:123456789:stream/test-esf-kinesis-stream"
             )
             assert event_input is not None
-            shipper = get_shipper_from_input(event_input=event_input, config_yaml=config_yaml_kinesis)
+            shipper = get_shipper_from_input(event_input=event_input)
             assert len(shipper._shippers) == 1
             assert isinstance(shipper._shippers[0], LogstashShipper)
+            event_input.delete_output_by_destination("logstash_url")
 
         with self.subTest("Logstash shipper from Cloudwatch logs input"):
             config_yaml_cw: str = """
@@ -233,9 +234,82 @@ class TestGetShipperFromInput(TestCase):
             config = parse_config(config_yaml_cw)
             event_input = config.get_input_by_id("arn:aws:logs:eu-central-1:123456789:stream/test-cw-logs")
             assert event_input is not None
-            shipper = get_shipper_from_input(event_input=event_input, config_yaml=config_yaml_cw)
+            shipper = get_shipper_from_input(event_input=event_input)
             assert len(shipper._shippers) == 1
             assert isinstance(shipper._shippers[0], LogstashShipper)
+
+        with self.subTest("Logstash shipper from each input"):
+            config_yaml_cw = """
+                                inputs:
+                                  - type: cloudwatch-logs
+                                    id: arn:aws:logs:eu-central-1:123456789:stream/test-cw-logs
+                                    outputs:
+                                        - type: logstash
+                                          args:
+                                            logstash_url: logstash_url
+                                  - type: kinesis-data-stream
+                                    id: arn:aws:kinesis:eu-central-1:123456789:stream/test-esf-kinesis-stream
+                                    outputs:
+                                        - type: logstash
+                                          args:
+                                            logstash_url: logstash_url
+                            """
+            config = parse_config(config_yaml_cw)
+            event_input_cw = config.get_input_by_id("arn:aws:logs:eu-central-1:123456789:stream/test-cw-logs")
+            assert event_input_cw is not None
+            shipper = get_shipper_from_input(event_input=event_input_cw)
+            assert len(shipper._shippers) == 1
+            assert isinstance(shipper._shippers[0], LogstashShipper)
+
+            event_input_kinesis = config.get_input_by_id(
+                "arn:aws:kinesis:eu-central-1:123456789:stream/test-esf" "-kinesis-stream"
+            )
+            assert event_input_kinesis is not None
+            shipper = get_shipper_from_input(event_input=event_input_kinesis)
+            assert len(shipper._shippers) == 1
+            assert isinstance(shipper._shippers[0], LogstashShipper)
+
+            event_input_cw.delete_output_by_destination("logstash_url")
+            event_input_kinesis.delete_output_by_destination("logstash_url")
+
+        with self.subTest("Two Logstash shippers from Cloudwatch logs input"):
+            config_yaml_cw = """
+                                inputs:
+                                  - type: cloudwatch-logs
+                                    id: arn:aws:logs:eu-central-1:123456789:stream/test-cw-logs
+                                    outputs:
+                                        - type: logstash
+                                          args:
+                                            logstash_url: logstash_url-1
+                                        - type: logstash
+                                          args:
+                                            logstash_url: logstash_url-2
+                            """
+            config = parse_config(config_yaml_cw)
+            event_input = config.get_input_by_id("arn:aws:logs:eu-central-1:123456789:stream/test-cw-logs")
+            assert event_input is not None
+            shipper = get_shipper_from_input(event_input=event_input)
+            assert len(shipper._shippers) == 2
+            assert isinstance(shipper._shippers[0], LogstashShipper)
+            assert isinstance(shipper._shippers[1], LogstashShipper)
+            event_input.delete_output_by_destination("logstash_url-1")
+            event_input.delete_output_by_destination("logstash_url-2")
+
+        with self.subTest("Two outputs with the same logstash_url"):
+            config_yaml_cw = """
+                                inputs:
+                                  - type: cloudwatch-logs
+                                    id: arn:aws:logs:eu-central-1:123456789:stream/test-cw-logs
+                                    outputs:
+                                        - type: logstash
+                                          args:
+                                            logstash_url: logstash_url
+                                        - type: logstash
+                                          args:
+                                            logstash_url: logstash_url
+                            """
+            with self.assertRaisesRegex(ValueError, "logstash_url"):
+                parse_config(config_yaml_cw)
 
 
 @pytest.mark.unit
