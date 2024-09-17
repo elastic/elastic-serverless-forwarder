@@ -4289,6 +4289,8 @@ class TestLambdaHandlerIntegration(TestCase):
 
         assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
 
+        print(res["hits"]["hits"][0]["_source"])
+
         assert (
             res["hits"]["hits"][0]["_source"]["error"]["reason"]
             == "test_es_non_indexable_dead_letter_index fail message"
