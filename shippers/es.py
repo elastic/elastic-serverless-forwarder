@@ -162,6 +162,7 @@ class ElasticsearchShipper:
 
         success = errors[0]
         failed: list[Any] = []
+
         for error in errors[1]:
             action_failed = [action for action in actions if action["_id"] == error["create"]["_id"]]
             # an ingestion pipeline might override the _id, we can only skip in this case
@@ -176,7 +177,11 @@ class ElasticsearchShipper:
                 # Skip duplicate events on dead letter index and replay queue
                 continue
 
-            failed.append({"error": error["create"]["error"], "action": action_failed[0]})
+            failed.append({
+                # TODO: return the whole error object
+                "error": error["create"]["error"],
+                "action": action_failed[0],
+            })
 
         if len(failed) > 0:
             shared_logger.warning("elasticsearch shipper", extra={"success": success, "failed": len(failed)})
@@ -243,8 +248,15 @@ class ElasticsearchShipper:
         return
 
     def _send_dead_letter_index(self, actions: list[Any]) -> list[Any]:
+        """
+        Send failed requests to dead letter index
+
+        :param actions: list of failed requests
+        :return: list of requests that could not be sent to dead letter index
+        """
         encoded_actions = []
         dead_letter_errors: list[Any] = []
+
         for action in actions:
             # Reshape event to dead letter index
             encoded = self._encode_dead_letter(action)
@@ -276,8 +288,21 @@ class ElasticsearchShipper:
         return dead_letter_errors
 
     def _encode_dead_letter(self, outcome: dict[str, Any]) -> dict[str, Any]:
+        """
+        Encode failed request to dead letter index
+        """
         if "action" not in outcome or "error" not in outcome:
             return {}
+
+        # ECS error format
+        error = {
+            # The error message, for example:
+            # "Failed to establish a new connection: [Errno 61] Connection refused"
+            "message": outcome["error"],
+            # The error type, for example:
+            # "ConnectionError"
+            "type": type(outcome["exception"]) if "exception" in outcome else "Unknown",
+        }
 
         # Assign random id in case bulk() results in error, it can be matched to the original
         # action
@@ -287,7 +312,8 @@ class ElasticsearchShipper:
             "_index": self._es_dead_letter_index,
             "_op_type": "create",
             "message": json_dumper(outcome["action"]),
-            "error": outcome["error"],
+            # "error": action["error"],
+            "error":error,
         }
 
     def _decode_dead_letter(self, dead_letter_outcome: dict[str, Any]) -> dict[str, Any]:
