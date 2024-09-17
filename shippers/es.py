@@ -170,7 +170,10 @@ class ElasticsearchShipper:
                 continue
 
             shared_logger.warning(
-                "elasticsearch shipper", extra={"error": error["create"]["error"], "_id": error["create"]["_id"]}
+                "elasticsearch shipper", extra={
+                    "error": error["create"]["error"],
+                    "_id": error["create"]["_id"],
+                }
             )
 
             if "status" in error["create"] and error["create"]["status"] == _VERSION_CONFLICT:
@@ -179,7 +182,8 @@ class ElasticsearchShipper:
 
             failed.append({
                 # TODO: return the whole error object
-                "error": error["create"]["error"],
+                # "error": error["create"]["error"],
+                "error": error["create"],
                 "action": action_failed[0],
             })
 
@@ -232,6 +236,7 @@ class ElasticsearchShipper:
 
         # Send failed requests to dead letter index, if enabled
         if len(failed) > 0 and self._es_dead_letter_index:
+            # TODO: does it also override the failed list? how?
             failed = self._send_dead_letter_index(failed)
 
         # Send remaining failed requests to replay queue, if enabled
@@ -313,7 +318,7 @@ class ElasticsearchShipper:
             "_op_type": "create",
             "message": json_dumper(outcome["action"]),
             # "error": action["error"],
-            "error":error,
+            "error": error,
         }
 
     def _decode_dead_letter(self, dead_letter_outcome: dict[str, Any]) -> dict[str, Any]:
