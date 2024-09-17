@@ -176,18 +176,21 @@ class ElasticsearchShipper:
                 # Skip duplicate events on dead letter index and replay queue
                 continue
 
-            failed_error = {"action": action_failed[0], "error": {}}
-            error_field = error.get("create", {}).get("error", None)
-            if error_field:
-                if "reason" in error_field:
-                    failed_error["error"]["message"] = error_field["reason"]
-                if "type" in error_field:
-                    failed_error["error"]["type"] = error_field["type"]
-            else:
-                failed_error["error"]["message"] = error_field
-
-            if "exception" in error["create"]:
-                failed_error["error"]["stack_trace"] = error["create"]["exception"]
+            failed_error = {
+                "action": action_failed[0],
+                "error": self._parse_error(error["create"]),
+            }
+            # error_field = error.get("create", {}).get("error", None)
+            # if error_field:
+            #     if "reason" in error_field:
+            #         failed_error["error"]["message"] = error_field["reason"]
+            #     if "type" in error_field:
+            #         failed_error["error"]["type"] = error_field["type"]
+            # else:
+            #     failed_error["error"]["message"] = error_field
+            #
+            # if "exception" in error["create"]:
+            #     failed_error["error"]["stack_trace"] = error["create"]["exception"]
 
             failed.append(failed_error)
 
@@ -197,6 +200,35 @@ class ElasticsearchShipper:
             shared_logger.info("elasticsearch shipper", extra={"success": success, "failed": len(failed)})
 
         return failed
+
+    def _parse_error(self, error: dict[str, Any]) -> dict[str, Any]:
+        """
+        Parses the error response from Elasticsearch and returns a dictionary.
+        """
+        error_field: dict[str, Any] = {"error": {"message": "Unknown error"}}
+
+        if "status" in error and isinstance(error["status"], int):
+            error_field["http"] = {"status_code": error["status"]}
+
+        if "error" not in error:
+            return error_field
+
+        if isinstance(error["error"], str):
+            # Can happen with connection errors.
+            error_field["error"]["message"] = error["error"]
+            if "exception" in error:
+                # The exception field is usually an Exception object,
+                # so we convert it to a string.
+                error_field["error"]["type"] = str(error["exception"])
+        elif isinstance(error["error"], dict):
+            # Can happen with status 5xx errors.
+            # In this case, we look for the "reason" and "type" fields.
+            if "reason" in error["error"]:
+                error_field["error"]["message"] = error["error"]["reason"]
+            if "type" in error["error"]:
+                error_field["error"]["type"] = error["error"]["type"]
+
+        return error_field
 
     def set_event_id_generator(self, event_id_generator: EventIdGeneratorCallable) -> None:
         self._event_id_generator = event_id_generator
