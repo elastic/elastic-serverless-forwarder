@@ -2,8 +2,8 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 import os
-from typing import Any, Callable, Optional
 from functools import lru_cache
+from typing import Any, Callable, Optional
 
 import boto3
 from aws_lambda_typing import context as context_
@@ -390,7 +390,7 @@ def get_account_id_from_arn(lambda_arn: str) -> str:
 def describe_regions(all_regions: bool = True) -> dict[str, Any]:
     """
     Fetches all regions from AWS and returns the response.
-    
+
     :return: The response from the describe_regions method
     """
     return get_ec2_client().describe_regions(AllRegions=all_regions)
