@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Any
 from unittest import TestCase
 
+import mock
 import pytest
 
 from handlers.aws.utils import (
@@ -64,6 +65,20 @@ def _get_random_string_of_size(size: int) -> str:
 
 def _get_random_digit_string_of_size(size: int) -> str:
     return "".join(random.choices(string.digits, k=size))
+
+
+def _describe_regions(AllRegions: bool) -> dict[str, Any]:
+    return {
+        "Regions": [
+            {
+                "RegionName": "us-west-2",
+            },
+        ]
+    }
+
+
+_ec2_client_mock = mock.MagicMock()
+_ec2_client_mock.describe_regions = _describe_regions
 
 
 @pytest.mark.unit
@@ -408,3 +423,48 @@ class TestRecordId(TestCase):
 
         generated_id = cloudwatch_logs_object_id(relevant_fields_for_id)
         assert _utf8len(generated_id) <= MAX_ES_ID_SIZ_BYTES
+
+
+@pytest.mark.unit
+class TestDescribeRegions(TestCase):
+
+    @mock.patch("handlers.aws.utils.get_ec2_client", lambda: _ec2_client_mock)
+    def test_cache_miss(self) -> None:
+        from handlers.aws.utils import describe_regions
+
+        # Reset the cache info before running the test
+        describe_regions.cache_clear()
+
+        # First call should be a cache miss
+        response = describe_regions(all_regions=False)
+        assert response["Regions"] is not None
+        assert len(response["Regions"]) == 1
+        assert response["Regions"][0]["RegionName"] == "us-west-2"
+
+        cache_info = describe_regions.cache_info()
+
+        assert cache_info.hits == 0
+        assert cache_info.misses == 1
+        assert cache_info.currsize == 1
+
+    @mock.patch("handlers.aws.utils.get_ec2_client", lambda: _ec2_client_mock)
+    def test_cache_hits(self) -> None:
+        from handlers.aws.utils import describe_regions
+
+        # Reset the cache info before running the test
+        describe_regions.cache_clear()
+
+        # First call should be a cache miss and populate the cache
+        # Second and third calls should be cache hits.
+        response = describe_regions(all_regions=False)
+        response = describe_regions(all_regions=False)
+        response = describe_regions(all_regions=False)
+        assert response["Regions"] is not None
+        assert len(response["Regions"]) == 1
+        assert response["Regions"][0]["RegionName"] == "us-west-2"
+
+        cache_info = describe_regions.cache_info()
+
+        assert cache_info.hits == 2
+        assert cache_info.misses == 1
+        assert cache_info.currsize == 1
