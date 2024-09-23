@@ -1,3 +1,7 @@
+### v1.17.1 - 2024/09/23
+##### Bug fixes
+* Cache EC2:DescribeRegion API response to avoid throttling and improve performance [803](https://github.com/elastic/elastic-serverless-forwarder/pull/803).
+
 ### v1.17.0 - 2024/07/10
 ##### Features
 * Add dead letter index for ES outputs [733](https://github.com/elastic/elastic-serverless-forwarder/pull/733).
