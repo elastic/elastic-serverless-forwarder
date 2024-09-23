@@ -406,13 +406,9 @@ def get_input_from_log_group_subscription_data(
     In order to not hardcode the list of regions we rely on ec2 DescribeRegions - as much weird as it is - that I found
     no information about having any kind of throttling. We add IAM permissions for it in deployment.
     """
-    # all_regions = get_ec2_client().describe_regions(AllRegions=True)
     all_regions = describe_regions(all_regions=True)
     assert "Regions" in all_regions
     for region_data in all_regions["Regions"]:
-
-        # arn:aws:logs:region:account-id:log-group:log_group_name:*
-
         region = region_data["RegionName"]
 
         aws_or_gov = "aws"
