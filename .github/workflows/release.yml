@@ -67,7 +67,7 @@ jobs:
           echo "::notice::The result for creating tag is $CREATE_TAG."
 
           echo "version=${{ env.VERSION }}" >> "$GITHUB_OUTPUT"
-          echo "enabled=${CREATE_TAG}""     >> "$GITHUB_OUTPUT"
+          echo "enabled=${CREATE_TAG}"      >> "$GITHUB_OUTPUT"
           echo "tag=lambda-v${{ env.VERSION }}" >> "$GITHUB_OUTPUT"
 
       - name: Create tag
