@@ -393,6 +393,7 @@ def describe_regions(all_regions: bool = True) -> Any:
 
     :return: The response from the describe_regions method
     """
+    shared_logger.info("Fetching regions from AWS...")
     return get_ec2_client().describe_regions(AllRegions=all_regions)
 
 
@@ -406,6 +407,7 @@ def get_input_from_log_group_subscription_data(
     In order to not hardcode the list of regions we rely on ec2 DescribeRegions - as much weird as it is - that I found
     no information about having any kind of throttling. We add IAM permissions for it in deployment.
     """
+    shared_logger.info("Fetching log group subscription data", extra={"log_group_name": log_group_name})
     all_regions = describe_regions(all_regions=True)
     assert "Regions" in all_regions
     for region_data in all_regions["Regions"]:
