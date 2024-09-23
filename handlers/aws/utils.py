@@ -386,7 +386,7 @@ def get_account_id_from_arn(lambda_arn: str) -> str:
     return arn_components[4]
 
 
-@lru_cache(maxsize=1)
+@lru_cache()
 def describe_regions(all_regions: bool = True) -> Any:
     """
     Fetches all regions from AWS and returns the response.
