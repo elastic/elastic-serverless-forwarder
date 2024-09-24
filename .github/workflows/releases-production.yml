@@ -15,7 +15,7 @@ permissions:
 
 jobs:
 
-  get-esf-version-and-tag:
+  get-esf-version:
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
