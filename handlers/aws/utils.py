@@ -31,7 +31,7 @@ CONFIG_FROM_S3FILE: str = "CONFIG_FROM_S3FILE"
 
 INTEGRATION_SCOPE_GENERIC: str = "generic"
 
-ARN = namedtuple("ARN", ["partition", "service", "region", "account_id", "resource_type", "resource"])
+ARN = namedtuple("ARN", ["partition", "service", "region", "account_id", "resource"])
 
 
 def parse_arn(arn: str) -> ARN:
@@ -50,18 +50,25 @@ def parse_arn(arn: str) -> ARN:
             - resource_type: The type of the resource.
             - resource: The name of the resource.
     """
-    arn_parts = arn.split(":")
-    if len(arn_parts) < 7:
+    # we split only 6 times to keep the resource as a single string
+    # even if it contains colons.
+    #
+    # For example, an CloudWatch log group ARN looks like this:
+    # arn:aws:logs:eu-west-1:627286350134:log-group:/aws/lambda/mbranca-esf-vGHtx0b7uzNu:*
+    #
+    # The resource is the log group name, which contains colons.
+    # If we split more than 6 times, we would get a wrong resource name.
+    arn_parts = arn.split(":", 5)
+    if len(arn_parts) < 6:
         raise ValueError("Invalid AWS ARN format.")
 
-    return ARN(
-        partition=arn_parts[1],
-        service=arn_parts[2],
-        region=arn_parts[3] if arn_parts[3] else None,
-        account_id=arn_parts[4] if arn_parts[4] else None,
-        resource_type=arn_parts[5],
-        resource=arn_parts[6],
-    )
+    partition = arn_parts[1]
+    service = arn_parts[2]
+    region = arn_parts[3] if arn_parts[3] else None
+    account_id = arn_parts[4] if arn_parts[4] else None
+    resource = arn_parts[5]
+
+    return ARN(partition, service, region, account_id, resource)
 
 
 def get_sqs_client() -> BotoBaseClient:
@@ -418,19 +425,16 @@ def get_account_id_from_arn(lambda_arn: str) -> str:
     return arn_components[4]
 
 
-# @lru_cache()
-# def describe_regions(all_regions: bool = True) -> Any:
-#     """
-#     Fetches all regions from AWS and returns the response.
-
-#     :return: The response from the describe_regions method
-#     """
-#     return get_ec2_client().describe_regions(AllRegions=all_regions)
-
-
 def get_input_from_log_group_subscription_data(
     config: Config, account_id: str, log_group_name: str, log_stream_name: str, region: str
 ) -> tuple[str, Optional[Input]]:
+    """
+    Look up for the input in the configuration using the information
+    from the log event.
+
+    It looks for the log stream arn, if not found it looks for the
+    log group arn.
+    """
     partition = "aws"
     if "gov" in region:
         partition = "aws-us-gov"

@@ -439,50 +439,61 @@ class TestParseARN(TestCase):
         assert result.service == "lambda"
         assert result.region == "eu-west-1"
         assert result.account_id == "123456789"
-        assert result.resource_type == "function"
-        assert result.resource == "mbranca-esf-ApplicationElasticServerlessForwarder-vGHtx0b7uzNu"
+        assert result.resource == "function:mbranca-esf-ApplicationElasticServerlessForwarder-vGHtx0b7uzNu"
 
+    def test_parse_log_group(self) -> None:
+        from handlers.aws.utils import parse_arn
 
-# @pytest.mark.unit
-# class TestDescribeRegions(TestCase):
+        arn = "arn:aws:logs:eu-west-1:123456789:log-group:/aws/lambda/mbranca-esf-vGHtx0b7uzNu:*"
+        result = parse_arn(arn)
 
-#     @mock.patch("handlers.aws.utils.get_ec2_client", lambda: _ec2_client_mock)
-#     def test_cache_miss(self) -> None:
-#         from handlers.aws.utils import describe_regions
+        print(result)
 
-#         # Reset the cache info before running the test
-#         describe_regions.cache_clear()
+        assert result.service == "logs"
+        assert result.region == "eu-west-1"
+        assert result.account_id == "123456789"
+        assert result.resource == "log-group:/aws/lambda/mbranca-esf-vGHtx0b7uzNu:*"
 
-#         # First call should be a cache miss
-#         response = describe_regions(all_regions=False)
-#         assert response["Regions"] is not None
-#         assert len(response["Regions"]) == 1
-#         assert response["Regions"][0]["RegionName"] == "us-west-2"
+    def test_parse_s3_bucket(self) -> None:
+        from handlers.aws.utils import parse_arn
 
-#         cache_info = describe_regions.cache_info()
+        arn = "arn:aws:s3:::mbranca-esf-data"
+        result = parse_arn(arn)
 
-#         assert cache_info.hits == 0
-#         assert cache_info.misses == 1
-#         assert cache_info.currsize == 1
+        assert result.service == "s3"
+        assert result.region is None
+        assert result.account_id is None
+        assert result.resource == "mbranca-esf-data"
 
-#     @mock.patch("handlers.aws.utils.get_ec2_client", lambda: _ec2_client_mock)
-#     def test_cache_hits(self) -> None:
-#         from handlers.aws.utils import describe_regions
+    def test_parse_iam_user(self) -> None:
+        from handlers.aws.utils import parse_arn
 
-#         # Reset the cache info before running the test
-#         describe_regions.cache_clear()
+        arn = "arn:aws:iam::123456789012:user/johndoe"
+        result = parse_arn(arn)
 
-#         # First call should be a cache miss and populate the cache
-#         # Second and third calls should be cache hits.
-#         response = describe_regions(all_regions=False)
-#         response = describe_regions(all_regions=False)
-#         response = describe_regions(all_regions=False)
-#         assert response["Regions"] is not None
-#         assert len(response["Regions"]) == 1
-#         assert response["Regions"][0]["RegionName"] == "us-west-2"
+        assert result.service == "iam"
+        assert result.region is None
+        assert result.account_id == "123456789012"
+        assert result.resource == "user/johndoe"
 
-#         cache_info = describe_regions.cache_info()
+    def test_parse_sns_topic(self) -> None:
+        from handlers.aws.utils import parse_arn
 
-#         assert cache_info.hits == 2
-#         assert cache_info.misses == 1
-#         assert cache_info.currsize == 1
+        arn = "arn:aws:sns:us-east-1:123456789012:example-sns-topic-name"
+        result = parse_arn(arn)
+
+        assert result.service == "sns"
+        assert result.region == "us-east-1"
+        assert result.account_id == "123456789012"
+        assert result.resource == "example-sns-topic-name"
+
+    def test_parse_vpc(self) -> None:
+        from handlers.aws.utils import parse_arn
+
+        arn = "arn:aws:ec2:us-east-1:123456789012:vpc/vpc-0e9801d129EXAMPLE"
+        result = parse_arn(arn)
+
+        assert result.service == "ec2"
+        assert result.region == "us-east-1"
+        assert result.account_id == "123456789012"
+        assert result.resource == "vpc/vpc-0e9801d129EXAMPLE"
