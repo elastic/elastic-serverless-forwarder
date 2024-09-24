@@ -49,8 +49,6 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
     AWS Lambda handler in handler.aws package
     Parses the config and acts as front controller for inputs
     """
-    lambda_arn = parse_arn(lambda_context.invoked_function_arn)
-
     shared_logger.debug("lambda triggered", extra={"invoked_function_arn": lambda_context.invoked_function_arn})
 
     try:
@@ -143,6 +141,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
     if trigger_type == "cloudwatch-logs":
         cloudwatch_logs_event = _from_awslogs_data_to_event(lambda_event["awslogs"]["data"])
+        lambda_arn = parse_arn(lambda_context.invoked_function_arn)
 
         shared_logger.info("trigger", extra={"size": len(cloudwatch_logs_event["logEvents"])})
 
