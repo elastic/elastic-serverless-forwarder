@@ -38,6 +38,9 @@ def parse_arn(arn: str) -> ARN:
     """
     Parse an AWS ARN (Amazon Resource Name) into a named tuple.
 
+    See https://docs.aws.amazon.com/IAM/latest/UserGuide/reference-arns.html 
+    for more information about ARNs.
+
     Args:
         arn (str): The AWS ARN to parse.
 
@@ -47,17 +50,20 @@ def parse_arn(arn: str) -> ARN:
             - service: The AWS service name.
             - region: The AWS region (if applicable).
             - account_id: The AWS account ID (if applicable).
-            - resource_type: The type of the resource.
             - resource: The name of the resource.
     """
-    # we split only 6 times to keep the resource as a single string
+    # we split only 5 times to keep the resource as a single string
     # even if it contains colons.
     #
     # For example, an CloudWatch log group ARN looks like this:
-    # arn:aws:logs:eu-west-1:627286350134:log-group:/aws/lambda/mbranca-esf-vGHtx0b7uzNu:*
+    # arn:aws:logs:eu-west-1:123456789012:log-group:/aws/lambda/mbranca-esf-vGHtx0b7uzNu:*
     #
-    # The resource is the log group name, which contains colons.
-    # If we split more than 6 times, we would get a wrong resource name.
+    # The above ARN is split into the following parts:
+    # - partition: `aws`
+    # - service: `logs`
+    # - region: `eu-west-1`
+    # - account_id: `123456789012`
+    # - resource: `log-group:/aws/lambda/mbranca-esf-vGHtx0b7uzNu:*`
     arn_parts = arn.split(":", 5)
     if len(arn_parts) < 6:
         raise ValueError("Invalid AWS ARN format.")
