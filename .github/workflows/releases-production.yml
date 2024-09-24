@@ -15,7 +15,7 @@ permissions:
 
 jobs:
 
-  get-esf-version:
+  get-esf-version-and-tag:
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
@@ -48,6 +48,8 @@ jobs:
       # See https://docs.aws.amazon.com/lambda/latest/dg/python-package.html#python-package-create-dependencies
 
       - uses: actions/checkout@v4
+        with:
+          ref: 'lambda-v${{ needs.get-esf-version.outputs.version }}'
 
       - uses: actions/setup-python@v5
         with:
@@ -93,6 +95,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: 'lambda-v${{ needs.get-esf-version.outputs.version }}'
 
       - uses: elastic/oblt-actions/aws/auth@v1
         with:
