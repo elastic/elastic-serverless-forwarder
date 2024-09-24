@@ -3,8 +3,7 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 import os
 from collections import namedtuple
-from functools import lru_cache
-from typing import Any, Callable, NamedTuple, Optional
+from typing import Any, Callable, Optional
 
 import boto3
 from aws_lambda_typing import context as context_
@@ -34,6 +33,7 @@ INTEGRATION_SCOPE_GENERIC: str = "generic"
 
 ARN = namedtuple("ARN", ["partition", "service", "region", "account_id", "resource_type", "resource_id"])
 
+
 def parse_arn(arn: str) -> ARN:
     """
     Parses an AWS ARN and returns a named tuple with its components.
@@ -41,7 +41,7 @@ def parse_arn(arn: str) -> ARN:
     :param arn: The ARN string to parse
     :return: A named tuple with the parsed ARN components
     """
-    parts = arn.split(':')
+    parts = arn.split(":")
     if len(parts) < 6:
         raise ValueError("Invalid ARN format")
 
@@ -52,15 +52,16 @@ def parse_arn(arn: str) -> ARN:
     resource = parts[5]
 
     # Some ARNs have a resource type and resource ID separated by a slash or colon
-    if '/' in resource:
-        resource_type, resource_id = resource.split('/', 1)
-    elif ':' in resource:
-        resource_type, resource_id = resource.split(':', 1)
+    if "/" in resource:
+        resource_type, resource_id = resource.split("/", 1)
+    elif ":" in resource:
+        resource_type, resource_id = resource.split(":", 1)
     else:
-        resource_type = ''
+        resource_type = ""
         resource_id = resource
 
     return ARN(partition, service, region, account_id, resource_type, resource_id)
+
 
 def get_sqs_client() -> BotoBaseClient:
     """
@@ -416,21 +417,19 @@ def get_account_id_from_arn(lambda_arn: str) -> str:
     return arn_components[4]
 
 
-@lru_cache()
-def describe_regions(all_regions: bool = True) -> Any:
-    """
-    Fetches all regions from AWS and returns the response.
+# @lru_cache()
+# def describe_regions(all_regions: bool = True) -> Any:
+#     """
+#     Fetches all regions from AWS and returns the response.
 
-    :return: The response from the describe_regions method
-    """
-    return get_ec2_client().describe_regions(AllRegions=all_regions)
+#     :return: The response from the describe_regions method
+#     """
+#     return get_ec2_client().describe_regions(AllRegions=all_regions)
 
 
 def get_input_from_log_group_subscription_data(
     config: Config, account_id: str, log_group_name: str, log_stream_name: str, region: str
 ) -> tuple[str, Optional[Input]]:
-    """
-    """
     partition = "aws"
     if "gov" in region:
         partition = "aws-us-gov"
