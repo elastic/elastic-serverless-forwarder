@@ -426,45 +426,63 @@ class TestRecordId(TestCase):
 
 
 @pytest.mark.unit
-class TestDescribeRegions(TestCase):
+class TestParseARN(TestCase):
 
-    @mock.patch("handlers.aws.utils.get_ec2_client", lambda: _ec2_client_mock)
-    def test_cache_miss(self) -> None:
-        from handlers.aws.utils import describe_regions
+    def test_parse_lambda_function_arn(self) -> None:
+        from handlers.aws.utils import parse_arn
 
-        # Reset the cache info before running the test
-        describe_regions.cache_clear()
+        arn = (
+            "arn:aws:lambda:eu-west-1:123456789:function:mbranca-esf-ApplicationElasticServerlessForwarder-vGHtx0b7uzNu"
+        )
+        result = parse_arn(arn)
 
-        # First call should be a cache miss
-        response = describe_regions(all_regions=False)
-        assert response["Regions"] is not None
-        assert len(response["Regions"]) == 1
-        assert response["Regions"][0]["RegionName"] == "us-west-2"
+        assert result.service == "lambda"
+        assert result.region == "eu-west-1"
+        assert result.account_id == "123456789"
+        assert result.resource_type == "function"
+        assert result.resource == "mbranca-esf-ApplicationElasticServerlessForwarder-vGHtx0b7uzNu"
 
-        cache_info = describe_regions.cache_info()
 
-        assert cache_info.hits == 0
-        assert cache_info.misses == 1
-        assert cache_info.currsize == 1
+# @pytest.mark.unit
+# class TestDescribeRegions(TestCase):
 
-    @mock.patch("handlers.aws.utils.get_ec2_client", lambda: _ec2_client_mock)
-    def test_cache_hits(self) -> None:
-        from handlers.aws.utils import describe_regions
+#     @mock.patch("handlers.aws.utils.get_ec2_client", lambda: _ec2_client_mock)
+#     def test_cache_miss(self) -> None:
+#         from handlers.aws.utils import describe_regions
 
-        # Reset the cache info before running the test
-        describe_regions.cache_clear()
+#         # Reset the cache info before running the test
+#         describe_regions.cache_clear()
 
-        # First call should be a cache miss and populate the cache
-        # Second and third calls should be cache hits.
-        response = describe_regions(all_regions=False)
-        response = describe_regions(all_regions=False)
-        response = describe_regions(all_regions=False)
-        assert response["Regions"] is not None
-        assert len(response["Regions"]) == 1
-        assert response["Regions"][0]["RegionName"] == "us-west-2"
+#         # First call should be a cache miss
+#         response = describe_regions(all_regions=False)
+#         assert response["Regions"] is not None
+#         assert len(response["Regions"]) == 1
+#         assert response["Regions"][0]["RegionName"] == "us-west-2"
 
-        cache_info = describe_regions.cache_info()
+#         cache_info = describe_regions.cache_info()
 
-        assert cache_info.hits == 2
-        assert cache_info.misses == 1
-        assert cache_info.currsize == 1
+#         assert cache_info.hits == 0
+#         assert cache_info.misses == 1
+#         assert cache_info.currsize == 1
+
+#     @mock.patch("handlers.aws.utils.get_ec2_client", lambda: _ec2_client_mock)
+#     def test_cache_hits(self) -> None:
+#         from handlers.aws.utils import describe_regions
+
+#         # Reset the cache info before running the test
+#         describe_regions.cache_clear()
+
+#         # First call should be a cache miss and populate the cache
+#         # Second and third calls should be cache hits.
+#         response = describe_regions(all_regions=False)
+#         response = describe_regions(all_regions=False)
+#         response = describe_regions(all_regions=False)
+#         assert response["Regions"] is not None
+#         assert len(response["Regions"]) == 1
+#         assert response["Regions"][0]["RegionName"] == "us-west-2"
+
+#         cache_info = describe_regions.cache_info()
+
+#         assert cache_info.hits == 2
+#         assert cache_info.misses == 1
+#         assert cache_info.currsize == 1

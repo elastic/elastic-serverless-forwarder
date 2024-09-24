@@ -31,36 +31,38 @@ CONFIG_FROM_S3FILE: str = "CONFIG_FROM_S3FILE"
 
 INTEGRATION_SCOPE_GENERIC: str = "generic"
 
-ARN = namedtuple("ARN", ["partition", "service", "region", "account_id", "resource_type", "resource_id"])
+ARN = namedtuple("ARN", ["partition", "service", "region", "account_id", "resource_type", "resource_name", "qualifier"])
 
 
 def parse_arn(arn: str) -> ARN:
     """
-    Parses an AWS ARN and returns a named tuple with its components.
+    Parse an AWS ARN (Amazon Resource Name) into a named tuple.
 
-    :param arn: The ARN string to parse
-    :return: A named tuple with the parsed ARN components
+    Args:
+        arn (str): The AWS ARN to parse.
+
+    Returns:
+        A named tuple with the following fields:
+            - partition: The AWS partition (usually 'aws').
+            - service: The AWS service name.
+            - region: The AWS region (if applicable).
+            - account_id: The AWS account ID (if applicable).
+            - resource_type: The type of the resource.
+            - resource: The name of the resource.
     """
-    parts = arn.split(":")
-    if len(parts) < 6:
-        raise ValueError("Invalid ARN format")
+    arn_parts = arn.split(":")
+    if len(arn_parts) < 7:
+        raise ValueError("Invalid AWS ARN format.")
 
-    partition = parts[1]
-    service = parts[2]
-    region = parts[3]
-    account_id = parts[4]
-    resource = parts[5]
-
-    # Some ARNs have a resource type and resource ID separated by a slash or colon
-    if "/" in resource:
-        resource_type, resource_id = resource.split("/", 1)
-    elif ":" in resource:
-        resource_type, resource_id = resource.split(":", 1)
-    else:
-        resource_type = ""
-        resource_id = resource
-
-    return ARN(partition, service, region, account_id, resource_type, resource_id)
+    ARN = namedtuple("ARN", ["partition", "service", "region", "account_id", "resource_type", "resource"])
+    return ARN(
+        partition=arn_parts[1],
+        service=arn_parts[2],
+        region=arn_parts[3] if arn_parts[3] else None,
+        account_id=arn_parts[4] if arn_parts[4] else None,
+        resource_type=arn_parts[5],
+        resource=arn_parts[6],
+    )
 
 
 def get_sqs_client() -> BotoBaseClient:
