@@ -1,0 +1,41 @@
+---
+# Workflow to check that the version inside share/version.py matches the version in the last entry
+# of CHANGELOG
+name: version-update
+
+on:
+  pull_request:
+    paths:
+      - 'share/version.py'
+      - 'CHANGELOG.md'
+
+jobs:
+
+  version-increase:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+
+      - uses: actions/checkout@v4
+
+      - name: Compare versions in share/version.py and CHANGELOG last entry
+        shell: bash
+        run: |
+          # Get the version inside share/version.py
+          version_py=$(grep -oE '[0-9]+\.[0-9]+\.[0-9]+(\-[a-zA-Z]+[0-9]+)?' share/version.py)
+          echo "::notice::Version inside share/version.py is $version_py."
+
+          # Assumes the first line of the CHANGELOG file follows a format like this: '### v1.17.1 - 2024/09/23'
+          # Example:
+          # Input: '### v1.17.1 - 2024/09/23'
+          # Output: '1.17.1'
+          version_changelog=$(awk 'NR==1' CHANGELOG.md | awk '{print substr($2,2)}')
+          echo "::notice::Version in CHANGELOG last entry is $version_changelog."
+
+          if [ "$version_changelog" !=  "$version_py" ]; then
+            error="Versions in share/version.py and CHANGELOG do not match."
+            reminder="Make sure CHANGELOG first line follows format '### v<version> - <date>'."
+            echo "::error::$error $reminder"
+            exit 1
+          fi
