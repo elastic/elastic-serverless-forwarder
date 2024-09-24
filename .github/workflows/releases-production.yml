@@ -1,0 +1,115 @@
+---
+# Workflow to push zip with dependencies to S3 bucket every time the ESF version is updated
+# (we need this for ESF terraform), and to publish the new SAR version
+name: releases-production
+
+on:
+  workflow_run:
+    workflows: [create-tag]
+    types:
+      - completed
+
+permissions:
+  id-token: write   # This is required for requesting the JWT
+  contents: read    # This is required for actions/checkout
+
+jobs:
+
+  get-esf-version:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    outputs:
+      version: ${{ steps.get-version.outputs.version }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get version number
+        id: get-version
+        shell: bash
+        run: |
+          version=$(grep -oE '[0-9]+\.[0-9]+\.[0-9]+(\-[a-zA-Z]+[0-9]+)?' share/version.py)
+          echo "version=${version}" >> $GITHUB_OUTPUT
+          echo "::notice::ESF version is ${version}."
+
+
+  build-and-upload-dependencies:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: get-esf-version
+
+    env:
+      BUCKET_NAME: "esf-dependencies"
+      AWS_REGION: "eu-central-1"
+      ROLE: "arn:aws:iam::267093732750:role/esf-dependencies-role"
+
+    steps:
+      # See https://docs.aws.amazon.com/lambda/latest/dg/python-package.html#python-package-create-dependencies
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+          cache: 'pip'          # caching pip dependencies
+
+      - name: Install requirements in a directory and zip it.
+        shell: bash
+        run: |
+          pip3 install -r requirements.txt -t ./dependencies
+          cd dependencies && zip -r ../lambda-v${{ needs.get-esf-version.outputs.version }}.zip .
+
+      - name: Place handlers in the zip file.
+        shell: bash
+        run: |
+          zip -r ./lambda-v${{ needs.get-esf-version.outputs.version }}.zip main_aws.py
+          zip -r ./lambda-v${{ needs.get-esf-version.outputs.version }}.zip handlers
+          zip -r ./lambda-v${{ needs.get-esf-version.outputs.version }}.zip share
+          zip -r ./lambda-v${{ needs.get-esf-version.outputs.version }}.zip storage
+          zip -r ./lambda-v${{ needs.get-esf-version.outputs.version }}.zip shippers
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Copy file to s3
+        run: |
+          aws s3 cp ./lambda-v${{ needs.get-esf-version.outputs.version }}.zip s3://${{ env.BUCKET_NAME }}/
+
+
+
+  release-sar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: get-esf-version
+
+    env:
+      BUCKET_NAME: "elastic-serverless-forwarder"
+      AWS_REGION: "eu-central-1"
+      AWS_ACCOUNT_ID: "267093732750" # elastic-observability-prod
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: elastic/oblt-actions/aws/auth@v1
+        with:
+          aws-account-id: "${{ env.AWS_ACCOUNT_ID }}"
+          aws-region: "${{ env.AWS_REGION }}"
+
+      - uses: aws-actions/setup-sam@2360ef6d90015369947b45b496193ab9976a9b04 # v2
+        with:
+          use-installer: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and package
+        run: |
+          .internal/aws/scripts/dist.sh \
+            elastic-serverless-forwarder \
+            ${{ needs.get-esf-version.outputs.version }} \
+            ${{ env.BUCKET_NAME }} \
+            ${{ env.AWS_ACCOUNT_ID }} \
+            ${{ env.AWS_REGION }} \
+            "Elastic"
