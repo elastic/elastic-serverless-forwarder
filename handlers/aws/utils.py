@@ -31,7 +31,7 @@ CONFIG_FROM_S3FILE: str = "CONFIG_FROM_S3FILE"
 
 INTEGRATION_SCOPE_GENERIC: str = "generic"
 
-ARN = namedtuple("ARN", ["partition", "service", "region", "account_id", "resource_type", "resource_name", "qualifier"])
+ARN = namedtuple("ARN", ["partition", "service", "region", "account_id", "resource_type", "resource"])    
 
 
 def parse_arn(arn: str) -> ARN:
@@ -54,7 +54,6 @@ def parse_arn(arn: str) -> ARN:
     if len(arn_parts) < 7:
         raise ValueError("Invalid AWS ARN format.")
 
-    ARN = namedtuple("ARN", ["partition", "service", "region", "account_id", "resource_type", "resource"])
     return ARN(
         partition=arn_parts[1],
         service=arn_parts[2],
