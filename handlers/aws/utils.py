@@ -38,7 +38,7 @@ def parse_arn(arn: str) -> ARN:
     """
     Parse an AWS ARN (Amazon Resource Name) into a named tuple.
 
-    See https://docs.aws.amazon.com/IAM/latest/UserGuide/reference-arns.html 
+    See https://docs.aws.amazon.com/IAM/latest/UserGuide/reference-arns.html
     for more information about ARNs.
 
     Args:
