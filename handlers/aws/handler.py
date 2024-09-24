@@ -34,6 +34,7 @@ from .utils import (
     get_shipper_from_input,
     get_sqs_client,
     get_trigger_type_and_config_source,
+    parse_arn,
     wrap_try_except,
 )
 
@@ -48,6 +49,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
     AWS Lambda handler in handler.aws package
     Parses the config and acts as front controller for inputs
     """
+    lambda_arn = parse_arn(lambda_context.invoked_function_arn)
 
     shared_logger.debug("lambda triggered", extra={"invoked_function_arn": lambda_context.invoked_function_arn})
 
@@ -149,6 +151,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             cloudwatch_logs_event["owner"],
             cloudwatch_logs_event["logGroup"],
             cloudwatch_logs_event["logStream"],
+            lambda_arn.region,  # the cloudwatch trigger is in the same region as the lambda
         )
 
         if event_input is None:

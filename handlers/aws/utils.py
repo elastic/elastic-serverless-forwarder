@@ -2,8 +2,9 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 import os
+from collections import namedtuple
 from functools import lru_cache
-from typing import Any, Callable, Optional
+from typing import Any, Callable, NamedTuple, Optional
 
 import boto3
 from aws_lambda_typing import context as context_
@@ -31,6 +32,35 @@ CONFIG_FROM_S3FILE: str = "CONFIG_FROM_S3FILE"
 
 INTEGRATION_SCOPE_GENERIC: str = "generic"
 
+ARN = namedtuple("ARN", ["partition", "service", "region", "account_id", "resource_type", "resource_id"])
+
+def parse_arn(arn: str) -> ARN:
+    """
+    Parses an AWS ARN and returns a named tuple with its components.
+
+    :param arn: The ARN string to parse
+    :return: A named tuple with the parsed ARN components
+    """
+    parts = arn.split(':')
+    if len(parts) < 6:
+        raise ValueError("Invalid ARN format")
+
+    partition = parts[1]
+    service = parts[2]
+    region = parts[3]
+    account_id = parts[4]
+    resource = parts[5]
+
+    # Some ARNs have a resource type and resource ID separated by a slash or colon
+    if '/' in resource:
+        resource_type, resource_id = resource.split('/', 1)
+    elif ':' in resource:
+        resource_type, resource_id = resource.split(':', 1)
+    else:
+        resource_type = ''
+        resource_id = resource
+
+    return ARN(partition, service, region, account_id, resource_type, resource_id)
 
 def get_sqs_client() -> BotoBaseClient:
     """
@@ -397,38 +427,28 @@ def describe_regions(all_regions: bool = True) -> Any:
 
 
 def get_input_from_log_group_subscription_data(
-    config: Config, account_id: str, log_group_name: str, log_stream_name: str
+    config: Config, account_id: str, log_group_name: str, log_stream_name: str, region: str
 ) -> tuple[str, Optional[Input]]:
     """
-    This function is not less resilient than the previous get_log_group_arn_and_region_from_log_group_name()
-    We avoid to call the describe_log_streams on the logs' client, since we have no way to apply the proper
-    throttling because we'd need to know the number of concurrent lambda running at the time of the call.
-    In order to not hardcode the list of regions we rely on ec2 DescribeRegions - as much weird as it is - that I found
-    no information about having any kind of throttling. We add IAM permissions for it in deployment.
     """
-    all_regions = describe_regions(all_regions=True)
-    assert "Regions" in all_regions
-    for region_data in all_regions["Regions"]:
-        region = region_data["RegionName"]
+    partition = "aws"
+    if "gov" in region:
+        partition = "aws-us-gov"
 
-        aws_or_gov = "aws"
-        if "gov" in region:
-            aws_or_gov = "aws-us-gov"
+    log_stream_arn = (
+        f"arn:{partition}:logs:{region}:{account_id}:log-group:{log_group_name}:log-stream:{log_stream_name}"
+    )
+    event_input = config.get_input_by_id(log_stream_arn)
 
-        log_stream_arn = (
-            f"arn:{aws_or_gov}:logs:{region}:{account_id}:log-group:{log_group_name}:log-stream:{log_stream_name}"
-        )
-        event_input = config.get_input_by_id(log_stream_arn)
+    if event_input is not None:
+        return log_stream_arn, event_input
 
-        if event_input is not None:
-            return log_stream_arn, event_input
+    log_group_arn_components = log_stream_arn.split(":")
+    log_group_arn = f"{':'.join(log_group_arn_components[:-2])}:*"
+    event_input = config.get_input_by_id(log_group_arn)
 
-        log_group_arn_components = log_stream_arn.split(":")
-        log_group_arn = f"{':'.join(log_group_arn_components[:-2])}:*"
-        event_input = config.get_input_by_id(log_group_arn)
-
-        if event_input is not None:
-            return log_group_arn, event_input
+    if event_input is not None:
+        return log_group_arn, event_input
 
     return f"arn:aws:logs:%AWS_REGION%:{account_id}:log-group:{log_group_name}:*", None
 
