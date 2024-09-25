@@ -1,6 +1,6 @@
 ### v1.17.2 - 2024/09/24
 ##### Bug fixes
-* Remove call to EC2:DescribeRegions API in the cloudwatch-logs input [809](https://github.com/elastic/elastic-serverless-forwarder/pull/809).
+* Remove call to EC2:DescribeRegions API in the cloudwatch-logs input [811](https://github.com/elastic/elastic-serverless-forwarder/pull/811).
 
 ### v1.17.1 - 2024/09/23
 ##### Bug fixes
