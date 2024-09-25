@@ -79,6 +79,8 @@ class TestLambdaHandlerIntegration(TestCase):
 
         cls.localstack = lsc.start()
 
+        os.environ["AWS_REGION"] = _AWS_REGION
+
         session = boto3.Session(region_name=_AWS_REGION)
         cls.aws_session = session
         cls.s3_client = session.client("s3", endpoint_url=cls.localstack.get_url())

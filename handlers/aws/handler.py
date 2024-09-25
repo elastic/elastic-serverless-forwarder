@@ -31,6 +31,7 @@ from .utils import (
     expand_event_list_from_field_resolver,
     get_continuing_original_input_type,
     get_input_from_log_group_subscription_data,
+    get_lambda_region,
     get_shipper_from_input,
     get_sqs_client,
     get_trigger_type_and_config_source,
@@ -48,7 +49,6 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
     AWS Lambda handler in handler.aws package
     Parses the config and acts as front controller for inputs
     """
-
     shared_logger.debug("lambda triggered", extra={"invoked_function_arn": lambda_context.invoked_function_arn})
 
     try:
@@ -144,11 +144,16 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
         shared_logger.info("trigger", extra={"size": len(cloudwatch_logs_event["logEvents"])})
 
+        lambda_region = get_lambda_region()
+
         input_id, event_input = get_input_from_log_group_subscription_data(
             config,
             cloudwatch_logs_event["owner"],
             cloudwatch_logs_event["logGroup"],
             cloudwatch_logs_event["logStream"],
+            # As of today, the cloudwatch trigger is always in
+            # the same region as the lambda function.
+            lambda_region,
         )
 
         if event_input is None:

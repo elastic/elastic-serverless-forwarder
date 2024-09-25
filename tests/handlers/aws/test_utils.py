@@ -3,6 +3,7 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 
+import os
 import random
 import string
 from datetime import datetime
@@ -426,45 +427,36 @@ class TestRecordId(TestCase):
 
 
 @pytest.mark.unit
-class TestDescribeRegions(TestCase):
+class TestGetLambdaRegion(TestCase):
 
-    @mock.patch("handlers.aws.utils.get_ec2_client", lambda: _ec2_client_mock)
-    def test_cache_miss(self) -> None:
-        from handlers.aws.utils import describe_regions
+    def test_with_aws_region(self) -> None:
+        from handlers.aws.utils import get_lambda_region
 
-        # Reset the cache info before running the test
-        describe_regions.cache_clear()
+        os.environ["AWS_REGION"] = "us-west-1"
+        os.environ["AWS_DEFAULT_REGION"] = "us-west-2"
 
-        # First call should be a cache miss
-        response = describe_regions(all_regions=False)
-        assert response["Regions"] is not None
-        assert len(response["Regions"]) == 1
-        assert response["Regions"][0]["RegionName"] == "us-west-2"
+        region = get_lambda_region()
 
-        cache_info = describe_regions.cache_info()
+        assert region == "us-west-1"
 
-        assert cache_info.hits == 0
-        assert cache_info.misses == 1
-        assert cache_info.currsize == 1
+    def test_with_aws_default_region(self) -> None:
+        from handlers.aws.utils import get_lambda_region
 
-    @mock.patch("handlers.aws.utils.get_ec2_client", lambda: _ec2_client_mock)
-    def test_cache_hits(self) -> None:
-        from handlers.aws.utils import describe_regions
+        if "AWS_REGION" in os.environ:
+            del os.environ["AWS_REGION"]
+        os.environ["AWS_DEFAULT_REGION"] = "us-west-2"
 
-        # Reset the cache info before running the test
-        describe_regions.cache_clear()
+        region = get_lambda_region()
 
-        # First call should be a cache miss and populate the cache
-        # Second and third calls should be cache hits.
-        response = describe_regions(all_regions=False)
-        response = describe_regions(all_regions=False)
-        response = describe_regions(all_regions=False)
-        assert response["Regions"] is not None
-        assert len(response["Regions"]) == 1
-        assert response["Regions"][0]["RegionName"] == "us-west-2"
+        assert region == "us-west-2"
 
-        cache_info = describe_regions.cache_info()
+    def test_without_variables(self) -> None:
+        from handlers.aws.utils import get_lambda_region
 
-        assert cache_info.hits == 2
-        assert cache_info.misses == 1
-        assert cache_info.currsize == 1
+        if "AWS_REGION" in os.environ:
+            del os.environ["AWS_REGION"]
+        if "AWS_DEFAULT_REGION" in os.environ:
+            del os.environ["AWS_DEFAULT_REGION"]
+
+        with pytest.raises(ValueError):
+            get_lambda_region()
