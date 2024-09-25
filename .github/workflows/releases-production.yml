@@ -84,11 +84,6 @@ jobs:
           aws-account-id: "${{ env.AWS_ACCOUNT_ID }}"
           aws-region: "${{ env.AWS_REGION }}"
 
-      - uses: aws-actions/setup-sam@2360ef6d90015369947b45b496193ab9976a9b04 # v2
-        with:
-          use-installer: true
-          token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Copy file to s3
         run: |
           aws s3 cp ./lambda-v${{ needs.get-esf-version.outputs.version }}.zip s3://${{ env.BUCKET_NAME }}/
