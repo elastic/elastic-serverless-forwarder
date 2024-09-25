@@ -1,4 +1,9 @@
 ---
+# IMPORTANT:
+# If you change the name of this file, you will have to update
+# https://github.com/elastic/oblt-infra/blob/main/conf/resources/repos/elastic-serverless-forwarder/01-aws-oidc-github.tf
+# to include the current one!
+
 # Workflow to push zip with dependencies to S3 bucket every time the ESF version is updated
 # (we need this for ESF terraform), and to publish the new SAR version
 name: releases-production
@@ -12,6 +17,10 @@ on:
 permissions:
   id-token: write   # This is required for requesting the JWT
   contents: read    # This is required for actions/checkout
+
+env:
+  AWS_REGION: "eu-central-1"
+  AWS_ACCOUNT_ID: "267093732750" # account 'elastic-observability-prod'
 
 jobs:
 
@@ -41,8 +50,6 @@ jobs:
 
     env:
       BUCKET_NAME: "esf-dependencies"
-      AWS_REGION: "eu-central-1"
-      ROLE: "arn:aws:iam::267093732750:role/esf-dependencies-role"
 
     steps:
       # See https://docs.aws.amazon.com/lambda/latest/dg/python-package.html#python-package-create-dependencies
@@ -72,15 +79,19 @@ jobs:
           zip -r ./lambda-v${{ needs.get-esf-version.outputs.version }}.zip shippers
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: elastic/oblt-actions/aws/auth@v1
         with:
-          role-to-assume: ${{ env.ROLE }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-account-id: "${{ env.AWS_ACCOUNT_ID }}"
+          aws-region: "${{ env.AWS_REGION }}"
+
+      - uses: aws-actions/setup-sam@2360ef6d90015369947b45b496193ab9976a9b04 # v2
+        with:
+          use-installer: true
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Copy file to s3
         run: |
           aws s3 cp ./lambda-v${{ needs.get-esf-version.outputs.version }}.zip s3://${{ env.BUCKET_NAME }}/
-
 
 
   release-sar:
@@ -90,8 +101,6 @@ jobs:
 
     env:
       BUCKET_NAME: "elastic-serverless-forwarder"
-      AWS_REGION: "eu-central-1"
-      AWS_ACCOUNT_ID: "267093732750" # elastic-observability-prod
 
     steps:
       - uses: actions/checkout@v4
