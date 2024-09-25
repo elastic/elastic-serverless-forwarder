@@ -144,8 +144,6 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
         shared_logger.info("trigger", extra={"size": len(cloudwatch_logs_event["logEvents"])})
 
-        # As of today, the cloudwatch trigger is always in the same region
-        # as the lambda function.
         lambda_region = get_lambda_region()
 
         input_id, event_input = get_input_from_log_group_subscription_data(
@@ -153,6 +151,8 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             cloudwatch_logs_event["owner"],
             cloudwatch_logs_event["logGroup"],
             cloudwatch_logs_event["logStream"],
+            # As of today, the cloudwatch trigger is always in
+            # the same region as the lambda function.            
             lambda_region,
         )
 
