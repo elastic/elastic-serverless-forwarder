@@ -31,10 +31,10 @@ from .utils import (
     expand_event_list_from_field_resolver,
     get_continuing_original_input_type,
     get_input_from_log_group_subscription_data,
+    get_lambda_region,
     get_shipper_from_input,
     get_sqs_client,
     get_trigger_type_and_config_source,
-    parse_arn,
     wrap_try_except,
 )
 
@@ -141,16 +141,19 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
     if trigger_type == "cloudwatch-logs":
         cloudwatch_logs_event = _from_awslogs_data_to_event(lambda_event["awslogs"]["data"])
-        lambda_arn = parse_arn(lambda_context.invoked_function_arn)
 
         shared_logger.info("trigger", extra={"size": len(cloudwatch_logs_event["logEvents"])})
+
+        # As of today, the cloudwatch trigger is always in the same region
+        # as the lambda function.
+        lambda_region = get_lambda_region()
 
         input_id, event_input = get_input_from_log_group_subscription_data(
             config,
             cloudwatch_logs_event["owner"],
             cloudwatch_logs_event["logGroup"],
             cloudwatch_logs_event["logStream"],
-            lambda_arn.region,  # the cloudwatch trigger is in the same region as the lambda
+            lambda_region,
         )
 
         if event_input is None:

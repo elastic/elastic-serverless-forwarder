@@ -2,7 +2,6 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 import os
-from collections import namedtuple
 from typing import Any, Callable, Optional
 
 import boto3
@@ -31,50 +30,26 @@ CONFIG_FROM_S3FILE: str = "CONFIG_FROM_S3FILE"
 
 INTEGRATION_SCOPE_GENERIC: str = "generic"
 
-ARN = namedtuple("ARN", ["partition", "service", "region", "account_id", "resource"])
 
-
-def parse_arn(arn: str) -> ARN:
+def get_lambda_region() -> str:
     """
-    Parse an AWS ARN (Amazon Resource Name) into a named tuple.
+    Get the AWS region where the Lambda function is running.
 
-    See https://docs.aws.amazon.com/IAM/latest/UserGuide/reference-arns.html
-    for more information about ARNs.
+    Returns the value of the `AWS_REGION` environment variable. If the
+    `AWS_REGION` variable is not set, it returns the value of the
+    `AWS_DEFAULT_REGION` variable.
 
-    Args:
-        arn (str): The AWS ARN to parse.
+    If neither variable is set, it raises a `ValueError`.
 
     Returns:
-        A named tuple with the following fields:
-            - partition: The AWS partition (usually 'aws').
-            - service: The AWS service name.
-            - region: The AWS region (if applicable).
-            - account_id: The AWS account ID (if applicable).
-            - resource: The name of the resource.
+        str: The AWS region.
     """
-    # we split only 5 times to keep the resource as a single string
-    # even if it contains colons.
-    #
-    # For example, an CloudWatch log group ARN looks like this:
-    # arn:aws:logs:eu-west-1:123456789012:log-group:/aws/lambda/mbranca-esf-vGHtx0b7uzNu:*
-    #
-    # The above ARN is split into the following parts:
-    # - partition: `aws`
-    # - service: `logs`
-    # - region: `eu-west-1`
-    # - account_id: `123456789012`
-    # - resource: `log-group:/aws/lambda/mbranca-esf-vGHtx0b7uzNu:*`
-    arn_parts = arn.split(":", 5)
-    if len(arn_parts) < 6:
-        raise ValueError("Invalid AWS ARN format.")
+    region = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
 
-    partition = arn_parts[1]
-    service = arn_parts[2]
-    region = arn_parts[3] if arn_parts[3] else None
-    account_id = arn_parts[4] if arn_parts[4] else None
-    resource = arn_parts[5]
+    if region is None:
+        raise ValueError("AWS region not found in environment variables.")
 
-    return ARN(partition, service, region, account_id, resource)
+    return region
 
 
 def get_sqs_client() -> BotoBaseClient:

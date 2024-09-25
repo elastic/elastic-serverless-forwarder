@@ -3,6 +3,7 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 
+import os
 import random
 import string
 from datetime import datetime
@@ -426,74 +427,32 @@ class TestRecordId(TestCase):
 
 
 @pytest.mark.unit
-class TestParseARN(TestCase):
+class TestGetLambdaRegion(TestCase):
 
-    def test_parse_lambda_function_arn(self) -> None:
-        from handlers.aws.utils import parse_arn
+    def test_with_aws_region(self) -> None:
+        from handlers.aws.utils import get_lambda_region
 
-        arn = (
-            "arn:aws:lambda:eu-west-1:123456789:function:mbranca-esf-ApplicationElasticServerlessForwarder-vGHtx0b7uzNu"
-        )
-        result = parse_arn(arn)
+        os.environ["AWS_REGION"] = "us-west-1"
+        os.environ["AWS_DEFAULT_REGION"] = "us-west-2"
 
-        assert result.service == "lambda"
-        assert result.region == "eu-west-1"
-        assert result.account_id == "123456789"
-        assert result.resource == "function:mbranca-esf-ApplicationElasticServerlessForwarder-vGHtx0b7uzNu"
+        region = get_lambda_region()
 
-    def test_parse_log_group(self) -> None:
-        from handlers.aws.utils import parse_arn
+        assert region == "us-west-1"
 
-        arn = "arn:aws:logs:eu-west-1:123456789:log-group:/aws/lambda/mbranca-esf-vGHtx0b7uzNu:*"
-        result = parse_arn(arn)
+    def test_with_aws_default_region(self) -> None:
+        from handlers.aws.utils import get_lambda_region
 
-        print(result)
+        os.environ["AWS_DEFAULT_REGION"] = "us-west-2"
 
-        assert result.service == "logs"
-        assert result.region == "eu-west-1"
-        assert result.account_id == "123456789"
-        assert result.resource == "log-group:/aws/lambda/mbranca-esf-vGHtx0b7uzNu:*"
+        region = get_lambda_region()
 
-    def test_parse_s3_bucket(self) -> None:
-        from handlers.aws.utils import parse_arn
+        assert region == "us-west-2"
 
-        arn = "arn:aws:s3:::mbranca-esf-data"
-        result = parse_arn(arn)
+    def test_without_variables(self) -> None:
+        from handlers.aws.utils import get_lambda_region
 
-        assert result.service == "s3"
-        assert result.region is None
-        assert result.account_id is None
-        assert result.resource == "mbranca-esf-data"
+        del os.environ["AWS_REGION"]
+        del os.environ["AWS_DEFAULT_REGION"]
 
-    def test_parse_iam_user(self) -> None:
-        from handlers.aws.utils import parse_arn
-
-        arn = "arn:aws:iam::123456789012:user/johndoe"
-        result = parse_arn(arn)
-
-        assert result.service == "iam"
-        assert result.region is None
-        assert result.account_id == "123456789012"
-        assert result.resource == "user/johndoe"
-
-    def test_parse_sns_topic(self) -> None:
-        from handlers.aws.utils import parse_arn
-
-        arn = "arn:aws:sns:us-east-1:123456789012:example-sns-topic-name"
-        result = parse_arn(arn)
-
-        assert result.service == "sns"
-        assert result.region == "us-east-1"
-        assert result.account_id == "123456789012"
-        assert result.resource == "example-sns-topic-name"
-
-    def test_parse_vpc(self) -> None:
-        from handlers.aws.utils import parse_arn
-
-        arn = "arn:aws:ec2:us-east-1:123456789012:vpc/vpc-0e9801d129EXAMPLE"
-        result = parse_arn(arn)
-
-        assert result.service == "ec2"
-        assert result.region == "us-east-1"
-        assert result.account_id == "123456789012"
-        assert result.resource == "vpc/vpc-0e9801d129EXAMPLE"
+        with pytest.raises(ValueError):
+            get_lambda_region()
