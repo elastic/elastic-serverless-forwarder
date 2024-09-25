@@ -152,7 +152,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             cloudwatch_logs_event["logGroup"],
             cloudwatch_logs_event["logStream"],
             # As of today, the cloudwatch trigger is always in
-            # the same region as the lambda function.            
+            # the same region as the lambda function.
             lambda_region,
         )
 
