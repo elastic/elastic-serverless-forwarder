@@ -442,6 +442,8 @@ class TestGetLambdaRegion(TestCase):
     def test_with_aws_default_region(self) -> None:
         from handlers.aws.utils import get_lambda_region
 
+        if "AWS_REGION" in os.environ:
+            del os.environ["AWS_REGION"]
         os.environ["AWS_DEFAULT_REGION"] = "us-west-2"
 
         region = get_lambda_region()
@@ -451,8 +453,10 @@ class TestGetLambdaRegion(TestCase):
     def test_without_variables(self) -> None:
         from handlers.aws.utils import get_lambda_region
 
-        del os.environ["AWS_REGION"]
-        del os.environ["AWS_DEFAULT_REGION"]
+        if "AWS_REGION" in os.environ:
+            del os.environ["AWS_REGION"]
+        if "AWS_DEFAULT_REGION" in os.environ:
+            del os.environ["AWS_DEFAULT_REGION"]
 
         with pytest.raises(ValueError):
             get_lambda_region()
