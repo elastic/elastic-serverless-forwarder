@@ -4296,6 +4296,7 @@ class TestLambdaHandlerIntegration(TestCase):
             == "test_es_non_indexable_dead_letter_index fail message"
         )
         assert res["hits"]["hits"][0]["_source"]["error"]["type"] == "fail_processor_exception"
+        assert res["hits"]["hits"][0]["_source"]["http"]["response"]["status_code"] == 500
         dead_letter_message = json_parser(res["hits"]["hits"][0]["_source"]["message"])
         assert dead_letter_message["log"]["offset"] == 0
         assert dead_letter_message["log"]["file"]["path"] == sqs_queue_url_path
