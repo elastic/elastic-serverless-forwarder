@@ -201,32 +201,48 @@ class ElasticsearchShipper:
 
     def _parse_error(self, error: dict[str, Any]) -> dict[str, Any]:
         """
-        Parses the error response from Elasticsearch and returns a dictionary.
+        Parses the error response from Elasticsearch and returns a
+        standardised error field.
+
+        The error field is a dictionary with the following keys:
+
+        - message: The error message
+        - type: The error type
+
+        If the error is not recognised, the message is set to "Unknown error".
+
+        It also sets the status code in the http field if it is present
+        as a number in the response.
         """
-        error_field: dict[str, Any] = {"error": {"message": "Unknown error"}}
+        field: dict[str, Any] = {"error": {"message": "Unknown error"}, "type": "unknown"}
 
         if "status" in error and isinstance(error["status"], int):
-            error_field["http"] = {"status_code": error["status"]}
+            # Collecting the HTTP status code in the error field,
+            # if present and the type is an integer.
+            #
+            # Sometimes the status code is a string, for example,
+            # when the connection to the server fails.
+            field["http"] = {"status_code": error["status"]}
 
         if "error" not in error:
-            return error_field
+            return field
 
         if isinstance(error["error"], str):
             # Can happen with connection errors.
-            error_field["error"]["message"] = error["error"]
+            field["error"]["message"] = error["error"]
             if "exception" in error:
                 # The exception field is usually an Exception object,
                 # so we convert it to a string.
-                error_field["error"]["type"] = str(error["exception"])
+                field["error"]["type"] = str(error["exception"])
         elif isinstance(error["error"], dict):
             # Can happen with status 5xx errors.
             # In this case, we look for the "reason" and "type" fields.
             if "reason" in error["error"]:
-                error_field["error"]["message"] = error["error"]["reason"]
+                field["error"]["message"] = error["error"]["reason"]
             if "type" in error["error"]:
-                error_field["error"]["type"] = error["error"]["type"]
+                field["error"]["type"] = error["error"]["type"]
 
-        return error_field
+        return field
 
     def set_event_id_generator(self, event_id_generator: EventIdGeneratorCallable) -> None:
         self._event_id_generator = event_id_generator
