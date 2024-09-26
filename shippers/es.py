@@ -234,7 +234,7 @@ class ElasticsearchShipper:
             if "exception" in error:
                 # The exception field is usually an Exception object,
                 # so we convert it to a string.
-                field["error"]["type"] = str(error["exception"])
+                field["error"]["type"] = str(type(error["exception"]))
         elif isinstance(error["error"], dict):
             # Can happen with status 5xx errors.
             # In this case, we look for the "reason" and "type" fields.
