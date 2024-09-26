@@ -215,7 +215,7 @@ class ElasticsearchShipper:
         It also sets the status code in the http field if it is present
         as a number in the response.
         """
-        field: dict[str, Any] = {"error": {"message": "Unknown error"}, "type": "unknown"}
+        field: dict[str, Any] = {"error": {"message": "Unknown error", "type": "unknown"}}
 
         if "status" in error and isinstance(error["status"], int):
             # Collecting the HTTP response status code in the
