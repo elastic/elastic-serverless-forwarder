@@ -206,10 +206,11 @@ class ElasticsearchShipper:
 
         The error field is a dictionary with the following keys:
 
-        - message: The error message
-        - type: The error type
+        - `message`: The error message
+        - `type`: The error type
 
-        If the error is not recognised, the message is set to "Unknown error".
+        If the error is not recognised, the `message` key is set
+        to "Unknown error".
 
         It also sets the status code in the http field if it is present
         as a number in the response.
@@ -217,12 +218,12 @@ class ElasticsearchShipper:
         field: dict[str, Any] = {"error": {"message": "Unknown error"}, "type": "unknown"}
 
         if "status" in error and isinstance(error["status"], int):
-            # Collecting the HTTP status code in the error field,
-            # if present and the type is an integer.
+            # Collecting the HTTP response status code in the
+            # error field, if present, and the type is an integer.
             #
             # Sometimes the status code is a string, for example,
             # when the connection to the server fails.
-            field["http"] = {"status_code": error["status"]}
+            field["http"] = {"response": {"status_code": error["status"]}}
 
         if "error" not in error:
             return field
@@ -340,14 +341,21 @@ class ElasticsearchShipper:
 
         # Assign random id in case bulk() results in error, it can be matched to the original
         # action
-        return {
+        encoded = {
             "@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
-            "_id": f"{uuid.uuid4()}",
+            "_id": str(uuid.uuid4()),
             "_index": self._es_dead_letter_index,
             "_op_type": "create",
             "message": json_dumper(outcome["action"]),
             "error": outcome["error"],
         }
+
+        if "http" in outcome:
+            # the `http.response.status_code` is not
+            # always present in the error field.
+            encoded["http"] = outcome["http"]
+
+        return encoded
 
     def _decode_dead_letter(self, dead_letter_outcome: dict[str, Any]) -> dict[str, Any]:
         if "action" not in dead_letter_outcome or "message" not in dead_letter_outcome["action"]:
