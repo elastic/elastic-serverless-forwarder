@@ -42,7 +42,7 @@ trap 'rm -rf ${TMPDIR}' EXIT
 aws s3api get-bucket-location --bucket "${BUCKET}" --region "${REGION}" || aws s3api create-bucket --acl private --bucket "${BUCKET}" --region "${REGION}" --create-bucket-configuration LocationConstraint="${REGION}"
 
 # Check if region is in AWS GovCloud and create bucket arn
-if [[ ${REGION} == *"$gov"* ]]; then
+if [[ ${REGION} == *"gov"* ]]; then
   BUCKET_ARN="arn:aws-us-gov:s3:::${BUCKET}"
   AWS_OR_AWS_GOV="aws-us-gov"
 else
