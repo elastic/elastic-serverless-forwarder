@@ -446,8 +446,8 @@ NOTE: Starting from **v1.4.0**, if you want to update the Events settings for th
 +
 [source, shell]
 ----
-  terrafrom init
-  terrafrom apply
+  terraform init
+  terraform apply
 ----
 +
 
