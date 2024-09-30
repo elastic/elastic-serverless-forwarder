@@ -279,13 +279,17 @@ class ElasticsearchShipper:
         if len(failed) > 0 and self._es_dead_letter_index:
             failed = self._send_dead_letter_index(failed)
 
+        shared_logger.info(f"there are {len(failed)} failed actions")
+
         # Send remaining failed requests to replay queue, if enabled
         if isinstance(failed, list) and len(failed) > 0 and self._replay_handler is not None:
+            shared_logger.info(f"replaying {len(failed)} failed actions")
             for outcome in failed:
                 if "action" not in outcome:
                     shared_logger.error("action could not be extracted to be replayed", extra={"outcome": outcome})
                     continue
 
+                shared_logger.info("replaying action", extra={"action": outcome["action"]})
                 self._replay_handler(self._output_destination, self._replay_args, outcome["action"])
 
         self._bulk_actions = []
@@ -339,7 +343,7 @@ class ElasticsearchShipper:
 
         # If no action can be encoded, return original action list as failed
         if len(encoded_actions) == 0:
-            shared_logger.info("no actions to forward to dead letter index")
+            shared_logger.info(f"no actions to forward to dead letter index; returning {len(non_indexed_actions)} non_indexed_actions")
             return non_indexed_actions
 
         errors = es_bulk(self._es_client, encoded_actions, **self._bulk_kwargs)
