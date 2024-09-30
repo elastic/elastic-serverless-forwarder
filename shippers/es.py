@@ -4,7 +4,7 @@
 
 import datetime
 import uuid
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import elasticapm  # noqa: F401
 from elasticsearch import Elasticsearch
@@ -61,6 +61,7 @@ class ElasticsearchShipper:
         api_key: str = "",
         es_datastream_name: str = "",
         es_dead_letter_index: str = "",
+        es_dead_letter_forward_errors: List[str] = [],
         tags: list[str] = [],
         batch_max_actions: int = 500,
         batch_max_bytes: int = 10 * 1024 * 1024,
@@ -112,6 +113,7 @@ class ElasticsearchShipper:
 
         self._es_datastream_name = es_datastream_name
         self._es_dead_letter_index = es_dead_letter_index
+        self.es_dead_letter_forward_errors = es_dead_letter_forward_errors
         self._tags = tags
 
         self._es_index = ""
@@ -177,18 +179,6 @@ class ElasticsearchShipper:
                 continue
 
             failed_error = {"action": action_failed[0]} | self._parse_error(error["create"])
-
-            # error_field = error.get("create", {}).get("error", None)
-            # if error_field:
-            #     if "reason" in error_field:
-            #         failed_error["error"]["message"] = error_field["reason"]
-            #     if "type" in error_field:
-            #         failed_error["error"]["type"] = error_field["type"]
-            # else:
-            #     failed_error["error"]["message"] = error_field
-            #
-            # if "exception" in error["create"]:
-            #     failed_error["error"]["stack_trace"] = error["create"]["exception"]
 
             failed.append(failed_error)
 
@@ -303,26 +293,55 @@ class ElasticsearchShipper:
         return
 
     def _send_dead_letter_index(self, actions: list[Any]) -> list[Any]:
+        """
+        Send the failed actions to the dead letter index (DLI).
+
+        This function attempts to forward failed actions to the DLI, but may not do so
+        for one of the following reasons:
+
+        1. The action response does not have an HTTP status (e.g., the connection failed).
+        2. The list of action errors to forward is not empty, and the action error type is not in the list.
+        3. The action could not be encoded for indexing in the DLI.
+        4. The action failed indexing attempt in the DLI.
+
+        Args:
+            actions (list[Any]): A list of actions to be processed.
+
+        Returns:
+            list[Any]: A list of actions that were not indexed in the DLI.
+        """
+        non_indexed_actions: list[Any] = []
         encoded_actions = []
-        dead_letter_errors: list[Any] = []
+
         for action in actions:
+            if "http" not in action or (
+                self.es_dead_letter_forward_errors and action["error"]["type"] not in self.es_dead_letter_forward_errors
+            ):
+                # We don't want to forward this action to
+                # the dead letter index.
+                #
+                # Add it to the list of non-indexed actions
+                # and continue to the next.
+                non_indexed_actions.append(action)
+                continue
+
             # Reshape event to dead letter index
             encoded = self._encode_dead_letter(action)
             if not encoded:
                 shared_logger.error("cannot encode dead letter index event from payload", extra={"action": action})
-                dead_letter_errors.append(action)
+                non_indexed_actions.append(action)
 
             encoded_actions.append(encoded)
 
         # If no action can be encoded, return original action list as failed
         if len(encoded_actions) == 0:
-            return dead_letter_errors
+            return non_indexed_actions
 
         errors = es_bulk(self._es_client, encoded_actions, **self._bulk_kwargs)
         failed = self._handle_outcome(actions=encoded_actions, errors=errors)
 
         if not isinstance(failed, list) or len(failed) == 0:
-            return dead_letter_errors
+            return non_indexed_actions
 
         for action in failed:
             event_payload = self._decode_dead_letter(action)
@@ -331,9 +350,9 @@ class ElasticsearchShipper:
                 shared_logger.error("cannot decode dead letter index event from payload", extra={"action": action})
                 continue
 
-            dead_letter_errors.append(event_payload)
+            non_indexed_actions.append(event_payload)
 
-        return dead_letter_errors
+        return non_indexed_actions
 
     def _encode_dead_letter(self, outcome: dict[str, Any]) -> dict[str, Any]:
         if "action" not in outcome or "error" not in outcome:
