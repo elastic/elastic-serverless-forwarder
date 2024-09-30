@@ -313,7 +313,7 @@ class ElasticsearchShipper:
         non_indexed_actions: list[Any] = []
         encoded_actions = []
 
-        shared_logger.debug(f"forwarding {len(actions)} actions to dead letter index")
+        shared_logger.info(f"forwarding {len(actions)} actions to dead letter index")
 
         for action in actions:
             if "http" not in action or (
@@ -325,7 +325,7 @@ class ElasticsearchShipper:
                 #
                 # Add it to the list of non-indexed actions
                 # and continue to the next.
-                shared_logger.debug("action not forwarded to dead letter index")
+                shared_logger.info("action not forwarded to dead letter index")
                 non_indexed_actions.append(action)
                 continue
 
@@ -339,7 +339,7 @@ class ElasticsearchShipper:
 
         # If no action can be encoded, return original action list as failed
         if len(encoded_actions) == 0:
-            shared_logger.error("no action can be encoded for dead letter index")
+            shared_logger.info("no actions to forward to dead letter index")
             return non_indexed_actions
 
         errors = es_bulk(self._es_client, encoded_actions, **self._bulk_kwargs)
