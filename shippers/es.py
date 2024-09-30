@@ -343,7 +343,6 @@ class ElasticsearchShipper:
 
         # If no action can be encoded, return original action list as failed
         if len(encoded_actions) == 0:
-            shared_logger.info(f"no actions to forward to dead letter index; returning {len(non_indexed_actions)} non_indexed_actions")
             return non_indexed_actions
 
         errors = es_bulk(self._es_client, encoded_actions, **self._bulk_kwargs)

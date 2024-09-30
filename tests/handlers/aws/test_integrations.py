@@ -4445,7 +4445,7 @@ class TestLambdaHandlerIntegration(TestCase):
                       elasticsearch_url: "{self.elasticsearch.get_url()}"
                       es_dead_letter_index: "{dead_letter_index_name}"
                       es_dead_letter_forward_errors:
-                        - fail_processor_exception
+                        - non_existent_error
                       ssl_assert_fingerprint: {self.elasticsearch.ssl_assert_fingerprint}
                       username: "{self.secret_arn}:username"
                       password: "{self.secret_arn}:password"
