@@ -200,7 +200,7 @@ class ElasticsearchOutput(Output):
     @property
     def es_dead_letter_forward_errors(self) -> str:
         return self._es_dead_letter_forward_errors
-    
+
     @es_dead_letter_forward_errors.setter
     def es_dead_letter_forward_errors(self, value: List[str]) -> None:
         if not isinstance(value, list):

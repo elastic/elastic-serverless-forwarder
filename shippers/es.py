@@ -315,7 +315,8 @@ class ElasticsearchShipper:
 
         for action in actions:
             if "http" not in action or (
-                self.es_dead_letter_forward_errors and action["error"]["type"] not in self.es_dead_letter_forward_errors
+                self._es_dead_letter_forward_errors
+                and action["error"]["type"] not in self._es_dead_letter_forward_errors
             ):
                 # We don't want to forward this action to
                 # the dead letter index.
