@@ -313,6 +313,8 @@ class ElasticsearchShipper:
         non_indexed_actions: list[Any] = []
         encoded_actions = []
 
+        shared_logger.debug(f"forwarding {len(actions)} actions to dead letter index")
+
         for action in actions:
             if "http" not in action or (
                 self._es_dead_letter_forward_errors
@@ -323,6 +325,7 @@ class ElasticsearchShipper:
                 #
                 # Add it to the list of non-indexed actions
                 # and continue to the next.
+                shared_logger.debug("action not forwarded to dead letter index")
                 non_indexed_actions.append(action)
                 continue
 
@@ -336,12 +339,14 @@ class ElasticsearchShipper:
 
         # If no action can be encoded, return original action list as failed
         if len(encoded_actions) == 0:
+            shared_logger.error("no action can be encoded for dead letter index")
             return non_indexed_actions
 
         errors = es_bulk(self._es_client, encoded_actions, **self._bulk_kwargs)
         failed = self._handle_outcome(actions=encoded_actions, errors=errors)
 
         if not isinstance(failed, list) or len(failed) == 0:
+            shared_logger.info("all actions forwarded to dead letter index")
             return non_indexed_actions
 
         for action in failed:
@@ -353,6 +358,7 @@ class ElasticsearchShipper:
 
             non_indexed_actions.append(event_payload)
 
+        shared_logger.info(f"{len(failed)} actions failed to be forwarded to dead letter index")
         return non_indexed_actions
 
     def _encode_dead_letter(self, outcome: dict[str, Any]) -> dict[str, Any]:
