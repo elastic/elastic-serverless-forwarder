@@ -113,7 +113,7 @@ class ElasticsearchShipper:
 
         self._es_datastream_name = es_datastream_name
         self._es_dead_letter_index = es_dead_letter_index
-        self.es_dead_letter_forward_errors = es_dead_letter_forward_errors
+        self._es_dead_letter_forward_errors = es_dead_letter_forward_errors
         self._tags = tags
 
         self._es_index = ""
