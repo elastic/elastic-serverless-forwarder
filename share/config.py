@@ -198,7 +198,7 @@ class ElasticsearchOutput(Output):
         self._es_dead_letter_index = value
 
     @property
-    def es_dead_letter_forward_errors(self) -> str:
+    def es_dead_letter_forward_errors(self) -> List[str]:
         return self._es_dead_letter_forward_errors
 
     @es_dead_letter_forward_errors.setter
