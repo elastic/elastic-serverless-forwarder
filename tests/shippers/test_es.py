@@ -511,3 +511,47 @@ class TestJSONSerializer(TestCase):
         with self.subTest("dumps dict"):
             dumped = json_serializer.dumps({"key": "value"})
             assert '{"key":"value"}' == dumped
+
+
+@pytest.mark.unit
+class TestParseError(TestCase):
+
+    def test_parse_error(self) -> None:
+        shipper = ElasticsearchShipper(
+            elasticsearch_url="elasticsearch_url",
+            username="username",
+            password="password",
+            tags=["tag1", "tag2", "tag3"],
+        )
+
+        with self.subTest("fail_processor_exception"):
+            error = shipper._parse_error(
+                {
+                    "status": 500,
+                    "error": {
+                        "type": "fail_processor_exception",
+                        "reason": "Fail message",
+                    },
+                },
+            )
+
+            assert error["error"]["type"] == "fail_processor_exception"
+            assert error["error"]["message"] == "Fail message"
+
+        with self.subTest("connection_error"):
+            error = shipper._parse_error(
+                {
+                    "status": "N/A",
+                    "error": "whatever",
+                    "exception": elasticsearch.exceptions.ConnectionError("Connection error"),
+                }
+            )
+
+            assert error["error"]["type"] == "<class 'elasticsearch.exceptions.ConnectionError'>"
+            assert error["error"]["message"] == "whatever"
+
+        with self.subTest("unknown_error"):
+            error = shipper._parse_error({})
+
+            assert error["error"]["type"] == "unknown"
+            assert error["error"]["message"] == "Unknown error"
