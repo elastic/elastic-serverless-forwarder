@@ -4618,6 +4618,13 @@ class TestLambdaHandlerIntegration(TestCase):
 
         assert self.elasticsearch.count(index="logs-generic-default")["count"] == 0
 
+        # Test document has been redirected to dli
+        assert self.elasticsearch.exists(index=dead_letter_index_name) is True
+
+        self.elasticsearch.refresh(index=dead_letter_index_name)
+
+        assert self.elasticsearch.count(index=dead_letter_index_name)["count"] == 1
+
         res = self.elasticsearch.search(index=dead_letter_index_name, sort="_seq_no")
 
         assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
