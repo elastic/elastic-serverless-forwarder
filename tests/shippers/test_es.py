@@ -537,6 +537,7 @@ class TestParseError(TestCase):
 
             assert error["error"]["type"] == "fail_processor_exception"
             assert error["error"]["message"] == "Fail message"
+            assert error["http"]["response"]["status_code"] == 500
 
         with self.subTest("connection_error"):
             error = shipper._parse_error(
@@ -549,9 +550,11 @@ class TestParseError(TestCase):
 
             assert error["error"]["type"] == "<class 'elasticsearch.exceptions.ConnectionError'>"
             assert error["error"]["message"] == "whatever"
+            assert "http" not in error
 
         with self.subTest("unknown_error"):
             error = shipper._parse_error({})
 
             assert error["error"]["type"] == "unknown"
             assert error["error"]["message"] == "Unknown error"
+            assert "http" not in error
