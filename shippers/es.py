@@ -279,17 +279,13 @@ class ElasticsearchShipper:
         if len(failed) > 0 and self._es_dead_letter_index:
             failed = self._send_dead_letter_index(failed)
 
-        shared_logger.info(f"there are {len(failed)} failed actions")
-
         # Send remaining failed requests to replay queue, if enabled
         if isinstance(failed, list) and len(failed) > 0 and self._replay_handler is not None:
-            shared_logger.info(f"replaying {len(failed)} failed actions")
             for outcome in failed:
                 if "action" not in outcome:
                     shared_logger.error("action could not be extracted to be replayed", extra={"outcome": outcome})
                     continue
 
-                shared_logger.info("replaying action", extra={"action": outcome["action"]})
                 self._replay_handler(self._output_destination, self._replay_args, outcome["action"])
 
         self._bulk_actions = []
@@ -317,19 +313,16 @@ class ElasticsearchShipper:
         non_indexed_actions: list[Any] = []
         encoded_actions = []
 
-        shared_logger.info(f"forwarding {len(actions)} actions to dead letter index")
-
         for action in actions:
-            if "http" not in action or (
+            if "http" not in action or (  # no http status: connection error
                 self._es_dead_letter_forward_errors
                 and action["error"]["type"] not in self._es_dead_letter_forward_errors
             ):
                 # We don't want to forward this action to
                 # the dead letter index.
                 #
-                # Add it to the list of non-indexed actions
-                # and continue to the next.
-                shared_logger.info("action not forwarded to dead letter index")
+                # Add the action to the list of non-indexed
+                # actions and continue with the next one.
                 non_indexed_actions.append(action)
                 continue
 
@@ -349,7 +342,6 @@ class ElasticsearchShipper:
         failed = self._handle_outcome(actions=encoded_actions, errors=errors)
 
         if not isinstance(failed, list) or len(failed) == 0:
-            shared_logger.info("all actions forwarded to dead letter index")
             return non_indexed_actions
 
         for action in failed:
@@ -361,7 +353,6 @@ class ElasticsearchShipper:
 
             non_indexed_actions.append(event_payload)
 
-        shared_logger.info(f"{len(failed)} actions failed to be forwarded to dead letter index")
         return non_indexed_actions
 
     def _encode_dead_letter(self, outcome: dict[str, Any]) -> dict[str, Any]:
