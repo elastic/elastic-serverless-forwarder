@@ -4,7 +4,7 @@
 
 import datetime
 import uuid
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 import elasticapm  # noqa: F401
 from elasticsearch import Elasticsearch
