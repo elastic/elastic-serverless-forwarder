@@ -3,6 +3,7 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 import datetime
+import http
 import uuid
 from typing import Any, Dict, Optional, Union
 
@@ -21,9 +22,10 @@ from .shipper import EventIdGeneratorCallable, ReplayHandlerCallable
 
 _EVENT_BUFFERED = "_EVENT_BUFFERED"
 _EVENT_SENT = "_EVENT_SENT"
-_VERSION_CONFLICT = 409
 # List of HTTP status codes that are considered retryable
-_retryable_http_status_codes = [429, 502, 503, 504]
+_retryable_http_status_codes = [
+    http.HTTPStatus.TOO_MANY_REQUESTS,
+]
 
 
 class JSONSerializer(Serializer):
@@ -174,7 +176,7 @@ class ElasticsearchShipper:
                 "elasticsearch shipper", extra={"error": error["create"]["error"], "_id": error["create"]["_id"]}
             )
 
-            if "status" in error["create"] and error["create"]["status"] == _VERSION_CONFLICT:
+            if "status" in error["create"] and error["create"]["status"] == http.HTTPStatus.CONFLICT:
                 # Skip duplicate events on dead letter index and replay queue
                 continue
 
