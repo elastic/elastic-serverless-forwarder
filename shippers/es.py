@@ -22,6 +22,8 @@ from .shipper import EventIdGeneratorCallable, ReplayHandlerCallable
 _EVENT_BUFFERED = "_EVENT_BUFFERED"
 _EVENT_SENT = "_EVENT_SENT"
 _VERSION_CONFLICT = 409
+# List of HTTP status codes that are considered retryable
+_retryable_http_status_codes = [429, 502, 503, 504]
 
 
 class JSONSerializer(Serializer):
@@ -61,7 +63,6 @@ class ElasticsearchShipper:
         api_key: str = "",
         es_datastream_name: str = "",
         es_dead_letter_index: str = "",
-        es_dead_letter_forward_errors: List[str] = [],
         tags: list[str] = [],
         batch_max_actions: int = 500,
         batch_max_bytes: int = 10 * 1024 * 1024,
@@ -113,7 +114,6 @@ class ElasticsearchShipper:
 
         self._es_datastream_name = es_datastream_name
         self._es_dead_letter_index = es_dead_letter_index
-        self._es_dead_letter_forward_errors = es_dead_letter_forward_errors
         self._tags = tags
 
         self._es_index = ""
@@ -314,9 +314,9 @@ class ElasticsearchShipper:
         encoded_actions = []
 
         for action in actions:
-            if "http" not in action or (  # no http status: connection error
-                self._es_dead_letter_forward_errors
-                and action["error"]["type"] not in self._es_dead_letter_forward_errors
+            if (
+                "http" not in action  # no http status: connection error
+                or action["http"]["response"]["status_code"] in _retryable_http_status_codes
             ):
                 # We don't want to forward this action to
                 # the dead letter index.
