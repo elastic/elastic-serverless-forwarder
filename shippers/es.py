@@ -296,21 +296,24 @@ class ElasticsearchShipper:
 
     def _send_dead_letter_index(self, actions: list[Any]) -> list[Any]:
         """
-        Send the failed actions to the dead letter index (DLI).
+        Index the failed actions in the dead letter index (DLI).
 
-        This function attempts to forward failed actions to the DLI, but may not do so
+        This function attempts to index failed actions to the DLI, but may not do so
         for one of the following reasons:
 
-        1. The action response does not have an HTTP status (e.g., the connection failed).
-        2. The list of action errors to forward is not empty, and the action error type is not in the list.
-        3. The action could not be encoded for indexing in the DLI.
-        4. The action failed indexing attempt in the DLI.
+        1. The failed action could not be encoded for indexing in the DLI.
+        2. ES returned an error on the attempt to index the failed action in the DLI.
+        3. The failed action error is retryable (connection error or status code 429).
+
+        Retryable errors are not indexed in the DLI, as they are expected to be
+        sent again to the data stream at `es_datastream_name` by the replay handler.
 
         Args:
-            actions (list[Any]): A list of actions to be processed.
+            actions (list[Any]): A list of actions to index in the DLI.
 
         Returns:
-            list[Any]: A list of actions that were not indexed in the DLI.
+            list[Any]: A list of actions that were not indexed in the DLI due to one of
+            the reasons mentioned above.
         """
         non_indexed_actions: list[Any] = []
         encoded_actions = []
