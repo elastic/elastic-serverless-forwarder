@@ -3,6 +3,7 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 import datetime
+import http
 import uuid
 from typing import Any, Dict, Optional, Union
 
@@ -21,7 +22,10 @@ from .shipper import EventIdGeneratorCallable, ReplayHandlerCallable
 
 _EVENT_BUFFERED = "_EVENT_BUFFERED"
 _EVENT_SENT = "_EVENT_SENT"
-_VERSION_CONFLICT = 409
+# List of HTTP status codes that are considered retryable
+_retryable_http_status_codes = [
+    http.HTTPStatus.TOO_MANY_REQUESTS,
+]
 
 
 class JSONSerializer(Serializer):
@@ -172,11 +176,13 @@ class ElasticsearchShipper:
                 "elasticsearch shipper", extra={"error": error["create"]["error"], "_id": error["create"]["_id"]}
             )
 
-            if "status" in error["create"] and error["create"]["status"] == _VERSION_CONFLICT:
+            if "status" in error["create"] and error["create"]["status"] == http.HTTPStatus.CONFLICT:
                 # Skip duplicate events on dead letter index and replay queue
                 continue
 
-            failed.append({"error": error["create"]["error"], "action": action_failed[0]})
+            failed_error = {"action": action_failed[0]} | self._parse_error(error["create"])
+
+            failed.append(failed_error)
 
         if len(failed) > 0:
             shared_logger.warning("elasticsearch shipper", extra={"success": success, "failed": len(failed)})
@@ -184,6 +190,52 @@ class ElasticsearchShipper:
             shared_logger.info("elasticsearch shipper", extra={"success": success, "failed": len(failed)})
 
         return failed
+
+    def _parse_error(self, error: dict[str, Any]) -> dict[str, Any]:
+        """
+        Parses the error response from Elasticsearch and returns a
+        standardised error field.
+
+        The error field is a dictionary with the following keys:
+
+        - `message`: The error message
+        - `type`: The error type
+
+        If the error is not recognised, the `message` key is set
+        to "Unknown error".
+
+        It also sets the status code in the http field if it is present
+        as a number in the response.
+        """
+        field: dict[str, Any] = {"error": {"message": "Unknown error", "type": "unknown"}}
+
+        if "status" in error and isinstance(error["status"], int):
+            # Collecting the HTTP response status code in the
+            # error field, if present, and the type is an integer.
+            #
+            # Sometimes the status code is a string, for example,
+            # when the connection to the server fails.
+            field["http"] = {"response": {"status_code": error["status"]}}
+
+        if "error" not in error:
+            return field
+
+        if isinstance(error["error"], str):
+            # Can happen with connection errors.
+            field["error"]["message"] = error["error"]
+            if "exception" in error:
+                # The exception field is usually an Exception object,
+                # so we convert it to a string.
+                field["error"]["type"] = str(type(error["exception"]))
+        elif isinstance(error["error"], dict):
+            # Can happen with status 5xx errors.
+            # In this case, we look for the "reason" and "type" fields.
+            if "reason" in error["error"]:
+                field["error"]["message"] = error["error"]["reason"]
+            if "type" in error["error"]:
+                field["error"]["type"] = error["error"]["type"]
+
+        return field
 
     def set_event_id_generator(self, event_id_generator: EventIdGeneratorCallable) -> None:
         self._event_id_generator = event_id_generator
@@ -243,26 +295,59 @@ class ElasticsearchShipper:
         return
 
     def _send_dead_letter_index(self, actions: list[Any]) -> list[Any]:
+        """
+        Index the failed actions in the dead letter index (DLI).
+
+        This function attempts to index failed actions to the DLI, but may not do so
+        for one of the following reasons:
+
+        1. The failed action could not be encoded for indexing in the DLI.
+        2. ES returned an error on the attempt to index the failed action in the DLI.
+        3. The failed action error is retryable (connection error or status code 429).
+
+        Retryable errors are not indexed in the DLI, as they are expected to be
+        sent again to the data stream at `es_datastream_name` by the replay handler.
+
+        Args:
+            actions (list[Any]): A list of actions to index in the DLI.
+
+        Returns:
+            list[Any]: A list of actions that were not indexed in the DLI due to one of
+            the reasons mentioned above.
+        """
+        non_indexed_actions: list[Any] = []
         encoded_actions = []
-        dead_letter_errors: list[Any] = []
+
         for action in actions:
+            if (
+                "http" not in action  # no http status: connection error
+                or action["http"]["response"]["status_code"] in _retryable_http_status_codes
+            ):
+                # We don't want to forward this action to
+                # the dead letter index.
+                #
+                # Add the action to the list of non-indexed
+                # actions and continue with the next one.
+                non_indexed_actions.append(action)
+                continue
+
             # Reshape event to dead letter index
             encoded = self._encode_dead_letter(action)
             if not encoded:
                 shared_logger.error("cannot encode dead letter index event from payload", extra={"action": action})
-                dead_letter_errors.append(action)
+                non_indexed_actions.append(action)
 
             encoded_actions.append(encoded)
 
         # If no action can be encoded, return original action list as failed
         if len(encoded_actions) == 0:
-            return dead_letter_errors
+            return non_indexed_actions
 
         errors = es_bulk(self._es_client, encoded_actions, **self._bulk_kwargs)
         failed = self._handle_outcome(actions=encoded_actions, errors=errors)
 
         if not isinstance(failed, list) or len(failed) == 0:
-            return dead_letter_errors
+            return non_indexed_actions
 
         for action in failed:
             event_payload = self._decode_dead_letter(action)
@@ -271,9 +356,9 @@ class ElasticsearchShipper:
                 shared_logger.error("cannot decode dead letter index event from payload", extra={"action": action})
                 continue
 
-            dead_letter_errors.append(event_payload)
+            non_indexed_actions.append(event_payload)
 
-        return dead_letter_errors
+        return non_indexed_actions
 
     def _encode_dead_letter(self, outcome: dict[str, Any]) -> dict[str, Any]:
         if "action" not in outcome or "error" not in outcome:
@@ -281,14 +366,21 @@ class ElasticsearchShipper:
 
         # Assign random id in case bulk() results in error, it can be matched to the original
         # action
-        return {
+        encoded = {
             "@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
-            "_id": f"{uuid.uuid4()}",
+            "_id": str(uuid.uuid4()),
             "_index": self._es_dead_letter_index,
             "_op_type": "create",
             "message": json_dumper(outcome["action"]),
             "error": outcome["error"],
         }
+
+        if "http" in outcome:
+            # the `http.response.status_code` is not
+            # always present in the error field.
+            encoded["http"] = outcome["http"]
+
+        return encoded
 
     def _decode_dead_letter(self, dead_letter_outcome: dict[str, Any]) -> dict[str, Any]:
         if "action" not in dead_letter_outcome or "message" not in dead_letter_outcome["action"]:
