@@ -2,7 +2,7 @@
 ##### Bug fixes
 * Dead letter index (DLI): align the `error` field in documents to the ECS format; the field now provides `error.message` and `error.type` [793](https://github.com/elastic/elastic-serverless-forwarder/pull/793A).
 ##### Features
-* Dead letter index (DLI): do not send retryable errors to the DLI [793](https://github.com/elastic/elastic-serverless-forwarder/pull/793A).
+* Dead letter index (DLI): do not send retryable errors to the DLI [793](https://github.com/elastic/elastic-serverless-forwarder/pull/793).
 
 ### v1.17.2 - 2024/09/24
 ##### Bug fixes
