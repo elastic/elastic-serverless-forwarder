@@ -97,9 +97,13 @@ def handle_processing_exceptions(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         try:
+            shared_logger.info(f"Calling {func.__name__}")
             return func(*args, **kwargs)
         except Exception as e:
+            shared_logger.error(f"Error in {func.__name__}: {str(e)}")
             raise ProcessingException(f"Error in {func.__name__}: {str(e)}") from e
+        finally:
+            shared_logger.info(f"Finished calling {func.__name__}") 
     return wrapper
 
 def wrap_try_except(
