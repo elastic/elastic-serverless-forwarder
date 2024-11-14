@@ -114,11 +114,7 @@ def wrap_try_except(
             if apm_client:
                 apm_client.capture_exception()
 
-            shared_logger.exception(
-                "exception raised",
-                exc_info=e,
-                extra={"event": lambda_event},
-            )
+            shared_logger.exception("exception raised", exc_info=e)
 
             raise e
 
@@ -133,13 +129,31 @@ def wrap_try_except(
                 "exception raised",
                 exc_info=e,
                 extra={
-                    "event": lambda_event,
+                    "event": summarize_lambda_event(lambda_event),
                 },
             )
 
             return f"exception raised: {e.__repr__()}"
 
     return wrapper
+
+
+def summarize_lambda_event(lambda_event: dict[str, Any]) -> dict[str, Any]:
+    """
+    Summarize the lambda event to include only the most relevant information.
+    """
+
+    summary = {}
+    if "Records" in lambda_event:
+        for record in lambda_event["Records"][:10]:
+            if "eventSource" in record:
+                event_source = record["eventSource"]
+                if event_source == "aws:sqs":
+                    event = json_parser(record["body"])
+                    for r in event["Records"]:
+                        summary["s3_objects_keys"].append(r["s3"]["object"]["key"])
+
+    return summary
 
 
 def discover_integration_scope(s3_object_key: str) -> str:
