@@ -17,6 +17,7 @@ from .utils import (
     expand_event_list_from_field_resolver,
     get_account_id_from_arn,
     get_bucket_name_from_arn,
+    handle_processing_exceptions,
 )
 
 
@@ -85,6 +86,7 @@ def _handle_s3_sqs_move(
         )
 
 
+@handle_processing_exceptions
 def _handle_s3_sqs_event(
     sqs_record_body: dict[str, Any],
     input_id: str,

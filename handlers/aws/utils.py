@@ -1,6 +1,7 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
+from functools import wraps
 import os
 from typing import Any, Callable, Optional
 
@@ -88,6 +89,19 @@ def capture_serverless(
     return apm_capture_serverless()(func=func)  # type:ignore
 
 
+class ProcessingException(Exception):
+    pass
+
+
+def handle_processing_exceptions(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            raise ProcessingException(f"Error in {func.__name__}: {str(e)}") from e
+    return wrapper
+
 def wrap_try_except(
     func: Callable[[dict[str, Any], context_.Context], str]
 ) -> Callable[[dict[str, Any], context_.Context], str]:
@@ -118,10 +132,7 @@ def wrap_try_except(
 
             raise e
 
-        # NOTE: any generic exception is logged and suppressed to prevent the entire Lambda function to fail.
-        # As Lambda can process multiple events, when within a Lambda execution only some event produce an Exception
-        # it should not prevent all other events to be ingested.
-        except Exception as e:
+        except ProcessingException as e:
             if apm_client:
                 apm_client.capture_exception()
 
@@ -129,9 +140,20 @@ def wrap_try_except(
                 "exception raised",
                 exc_info=e,
                 extra={
-                    "event": summarize_lambda_event(lambda_event),
+                    "event": str(e)
                 },
             )
+
+            return f"exception raised: {e.__repr__()}"
+
+        # NOTE: any generic exception is logged and suppressed to prevent the entire Lambda function to fail.
+        # As Lambda can process multiple events, when within a Lambda execution only some event produce an Exception
+        # it should not prevent all other events to be ingested.
+        except Exception as e:
+            if apm_client:
+                apm_client.capture_exception()
+
+            shared_logger.exception("exception raised", exc_info=e)
 
             return f"exception raised: {e.__repr__()}"
 
