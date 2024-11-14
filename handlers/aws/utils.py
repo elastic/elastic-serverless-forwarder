@@ -114,7 +114,11 @@ def wrap_try_except(
             if apm_client:
                 apm_client.capture_exception()
 
-            shared_logger.exception("exception raised", exc_info=e)
+            shared_logger.exception(
+                "exception raised",
+                exc_info=e,
+                extra={"event": lambda_event},
+            )
 
             raise e
 
@@ -125,7 +129,13 @@ def wrap_try_except(
             if apm_client:
                 apm_client.capture_exception()
 
-            shared_logger.exception("exception raised", exc_info=e)
+            shared_logger.exception(
+                "exception raised",
+                exc_info=e,
+                extra={
+                    "event": lambda_event,
+                },
+            )
 
             return f"exception raised: {e.__repr__()}"
 
