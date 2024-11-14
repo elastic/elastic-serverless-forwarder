@@ -36,6 +36,7 @@ from .utils import (
     get_shipper_from_input,
     get_sqs_client,
     get_trigger_type_and_config_source,
+    summarize_lambda_event,
     wrap_try_except,
 )
 
@@ -568,7 +569,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                             return "continuing"
 
                 except Exception as e:
-                    raise ProcessingException(e, event=sqs_record) from e
+                    raise ProcessingException(e, event=summarize_lambda_event(sqs_record)) from e
 
         for composite_shipper in composite_shipper_cache.values():
             composite_shipper.flush()

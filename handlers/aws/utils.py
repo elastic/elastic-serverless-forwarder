@@ -168,7 +168,7 @@ def wrap_try_except(
     return wrapper
 
 
-def summarize_lambda_event(lambda_event: dict[str, Any]) -> dict[str, Any]:
+def summarize_lambda_event(record: dict[str, Any]) -> dict[str, Any]:
     """
     Summarize the lambda event to include only the most relevant information.
     """
@@ -177,14 +177,20 @@ def summarize_lambda_event(lambda_event: dict[str, Any]) -> dict[str, Any]:
         "aws:sqs": [],
     }
 
-    if "Records" in lambda_event:
-        for record in lambda_event["Records"][:10]:
-            if "eventSource" in record:
-                event_source = record["eventSource"]
-                if event_source == "aws:sqs":
-                    event = json_parser(record["body"])
-                    for r in event["Records"][:10]:
-                        summary["aws:sqs"].append(r)
+    # if "Records" in lambda_event:
+    #     for record in lambda_event["Records"][:10]:
+    #         if "eventSource" in record:
+    #             event_source = record["eventSource"]
+    #             if event_source == "aws:sqs":
+    #                 event = json_parser(record["body"])
+    #                 for r in event["Records"][:10]:
+    #                     summary["aws:sqs"].append(r)
+    
+    event_source = record["eventSource"]
+    if event_source == "aws:sqs":
+        event = json_parser(record["body"])
+        for r in event["Records"][:10]:
+            summary["aws:sqs"].append(r)
 
     return summary
 
