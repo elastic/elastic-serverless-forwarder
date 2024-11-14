@@ -90,7 +90,10 @@ def capture_serverless(
 
 
 class ProcessingException(Exception):
-    pass
+    event: dict[str, Any]
+
+    def __init__(self, event: dict[str, Any]):
+        self.event = event
 
 
 def handle_processing_exceptions(func):
@@ -144,7 +147,7 @@ def wrap_try_except(
                 "exception raised",
                 exc_info=e,
                 extra={
-                    "event": str(e)
+                    "event": e.event
                 },
             )
 
