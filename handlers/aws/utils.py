@@ -143,14 +143,17 @@ def summarize_lambda_event(lambda_event: dict[str, Any]) -> dict[str, Any]:
     Summarize the lambda event to include only the most relevant information.
     """
 
-    summary = {}
+    summary = {
+        "s3_objects_keys": [],
+    }
+
     if "Records" in lambda_event:
         for record in lambda_event["Records"][:10]:
             if "eventSource" in record:
                 event_source = record["eventSource"]
                 if event_source == "aws:sqs":
                     event = json_parser(record["body"])
-                    for r in event["Records"]:
+                    for r in event["Records"][:10]:
                         summary["s3_objects_keys"].append(r["s3"]["object"]["key"])
 
     return summary
