@@ -568,7 +568,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                             return "continuing"
 
                 except Exception as e:
-                    raise ProcessingException(e.event) from e
+                    raise ProcessingException(e, event=sqs_record) from e
 
         for composite_shipper in composite_shipper_cache.values():
             composite_shipper.flush()

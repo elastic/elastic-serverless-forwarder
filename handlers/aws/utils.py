@@ -92,7 +92,8 @@ def capture_serverless(
 class ProcessingException(Exception):
     event: dict[str, Any]
 
-    def __init__(self, event: dict[str, Any]):
+    def __init__(self, exception: Exception, event: dict[str, Any]):
+        super().__init__(exception)
         self.event = event
 
 
