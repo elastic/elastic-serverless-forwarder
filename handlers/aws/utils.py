@@ -144,7 +144,7 @@ def summarize_lambda_event(lambda_event: dict[str, Any]) -> dict[str, Any]:
     """
 
     summary = {
-        "s3_objects_keys": [],
+        "aws:sqs": [],
     }
 
     if "Records" in lambda_event:
@@ -154,7 +154,7 @@ def summarize_lambda_event(lambda_event: dict[str, Any]) -> dict[str, Any]:
                 if event_source == "aws:sqs":
                     event = json_parser(record["body"])
                     for r in event["Records"][:10]:
-                        summary["s3_objects_keys"].append(r["s3"]["object"]["key"])
+                        summary["aws:sqs"].append(r)
 
     return summary
 
