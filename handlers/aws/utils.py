@@ -142,7 +142,7 @@ def summarize_lambda_event(event: dict[str, Any], max_records: int = 10) -> dict
     """
     Summarize the lambda event to include only the most relevant information.
     """
-    summary = {}
+    summary: dict[str, Any] = {}
 
     try:
         records = event.get("Records", [])
