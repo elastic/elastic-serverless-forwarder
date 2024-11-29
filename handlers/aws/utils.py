@@ -125,11 +125,85 @@ def wrap_try_except(
             if apm_client:
                 apm_client.capture_exception()
 
-            shared_logger.exception("exception raised", exc_info=e)
+            shared_logger.exception(
+                "exception raised",
+                exc_info=e,
+                extra={
+                    "summary": summarize_lambda_event(lambda_event),
+                },
+            )
 
             return f"exception raised: {e.__repr__()}"
 
     return wrapper
+
+
+def summarize_lambda_event(event: dict[str, Any], max_records: int = 10) -> dict[str, Any]:
+    """
+    Summarize the lambda event to include only the most relevant information.
+    """
+    summary = {}
+
+    try:
+        records = event.get("Records", [])
+
+        for record in records:
+            event_source = record.get("eventSource", "unknown")
+
+            if event_source == "aws:sqs":
+                aws_sqs_summary = summary.get(
+                    "aws:sqs",
+                    # if the key does not exist, we initialize the summary
+                    {
+                        "total_records": 0,
+                        "records": [],
+                    },
+                )
+
+                # The body contains the SQS message payload which is the S3
+                # notification event encoded as a JSON string.
+                event = json_parser(record["body"])
+
+                # So users know if we included only a
+                # subset of the records.
+                aws_sqs_summary["total_records"] += len(event["Records"])
+
+                for r in event["Records"]:
+                    # we only include the s3 object key in the summary.
+                    #
+                    # Here is an example of a record:
+                    #
+                    # {
+                    #   "Records": [
+                    #     {
+                    #       "awsRegion": "eu-west-1",
+                    #       "eventName": "ObjectCreated:Put",
+                    #       "eventSource": "aws:s3",
+                    #       "eventVersion": "2.1",
+                    #       "s3": {
+                    #         "bucket": {
+                    #           "arn": "arn:aws:s3:::mbranca-esf-data",
+                    #           "name": "mbranca-esf-data"
+                    #         },
+                    #         "object": {
+                    #           "key": "AWSLogs/1234567890/CloudTrail-Digest/"
+                    #         }
+                    #       }
+                    #     }
+                    #   ]
+                    # }
+
+                    # We limit the number of records to `max_records` to
+                    # avoid large log payloads.
+                    if len(aws_sqs_summary["records"]) < max_records:
+                        aws_sqs_summary["records"].append(r.get("s3"))
+
+                summary["aws:sqs"] = aws_sqs_summary
+
+    except Exception as e:
+        shared_logger.exception("error summarizing lambda event", exc_info=e)
+
+    return summary
 
 
 def discover_integration_scope(s3_object_key: str) -> str:

@@ -93,13 +93,13 @@ class TestGetTriggerTypeAndConfigSource(TestCase):
             assert get_trigger_type_and_config_source(event=event) == ("cloudwatch-logs", CONFIG_FROM_S3FILE)
 
         with self.subTest("no Records"):
-            with self.assertRaisesRegexp(Exception, "Not supported trigger"):
+            with self.assertRaisesRegex(Exception, "Not supported trigger"):
                 event = {}
 
                 get_trigger_type_and_config_source(event=event)
 
         with self.subTest("len(Records) < 1"):
-            with self.assertRaisesRegexp(Exception, "Not supported trigger"):
+            with self.assertRaisesRegex(Exception, "Not supported trigger"):
                 event = {"Records": []}
 
                 get_trigger_type_and_config_source(event=event)
@@ -460,3 +460,95 @@ class TestGetLambdaRegion(TestCase):
 
         with pytest.raises(ValueError):
             get_lambda_region()
+
+
+@pytest.mark.unit
+class TestSummarizeLambdaEvent(TestCase):
+
+    def test_with_single_s3_sqs_record(self) -> None:
+        from handlers.aws.utils import summarize_lambda_event
+
+        event = {
+            "Records": [
+                {
+                    "body": '{"Records":[{"awsRegion":"eu-west-1","eventName":"ObjectCreated:Put","eventSource":"aws:s3","eventVersion":"2.1","s3":{"bucket":{"arn":"arn:aws:s3:::mbranca-esf-data","name":"mbranca-esf-data"},"object":{"key":"AWSLogs/627286350134/CloudTrail-Digest/"}}}]}',
+                    "eventSource": "aws:sqs",
+                }
+            ]
+        }
+
+        summary = summarize_lambda_event(event=event)
+
+        assert summary == {
+            "aws:sqs": {
+                "total_records": 1,
+                "records": [
+                    {
+                        "bucket": {"arn": "arn:aws:s3:::mbranca-esf-data", "name": "mbranca-esf-data"},
+                        "object": {"key": "AWSLogs/627286350134/CloudTrail-Digest/"},
+                    }
+                ],
+            }
+        }
+
+    def test_with_multiple_s3_sqs_records(self) -> None:
+        from handlers.aws.utils import summarize_lambda_event
+
+        event = {
+            "Records": [
+                {
+                    "body": '{"Records":[{"awsRegion":"eu-west-1","eventName":"ObjectCreated:Put","eventSource":"aws:s3","eventVersion":"2.1","s3":{"bucket":{"arn":"arn:aws:s3:::mbranca-esf-data","name":"mbranca-esf-data"},"object":{"key":"AWSLogs/123456789012/1.log"}}},{"awsRegion":"eu-west-1","eventName":"ObjectCreated:Put","eventSource":"aws:s3","eventVersion":"2.1","s3":{"bucket":{"arn":"arn:aws:s3:::mbranca-esf-data","name":"mbranca-esf-data"},"object":{"key":"AWSLogs/123456789012/2.log"}}}]}',
+                    "eventSource": "aws:sqs",
+                }
+            ]
+        }
+
+        with self.subTest("no limits"):
+            summary = summarize_lambda_event(event=event)
+
+            assert summary == {
+                "aws:sqs": {
+                    "total_records": 2,
+                    "records": [
+                        {
+                            "bucket": {"arn": "arn:aws:s3:::mbranca-esf-data", "name": "mbranca-esf-data"},
+                            "object": {"key": "AWSLogs/123456789012/1.log"},
+                        },
+                        {
+                            "bucket": {"arn": "arn:aws:s3:::mbranca-esf-data", "name": "mbranca-esf-data"},
+                            "object": {"key": "AWSLogs/123456789012/2.log"},
+                        },
+                    ],
+                }
+            }
+
+        with self.subTest("with limits"):
+            summary = summarize_lambda_event(event=event, max_records=1)
+
+            assert summary == {
+                "aws:sqs": {
+                    "total_records": 2,
+                    "records": [
+                        {
+                            "bucket": {"arn": "arn:aws:s3:::mbranca-esf-data", "name": "mbranca-esf-data"},
+                            "object": {"key": "AWSLogs/123456789012/1.log"},
+                        }
+                    ],
+                }
+            }
+
+    def test_with_invalid_s3_sqs_notification(self) -> None:
+        from handlers.aws.utils import summarize_lambda_event
+
+        event = {
+            "Records": [
+                {
+                    "body": "I am not a valid JSON string.",
+                    "eventSource": "aws:sqs",
+                }
+            ]
+        }
+
+        summary = summarize_lambda_event(event)
+
+        assert summary == {}
