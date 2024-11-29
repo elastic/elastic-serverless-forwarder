@@ -129,7 +129,7 @@ def wrap_try_except(
                 "exception raised",
                 exc_info=e,
                 extra={
-                    "summary": summarize_lambda_event(lambda_event),
+                    "summary": summarize_lambda_event(lambda_event, max_records=20),
                 },
             )
 
