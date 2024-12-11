@@ -203,11 +203,11 @@ def summarize_lambda_event(event: dict[str, Any], max_records: int = 10) -> dict
                 # Update the summary with the new information.
                 summary["aws:sqs"] = aws_sqs_summary
 
-    except Exception as e:
-        shared_logger.exception("error summarizing lambda event", exc_info=e)
+    except Exception as exc:
+        shared_logger.exception("error summarizing lambda event", exc_info=exc)
         # We add an error message to the summary so users know if the summary
         # is incomplete.
-        summary["error"] = str(e)
+        summary["error"] = str(exc)
 
     return summary
 
