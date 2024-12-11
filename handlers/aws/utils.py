@@ -154,7 +154,7 @@ def summarize_lambda_event(event: dict[str, Any], max_records: int = 10) -> dict
             if event_source == "aws:sqs":
                 aws_sqs_summary = summary.get(
                     "aws:sqs",
-                    # if `aws:sqs` key does not exist yet, 
+                    # if `aws:sqs` key does not exist yet,
                     # we initialize the summary.
                     {
                         "total_records": 0,
