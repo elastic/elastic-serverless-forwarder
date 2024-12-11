@@ -173,7 +173,7 @@ def summarize_lambda_event(event: dict[str, Any], max_records: int = 10) -> dict
                 for r in notifications["Records"]:
                     # we only include the s3 object key in the summary.
                     #
-                    # Here is an example of a record:
+                    # Here is an example of a notification record:
                     #
                     # {
                     #   "Records": [
@@ -197,8 +197,11 @@ def summarize_lambda_event(event: dict[str, Any], max_records: int = 10) -> dict
 
                     # We stop adding records to the summary once we reach
                     # the `max_records` limit.
-                    if len(aws_sqs_summary[first_records_key]) < max_records:
-                        aws_sqs_summary[first_records_key].append(r.get("s3"))
+                    if len(aws_sqs_summary[first_records_key]) == max_records:
+                        break
+
+                    # Add the s3 object key to the summary.
+                    aws_sqs_summary[first_records_key].append(r.get("s3"))
 
                 # Update the summary with the new information.
                 summary["aws:sqs"] = aws_sqs_summary
