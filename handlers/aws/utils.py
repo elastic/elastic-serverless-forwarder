@@ -145,6 +145,7 @@ def summarize_lambda_event(event: dict[str, Any], max_records: int = 10) -> dict
     summary: dict[str, Any] = {}
 
     try:
+        first_records_key = f"first_{max_records}_records"
         records = event.get("Records", [])
 
         for record in records:
@@ -153,22 +154,23 @@ def summarize_lambda_event(event: dict[str, Any], max_records: int = 10) -> dict
             if event_source == "aws:sqs":
                 aws_sqs_summary = summary.get(
                     "aws:sqs",
-                    # if the key does not exist, we initialize the summary
+                    # if `aws:sqs` key does not exist yet, 
+                    # we initialize the summary.
                     {
                         "total_records": 0,
-                        "records": [],
+                        first_records_key: [],
                     },
                 )
 
-                # The body contains the SQS message payload which is the S3
-                # notification event encoded as a JSON string.
-                event = json_parser(record["body"])
+                # We keep track of the total number of notifications in the
+                # lambda event, so users know if the summary is incomplete.
+                notifications = json_parser(record["body"])
 
                 # So users know if we included only a
                 # subset of the records.
-                aws_sqs_summary["total_records"] += len(event["Records"])
+                aws_sqs_summary["total_records"] += len(notifications["Records"])
 
-                for r in event["Records"]:
+                for r in notifications["Records"]:
                     # we only include the s3 object key in the summary.
                     #
                     # Here is an example of a record:
@@ -193,15 +195,19 @@ def summarize_lambda_event(event: dict[str, Any], max_records: int = 10) -> dict
                     #   ]
                     # }
 
-                    # We limit the number of records to `max_records` to
-                    # avoid large log payloads.
-                    if len(aws_sqs_summary["records"]) < max_records:
-                        aws_sqs_summary["records"].append(r.get("s3"))
+                    # We stop adding records to the summary once we reach
+                    # the `max_records` limit.
+                    if len(aws_sqs_summary[first_records_key]) < max_records:
+                        aws_sqs_summary[first_records_key].append(r.get("s3"))
 
+                # Update the summary with the new information.
                 summary["aws:sqs"] = aws_sqs_summary
 
     except Exception as e:
         shared_logger.exception("error summarizing lambda event", exc_info=e)
+        # We add an error message to the summary so users know if the summary
+        # is incomplete.
+        summary["error"] = str(e)
 
     return summary
 
