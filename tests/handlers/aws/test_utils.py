@@ -465,6 +465,8 @@ class TestGetLambdaRegion(TestCase):
 @pytest.mark.unit
 class TestSummarizeLambdaEvent(TestCase):
 
+    max_records = 42
+
     def test_with_single_s3_sqs_record(self) -> None:
         from handlers.aws.utils import summarize_lambda_event
 
@@ -477,12 +479,12 @@ class TestSummarizeLambdaEvent(TestCase):
             ]
         }
 
-        summary = summarize_lambda_event(event=event)
+        summary = summarize_lambda_event(event=event, max_records=self.max_records)
 
         assert summary == {
             "aws:sqs": {
                 "total_records": 1,
-                "records": [
+                f"first_{self.max_records}_records": [
                     {
                         "bucket": {"arn": "arn:aws:s3:::mbranca-esf-data", "name": "mbranca-esf-data"},
                         "object": {"key": "AWSLogs/627286350134/CloudTrail-Digest/"},
@@ -504,12 +506,12 @@ class TestSummarizeLambdaEvent(TestCase):
         }
 
         with self.subTest("no limits"):
-            summary = summarize_lambda_event(event=event)
+            summary = summarize_lambda_event(event=event, max_records=self.max_records)
 
             assert summary == {
                 "aws:sqs": {
                     "total_records": 2,
-                    "records": [
+                    f"first_{self.max_records}_records": [
                         {
                             "bucket": {"arn": "arn:aws:s3:::mbranca-esf-data", "name": "mbranca-esf-data"},
                             "object": {"key": "AWSLogs/123456789012/1.log"},
@@ -528,7 +530,7 @@ class TestSummarizeLambdaEvent(TestCase):
             assert summary == {
                 "aws:sqs": {
                     "total_records": 2,
-                    "records": [
+                    "first_1_records": [
                         {
                             "bucket": {"arn": "arn:aws:s3:::mbranca-esf-data", "name": "mbranca-esf-data"},
                             "object": {"key": "AWSLogs/123456789012/1.log"},
@@ -551,4 +553,4 @@ class TestSummarizeLambdaEvent(TestCase):
 
         summary = summarize_lambda_event(event)
 
-        assert summary == {}
+        assert summary == {'error': 'unexpected character: line 1 column 1 (char 0)'}
