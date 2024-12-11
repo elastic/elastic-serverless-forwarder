@@ -553,4 +553,4 @@ class TestSummarizeLambdaEvent(TestCase):
 
         summary = summarize_lambda_event(event)
 
-        assert summary == {'error': 'unexpected character: line 1 column 1 (char 0)'}
+        assert summary == {"error": "unexpected character: line 1 column 1 (char 0)"}
