@@ -1,3 +1,7 @@
+### v1.19.0 - 2024/12/13
+##### Features
+* s3-sqs input: log a lambda event summary in case of errors [860](https://github.com/elastic/elastic-serverless-forwarder/pull/860).
+
 ### v1.18.0 - 2024/10/08
 ##### Features
 * Dead letter index (DLI): do not send retryable errors to the DLI [793](https://github.com/elastic/elastic-serverless-forwarder/pull/793).
