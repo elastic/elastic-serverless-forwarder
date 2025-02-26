@@ -69,7 +69,7 @@ def get_ec2_client() -> BotoBaseClient:
 
 
 def capture_serverless(
-    func: Callable[[dict[str, Any], context_.Context], str]
+    func: Callable[[dict[str, Any], context_.Context], str],
 ) -> Callable[[dict[str, Any], context_.Context], str]:
     """
     Decorator with logic regarding when to inject apm_capture_serverless
@@ -89,7 +89,7 @@ def capture_serverless(
 
 
 def wrap_try_except(
-    func: Callable[[dict[str, Any], context_.Context], str]
+    func: Callable[[dict[str, Any], context_.Context], str],
 ) -> Callable[[dict[str, Any], context_.Context], str]:
     """
     Decorator to catch every exception and capture them by apm client if set
