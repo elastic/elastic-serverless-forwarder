@@ -88,7 +88,7 @@ def multi_line(func: StorageDecoratorCallable[ProtocolStorageType]) -> StorageDe
             for data, starting_offset, ending_offset, newline, event_expanded_offset in iterator:
                 assert isinstance(data, bytes)
 
-                shared_logger.debug("multi_line skipped", extra={"offset": ending_offset})
+                shared_logger.debug("no multi_line processor configured, processing as single line", extra={"offset": ending_offset})
 
                 yield data, starting_offset, ending_offset, newline, event_expanded_offset
         else:
