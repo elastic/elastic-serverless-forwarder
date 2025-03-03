@@ -208,7 +208,7 @@ The type of the forwarding target output. Currently only the following outputs a
 * `elasticsearch`
 * [preview] `logstash`
 
-Each type can only be used for a maximum of one output up to and including 1.14.0 version. If {{ls}} is chosen as an output, Elastic Serverless Forwarder expects the [`elastic_serverless_forwarder`](logstash://docs/reference/plugins-inputs-elastic_serverless_forwarder.md) Logstash input to be installed, enabled, and properly configured. For more information about installing Logstash plugins, refer to the [Logstash documentation](logstash://docs/reference/working-with-plugins.md#installing-plugins).
+Each type can only be used for a maximum of one output up to and including 1.14.0 version. If {{ls}} is chosen as an output, Elastic Serverless Forwarder expects the [`elastic_serverless_forwarder`](logstash://reference/plugins-inputs-elastic_serverless_forwarder.md) Logstash input to be installed, enabled, and properly configured. For more information about installing Logstash plugins, refer to the [Logstash documentation](logstash://reference/working-with-plugins.md#installing-plugins).
 
 `inputs.[].outputs.[].args`: Custom init arguments for the specified forwarding target output.
 
