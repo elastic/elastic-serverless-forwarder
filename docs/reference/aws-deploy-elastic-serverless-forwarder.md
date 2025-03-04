@@ -644,7 +644,7 @@ If you want to use the publish script for deploying the forwarder with different
 ```bash
 $ ./publish_lambda.sh publish-config-for-first-lambda.yaml first-lambda lambda-v1.19.0 s3-lambda-artifact-bucket-name eu-central-1
 
-$ ./publish_lambda.sh publish-config-for-second-lambda.yaml second-lambda lambda-v1.19.0 ss3-lambda-artifact-bucket-name eu-central-1
+$ ./publish_lambda.sh publish-config-for-second-lambda.yaml second-lambda lambda-v1.19.0 s3-lambda-artifact-bucket-name eu-central-1
 ```
 
 ::::{note}
