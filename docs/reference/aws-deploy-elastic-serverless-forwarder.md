@@ -614,11 +614,11 @@ $ ./publish_lambda.sh publish-config.yaml forwarder-lambda lambda-v1.19.0 s3-lam
 You can update the version of a published Elastic Serverless Forwarder without changing its configuration by running the publishing script again and passing a **new** [`forwarder-tag`](https://github.com/elastic/elastic-serverless-forwarder/tags):
 
 ```bash
-$ ./publish_lambda.sh publish-config.yaml forwarder-lambda lambda-v[new-version] s3-lambda-artifact-bucket-name eu-central-1
+$ ./publish_lambda.sh publish-config.yaml forwarder-lambda lambda-v[next-version] s3-lambda-artifact-bucket-name eu-central-1
 ```
 
 ::::{note}
-The above examples show the forwarder being updated from `lambda-v1.19.0` to `lambda-v[new-version]`.
+The above examples show the forwarder being updated from `lambda-v1.19.0` to `lambda-v[next-version]`.
 ::::
 
 
