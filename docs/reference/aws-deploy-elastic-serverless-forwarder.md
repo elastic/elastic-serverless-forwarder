@@ -303,7 +303,7 @@ These parameters define the permissions required in order to access the associat
 
 ### Network [_network]
 
-To attach the Elastic Serverless Forwarder to a specific AWS VPC, specify the security group IDs and subnet IDs that belong to the AWS VPC. This requirement is related to the [CloudFormation VPCConfig property](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-function-vpcconfig.md).
+To attach the Elastic Serverless Forwarder to a specific AWS VPC, specify the security group IDs and subnet IDs that belong to the AWS VPC. This requirement is related to the [CloudFormation VPCConfig property](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-function-vpcconfig.html).
 
 These are the parameters:
 
@@ -312,7 +312,7 @@ These are the parameters:
 
 Both parameters are required in order to attach the Elastic Serverless Forwarder to a specific AWS VPC. Leave both parameters blank if you don’t want the forwarder to belong to any specific AWS VPC.
 
-If the Elastic Serverless Forwarder is attached to a VPC, you need to [create VPC endpoints](https://docs.aws.amazon.com/vpc/latest/privatelink/create-interface-endpoint.md) for S3 and SQS, and for **every** service you define as an input for the forwarder. S3 and SQS VPC endpoints are always required for reading the `config.yaml` uploaded to S3 and managing the continuing queue and the replay queue, regardless of the [Inputs](/reference/index.md#aws-serverless-forwarder-inputs) used. If you use [Amazon CloudWatch Logs subscription filters](/reference/index.md#aws-serverless-forwarder-inputs-cloudwatch), you need to create a VPC endpoint for EC2, too.
+If the Elastic Serverless Forwarder is attached to a VPC, you need to [create VPC endpoints](https://docs.aws.amazon.com/vpc/latest/privatelink/create-interface-endpoint.html) for S3 and SQS, and for **every** service you define as an input for the forwarder. S3 and SQS VPC endpoints are always required for reading the `config.yaml` uploaded to S3 and managing the continuing queue and the replay queue, regardless of the [Inputs](/reference/index.md#aws-serverless-forwarder-inputs) used. If you use [Amazon CloudWatch Logs subscription filters](/reference/index.md#aws-serverless-forwarder-inputs-cloudwatch), you need to create a VPC endpoint for EC2, too.
 
 ::::{note}
 Refer to the [AWS PrivateLink traffic filters](docs-content://deploy-manage/security/aws-privatelink-traffic-filters.md) documentation to find your VPC endpoint ID and the hostname to use in the `config.yml` in order to access your Elasticsearch cluster over PrivateLink.
@@ -322,7 +322,7 @@ Refer to the [AWS PrivateLink traffic filters](docs-content://deploy-manage/secu
 
 ## Deploy Elastic Serverless Forwarder from Terraform [aws-serverless-forwarder-deploy-terraform]
 
-The terraform files to deploy ESF can be found in [`esf-terraform` repository](https://github.com/elastic/terraform-elastic-esf). There are two requirements to deploy these files: [curl](https://curl.se/download.md) and [terraform](https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli). Refer to the [README file](https://github.com/elastic/terraform-elastic-esf/blob/main/README.md) to learn how to use it.
+The terraform files to deploy ESF can be found in [`esf-terraform` repository](https://github.com/elastic/terraform-elastic-esf). There are two requirements to deploy these files: [curl](https://curl.se/download.html) and [terraform](https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli). Refer to the [README file](https://github.com/elastic/terraform-elastic-esf/blob/main/README.md) to learn how to use it.
 
 
 ## Deploy Elastic Serverless Forwarder from SAR [aws-serverless-forwarder-deploy-sar]
@@ -542,7 +542,7 @@ continuing-queue:
 | `kinesis-data-stream.[].batching_window_in_second` | Set this value above the default (`0`) if you experience ingestion delays in your output **and** `GetRecords.IteratorAgeMilliseconds` and `IncomingRecords` Kinesis CloudWatch metrics for the [Amazon Kinesis Data Streams](/reference/index.md#aws-serverless-forwarder-inputs-kinesis) keep increasing **and** the average execution time of the forwarder is below 14 minutes. This will increase the number of records the forwarder will process in a single execution for the [Amazon Kinesis Data Streams](/reference/index.md#aws-serverless-forwarder-inputs-kinesis). |
 | `kinesis-data-stream.[].starting_position` | Change this value from the default (`TRIM_HORIZON`) if you want to change the starting position of the records processed by the forwarder for the [Amazon Kinesis Data Streams](/reference/index.md#aws-serverless-forwarder-inputs-kinesis). |
 | `kinesis-data-stream.[].starting_position_timestamp` | Set this value to the time from which to start reading (in Unix time seconds) if you set `ElasticServerlessForwarderKinesisStartingPosition` to "AT_TIMESTAMP". |
-| `kinesis-data-stream.[].parallelization_factor` | Defines the number of forwarder functions that can run concurrently per shard (default is `1`). Increase this value if you experience ingestion delays in your output **and** `GetRecords.IteratorAgeMilliseconds` and `IncomingRecords` Kinesis CloudWatch metrics for the [Amazon Kinesis Data Streams](/reference/index.md#aws-serverless-forwarder-inputs-kinesis) keep increasing **and** the average execution time of the forwarder is below 14 minutes. This will increase the number of records processed concurrently for [Amazon Kinesis Data Streams](/reference/index.md#aws-serverless-forwarder-inputs-kinesis). For more info, refer to [AWS Kinesis docs](https://docs.aws.amazon.com/lambda/latest/dg/with-kinesis.md). |
+| `kinesis-data-stream.[].parallelization_factor` | Defines the number of forwarder functions that can run concurrently per shard (default is `1`). Increase this value if you experience ingestion delays in your output **and** `GetRecords.IteratorAgeMilliseconds` and `IncomingRecords` Kinesis CloudWatch metrics for the [Amazon Kinesis Data Streams](/reference/index.md#aws-serverless-forwarder-inputs-kinesis) keep increasing **and** the average execution time of the forwarder is below 14 minutes. This will increase the number of records processed concurrently for [Amazon Kinesis Data Streams](/reference/index.md#aws-serverless-forwarder-inputs-kinesis). For more info, refer to [AWS Kinesis docs](https://docs.aws.amazon.com/lambda/latest/dg/with-kinesis.html). |
 | `sqs.[]` | List of [Amazon SQS message payload](/reference/index.md#aws-serverless-forwarder-inputs-direct) (i.e. triggers) for the forwarder, matching those defined in your [Create and upload `config.yaml` to S3 bucket](#sample-s3-config-file). |
 | `sqs.[].arn` | ARN of the AWS SQS queue trigger input. |
 | `sqs.[].batch_size` | Set this value above the default (`10`) if you experience ingestion delays in your output **and** `ApproximateNumberOfMessagesVisible` and `ApproximateAgeOfOldestMessage` SQS CloudWatch metrics for the [Amazon SQS message payload](/reference/index.md#aws-serverless-forwarder-inputs-direct) keep increasing **and** the average execution time of the forwarder is below 14 minutes. This will increase the number of messages the forwarder will process in a single execution for the [Amazon SQS message payload](/reference/index.md#aws-serverless-forwarder-inputs-direct). |
@@ -593,7 +593,7 @@ Usage: ./publish_lambda.sh config-path lambda-name forwarder-tag bucket-name reg
 #### Prerequisites [_prerequisites]
 
 * Python3.9 with pip3 is required to run the script
-* [AWS CLI](https://aws.amazon.com/cli/), [SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.md) and the [ruamel.yaml package](https://pypi.org/project/ruamel.yaml/) must also be installed
+* [AWS CLI](https://aws.amazon.com/cli/), [SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html) and the [ruamel.yaml package](https://pypi.org/project/ruamel.yaml/) must also be installed
 
 ```bash
 $ pip3 install awscli aws-sam-cli ruamel.yaml
