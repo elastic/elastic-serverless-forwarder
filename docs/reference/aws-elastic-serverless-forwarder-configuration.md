@@ -62,7 +62,7 @@ For CloudWatch Logs subscription filter log group resources that you want to use
 
 ## Use AWS Secrets Manager [use-secrets-manager]
 
-AWS Secrets Manager enables you to replace hardcoded credentials in your code, including passwords, with an API call to Secrets Manager to retrieve the secret programmatically. For more info, refer to the [AWS Secrets Manager documentation](https://docs.aws.amazon.com/secretsmanager/index.md).
+AWS Secrets Manager enables you to replace hardcoded credentials in your code, including passwords, with an API call to Secrets Manager to retrieve the secret programmatically. For more info, refer to the [AWS Secrets Manager documentation](https://docs.aws.amazon.com/secretsmanager/index.html).
 
 There are 2 types of secrets that can be used:
 
@@ -204,11 +204,11 @@ You can define a list of regular expressions within `inputs.[].exclude`. If this
 ::::{note}
 Both config parameters are optional, and can be set independently of each other. In terms of rule precedence, the exclude filter is applied first and then the include filter, so exclude takes precedence if both are specified.
 
-All regular expressions are case-sensitive and should follow [Python’s 3.9 regular expression syntax](https://docs.python.org/3.9/library/re.md#regular-expression-syntax).
+All regular expressions are case-sensitive and should follow [Python’s 3.9 regular expression syntax](https://docs.python.org/3.9/library/re.html#regular-expression-syntax).
 
 Messages are scanned for terms that match the defined filters. Use the `^` (caret) special character to explicitly anchor the regex to the position before the first character of the string, and use `$` to anchor at the end.
 
-No flags are used when the regular expression is compiled. Please refer to [inline flag documentation](https://docs.python.org/3.9/library/re.md#re.compile) for alternative options for multiline, case-insensitive, and other matching behaviors.
+No flags are used when the regular expression is compiled. Please refer to [inline flag documentation](https://docs.python.org/3.9/library/re.html#re.compile) for alternative options for multiline, case-insensitive, and other matching behaviors.
 
 ::::
 
@@ -374,7 +374,7 @@ Note that you should escape the opening square bracket (`[`) in the regular expr
 
 `inputs.[].multiline.type` defines which aggregation method to use. The default is `pattern`. The other options are `count`, which enables you to aggregate a constant number of lines, and `while_pattern`, which aggregates lines by pattern without matching options.
 
-`inputs.[].multiline.pattern` differs from the patterns supported by {{ls}}. See [Python’s 3.9 regular expression syntax](https://docs.python.org/3.9/library/re.md#regular-expression-syntax) for a list of supported regexp patterns. Depending on how you configure other multiline options, lines that match the specified regular expression are considered either continuations of a previous line or the start of a new multiline event.
+`inputs.[].multiline.pattern` differs from the patterns supported by {{ls}}. See [Python’s 3.9 regular expression syntax](https://docs.python.org/3.9/library/re.html#regular-expression-syntax) for a list of supported regexp patterns. Depending on how you configure other multiline options, lines that match the specified regular expression are considered either continuations of a previous line or the start of a new multiline event.
 
 `inputs.[].multiline.negate` defines whether the pattern is negated. The default is `false`. This setting works only with `pattern` and `while_pattern` types.
 

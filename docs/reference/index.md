@@ -54,7 +54,7 @@ You can set up separate SQS queues for each type of log (for example, `aws.vpcfl
 
 For other log types, you can optionally set the `es_datastream_name` value in the configuration file according to the naming convention of the {{es}} data stream and integration.  If the `es_datastream_name` is not specified, and the log cannot be matched with any of the above AWS services, then the dataset will be set to `generic` and the namespace set to `default`, pointing to the data stream name `logs-generic-default`.
 
-For more information on creating SQS event notifications for S3 buckets, read the [AWS documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/ways-to-add-notification-config-to-bucket.md).
+For more information on creating SQS event notifications for S3 buckets, read the [AWS documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/ways-to-add-notification-config-to-bucket.html).
 
 ::::{note}
 You must set a visibility timeout of `910` seconds for any SQS queues you want to use as a trigger. This is 10 seconds greater than the Elastic Serverless Forwarder Lambda timeout.
@@ -105,7 +105,7 @@ You can remove a specific input as a trigger of the Elastic Serverless Forwarder
 
 In the unlikely scenario that the Elastic Serverless Forwarder exceeds its maximum allocated execution time and is forcefully terminated, the continuing queue will not be properly populated with a copy of the messages left to be processed. In this scenario, all or a portion of the messages might be lost depending on the specific AWS resource used as input and its configuration.
 
-An AWS SQS [Dead Letter Queue](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-dead-letter-queues.md) is created for the continuing queue.
+An AWS SQS [Dead Letter Queue](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-dead-letter-queues.html) is created for the continuing queue.
 
 When the Elastic Serverless Forwarder is triggered by the continuing queue, in the unlikely scenario that it exceeds its maximum allocated execution time and is forcefully terminated, the messages in the payload that triggered the Elastic Serverless Forwarder execution are not deleted from the continuing queue and another Elastic Serverless Forwarder execution is triggered. The continuing queue is configured for a number of 3 maximum receives before a message is sent to the DLQ.
 
@@ -136,7 +136,7 @@ You can remove a specific input as a trigger of the Elastic Serverless Forwarder
 ::::
 
 
-An AWS SQS [Dead Letter Queue (DLQ)](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-dead-letter-queues.md) is created for the replay queue.
+An AWS SQS [Dead Letter Queue (DLQ)](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-dead-letter-queues.html) is created for the replay queue.
 
 The same message can go back to the replay queue up to three times. After reaching the configured number of 3 maximum receives, the message will be sent to the DLQ. The same message can go back to the replay queue either because it contains an event that failed again to be forwarded, according to the planned design, or in the unlikely scenario that the Elastic Serverless Forwarder triggered by the queue exceeds its maximum allocated execution time and is forcefully terminated. In this scenario the messages will not be lost and will eventually be sent to the DQL.
 
