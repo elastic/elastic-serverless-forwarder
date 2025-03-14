@@ -570,7 +570,7 @@ Download the [`publish_lambda.sh` script](https://raw.githubusercontent.com/elas
 
 ```bash
  $ ./publish_lambda.sh
-    AWS CLI (https://aws.amazon.com/cli/), SAM (https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html) and Python3.9 with pip3 required
+    AWS CLI (https://aws.amazon.com/cli/), SAM (https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html) and Python3.12 with pip3 required
     Please, before launching the tool execute "$ pip3 install ruamel.yaml"
 Usage: ./publish_lambda.sh config-path lambda-name forwarder-tag bucket-name region [custom-role-prefix]
     Arguments:
@@ -588,7 +588,7 @@ Usage: ./publish_lambda.sh config-path lambda-name forwarder-tag bucket-name reg
 
 #### Prerequisites [_prerequisites]
 
-* Python3.9 with pip3 is required to run the script
+* Python3.12 with pip3 is required to run the script
 * [AWS CLI](https://aws.amazon.com/cli/), [SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html) and the [ruamel.yaml package](https://pypi.org/project/ruamel.yaml/) must also be installed
 
 ```bash
