@@ -11,7 +11,7 @@ from share.environment import get_environment
 
 
 @pytest.mark.unit
-@mock.patch.dict(os.environ, {"AWS_EXECUTION_ENV": "AWS_Lambda_Python3.9"})
+@mock.patch.dict(os.environ, {"AWS_EXECUTION_ENV": "AWS_Lambda_Python3.12"})
 def test_aws_environment() -> None:
     environment = get_environment()
-    assert environment == "AWS_Lambda_Python3.9"
+    assert environment == "AWS_Lambda_Python3.12"

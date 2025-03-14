@@ -71,7 +71,7 @@ Resources:
       Timeout: 900
       MemorySize: 512
       CodeUri: %codeUri%
-      Runtime: python3.9
+      Runtime: python3.12
       Architectures:
         - x86_64
       Handler: main_aws.handler
