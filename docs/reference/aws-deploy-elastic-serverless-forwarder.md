@@ -34,7 +34,7 @@ If the customization options available when deploying via Serverless Application
 1. Go to **Integrations** in {{kib}} and search for AWS (or select the **AWS** category to filter the list).
 2. Click the AWS integration, select **Settings** and click **Install AWS assets** and confirm to install all the AWS integration assets.
 
-:::{image} ../images/aws-serverless-forwarder-install-assets.png
+:::{image} images/aws-serverless-forwarder-install-assets.png
 :alt: Find and install AWS integration assets in {kib}
 :class: screenshot
 :::
@@ -351,7 +351,7 @@ Only one deployment per region is allowed when using the AWS console directly.
 3. Click **Serverless application** and search for **elastic-serverless-forwarder**.
 4. Select **elastic-serverless-forwarder** from the search results (ignoring any application beginning **helper-**).
 
-    :::{image} ../images/aws-serverless-forwarder-create-function.png
+    :::{image} images/aws-serverless-forwarder-create-function.png
     :alt: Create Elastic Serverless Forwarder Lambda function within SAR
     :class: screenshot
     :::

@@ -383,10 +383,10 @@ Note that you should escape the opening square bracket (`[`) in the regular expr
 |     |     |     |     |
 | --- | --- | --- | --- |
 | Setting for `negate` | Setting for `match` | Result | Example `pattern: ^b` |
-| `false` | `after` | Consecutive lines that match the pattern are appended to the previous line that doesn’t match. | ![Lines a b b c b b become "abb" and "cbb"](../images/false-after-multi.png "") |
-| `false` | `before` | Consecutive lines that match the pattern are prepended to the next line that doesn’t match. | ![Lines b b a b b c become "bba" and "bbc"](../images/false-before-multi.png "") |
-| `true` | `after` | Consecutive lines that don’t match the pattern are appended to the previous line that does match. | ![Lines b a c b d e become "bac" and "bde"](../images/true-after-multi.png "") |
-| `false` | `before` | Consecutive lines that don’t match the pattern are prepended to the next line that does match. | ![Lines a c b d e b become "acb" and "deb"](../images/true-before-multi.png "") |
+| `false` | `after` | Consecutive lines that match the pattern are appended to the previous line that doesn’t match. | ![Lines a b b c b b become "abb" and "cbb"](images/false-after-multi.png "") |
+| `false` | `before` | Consecutive lines that match the pattern are prepended to the next line that doesn’t match. | ![Lines b b a b b c become "bba" and "bbc"](images/false-before-multi.png "") |
+| `true` | `after` | Consecutive lines that don’t match the pattern are appended to the previous line that does match. | ![Lines b a c b d e become "bac" and "bde"](images/true-after-multi.png "") |
+| `false` | `before` | Consecutive lines that don’t match the pattern are prepended to the next line that does match. | ![Lines a c b d e b become "acb" and "deb"](images/true-before-multi.png "") |
 
 ::::{note}
 The `after` setting is equivalent to `previous` in [{{ls}}](logstash://reference/plugins-codecs-multiline.md), and `before` is equivalent to `next`.
@@ -567,9 +567,9 @@ To make it easier for you to test the regexp patterns in your multiline config, 
 2. Paste a sample message between the three double quote delimiters (`""" """`) at line `5`
 3. Click `Run` to see which lines in the message match your specified configuration.
 
-![Add your test message to Multiline Regexp test](../images/multiline-regexp-test-repl-main.png "")
+![Add your test message to Multiline Regexp test](images/multiline-regexp-test-repl-main.png "")
 
-![View the test results](../images/multiline-regexp-test-repl-run.png "")
+![View the test results](images/multiline-regexp-test-repl-run.png "")
 
 
 ## Manage self-signed certificates [aws-serverless-manage-self-signed-certificates]

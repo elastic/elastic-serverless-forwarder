@@ -25,7 +25,7 @@ The Elastic Serverless Forwarder can forward AWS data to cloud-hosted, self-mana
 * Amazon CloudWatch Logs subscription filters
 * Amazon SQS message payload
 
-:::{image} ../images/aws-serverless-lambda-flow.png
+:::{image} images/aws-serverless-lambda-flow.png
 :alt: AWS Lambda flow
 :class: screenshot
 :::
