@@ -389,7 +389,7 @@ Note that you should escape the opening square bracket (`[`) in the regular expr
 | `false` | `before` | Consecutive lines that don’t match the pattern are prepended to the next line that does match. | ![Lines a c b d e b become "acb" and "deb"](images/true-before-multi.png "") |
 
 ::::{note}
-The `after` setting is equivalent to `previous` in [{{ls}}](logstash://reference/plugins-codecs-multiline.md), and `before` is equivalent to `next`.
+The `after` setting is equivalent to `previous` in [{{ls}}](logstash-docs-md://lsr/plugins-codecs-multiline.md), and `before` is equivalent to `next`.
 ::::
 
 
