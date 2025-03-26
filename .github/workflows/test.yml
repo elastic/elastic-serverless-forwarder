@@ -38,7 +38,7 @@ jobs:
 
     - uses: actions/setup-python@v5
       with:
-        python-version: '3.9' # As defined in tests/scripts/docker/run_tests.sh
+        python-version: '3.12' # As defined in tests/scripts/docker/run_tests.sh
         cache: 'pip'          # caching pip dependencies
 
     - run: make all-requirements
