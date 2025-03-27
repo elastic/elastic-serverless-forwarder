@@ -567,7 +567,7 @@ continuing-queue:
 
 A bash script for publishing the Elastic Serverless Forwarder directly to your AWS account is available from the [Elastic Serverless Forwarder repository](https://github.com/elastic/elastic-serverless-forwarder).
 
-Download the [`publish_lambda.sh` script](https://raw.githubusercontent.com/elastic/elastic-serverless-forwarder/lambda-v1.8.0/publish_lambda.sh) and follow the instructions below.
+Download the [`publish_lambda.sh` script](https://raw.githubusercontent.com/elastic/elastic-serverless-forwarder/lambda-v1.19.0/publish_lambda.sh) and follow the instructions below.
 
 
 #### Script arguments [_script_arguments]
@@ -605,7 +605,7 @@ $ pip3 install awscli aws-sam-cli ruamel.yaml
 Assuming `publish-config.yaml` in saved in the same directory you intend to run `publish_lambda.sh` from, here’s an example:
 
 ```bash
-$ ./publish_lambda.sh publish-config.yaml forwarder-lambda lambda-v1.6.0 s3-lambda-artifact-bucket-name eu-central-1
+$ ./publish_lambda.sh publish-config.yaml forwarder-lambda lambda-v1.19.0 s3-lambda-artifact-bucket-name eu-central-1
 ```
 
 
@@ -614,11 +614,11 @@ $ ./publish_lambda.sh publish-config.yaml forwarder-lambda lambda-v1.6.0 s3-lamb
 You can update the version of a published Elastic Serverless Forwarder without changing its configuration by running the publishing script again and passing a **new** [`forwarder-tag`](https://github.com/elastic/elastic-serverless-forwarder/tags):
 
 ```bash
-$ ./publish_lambda.sh publish-config.yaml forwarder-lambda lambda-v1.7.0 s3-lambda-artifact-bucket-name eu-central-1
+$ ./publish_lambda.sh publish-config.yaml forwarder-lambda lambda-v1.20.0 s3-lambda-artifact-bucket-name eu-central-1
 ```
 
 ::::{note}
-The above examples show the forwarder being updated from `lambda-v1.6.0` to `lambda-v1.7.0`.
+The above examples show the forwarder being updated from `lambda-v1.19.0` to `lambda-v1.20.0`.
 ::::
 
 
@@ -628,11 +628,11 @@ The above examples show the forwarder being updated from `lambda-v1.6.0` to `lam
 If you want to change the configuration of a published Elastic Serverless Forwarder without changing its version, you can update the `publish-config.yaml` and run the script again using the **same** `forwarder-tag`:
 
 ```bash
-$ ./publish_lambda.sh publish-config.yaml forwarder-lambda lambda-v1.6.0 s3-lambda-artifact-bucket-name eu-central-1
+$ ./publish_lambda.sh publish-config.yaml forwarder-lambda lambda-v1.19.0 s3-lambda-artifact-bucket-name eu-central-1
 ```
 
 ::::{note}
-The above example shows an existing `lambda-v1.6.0` configuration being updated without changing version.
+The above example shows an existing `lambda-v1.19.0` configuration being updated without changing version.
 ::::
 
 
@@ -642,9 +642,9 @@ The above example shows an existing `lambda-v1.6.0` configuration being updated 
 If you want to use the publish script for deploying the forwarder with different configurations, create two different `publish-config.yaml` files with unique names and run the publishing script twice, with correct references to the `config-path` and `lambda-name`:
 
 ```bash
-$ ./publish_lambda.sh publish-config-for-first-lambda.yaml first-lambda lambda-v1.6.0 s3-lambda-artifact-bucket-name eu-central-1
+$ ./publish_lambda.sh publish-config-for-first-lambda.yaml first-lambda lambda-v1.19.0 s3-lambda-artifact-bucket-name eu-central-1
 
-$ ./publish_lambda.sh publish-config-for-second-lambda.yaml second-lambda lambda-v1.6.0 ss3-lambda-artifact-bucket-name eu-central-1
+$ ./publish_lambda.sh publish-config-for-second-lambda.yaml second-lambda lambda-v1.19.0 ss3-lambda-artifact-bucket-name eu-central-1
 ```
 
 ::::{note}
