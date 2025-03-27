@@ -567,7 +567,7 @@ continuing-queue:
 
 A bash script for publishing the Elastic Serverless Forwarder directly to your AWS account is available from the [Elastic Serverless Forwarder repository](https://github.com/elastic/elastic-serverless-forwarder).
 
-Download the [`publish_lambda.sh` script](https://raw.githubusercontent.com/elastic/elastic-serverless-forwarder/lambda-v1.8.0/publish_lambda.sh) and follow the instructions below.
+Download the [`publish_lambda.sh` script](https://raw.githubusercontent.com/elastic/elastic-serverless-forwarder/lambda-v1.19.0/publish_lambda.sh) and follow the instructions below.
 
 
 #### Script arguments [_script_arguments]
