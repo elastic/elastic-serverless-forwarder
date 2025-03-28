@@ -233,7 +233,7 @@ To change this configuration option, set `inputs.[].json_content_type` to one of
 * **disabled**: instructs the forwarder not to attempt any automatic JSON content discovery and instead treat the content as plain text, which improves the parsing performance.
 
 ::::{note}
-JSON content is still stored in Elasticsearch as field type `text`. No automatic JSON expansion is performed by the forwarder; this can be achieved using the [JSON processor](elasticsearch://reference/ingestion-tools/enrich-processor/json-processor.md) in an ingest pipeline in Elasticsearch.
+JSON content is still stored in Elasticsearch as field type `text`. No automatic JSON expansion is performed by the forwarder; this can be achieved using the [JSON processor](elasticsearch://reference/enrich-processor/json-processor.md) in an ingest pipeline in Elasticsearch.
 ::::
 
 

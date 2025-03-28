@@ -11,7 +11,7 @@ The Elastic Serverless Forwarder is an Amazon Web Services (AWS) Lambda function
 The Elastic Serverless Forwarder works with {{stack}} 7.17 and later.
 
 ::::{important}
-Using Elastic Serverless Forwarder may result in additional charges. To learn how to minimize additional charges, refer to [Preventing unexpected costs](docs-content://troubleshoot/deployments/esf/elastic-serverless-forwarder.md#preventing-unexpected-costs).
+Using Elastic Serverless Forwarder may result in additional charges. To learn how to minimize additional charges, refer to [Preventing unexpected costs](docs-content://troubleshoot/ingest/elastic-serverless-forwarder.md#preventing-unexpected-costs).
 ::::
 
 
@@ -145,5 +145,5 @@ The same message can go back to the replay queue up to three times. After reachi
 
 * [Deploy Elastic Serverless Forwarder](/reference/aws-deploy-elastic-serverless-forwarder.md)
 * [Configuration options](/reference/aws-elastic-serverless-forwarder-configuration.md)
-* [Troubleshooting](docs-content://troubleshoot/deployments/esf/elastic-serverless-forwarder.md)
+* [Troubleshooting](docs-content://troubleshoot/ingest/elastic-serverless-forwarder.md)
 
