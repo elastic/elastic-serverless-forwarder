@@ -34,10 +34,8 @@ If the customization options available when deploying via Serverless Application
 1. Go to **Integrations** in {{kib}} and search for AWS (or select the **AWS** category to filter the list).
 2. Click the AWS integration, select **Settings** and click **Install AWS assets** and confirm to install all the AWS integration assets.
 
-:::{image} images/aws-serverless-forwarder-install-assets.png
-:alt: Find and install AWS integration assets in {kib}
-:class: screenshot
-:::
+% TO DO: Use `:class: screenshot`
+![Find and install AWS integration assets in {{kib}}](images/aws-serverless-forwarder-install-assets.png)
 
 Adding integrations from {{kib}} provides appropriate pre-built dashboards, ingest node configurations, and other assets that help you get the most out of the data you ingest. The integrations use [data streams](docs-content://manage-data/data-store/data-streams.md) with specific [naming conventions](https://www.elastic.co/blog/an-introduction-to-the-elastic-data-stream-naming-scheme) that provide you with more granular controls and flexibility on managing data ingestion.
 
@@ -351,10 +349,8 @@ Only one deployment per region is allowed when using the AWS console directly.
 3. Click **Serverless application** and search for **elastic-serverless-forwarder**.
 4. Select **elastic-serverless-forwarder** from the search results (ignoring any application beginning **helper-**).
 
-    :::{image} images/aws-serverless-forwarder-create-function.png
-    :alt: Create Elastic Serverless Forwarder Lambda function within SAR
-    :class: screenshot
-    :::
+    % TO DO: Use `:class: screenshot`
+    ![Create Elastic Serverless Forwarder Lambda function within SAR](images/aws-serverless-forwarder-create-function.png)
 
 5. Complete the **Application settings** according to [Define deployment parameters](#aws-serverless-forwarder-define-deploy-parameters). You must specify the parameters even if they already exist in the `config.yaml` file. Depends on the input type, at least one if the parameters `ElasticServerlessForwarderSQSEvents`, `ElasticServerlessForwarderS3SQSEvents`, `ElasticServerlessForwarderKinesisEvents`, `ElasticServerlessForwarderCloudWatchLogsEvents` should de defined.
 6. After your settings have been added, click **Deploy**.
