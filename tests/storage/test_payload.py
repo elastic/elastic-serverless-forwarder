@@ -75,7 +75,6 @@ def test_get_as_string_gzip() -> None:
 
 
 @pytest.mark.unit
-@pytest.mark.skipif(True, reason="Temporarily skipping this test")
 @pytest.mark.parametrize("length_multiplier,content_type,newline,json_content_type", get_by_lines_parameters())
 @mock.patch("share.multiline.timedelta_circuit_breaker", new=datetime.timedelta(days=1))
 def test_get_by_lines(

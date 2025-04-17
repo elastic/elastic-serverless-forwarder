@@ -104,7 +104,6 @@ def test_get_as_string() -> None:
 
 
 @pytest.mark.unit
-@pytest.mark.skipif(True, reason="Temporarily skipping this test")
 @mock.patch("storage.S3Storage._s3_client.head_object", new=MockContent.s3_client_head_object)
 @mock.patch("storage.S3Storage._s3_client.download_fileobj", new=MockContent.s3_client_download_fileobj)
 @pytest.mark.parametrize("length_multiplier,content_type,newline,json_content_type", get_by_lines_parameters())
