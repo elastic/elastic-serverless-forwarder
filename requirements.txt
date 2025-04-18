@@ -3,7 +3,7 @@ boto3==1.37.36
 ecs_logging==2.1.0
 elasticsearch==7.17.9
 PyYAML==6.0.1
-aws_lambda_typing==2.18.0
+aws_lambda_typing==2.20.0
 orjson==3.10.16
 requests==2.32.3
 urllib3==1.26.18
