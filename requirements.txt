@@ -7,4 +7,4 @@ aws_lambda_typing==2.20.0
 orjson==3.10.16
 requests==2.32.3
 urllib3==1.26.18
-typing-extensions==4.9.0
+typing-extensions==4.13.2
