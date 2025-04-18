@@ -56,7 +56,7 @@ def _load_file_fixture(name: str) -> str:
 
 
 def _time_based_id(prefix: str = "", suffix: str = "") -> str:
-    now = int(datetime.datetime.utcnow().timestamp() * 1000)
+    now = int(datetime.datetime.now(datetime.UTC).timestamp() * 1000)
     if prefix:
         prefix = f"{prefix}-"
     if suffix:
@@ -79,7 +79,7 @@ def _logs_create_cloudwatch_logs_stream(client: BotoBaseClient, group_name: str,
 def _logs_upload_event_to_cloudwatch_logs(
     client: BotoBaseClient, group_name: str, stream_name: str, messages_body: list[str]
 ) -> None:
-    now = int(datetime.datetime.utcnow().timestamp() * 1000)
+    now = int(datetime.datetime.now(datetime.UTC).timestamp() * 1000)
     client.put_log_events(
         logGroupName=group_name,
         logStreamName=stream_name,

@@ -367,7 +367,7 @@ class ElasticsearchShipper:
         # Assign random id in case bulk() results in error, it can be matched to the original
         # action
         encoded = {
-            "@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+            "@timestamp": datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
             "_id": str(uuid.uuid4()),
             "_index": self._es_dead_letter_index,
             "_op_type": "create",

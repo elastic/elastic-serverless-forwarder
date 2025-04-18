@@ -24,7 +24,7 @@ tasks:
             - for:
                 var: REQUIREMENTS
                 split: ','
-              cmd: pip3.9 install -r ../../{{ .ITEM }} -t $DIR
+              cmd: pip3.12 install -r ../../{{ .ITEM }} -t $DIR
 
     build-zip-file:
         desc: "Zip $DIR to build $FILENAME."

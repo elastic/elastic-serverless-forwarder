@@ -193,13 +193,13 @@ class CountMultiline(CommonMultiline):
         )
 
     def collect(self) -> CollectIterator:
-        last_iteration_datetime: datetime.datetime = datetime.datetime.utcnow()
+        last_iteration_datetime: datetime.datetime = datetime.datetime.now(datetime.UTC)
         for data, newline in self.feed:
             self._buffer.grow(data, newline)
             self._current_count += 1
             if (
                 self._count_lines == self._current_count
-                or (datetime.datetime.utcnow() - last_iteration_datetime) > timedelta_circuit_breaker
+                or (datetime.datetime.now(datetime.UTC) - last_iteration_datetime) > timedelta_circuit_breaker
             ):
                 self._current_count = 0
                 yield self._buffer.collect_and_reset()
@@ -276,7 +276,7 @@ class WhileMultiline(CommonMultiline):
         return negate
 
     def collect(self) -> CollectIterator:
-        last_iteration_datetime: datetime.datetime = datetime.datetime.utcnow()
+        last_iteration_datetime: datetime.datetime = datetime.datetime.now(datetime.UTC)
         for data, newline in self.feed:
             if not self._matcher(data):
                 if self._buffer.is_empty():
@@ -294,7 +294,7 @@ class WhileMultiline(CommonMultiline):
             else:
                 self._buffer.grow(data, newline)
                 # no pre collect buffer in while multiline, let's check the circuit breaker after at least one grow
-                if (datetime.datetime.utcnow() - last_iteration_datetime) > timedelta_circuit_breaker:
+                if (datetime.datetime.now(datetime.UTC) - last_iteration_datetime) > timedelta_circuit_breaker:
                     yield self._buffer.collect_and_reset()
 
         if not self._buffer.is_empty():
@@ -402,7 +402,7 @@ class PatternMultiline(CommonMultiline):
 
     def collect(self) -> CollectIterator:
         for data, newline in self.feed:
-            last_iteration_datetime: datetime.datetime = datetime.datetime.utcnow()
+            last_iteration_datetime: datetime.datetime = datetime.datetime.now(datetime.UTC)
             if self._pre_collect_buffer:
                 self._buffer.collect_and_reset()
                 self._buffer.grow(data, newline)
@@ -421,7 +421,7 @@ class PatternMultiline(CommonMultiline):
 
                 yield content, current_length, newline
             else:
-                if (datetime.datetime.utcnow() - last_iteration_datetime) > timedelta_circuit_breaker:
+                if (datetime.datetime.now(datetime.UTC) - last_iteration_datetime) > timedelta_circuit_breaker:
                     yield self._buffer.collect_and_reset()
                 self._buffer.grow(data, newline)
 

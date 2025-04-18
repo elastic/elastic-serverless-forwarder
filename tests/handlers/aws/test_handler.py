@@ -90,7 +90,7 @@ class MockContent:
         return None
 
 
-_now = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+_now = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 _dummy_lambda_event: dict[str, Any] = {
     "Records": [
         {

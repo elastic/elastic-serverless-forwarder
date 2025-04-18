@@ -131,7 +131,7 @@ def _handle_sqs_event(
         assert isinstance(log_event, bytes)
 
         es_event: dict[str, Any] = {
-            "@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+            "@timestamp": datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
             "fields": {
                 "message": log_event.decode("utf-8"),
                 "log": {

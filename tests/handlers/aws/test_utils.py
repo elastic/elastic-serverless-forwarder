@@ -3,10 +3,10 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 
+import datetime
 import os
 import random
 import string
-from datetime import datetime
 from typing import Any
 from unittest import TestCase
 
@@ -334,7 +334,7 @@ class TestRecordId(TestCase):
         stream_name: str = _get_random_string_of_size(MAX_STREAM_NAME_CHARS)
         partition_key: str = _get_random_string_of_size(MAX_PARTITION_KEY_CHARS)
         sequence_number: str = _get_random_digit_string_of_size(MAX_SEQUENCE_NUMBER_DIGITS)
-        approximate_arrival_timestamp: int = int(datetime.utcnow().timestamp() * 1000)
+        approximate_arrival_timestamp: int = int(datetime.datetime.now(datetime.UTC).timestamp() * 1000)
         relevant_fields_for_id: dict[str, Any] = {
             "fields": {
                 "log": {"offset": 1},
@@ -356,7 +356,7 @@ class TestRecordId(TestCase):
         assert _utf8len(generated_id) <= MAX_ES_ID_SIZ_BYTES
 
     def test_s3_id_less_than_512bytes(self) -> None:
-        event_time: int = int(datetime.utcnow().timestamp() * 1000)
+        event_time: int = int(datetime.datetime.now(datetime.UTC).timestamp() * 1000)
         bucket_name: str = _get_random_string_of_size(MAX_BUCKET_NAME_CHARS)
         bucket_arn: str = f"arn:aws:s3:::{bucket_name}"
         object_key: str = _get_random_string_of_size(MAX_OBJECT_KEY_CHARS)
@@ -378,7 +378,7 @@ class TestRecordId(TestCase):
         assert _utf8len(generated_id) <= MAX_ES_ID_SIZ_BYTES
 
     def test_sqs_id_less_than_512bytes(self) -> None:
-        sent_timestamp: int = int(datetime.utcnow().timestamp() * 1000)
+        sent_timestamp: int = int(datetime.datetime.now(datetime.UTC).timestamp() * 1000)
         queue_name: str = _get_random_string_of_size(MAX_QUEUE_NAME_CHARS)
         message_id: str = _get_random_string_of_size(MAX_MESSAGE_ID_CHARS)
 
@@ -401,7 +401,7 @@ class TestRecordId(TestCase):
         assert _utf8len(generated_id) <= MAX_ES_ID_SIZ_BYTES
 
     def test_cloudwatch_id_less_than_512bytes(self) -> None:
-        event_timestamp: int = int(datetime.utcnow().timestamp() * 1000)
+        event_timestamp: int = int(datetime.datetime.now(datetime.UTC).timestamp() * 1000)
         log_group_name: str = _get_random_string_of_size(MAX_CW_LOG_GROUP_NAME_CHARS)
         log_stream_name: str = _get_random_string_of_size(MAX_CW_LOG_STREAM_NAME_CHARS)
         event_id: str = _get_random_string_of_size(MAX_CW_EVENT_ID_CHARS)
