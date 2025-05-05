@@ -15,7 +15,7 @@ from requests import PreparedRequest
 
 from shippers.logstash import _EVENT_SENT, _MAX_RETRIES, LogstashShipper
 
-_now = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+_now = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
 _dummy_event: dict[str, Any] = {
     "@timestamp": _now,
