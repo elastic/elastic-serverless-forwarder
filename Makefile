@@ -36,6 +36,18 @@ isort:  ## Run isort in the project on the host
 mypy: ## Run mypy in the project on the host
 	tests/scripts/${SCRIPTS_BASE_DIR}mypy.sh
 
+package:
+	mkdir deps && \
+    pip install --target=./deps -r requirements.txt && \
+    cd ./deps && \
+    zip -r ../local_esf.zip . && \
+    cd .. && \
+    zip -r local_esf.zip main_aws.py handlers share storage shippers && \
+    rm -r ./deps
+
+clean:
+	rm -f local_esf.zip
+
 docker-test:  ## Run all tests on docker
 docker-test: SCRIPTS_BASE_DIR=docker/
 docker-test: test
