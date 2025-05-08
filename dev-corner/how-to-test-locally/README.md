@@ -1,16 +1,37 @@
-This is just an example of how to build and run ESF locally.
+This document contains details about how to build ESF Lambda locally.
+Once built, the Lambda can be deployed to validate functionality.
 
-## Requirements
+## Building lambda
+
+To build the Lambda, you may use one of the options below,
+
+### Using Makefile
+
+To build,
+
+```shell
+make package
+```
+
+This will generate a Lambda zip named `local_esf.zip`.
+
+To clean up any leftover resources,
+
+```shell
+make clean
+```
+
+### Using Task file
+
+#### Requirements
 
 - [Terraform](https://www.terraform.io/)
 - (Optional) [Taskfile](https://taskfile.dev/installation/)
 
 
-## Steps
+#### Building
 
 **Important note**: ESF dependencies have been tested on architecture `x86_64`. Make sure to use it as well.
-
-### Step 1: Build your dependencies zip file
 
 You can build your own, or you can choose to run:
 ```bash
@@ -24,12 +45,11 @@ You can update the task variables in the `.env` file:
 - The name of the zip file, `FILENAME`.
 
 
-### Step 2: Run ESF terraform
+## Deploying Lambda
 
-Use the code in [ESF terraform repository](https://github.com/elastic/terraform-elastic-esf).
+Once Lambda zip is ready, you should use the code in [ESF terraform repository](https://github.com/elastic/terraform-elastic-esf).
 
 > **NOTE**: ESF lambda function is using architecture `x86_64`.
-
 
 Place your `local_esf.zip` (or `<FILENAME>` if you changed the value) in the same directory as ESF terraform.
 
