@@ -112,7 +112,7 @@ def wrap_try_except(
             ReplayHandlerException,
         ) as e:
             if apm_client:
-                apm_client.capture_exception()
+                apm_client.capture_exception()  # type: ignore
 
             shared_logger.exception("exception raised", exc_info=e)
 
@@ -123,7 +123,7 @@ def wrap_try_except(
         # it should not prevent all other events to be ingested.
         except Exception as e:
             if apm_client:
-                apm_client.capture_exception()
+                apm_client.capture_exception()  # type: ignore
 
             shared_logger.exception(
                 "exception raised",
