@@ -10,7 +10,7 @@ from botocore.client import BaseClient as BotoBaseClient
 from share import ExpandEventListFromField, ProtocolMultiline, json_parser, shared_logger
 from storage import ProtocolStorage, StorageFactory
 
-from .utils import get_account_id_from_arn
+from .utils import get_account_id_from_arn, gzip_base64_encoded
 
 
 def _from_awslogs_data_to_event(awslogs_data: str) -> Any:
@@ -72,7 +72,7 @@ def _handle_cloudwatch_logs_move(
 
         sqs_client.send_message(
             QueueUrl=sqs_destination_queue,
-            MessageBody=log_event["message"],
+            MessageBody=gzip_base64_encoded(log_event["message"]),
             MessageAttributes=message_attributes,
         )
 
