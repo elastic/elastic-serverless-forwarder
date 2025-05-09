@@ -20,5 +20,5 @@ handler = logging.StreamHandler()
 handler.setFormatter(ecs_logging.StdlibFormatter())
 
 # Add an APM log correlation
-handler.addFilter(LoggingFilter())
+handler.addFilter(LoggingFilter())  # type: ignore
 logger.handlers = [handler]

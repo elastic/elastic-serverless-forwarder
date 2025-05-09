@@ -143,7 +143,7 @@ def _handle_s3_sqs_event(
 
             if span:
                 span.__exit__(None, None, None)
-                span = None
+                span = None  # type: ignore
 
             es_event: dict[str, Any] = {
                 "@timestamp": datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
