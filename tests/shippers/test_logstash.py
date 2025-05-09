@@ -182,4 +182,3 @@ class TestLogstashShipper(TestCase):
         assert logstash_shipper._events_batch == [event]
         logstash_shipper.flush() # this should trigger the send and empty the buffer
         assert logstash_shipper._events_batch == []
-    
