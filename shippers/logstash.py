@@ -143,7 +143,7 @@ class LogstashShipper:
 
             if response.status_code == 401:
                 raise RequestException("Authentication error")
-            
+
             self._events_batch.clear()
 
         except RequestException as e:
