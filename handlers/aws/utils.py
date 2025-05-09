@@ -1,6 +1,8 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
+import base64
+import gzip
 import os
 from typing import Any, Callable, Optional
 
@@ -457,10 +459,11 @@ class ReplayEventHandler:
 
         sqs_client = get_sqs_client()
 
+        # generate message with compressed event_payload to avoid sqs message size overflow
         message_payload: dict[str, Any] = {
             "output_destination": output_destination,
             "output_args": output_args,
-            "event_payload": event_payload,
+            "event_payload": gzip_base64_encoded(json_dumper(event_payload)),
             "event_input_id": self._event_input_id,
         }
 
@@ -610,3 +613,17 @@ def expand_event_list_from_field_resolver(integration_scope: str, field_to_expan
         field_to_expand_event_list_from = "Records"
 
     return field_to_expand_event_list_from
+
+
+def try_base64_decode(data: str) -> tuple[bytes, bool]:
+    try:
+        decoded = base64.b64decode(data, validate=True)
+        return decoded, True
+    except Exception:
+        return bytes(), False
+
+
+def gzip_base64_encoded(message: str) -> str:
+    event_bytes = message.encode("utf-8")
+    compressed = gzip.compress(event_bytes)
+    return base64.b64encode(compressed).decode("utf-8")
