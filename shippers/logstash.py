@@ -126,7 +126,7 @@ class LogstashShipper:
         if len(self._events_batch) > 0:
             self._send()
 
-        self._events_batch = []
+        self._events_batch.clear()
 
         return
 
@@ -143,7 +143,9 @@ class LogstashShipper:
 
             if response.status_code == 401:
                 raise RequestException("Authentication error")
+            
             self._events_batch.clear()
+
         except RequestException as e:
             shared_logger.error(
                 f"logstash shipper encountered an error while publishing events to logstash. Error: {str(e)}"
