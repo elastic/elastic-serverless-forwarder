@@ -36,6 +36,19 @@ isort:  ## Run isort in the project on the host
 mypy: ## Run mypy in the project on the host
 	tests/scripts/${SCRIPTS_BASE_DIR}mypy.sh
 
+package: ## Package lambda by installing python dependencies matching x86_64
+	mkdir deps && \
+    pip install --target=./deps --platform manylinux2014_x86_64 --implementation cp --python-version 3.12 --only-binary=:all: --upgrade -r requirements.txt && \
+    cd ./deps && \
+    zip -r ../local_esf.zip . && \
+    cd .. && \
+    zip -r local_esf.zip main_aws.py handlers share storage shippers && \
+    rm -r ./deps
+
+clean: ## cleanup any leftover resources
+	rm -f -r ./deps
+	rm -f local_esf.zip
+
 docker-test:  ## Run all tests on docker
 docker-test: SCRIPTS_BASE_DIR=docker/
 docker-test: test
