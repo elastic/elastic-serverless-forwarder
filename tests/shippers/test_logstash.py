@@ -163,3 +163,22 @@ class TestLogstashShipper(TestCase):
         assert logstash_shipper._events_batch == [event]
         logstash_shipper.flush()
         assert logstash_shipper._events_batch == []
+
+    @responses.activate
+    def test_buffer_handling_at_capacity(self) -> None:
+        url = "http://logstash_url"
+        responses.put(url=url, status=200)
+        responses.put(url=url, status=200)
+        responses.put(url=url, status=200)
+
+        logstash_shipper = LogstashShipper(logstash_url=url, max_batch_size=2)
+        event = deepcopy(_dummy_event)
+
+        logstash_shipper.send(event)  # this should not trigger the send
+        assert logstash_shipper._events_batch == [event]
+        logstash_shipper.send(event)  # this should trigger the send and empty the buffer
+        assert logstash_shipper._events_batch == []
+        logstash_shipper.send(event)  # this should not trigger the send
+        assert logstash_shipper._events_batch == [event]
+        logstash_shipper.flush()  # this should trigger the send and empty the buffer
+        assert logstash_shipper._events_batch == []
