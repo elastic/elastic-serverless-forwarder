@@ -10,7 +10,12 @@ from botocore.client import BaseClient as BotoBaseClient
 from share import ExpandEventListFromField, ProtocolMultiline, shared_logger
 from storage import ProtocolStorage, StorageFactory
 
-from .utils import get_account_id_from_arn, get_queue_url_from_sqs_arn, get_sqs_queue_name_and_region_from_arn
+from .utils import (
+    get_account_id_from_arn,
+    get_queue_url_from_sqs_arn,
+    get_sqs_queue_name_and_region_from_arn,
+    gzip_base64_encoded,
+)
 
 
 def handle_sqs_move(
@@ -67,7 +72,7 @@ def handle_sqs_move(
 
     sqs_client.send_message(
         QueueUrl=sqs_destination_queue,
-        MessageBody=sqs_record["body"],
+        MessageBody=gzip_base64_encoded(sqs_record["body"]),
         MessageAttributes=message_attributes,
     )
 
