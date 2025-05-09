@@ -1,7 +1,7 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
-
+import gzip
 import os
 from typing import Any, Callable, Optional
 
@@ -35,6 +35,7 @@ from .utils import (
     get_shipper_from_input,
     get_sqs_client,
     get_trigger_type_and_config_source,
+    try_base64_decode,
     wrap_try_except,
 )
 
@@ -85,6 +86,13 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         shipper_cache: dict[str, CompositeShipper] = {}
         for replay_record in lambda_event["Records"]:
             event = json_parser(replay_record["body"])
+
+            decoded, ok = try_base64_decode(event["event_payload"])
+            if ok:
+                shared_logger.debug("processing base64 encoded and gzipped event")
+                event_str = gzip.decompress(decoded).decode("utf-8")
+                event["event_payload"] = json_parser(event_str)
+
             input_id = event["event_input_id"]
             output_destination = event["output_destination"]
             shipper_id = input_id + output_destination
