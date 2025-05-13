@@ -1,0 +1,16 @@
+project: 'Elastic Serverless Forwarder for AWS'
+exclude:
+  - README-AWS.md
+cross_links:
+  - docs-content
+  - elasticsearch
+  - integration-docs
+  - logstash
+  - logstash-docs-md
+toc:
+  - toc: reference
+subs:
+  stack:   "Elastic Stack"
+  es:   "Elasticsearch"
+  kib:   "Kibana"
+  ls:   "Logstash"

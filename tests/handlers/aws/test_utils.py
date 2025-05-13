@@ -3,10 +3,10 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 
+import datetime
 import os
 import random
 import string
-from datetime import datetime
 from typing import Any
 from unittest import TestCase
 
@@ -93,13 +93,13 @@ class TestGetTriggerTypeAndConfigSource(TestCase):
             assert get_trigger_type_and_config_source(event=event) == ("cloudwatch-logs", CONFIG_FROM_S3FILE)
 
         with self.subTest("no Records"):
-            with self.assertRaisesRegexp(Exception, "Not supported trigger"):
+            with self.assertRaisesRegex(Exception, "Not supported trigger"):
                 event = {}
 
                 get_trigger_type_and_config_source(event=event)
 
         with self.subTest("len(Records) < 1"):
-            with self.assertRaisesRegexp(Exception, "Not supported trigger"):
+            with self.assertRaisesRegex(Exception, "Not supported trigger"):
                 event = {"Records": []}
 
                 get_trigger_type_and_config_source(event=event)
@@ -334,7 +334,7 @@ class TestRecordId(TestCase):
         stream_name: str = _get_random_string_of_size(MAX_STREAM_NAME_CHARS)
         partition_key: str = _get_random_string_of_size(MAX_PARTITION_KEY_CHARS)
         sequence_number: str = _get_random_digit_string_of_size(MAX_SEQUENCE_NUMBER_DIGITS)
-        approximate_arrival_timestamp: int = int(datetime.utcnow().timestamp() * 1000)
+        approximate_arrival_timestamp: int = int(datetime.datetime.now(datetime.UTC).timestamp() * 1000)
         relevant_fields_for_id: dict[str, Any] = {
             "fields": {
                 "log": {"offset": 1},
@@ -356,7 +356,7 @@ class TestRecordId(TestCase):
         assert _utf8len(generated_id) <= MAX_ES_ID_SIZ_BYTES
 
     def test_s3_id_less_than_512bytes(self) -> None:
-        event_time: int = int(datetime.utcnow().timestamp() * 1000)
+        event_time: int = int(datetime.datetime.now(datetime.UTC).timestamp() * 1000)
         bucket_name: str = _get_random_string_of_size(MAX_BUCKET_NAME_CHARS)
         bucket_arn: str = f"arn:aws:s3:::{bucket_name}"
         object_key: str = _get_random_string_of_size(MAX_OBJECT_KEY_CHARS)
@@ -378,7 +378,7 @@ class TestRecordId(TestCase):
         assert _utf8len(generated_id) <= MAX_ES_ID_SIZ_BYTES
 
     def test_sqs_id_less_than_512bytes(self) -> None:
-        sent_timestamp: int = int(datetime.utcnow().timestamp() * 1000)
+        sent_timestamp: int = int(datetime.datetime.now(datetime.UTC).timestamp() * 1000)
         queue_name: str = _get_random_string_of_size(MAX_QUEUE_NAME_CHARS)
         message_id: str = _get_random_string_of_size(MAX_MESSAGE_ID_CHARS)
 
@@ -401,7 +401,7 @@ class TestRecordId(TestCase):
         assert _utf8len(generated_id) <= MAX_ES_ID_SIZ_BYTES
 
     def test_cloudwatch_id_less_than_512bytes(self) -> None:
-        event_timestamp: int = int(datetime.utcnow().timestamp() * 1000)
+        event_timestamp: int = int(datetime.datetime.now(datetime.UTC).timestamp() * 1000)
         log_group_name: str = _get_random_string_of_size(MAX_CW_LOG_GROUP_NAME_CHARS)
         log_stream_name: str = _get_random_string_of_size(MAX_CW_LOG_STREAM_NAME_CHARS)
         event_id: str = _get_random_string_of_size(MAX_CW_EVENT_ID_CHARS)
@@ -460,3 +460,97 @@ class TestGetLambdaRegion(TestCase):
 
         with pytest.raises(ValueError):
             get_lambda_region()
+
+
+@pytest.mark.unit
+class TestSummarizeLambdaEvent(TestCase):
+
+    max_records = 42
+
+    def test_with_single_s3_sqs_record(self) -> None:
+        from handlers.aws.utils import summarize_lambda_event
+
+        event = {
+            "Records": [
+                {
+                    "body": '{"Records":[{"awsRegion":"eu-west-1","eventName":"ObjectCreated:Put","eventSource":"aws:s3","eventVersion":"2.1","s3":{"bucket":{"arn":"arn:aws:s3:::mbranca-esf-data","name":"mbranca-esf-data"},"object":{"key":"AWSLogs/627286350134/CloudTrail-Digest/"}}}]}',  # noqa: E501
+                    "eventSource": "aws:sqs",
+                }
+            ]
+        }
+
+        summary = summarize_lambda_event(event=event, max_records=self.max_records)
+
+        assert summary == {
+            "aws:sqs": {
+                "total_records": 1,
+                f"first_{self.max_records}_records": [
+                    {
+                        "bucket": {"arn": "arn:aws:s3:::mbranca-esf-data", "name": "mbranca-esf-data"},
+                        "object": {"key": "AWSLogs/627286350134/CloudTrail-Digest/"},
+                    }
+                ],
+            }
+        }
+
+    def test_with_multiple_s3_sqs_records(self) -> None:
+        from handlers.aws.utils import summarize_lambda_event
+
+        event = {
+            "Records": [
+                {
+                    "body": '{"Records":[{"awsRegion":"eu-west-1","eventName":"ObjectCreated:Put","eventSource":"aws:s3","eventVersion":"2.1","s3":{"bucket":{"arn":"arn:aws:s3:::mbranca-esf-data","name":"mbranca-esf-data"},"object":{"key":"AWSLogs/123456789012/1.log"}}},{"awsRegion":"eu-west-1","eventName":"ObjectCreated:Put","eventSource":"aws:s3","eventVersion":"2.1","s3":{"bucket":{"arn":"arn:aws:s3:::mbranca-esf-data","name":"mbranca-esf-data"},"object":{"key":"AWSLogs/123456789012/2.log"}}}]}',  # noqa: E501
+                    "eventSource": "aws:sqs",
+                }
+            ]
+        }
+
+        with self.subTest("no limits"):
+            summary = summarize_lambda_event(event=event, max_records=self.max_records)
+
+            assert summary == {
+                "aws:sqs": {
+                    "total_records": 2,
+                    f"first_{self.max_records}_records": [
+                        {
+                            "bucket": {"arn": "arn:aws:s3:::mbranca-esf-data", "name": "mbranca-esf-data"},
+                            "object": {"key": "AWSLogs/123456789012/1.log"},
+                        },
+                        {
+                            "bucket": {"arn": "arn:aws:s3:::mbranca-esf-data", "name": "mbranca-esf-data"},
+                            "object": {"key": "AWSLogs/123456789012/2.log"},
+                        },
+                    ],
+                }
+            }
+
+        with self.subTest("with limits"):
+            summary = summarize_lambda_event(event=event, max_records=1)
+
+            assert summary == {
+                "aws:sqs": {
+                    "total_records": 2,
+                    "first_1_records": [
+                        {
+                            "bucket": {"arn": "arn:aws:s3:::mbranca-esf-data", "name": "mbranca-esf-data"},
+                            "object": {"key": "AWSLogs/123456789012/1.log"},
+                        }
+                    ],
+                }
+            }
+
+    def test_with_invalid_s3_sqs_notification(self) -> None:
+        from handlers.aws.utils import summarize_lambda_event
+
+        event = {
+            "Records": [
+                {
+                    "body": "I am not a valid JSON string.",
+                    "eventSource": "aws:sqs",
+                }
+            ]
+        }
+
+        summary = summarize_lambda_event(event)
+
+        assert summary == {"error": "unexpected character: line 1 column 1 (char 0)"}

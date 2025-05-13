@@ -312,7 +312,7 @@ Resources:
 
             return {"status": "SUCCESS", "requestId": event["requestId"], "fragment": event["fragment"]}
       Handler: index.handler
-      Runtime: python3.9
+      Runtime: python3.12
   MacroElasticServerlessForwarder:
     Type: AWS::CloudFormation::Macro
     Properties:

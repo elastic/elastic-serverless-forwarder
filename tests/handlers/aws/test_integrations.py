@@ -3889,7 +3889,7 @@ class TestLambdaHandlerIntegration(TestCase):
             index="logs-generic-default",
             op_type="create",
             id=fingerprint,
-            document={"@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
+            document={"@timestamp": datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
         )
 
         processors = {

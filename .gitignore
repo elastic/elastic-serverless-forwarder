@@ -5,6 +5,7 @@
 *.egg
 *.db
 *.pid
+*.zip
 .coverage*
 .DS_Store
 .idea

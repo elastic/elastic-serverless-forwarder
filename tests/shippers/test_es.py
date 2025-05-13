@@ -17,7 +17,7 @@ from share.environment import get_environment
 from share.version import version
 from shippers import ElasticsearchShipper, JSONSerializer
 
-_now = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+_now = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
 _dummy_event: dict[str, Any] = {
     "@timestamp": _now,
