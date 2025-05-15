@@ -16,7 +16,7 @@ from botocore.client import BaseClient as BotoBaseClient
 from testcontainers.localstack import LocalStackContainer
 
 from handlers.aws.exceptions import ReplayHandlerException
-from handlers.aws.utils import try_base64_decode
+from handlers.aws.utils import gzip_base64_decoded
 from main_aws import handler
 from share import get_hex_prefix, json_dumper, json_parser
 from tests.testcontainers.es import ElasticsearchContainer
@@ -3852,11 +3852,8 @@ class TestLambdaHandlerIntegration(TestCase):
         first_body: dict[str, Any] = json_parser(events["Records"][0]["body"])
         second_body: dict[str, Any] = json_parser(events["Records"][1]["body"])
 
-        decoded, _ = try_base64_decode(first_body["event_payload"])
-        first_body["event_payload"] = json_parser(gzip.decompress(decoded).decode("utf-8"))
-
-        decoded, _ = try_base64_decode(second_body["event_payload"])
-        second_body["event_payload"] = json_parser(gzip.decompress(decoded).decode("utf-8"))
+        first_body["event_payload"] = gzip_base64_decoded(first_body["event_payload"])
+        second_body["event_payload"] = gzip_base64_decoded(second_body["event_payload"])
 
         assert first_body["event_payload"]["message"] == fixtures[0].rstrip("\n")
         assert first_body["event_payload"]["log"]["offset"] == 0
@@ -4035,11 +4032,8 @@ class TestLambdaHandlerIntegration(TestCase):
         first_body: dict[str, Any] = json_parser(events["Records"][0]["body"])
         second_body: dict[str, Any] = json_parser(events["Records"][1]["body"])
 
-        decoded, _ = try_base64_decode(first_body["event_payload"])
-        first_body["event_payload"] = json_parser(gzip.decompress(decoded).decode("utf-8"))
-
-        decoded, _ = try_base64_decode(second_body["event_payload"])
-        second_body["event_payload"] = json_parser(gzip.decompress(decoded).decode("utf-8"))
+        first_body["event_payload"] = gzip_base64_decoded(first_body["event_payload"])
+        second_body["event_payload"] = gzip_base64_decoded(second_body["event_payload"])
 
         assert first_body["event_payload"]["message"] == fixtures[0].rstrip("\n")
         assert first_body["event_payload"]["log"]["offset"] == 0
@@ -4129,11 +4123,8 @@ class TestLambdaHandlerIntegration(TestCase):
         first_body: dict[str, Any] = json_parser(events["Records"][0]["body"])
         second_body: dict[str, Any] = json_parser(events["Records"][1]["body"])
 
-        decoded, _ = try_base64_decode(first_body["event_payload"])
-        first_body["event_payload"] = json_parser(gzip.decompress(decoded).decode("utf-8"))
-
-        decoded, _ = try_base64_decode(second_body["event_payload"])
-        second_body["event_payload"] = json_parser(gzip.decompress(decoded).decode("utf-8"))
+        first_body["event_payload"] = gzip_base64_decoded(first_body["event_payload"])
+        second_body["event_payload"] = gzip_base64_decoded(second_body["event_payload"])
 
         assert first_body["event_payload"]["message"] == fixtures[0].rstrip("\n")
         assert first_body["event_payload"]["log"]["offset"] == 0
@@ -4429,9 +4420,7 @@ class TestLambdaHandlerIntegration(TestCase):
         assert len(events["Records"]) == 1
 
         first_body: dict[str, Any] = json_parser(events["Records"][0]["body"])
-
-        decoded, _ = try_base64_decode(first_body["event_payload"])
-        first_body["event_payload"] = json_parser(gzip.decompress(decoded).decode("utf-8"))
+        first_body["event_payload"] = gzip_base64_decoded(first_body["event_payload"])
 
         assert first_body["event_payload"]["message"] == fixtures[0].rstrip("\n")
         assert first_body["event_payload"]["log"]["offset"] == 0
@@ -4545,9 +4534,7 @@ class TestLambdaHandlerIntegration(TestCase):
         assert len(events["Records"]) == 1
 
         first_body: dict[str, Any] = json_parser(events["Records"][0]["body"])
-
-        decoded, _ = try_base64_decode(first_body["event_payload"])
-        first_body["event_payload"] = json_parser(gzip.decompress(decoded).decode("utf-8"))
+        first_body["event_payload"] = gzip_base64_decoded(first_body["event_payload"])
 
         assert first_body["event_payload"]["message"] == fixtures[0].rstrip("\n")
         assert first_body["event_payload"]["log"]["offset"] == 0
