@@ -615,12 +615,13 @@ def expand_event_list_from_field_resolver(integration_scope: str, field_to_expan
     return field_to_expand_event_list_from
 
 
-def try_base64_decode(data: str) -> tuple[bytes, bool]:
+def gzip_base64_decoded(message: str) -> Any:
     try:
-        decoded = base64.b64decode(data, validate=True)
-        return decoded, True
+        decoded = base64.b64decode(message, validate=True)
+        return json_parser(gzip.decompress(decoded).decode("utf-8"))
     except Exception:
-        return bytes(), False
+        # if decoding fails, return the original
+        return message
 
 
 def gzip_base64_encoded(message: str) -> str:
