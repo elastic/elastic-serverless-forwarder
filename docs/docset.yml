@@ -1,4 +1,6 @@
 project: 'Elastic Serverless Forwarder for AWS'
+products:
+  - id: elastic-serverless-forwarder
 exclude:
   - README-AWS.md
 cross_links:
