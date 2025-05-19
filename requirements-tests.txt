@@ -5,7 +5,7 @@ pytest-benchmark==5.1.0
 coverage==7.8.0
 simplejson==3.19.2
 ujson==5.9.0
-pysimdjson==6.0.2
+pysimdjson==7.0.0
 python-rapidjson==1.14
 cysimdjson==23.8
 responses==0.24.1
