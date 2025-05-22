@@ -322,6 +322,9 @@ Refer to the [AWS PrivateLink traffic filters](docs-content://deploy-manage/secu
 
 The terraform files to deploy ESF can be found in [`esf-terraform` repository](https://github.com/elastic/terraform-elastic-esf). There are two requirements to deploy these files: [curl](https://curl.se/download.html) and [terraform](https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli). Refer to the [README file](https://github.com/elastic/terraform-elastic-esf/blob/main/README.md) to learn how to use it.
 
+::::{note}
+Starting from version v1.20.0, ESF requires Python 3.12. To deploy the forwarder from Terraform, you need to pull the latest version of the [`esf-terraform` repository](https://github.com/elastic/terraform-elastic-esf) repository, or use at least the repository version [v1.1.0](https://github.com/elastic/terraform-elastic-esf/releases/tag/v1.1.0).
+::::
 
 ## Deploy Elastic Serverless Forwarder from SAR [aws-serverless-forwarder-deploy-sar]
 
