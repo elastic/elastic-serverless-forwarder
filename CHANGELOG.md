@@ -1,3 +1,9 @@
+### v1.20.0 - 2025/05/22
+##### Features
+* Use Python runtime 3.12 [874](https://github.com/elastic/elastic-serverless-forwarder/pull/874)
+##### Bug fixes
+* logstash shipper does not clear event buffer after sending data [880](https://github.com/elastic/elastic-serverless-forwarder/pull/880)
+
 ### v1.19.0 - 2024/12/13
 ##### Features
 * s3-sqs input: log a lambda event summary in case of errors [860](https://github.com/elastic/elastic-serverless-forwarder/pull/860).
