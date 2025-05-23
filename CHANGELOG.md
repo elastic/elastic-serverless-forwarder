@@ -1,3 +1,8 @@
+### v1.20.1 - 2025/05/23
+##### Docs
+* Fix 404 link in README-AWS.md [903](https://github.com/elastic/elastic-serverless-forwarder/pull/903)
+* Add note about Python 3.12 for Terraform users [901](https://github.com/elastic/elastic-serverless-forwarder/pull/901)
+
 ### v1.20.0 - 2025/05/22
 ##### Features
 * Use Python runtime 3.12 [874](https://github.com/elastic/elastic-serverless-forwarder/pull/874)
