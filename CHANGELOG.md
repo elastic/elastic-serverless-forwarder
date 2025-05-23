@@ -5,7 +5,9 @@
 
 ### v1.20.0 - 2025/05/22
 ##### Features
-* Use Python runtime 3.12 [874](https://github.com/elastic/elastic-serverless-forwarder/pull/874). Note for Terraform users: to deploy ESF 1.20.0+ from Terraform, you need to pull the latest version of the [`esf-terraform`](https://github.com/elastic/terraform-elastic-esf) repository, or use at least the repository version [v1.1.0](https://github.com/elastic/terraform-elastic-esf/releases/tag/v1.1.0).
+* Use Python runtime 3.12 [874](https://github.com/elastic/elastic-serverless-forwarder/pull/874)
+
+Note for Terraform users: to deploy ESF 1.20.0+ from Terraform, you need to pull the latest version of the [`esf-terraform`](https://github.com/elastic/terraform-elastic-esf) repository, or use at least the repository version [v1.1.0](https://github.com/elastic/terraform-elastic-esf/releases/tag/v1.1.0).
 
 ##### Bug fixes
 * logstash shipper does not clear event buffer after sending data [880](https://github.com/elastic/elastic-serverless-forwarder/pull/880)
