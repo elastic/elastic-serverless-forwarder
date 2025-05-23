@@ -19,6 +19,6 @@ Please refer to the official [Elastic documentation for Elastic Serverless Forwa
 
 ## Resources and links
 
-* [Elastic documentation for Elastic Serverless Forwarder](https://www.elastic.co/guide/en/observability/master/aws-elastic-serverless-forwarder.html)
+* [Elastic documentation for Elastic Serverless Forwarder](https://www.elastic.co/docs/reference/aws-forwarder)
 * [Elastic documentation for integrations](https://docs.elastic.co/en/integrations)
 * [Blog: Elastic and AWS Serverless Application Repository (SAR): Speed time to actionable insights with frictionless log ingestion from Amazon S3](https://www.elastic.co/blog/elastic-and-aws-serverless-application-repository-speed-time-to-actionable-insights-with-frictionless-log-ingestion-from-amazon-s3)
