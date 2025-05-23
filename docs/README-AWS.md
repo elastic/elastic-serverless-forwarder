@@ -2,7 +2,7 @@
 
 The Elastic Serverless Forwarder is an Amazon Web Services (AWS) Lambda function that ships logs from an AWS environment to Elastic.
 
-Please refer to the official [Elastic documentation for Elastic Serverless Forwarder](https://www.elastic.co/guide/en/observability/master/aws-elastic-serverless-forwarder.html) for detailed instructions on how to deploy and configure the forwarder.
+Please refer to the official [Elastic documentation for Elastic Serverless Forwarder](https://www.elastic.co/docs/reference/aws-forwarder) for detailed instructions on how to deploy and configure the forwarder.
 
 ## Overview
 
