@@ -29,8 +29,8 @@ _available_triggers: dict[str, str] = {"aws:s3": "s3-sqs", "aws:sqs": "sqs", "aw
 
 CONFIG_FROM_PAYLOAD: str = "CONFIG_FROM_PAYLOAD"
 CONFIG_FROM_S3FILE: str = "CONFIG_FROM_S3FILE"
-
 INTEGRATION_SCOPE_GENERIC: str = "generic"
+GZIP_ENCODING: str = "gzip"
 
 
 def get_lambda_region() -> str:
@@ -467,7 +467,10 @@ class ReplayEventHandler:
             "event_input_id": self._event_input_id,
         }
 
-        sqs_client.send_message(QueueUrl=sqs_replay_queue, MessageBody=json_dumper(message_payload))
+        message_attributes = {"payloadEncoding": {"StringValue": GZIP_ENCODING, "DataType": "String"}}
+        sqs_client.send_message(
+            QueueUrl=sqs_replay_queue, MessageBody=json_dumper(message_payload), MessageAttributes=message_attributes
+        )
 
         shared_logger.debug(
             "sent to replay queue",
@@ -616,12 +619,8 @@ def expand_event_list_from_field_resolver(integration_scope: str, field_to_expan
 
 
 def gzip_base64_decoded(message: str) -> Any:
-    try:
-        decoded = base64.b64decode(message, validate=True)
-        return json_parser(gzip.decompress(decoded).decode("utf-8"))
-    except Exception:
-        # if decoding fails, return the original
-        return message
+    decoded = base64.b64decode(message, validate=True)
+    return json_parser(gzip.decompress(decoded).decode("utf-8"))
 
 
 def gzip_base64_encoded(message: str) -> str:

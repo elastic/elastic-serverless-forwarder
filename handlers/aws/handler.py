@@ -21,6 +21,7 @@ from .s3_sqs_trigger import _handle_s3_sqs_event, _handle_s3_sqs_move
 from .sqs_trigger import _handle_sqs_event, handle_sqs_move
 from .utils import (
     CONFIG_FROM_PAYLOAD,
+    GZIP_ENCODING,
     INTEGRATION_SCOPE_GENERIC,
     ConfigFileException,
     TriggerTypeException,
@@ -85,7 +86,10 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         shipper_cache: dict[str, CompositeShipper] = {}
         for replay_record in lambda_event["Records"]:
             event = json_parser(replay_record["body"])
-            event["event_payload"] = gzip_base64_decoded(event["event_payload"])
+
+            if "messageAttributes" in replay_record and "payloadEncoding" in replay_record["messageAttributes"]:
+                if replay_record["messageAttributes"]["payloadEncoding"]["stringValue"] == GZIP_ENCODING:
+                    event["event_payload"] = gzip_base64_decoded(event["event_payload"])
 
             input_id = event["event_input_id"]
             output_destination = event["output_destination"]
