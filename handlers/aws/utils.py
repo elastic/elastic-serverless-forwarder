@@ -30,6 +30,7 @@ _available_triggers: dict[str, str] = {"aws:s3": "s3-sqs", "aws:sqs": "sqs", "aw
 CONFIG_FROM_PAYLOAD: str = "CONFIG_FROM_PAYLOAD"
 CONFIG_FROM_S3FILE: str = "CONFIG_FROM_S3FILE"
 INTEGRATION_SCOPE_GENERIC: str = "generic"
+PAYLOAD_ENCODING_KEY: str = "payloadEncoding"
 GZIP_ENCODING: str = "gzip"
 
 
@@ -467,7 +468,7 @@ class ReplayEventHandler:
             "event_input_id": self._event_input_id,
         }
 
-        message_attributes = {"payloadEncoding": {"StringValue": GZIP_ENCODING, "DataType": "String"}}
+        message_attributes = {PAYLOAD_ENCODING_KEY: {"StringValue": GZIP_ENCODING, "DataType": "String"}}
         sqs_client.send_message(
             QueueUrl=sqs_replay_queue, MessageBody=json_dumper(message_payload), MessageAttributes=message_attributes
         )

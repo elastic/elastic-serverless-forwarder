@@ -23,6 +23,7 @@ from .utils import (
     CONFIG_FROM_PAYLOAD,
     GZIP_ENCODING,
     INTEGRATION_SCOPE_GENERIC,
+    PAYLOAD_ENCODING_KEY,
     ConfigFileException,
     TriggerTypeException,
     capture_serverless,
@@ -87,8 +88,8 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         for replay_record in lambda_event["Records"]:
             event = json_parser(replay_record["body"])
 
-            if "messageAttributes" in replay_record and "payloadEncoding" in replay_record["messageAttributes"]:
-                if replay_record["messageAttributes"]["payloadEncoding"]["stringValue"] == GZIP_ENCODING:
+            if "messageAttributes" in replay_record and PAYLOAD_ENCODING_KEY in replay_record["messageAttributes"]:
+                if replay_record["messageAttributes"][PAYLOAD_ENCODING_KEY]["stringValue"] == GZIP_ENCODING:
                     event["event_payload"] = gzip_base64_decoded(event["event_payload"])
 
             input_id = event["event_input_id"]

@@ -16,7 +16,7 @@ from botocore.client import BaseClient as BotoBaseClient
 from testcontainers.localstack import LocalStackContainer
 
 from handlers.aws.exceptions import ReplayHandlerException
-from handlers.aws.utils import gzip_base64_decoded
+from handlers.aws.utils import GZIP_ENCODING, PAYLOAD_ENCODING_KEY, gzip_base64_decoded, gzip_base64_encoded
 from main_aws import handler
 from share import get_hex_prefix, json_dumper, json_parser
 from tests.testcontainers.es import ElasticsearchContainer
@@ -40,6 +40,7 @@ from .utils import (
     _sqs_create_queue,
     _sqs_get_messages,
     _sqs_send_messages,
+    _sqs_send_messages_with_attribs,
     _sqs_send_s3_notifications,
     _time_based_id,
 )
@@ -4545,3 +4546,102 @@ class TestLambdaHandlerIntegration(TestCase):
         assert first_body["event_payload"]["cloud"]["region"] == "us-east-1"
         assert first_body["event_payload"]["cloud"]["account"]["id"] == "000000000000"
         assert first_body["event_payload"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
+
+    def test_sqs_replay(self) -> None:
+        """
+        This test validate parsing of compressed and uncompressed messages through SQS replay path
+        """
+        assert isinstance(self.elasticsearch, ElasticsearchContainer)
+        assert isinstance(self.localstack, LocalStackContainer)
+
+        # setup configurations
+        cloudwatch_group_name = _time_based_id(suffix="source-group")
+        cloudwatch_group_arn = f"arn:aws:logs:us-east-1:123456789:log-group:{cloudwatch_group_name}"
+
+        config_yaml: str = f"""
+            inputs:
+              - type: "cloudwatch-logs"
+                id: "{cloudwatch_group_arn}"
+                tags: {self.default_tags}
+                outputs:
+                  - type: "elasticsearch"
+                    args:
+                      elasticsearch_url: "{self.elasticsearch.get_url()}"
+                      ssl_assert_fingerprint: {self.elasticsearch.ssl_assert_fingerprint}
+                      username: "{self.secret_arn}:username"
+                      password: "{self.secret_arn}:password"
+            """
+
+        config_file_path = "config.yaml"
+        config_bucket_name = _time_based_id(suffix="config-bucket")
+        _s3_upload_content_to_bucket(
+            client=self.s3_client,
+            content=config_yaml.encode("utf-8"),
+            content_type="text/plain",
+            bucket_name=config_bucket_name,
+            key=config_file_path,
+        )
+
+        os.environ["S3_CONFIG_FILE"] = f"s3://{config_bucket_name}/{config_file_path}"
+
+        # Create a SQS queue
+        sqs_queue_name = _time_based_id(suffix="source-sqs")
+        sqs_queue = _sqs_create_queue(self.sqs_client, sqs_queue_name, self.localstack.get_url())
+        sqs_queue_url = sqs_queue["QueueUrl"]
+        sqs_queue_arn = sqs_queue["QueueArn"]
+
+        # Generic reusable event
+        failed_event = {
+            "_op_type": "create",
+            "_index": "logs-generic-default",
+            "_id": _time_based_id(suffix="record"),
+            "@timestamp": datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+            "tags": ["forwarded", "esf-cloudwatch"],
+            "data_stream": {"type": "logs", "dataset": "generic", "namespace": "default"},
+            "event": {"dataset": "generic"},
+            "message": "Some message from CloudWatch input",
+            "aws": {"cloudwatch": {"log_group": "CloudTrail/test", "log_stream": "data", "event_id": "eventID"}},
+            "cloud": {"provider": "aws", "region": "us-east-1", "account": {"id": "123456789"}},
+        }
+
+        # First - Replay an uncompressed message
+        sqs_replay_message = {
+            "output_destination": self.elasticsearch.get_url(),
+            "output_args": {"es_datastream_name": "logs-generic-default"},
+            "event_payload": failed_event,
+            "event_input_id": cloudwatch_group_arn,
+        }
+
+        _sqs_send_messages(self.sqs_client, sqs_queue_url, json_dumper(sqs_replay_message))
+        event, _ = _sqs_get_messages(self.sqs_client, sqs_queue_url, sqs_queue_arn)
+
+        ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
+        assert handler(event, ctx) == "replayed"  # type:ignore
+
+        self.elasticsearch.refresh(index="logs-generic-default")
+        assert self.elasticsearch.count(index="logs-generic-default")["count"] == 1
+
+        # Second - Replay a compressed message
+
+        # Update generic message with fresh id & timestamp
+        failed_event["_id"] = _time_based_id(suffix="record")
+        failed_event["@timestamp"] = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
+        sqs_replay_message = {
+            "output_destination": self.elasticsearch.get_url(),
+            "output_args": {"es_datastream_name": "logs-generic-default"},
+            "event_payload": gzip_base64_encoded(json_dumper(failed_event)),
+            "event_input_id": cloudwatch_group_arn,
+        }
+
+        # Set event payload encoding hint
+        attribs = {
+            PAYLOAD_ENCODING_KEY: {"StringValue": GZIP_ENCODING, "DataType": "String"},
+        }
+
+        _sqs_send_messages_with_attribs(self.sqs_client, sqs_queue_url, json_dumper(sqs_replay_message), attribs)
+        event, _ = _sqs_get_messages(self.sqs_client, sqs_queue_url, sqs_queue_arn)
+        assert handler(event, ctx) == "replayed"  # type:ignore
+
+        self.elasticsearch.refresh(index="logs-generic-default")
+        assert self.elasticsearch.count(index="logs-generic-default")["count"] == 2
