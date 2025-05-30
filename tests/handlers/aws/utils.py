@@ -237,6 +237,14 @@ def _sqs_send_messages(client: BotoBaseClient, queue_url: str, message_body: str
     )
 
 
+def _sqs_send_messages_with_attribs(client: BotoBaseClient, queue_url: str, message_body: str, attribs: Any) -> None:
+    client.send_message(
+        QueueUrl=queue_url,
+        MessageBody=message_body,
+        MessageAttributes=attribs,
+    )
+
+
 def _sqs_get_messages(client: BotoBaseClient, queue_url: str, queue_arn: str = "") -> tuple[dict[str, Any], list[str]]:
     """
     A function to extract all messages from a SQS queue, specified by URL.
