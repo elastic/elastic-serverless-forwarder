@@ -107,7 +107,7 @@ jobs:
           aws-account-id: "${{ env.AWS_ACCOUNT_ID }}"
           aws-region: "${{ env.AWS_REGION }}"
 
-      - uses: aws-actions/setup-sam@2360ef6d90015369947b45b496193ab9976a9b04 # v2
+      - uses: aws-actions/setup-sam@819220f63fb333a9a394dd0a5cab2d8303fd17e2 # v2
         with:
           use-installer: true
           token: ${{ secrets.GITHUB_TOKEN }}
