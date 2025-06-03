@@ -1,6 +1,8 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
+import base64
+import gzip
 import os
 from typing import Any, Callable, Optional
 
@@ -27,8 +29,9 @@ _available_triggers: dict[str, str] = {"aws:s3": "s3-sqs", "aws:sqs": "sqs", "aw
 
 CONFIG_FROM_PAYLOAD: str = "CONFIG_FROM_PAYLOAD"
 CONFIG_FROM_S3FILE: str = "CONFIG_FROM_S3FILE"
-
 INTEGRATION_SCOPE_GENERIC: str = "generic"
+PAYLOAD_ENCODING_KEY: str = "payloadEncoding"
+GZIP_ENCODING: str = "gzip"
 
 
 def get_lambda_region() -> str:
@@ -457,14 +460,18 @@ class ReplayEventHandler:
 
         sqs_client = get_sqs_client()
 
+        # generate message with compressed event_payload to avoid sqs message size overflow
         message_payload: dict[str, Any] = {
             "output_destination": output_destination,
             "output_args": output_args,
-            "event_payload": event_payload,
+            "event_payload": gzip_base64_encoded(json_dumper(event_payload)),
             "event_input_id": self._event_input_id,
         }
 
-        sqs_client.send_message(QueueUrl=sqs_replay_queue, MessageBody=json_dumper(message_payload))
+        message_attributes = {PAYLOAD_ENCODING_KEY: {"StringValue": GZIP_ENCODING, "DataType": "String"}}
+        sqs_client.send_message(
+            QueueUrl=sqs_replay_queue, MessageBody=json_dumper(message_payload), MessageAttributes=message_attributes
+        )
 
         shared_logger.debug(
             "sent to replay queue",
@@ -610,3 +617,14 @@ def expand_event_list_from_field_resolver(integration_scope: str, field_to_expan
         field_to_expand_event_list_from = "Records"
 
     return field_to_expand_event_list_from
+
+
+def gzip_base64_decoded(message: str) -> Any:
+    decoded = base64.b64decode(message, validate=True)
+    return json_parser(gzip.decompress(decoded).decode("utf-8"))
+
+
+def gzip_base64_encoded(message: str) -> str:
+    event_bytes = message.encode("utf-8")
+    compressed = gzip.compress(event_bytes)
+    return base64.b64encode(compressed).decode("utf-8")

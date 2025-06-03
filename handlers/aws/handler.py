@@ -1,7 +1,6 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
-
 import os
 from typing import Any, Callable, Optional
 
@@ -22,7 +21,9 @@ from .s3_sqs_trigger import _handle_s3_sqs_event, _handle_s3_sqs_move
 from .sqs_trigger import _handle_sqs_event, handle_sqs_move
 from .utils import (
     CONFIG_FROM_PAYLOAD,
+    GZIP_ENCODING,
     INTEGRATION_SCOPE_GENERIC,
+    PAYLOAD_ENCODING_KEY,
     ConfigFileException,
     TriggerTypeException,
     capture_serverless,
@@ -35,6 +36,7 @@ from .utils import (
     get_shipper_from_input,
     get_sqs_client,
     get_trigger_type_and_config_source,
+    gzip_base64_decoded,
     wrap_try_except,
 )
 
@@ -85,6 +87,11 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         shipper_cache: dict[str, CompositeShipper] = {}
         for replay_record in lambda_event["Records"]:
             event = json_parser(replay_record["body"])
+
+            if "messageAttributes" in replay_record and PAYLOAD_ENCODING_KEY in replay_record["messageAttributes"]:
+                if replay_record["messageAttributes"][PAYLOAD_ENCODING_KEY]["stringValue"] == GZIP_ENCODING:
+                    event["event_payload"] = gzip_base64_decoded(event["event_payload"])
+
             input_id = event["event_input_id"]
             output_destination = event["output_destination"]
             shipper_id = input_id + output_destination
