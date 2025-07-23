@@ -312,9 +312,9 @@ Both parameters are required in order to attach the Elastic Serverless Forwarder
 
 If the Elastic Serverless Forwarder is attached to a VPC, you need to [create VPC endpoints](https://docs.aws.amazon.com/vpc/latest/privatelink/create-interface-endpoint.html) for S3 and SQS, and for **every** service you define as an input for the forwarder. S3 and SQS VPC endpoints are always required for reading the `config.yaml` uploaded to S3 and managing the continuing queue and the replay queue, regardless of the [Inputs](/reference/index.md#aws-serverless-forwarder-inputs) used. If you use [Amazon CloudWatch Logs subscription filters](/reference/index.md#aws-serverless-forwarder-inputs-cloudwatch), you need to create a VPC endpoint for EC2, too.
 
-::::{note}
+:::{note}
 Refer to the [AWS PrivateLink private connectivity](docs-content://deploy-manage/security/private-connectivity-aws.md) documentation to find your VPC endpoint ID and the hostname to use in the `config.yml` in order to access your Elasticsearch cluster over PrivateLink.
-::::
+:::
 
 
 
