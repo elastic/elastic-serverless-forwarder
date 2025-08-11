@@ -1,3 +1,8 @@
+### v1.20.2 - 2025/08/12
+##### Docs
+* added documentation on a new argumnet to the publish_lambdas.sh
+##### Features
+* Added a new command line argument to the publish_lambdas.sh to enable use of the --config-file option to support creating tags when deploying sam directly  
 ### v1.20.1 - 2025/05/23
 ##### Docs
 * Fix 404 link in README-AWS.md [903](https://github.com/elastic/elastic-serverless-forwarder/pull/903)
