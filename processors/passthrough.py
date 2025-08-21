@@ -1,8 +1,10 @@
 from typing import Dict, Any, Optional
 
 from processors.processor import BaseProcessor, ProcessorResult
+from processors.registry import register_processor
 
 
+@register_processor("passthrough")
 class PassThroughProcessor(BaseProcessor):
     """
     Passthrough processor for initial testing

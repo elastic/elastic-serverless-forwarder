@@ -42,7 +42,7 @@ package: ## Package lambda by installing python dependencies matching x86_64
     cd ./deps && \
     zip -r ../local_esf.zip . && \
     cd .. && \
-    zip -r local_esf.zip main_aws.py handlers share storage shippers && \
+    zip -r local_esf.zip main_aws.py handlers share storage shippers processors && \
     rm -r ./deps
 
 clean: ## cleanup any leftover resources

@@ -54,22 +54,3 @@ class BaseProcessor(ABC):
             ProcessorResult containing zero, one, or multiple processed events
         """
         pass
-
-
-class ProcessorChain:
-    def __init__(self, processors: List[BaseProcessor]) -> None:
-        self.processors = processors
-
-    def process(self, curr_event: Dict[str, Any], context: Dict[str, Any] | None = None) -> ProcessorResult:
-
-        if context is None:
-            context = {}
-
-        for processor in self.processors:
-
-            result = processor.process(curr_event, context)
-
-            if not result:
-                break
-
-        return ProcessorResult(curr_event)

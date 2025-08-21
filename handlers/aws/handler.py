@@ -7,6 +7,7 @@ from typing import Any, Callable, Optional
 from aws_lambda_typing import context as context_
 
 from share import ExpandEventListFromField, json_parser, parse_config, shared_logger
+from share.processor_utils import process_event
 from share.secretsmanager import aws_sm_expander
 from shippers import EVENT_IS_FILTERED, EVENT_IS_SENT, CompositeShipper
 
@@ -208,7 +209,15 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             event_input.json_content_type,
             event_input.get_multiline_processor(),
         ):
-            sent_outcome = composite_shipper.send(es_event)
+            processor_chain = event_input.get_processor_chain()
+            context = {
+                "input_id": event_input.id,
+                "input_type": event_input.type,
+            }
+
+            processed_event = process_event(es_event, processor_chain, context)
+
+            sent_outcome = composite_shipper.send(processed_event.to_dict())
             if sent_outcome == EVENT_IS_SENT:
                 sent_events += 1
             elif sent_outcome == EVENT_IS_FILTERED:

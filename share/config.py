@@ -2,10 +2,11 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Optional, Union, Dict
 
 import yaml
 
+from processors.factory import ProcessorChain, ProcessorFactory
 from .factory import MultilineFactory
 from .include_exlude import IncludeExcludeFilter, IncludeExcludeRule
 from .logger import logger as shared_logger
@@ -307,6 +308,7 @@ class Input:
         self._include_exclude_filter: Optional[IncludeExcludeFilter] = None
 
         self._valid_json_content_type: list[str] = ["ndjson", "single", "disabled"]
+        self._processor_chain: Optional[ProcessorChain] = None
 
     @property
     def type(self) -> str:
@@ -469,6 +471,16 @@ class Input:
     def get_multiline_processor(self) -> Optional[ProtocolMultiline]:
         return self._multiline_processor
 
+    def get_processor_chain(self) -> Optional[ProcessorChain]:
+        return self._processor_chain
+
+    def add_processor_chain(self, processor_config: list[Dict[str, Any]]) -> None:
+        """
+        Add a processor chain to the config.
+        """
+
+        self._processor_chain = ProcessorFactory.create_chain(processor_config)
+
     def add_multiline_processor(self, multiline_type: str, **kwargs: Any) -> None:
         """
         Multiline setter.
@@ -559,6 +571,16 @@ def parse_config(config_yaml: str, expanders: list[Callable[[str], str]] = []) -
             except ValueError as e:
                 raise ValueError(
                     f'An error occurred while applying multiline configuration for input {input_config["id"]}: {e}'
+                )
+        if "processors" in input_config:
+            if not isinstance(input_config["processors"], list):
+                raise ValueError(f'`processors` must be provided as list for input {input_config["id"]}')
+
+            try:
+                current_input.add_processor_chain(input_config["processors"])
+            except ValueError as e:
+                raise ValueError(
+                    f'An error occurred while applying processor configuration for input {input_config["id"]}: {e}'
                 )
 
         if "expand_event_list_from_field" in input_config:
