@@ -1,3 +1,7 @@
+### v1.21.0 - 2025/08/28
+##### Features
+* Add gzip compression to SQS replay events generated from CloudWatch [887](https://github.com/elastic/elastic-serverless-forwarder/pull/887)
+
 ### v1.20.1 - 2025/05/23
 ##### Docs
 * Fix 404 link in README-AWS.md [903](https://github.com/elastic/elastic-serverless-forwarder/pull/903)
