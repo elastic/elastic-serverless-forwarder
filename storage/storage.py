@@ -49,11 +49,11 @@ class ProtocolStorage(Protocol):
     multiline_processor: Optional[ProtocolMultiline]
     event_list_from_field_expander: Optional[ExpandEventListFromField]
 
-    def get_by_lines(self, range_start: int) -> GetByLinesIterator:
-        pass  # pragma: no cover
+    def get_by_lines(self, range_start: int, binary_processor_type: Optional[str] = None) -> GetByLinesIterator:
+        ...  # pragma: no cover
 
     def get_as_string(self) -> str:
-        pass  # pragma: no cover
+        ...  # pragma: no cover
 
 
 class CommonStorage(metaclass=ABCMeta):

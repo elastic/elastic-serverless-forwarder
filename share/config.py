@@ -309,10 +309,21 @@ class Input:
 
         self._valid_json_content_type: list[str] = ["ndjson", "single", "disabled"]
         self._processor_chain: Optional[ProcessorChain] = None
+        self._binary_processor_type: Optional[str] = None
 
     @property
     def type(self) -> str:
         return self._type
+
+    @property
+    def binary_processor_type(self) -> Optional[str]:
+        return self._binary_processor_type
+
+    @binary_processor_type.setter
+    def binary_processor_type(self, value: Optional[str]) -> None:
+        if value is not None and not isinstance(value, str):
+            raise ValueError(f"`binary_processor_type` must be provided as string for input {self.id}")
+        self._binary_processor_type = value
 
     @type.setter
     def type(self, value: str) -> None:
@@ -591,6 +602,9 @@ def parse_config(config_yaml: str, expanders: list[Callable[[str], str]] = []) -
 
         if "json_content_type" in input_config:
             current_input.json_content_type = input_config["json_content_type"]
+
+        if "binary_processor_type" in input_config:
+            current_input.binary_processor_type = input_config["binary_processor_type"]
 
         include_rules: list[IncludeExcludeRule] = []
         if "include" in input_config:

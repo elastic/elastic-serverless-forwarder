@@ -566,6 +566,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                     event_input.root_fields_to_add_to_expanded_event,
                     event_input.json_content_type,
                     event_input.get_multiline_processor(),
+                    event_input.binary_processor_type,
                 ):
                     processor_chain = event_input.get_processor_chain()
                     context = {

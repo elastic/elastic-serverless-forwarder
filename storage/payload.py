@@ -64,7 +64,7 @@ class PayloadStorage(CommonStorage):
                 shared_logger.debug("_generate flat", extra={"offset": file_ending_offset})
                 yield chunk, file_starting_offset, file_ending_offset, b"", None
 
-    def get_by_lines(self, range_start: int) -> GetByLinesIterator:
+    def get_by_lines(self, range_start: int, binary_processor_type: Optional[str] = None) -> GetByLinesIterator:
         original_range_start: int = range_start
 
         is_gzipped: bool = False
