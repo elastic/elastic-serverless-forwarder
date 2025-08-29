@@ -3,10 +3,16 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 import gzip
+import json
 from io import BytesIO
 from typing import Any, Iterator, Optional, Union
 
-from share import ExpandEventListFromField, FeedIterator, ProtocolMultiline, json_parser, shared_logger
+
+from share import (
+    ExpandEventListFromField, FeedIterator,
+    ProtocolMultiline, json_parser,
+    shared_logger, parse_ipfix_stream
+)
 
 from .storage import CHUNK_SIZE, ProtocolStorageType, StorageDecoratorCallable, StorageDecoratorIterator, StorageReader
 
@@ -391,5 +397,61 @@ def inflate(func: StorageDecoratorCallable[ProtocolStorageType]) -> StorageDecor
             else:
                 shared_logger.debug("inflate plain")
                 yield data, 0, 0, b"", None
+
+    return wrapper
+
+
+def ipfix_decode(func: StorageDecoratorCallable[ProtocolStorageType]) -> StorageDecoratorCallable[ProtocolStorageType]:
+    """
+    ProtocolStorage decorator for decoding IPFIX binary data to JSON records using streaming approach
+    """
+
+    def wrapper(
+        storage: ProtocolStorageType, range_start: int, body: BytesIO, is_gzipped: bool
+    ) -> StorageDecoratorIterator:
+        # Check if this storage should use IPFIX processing
+        binary_processor_type = getattr(storage, 'binary_processor_type', None)
+
+        if binary_processor_type == "ipfix":
+
+            # Collect all binary data into a BytesIO stream
+            binary_data = BytesIO()
+            iterator = func(storage, range_start, body, is_gzipped)
+
+            for data, _, _, _, _ in iterator:
+                if isinstance(data, StorageReader):
+                    # Handle gzipped data
+                    binary_data.write(data.raw.getvalue())
+                else:
+                    binary_data.write(data)
+
+            # Reset stream position for reading
+            binary_data.seek(0)
+            try:
+                # Use the streaming parser to process IPFIX data
+                shared_logger.debug("Starting IPFIX streaming parse")
+
+                for record in parse_ipfix_stream(binary_data):
+
+                    # Convert each IPFIX record to JSON bytes and yield
+                    json_bytes = json.dumps(record).encode('utf-8')
+                    # Adding newline to separate records by line
+                    json_bytes += b'\n'
+
+                    shared_logger.debug("ipfix_decode decoded record")
+                    yield json_bytes, 0, 0, b"", None
+
+            except Exception as e:
+                shared_logger.error(
+                    "Error processing IPFIX data with streaming parser",
+                    extra={"error": str(e), "data_size": binary_data.getbuffer().nbytes}
+                )
+                # Don't re-raise the exception, just log it and continue
+                # This allows the pipeline to continue processing other data
+        else:
+            # Pass through for non-IPFIX data
+            iterator = func(storage, range_start, body, is_gzipped)
+            for data, starting_offset, ending_offset, newline, event_expanded_offset in iterator:
+                yield data, starting_offset, ending_offset, newline, event_expanded_offset
 
     return wrapper

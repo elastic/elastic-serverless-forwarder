@@ -9,7 +9,7 @@ from typing import Any, Optional
 
 from share import ExpandEventListFromField, ProtocolMultiline, shared_logger
 
-from .decorator import by_lines, inflate, json_collector, multi_line
+from .decorator import by_lines, inflate, ipfix_decode, json_collector, multi_line
 from .storage import (
     CHUNK_SIZE,
     CommonStorage,
@@ -33,15 +33,18 @@ class PayloadStorage(CommonStorage):
         json_content_type: Optional[str] = None,
         multiline_processor: Optional[ProtocolMultiline] = None,
         event_list_from_field_expander: Optional[ExpandEventListFromField] = None,
+        binary_processor_type: Optional[str] = None,
     ):
         self._payload: str = payload
         self.json_content_type = json_content_type
         self.multiline_processor = multiline_processor
         self.event_list_from_field_expander = event_list_from_field_expander
+        self.binary_processor_type = binary_processor_type
 
     @multi_line
     @json_collector
     @by_lines
+    @ipfix_decode
     @inflate
     def _generate(self, range_start: int, body: BytesIO, is_gzipped: bool) -> StorageDecoratorIterator:
         """
@@ -64,7 +67,7 @@ class PayloadStorage(CommonStorage):
                 shared_logger.debug("_generate flat", extra={"offset": file_ending_offset})
                 yield chunk, file_starting_offset, file_ending_offset, b"", None
 
-    def get_by_lines(self, range_start: int, binary_processor_type: Optional[str] = None) -> GetByLinesIterator:
+    def get_by_lines(self, range_start: int) -> GetByLinesIterator:
         original_range_start: int = range_start
 
         is_gzipped: bool = False

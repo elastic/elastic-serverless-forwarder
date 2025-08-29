@@ -7,6 +7,7 @@ from .events import normalise_event
 from .expand_event_list_from_field import ExpandEventListFromField
 from .factory import MultilineFactory
 from .include_exlude import IncludeExcludeFilter, IncludeExcludeRule
+from .ipfix_parser import parse_ipfix_stream
 from .json import json_dumper, json_parser
 from .logger import logger as shared_logger
 from .multiline import CollectBuffer, CountMultiline, FeedIterator, PatternMultiline, ProtocolMultiline, WhileMultiline

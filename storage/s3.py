@@ -12,7 +12,7 @@ from botocore.response import StreamingBody
 
 from share import ExpandEventListFromField, ProtocolMultiline, shared_logger
 
-from .decorator import by_lines, inflate, json_collector, multi_line
+from .decorator import by_lines, inflate, json_collector, multi_line, ipfix_decode
 from .storage import (
     CHUNK_SIZE,
     CommonStorage,
@@ -40,16 +40,19 @@ class S3Storage(CommonStorage):
         json_content_type: Optional[str] = None,
         multiline_processor: Optional[ProtocolMultiline] = None,
         event_list_from_field_expander: Optional[ExpandEventListFromField] = None,
+        binary_processor_type: Optional[str] = None,
     ):
         self._bucket_name: str = bucket_name
         self._object_key: str = object_key
         self.json_content_type = json_content_type
         self.multiline_processor = multiline_processor
         self.event_list_from_field_expander = event_list_from_field_expander
+        self.binary_processor_type = binary_processor_type
 
     @multi_line
     @json_collector
     @by_lines
+    @ipfix_decode
     @inflate
     def _generate(self, range_start: int, body: BytesIO, is_gzipped: bool) -> StorageDecoratorIterator:
         """
@@ -72,7 +75,7 @@ class S3Storage(CommonStorage):
                 shared_logger.debug("_generate flat", extra={"offset": file_ending_offset})
                 yield chunk, file_ending_offset, file_starting_offset, b"", None
 
-    def get_by_lines(self, range_start: int, binary_processor_type: Optional[str] = None) -> GetByLinesIterator:
+    def get_by_lines(self, range_start: int) -> GetByLinesIterator:
         original_range_start: int = range_start
 
         s3_object_head = self._s3_client.head_object(Bucket=self._bucket_name, Key=self._object_key)
@@ -86,7 +89,7 @@ class S3Storage(CommonStorage):
                 "range_start": range_start,
                 "bucket_name": self._bucket_name,
                 "object_key": self._object_key,
-                "binary_processor_type": binary_processor_type,
+                "binary_processor_type": self.binary_processor_type,
             },
         )
 
@@ -102,72 +105,11 @@ class S3Storage(CommonStorage):
 
         if range_start < content_length:
             file_content.seek(range_start, SEEK_SET)
-
-            # If binary_processor_type is set to 'ipfix', decode using IPFIXProcessor
-            if binary_processor_type == "ipfix":
-                from processors.ipfix import IPFIXProcessor
-                import json
-                # Use BytesIO for IPFIXProcessor
-                file_content.seek(0)
-
-                # If file is gzipped, we need to decompress it first
-                if is_gzipped:
-                    import gzip
-                    try:
-                        file_content.seek(0)
-                        with gzip.GzipFile(fileobj=file_content, mode='rb') as gz_file:
-                            decompressed_data = gz_file.read()
-                        shared_logger.debug(
-                            "Successfully decompressed IPFIX file",
-                            extra={
-                                "original_size": content_length,
-                                "decompressed_size": len(decompressed_data)
-                            }
-                        )
-                    except Exception as e:
-                        shared_logger.error(
-                            "Failed to decompress IPFIX file",
-                            extra={"error": str(e), "bucket": self._bucket_name, "key": self._object_key}
-                        )
-                        raise
-                else:
-                    decompressed_data = file_content.getvalue()
-
-                processor = IPFIXProcessor()
-                # Simulate event dict for processor
-                event = {"body": decompressed_data}
-
-                try:
-                    result = processor.process(event)
-                    # Yield each record from the result as JSON bytes
-                    if not result.is_empty:
-                        for record in result.events:
-                            # Convert the record to JSON bytes to maintain compatibility
-                            json_bytes = json.dumps(record).encode('utf-8')
-                            # Use 0 for offsets since binary decoding doesn't use them meaningfully
-                            yield json_bytes, 0, 0, None
-                    else:
-                        shared_logger.warning(
-                            "No IPFIX records found in file",
-                            extra={"bucket": self._bucket_name, "key": self._object_key}
-                        )
-                except Exception as e:
-                    shared_logger.error(
-                        "Error processing IPFIX file",
-                        extra={
-                            "error": str(e),
-                            "bucket": self._bucket_name,
-                            "key": self._object_key,
-                            "file_size": len(decompressed_data)
-                        }
-                    )
-                    raise
-            else:
-                for log_event, line_starting_offset, line_ending_offset, _, event_expanded_offset in self._generate(
-                    original_range_start, file_content, is_gzipped
-                ):
-                    assert isinstance(log_event, bytes)
-                    yield log_event, line_starting_offset, line_ending_offset, event_expanded_offset
+            for log_event, line_starting_offset, line_ending_offset, _, event_expanded_offset in self._generate(
+                original_range_start, file_content, is_gzipped
+            ):
+                assert isinstance(log_event, bytes)
+                yield log_event, line_starting_offset, line_ending_offset, event_expanded_offset
         else:
             shared_logger.info(f"requested file content from {range_start}, file size {content_length}: skip it")
 
