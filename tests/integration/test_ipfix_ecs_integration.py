@@ -7,7 +7,7 @@ from unittest.mock import Mock, patch
 import json
 
 from share import parse_ipfix_stream
-from processors.ecs import ECSProcessor
+from processors.ipfix_ecs import ECSProcessor
 from storage.s3 import S3Storage
 
 
@@ -71,7 +71,6 @@ class TestIPFIXECSIntegration(unittest.TestCase):
         # Get the first IPFIX record
         for event in ipfix_result:
             ipfix_record = event
-            print(ipfix_record)
             break
 
         # Verify IPFIX record has expected fields
@@ -168,7 +167,7 @@ class TestIPFIXECSIntegration(unittest.TestCase):
         storage = S3Storage("test-bucket", "test-key.gz")
 
         # Process with binary_processor_type="ipfix"
-        results = list(storage.get_by_lines(0, binary_processor_type="ipfix"))
+        results = list(storage.get_by_lines(0))
 
         self.assertGreater(len(results), 0, "Should produce results from IPFIX+ECS processing")
 
@@ -192,7 +191,7 @@ class TestIPFIXECSIntegration(unittest.TestCase):
         from processors.registry import ProcessorRegistry
 
         # The processor should be registered
-        processor_class = ProcessorRegistry.get("ecs")
+        processor_class = ProcessorRegistry.get("ipfix_ecs")
         self.assertEqual(processor_class, ECSProcessor)
 
         # Should be able to create an instance

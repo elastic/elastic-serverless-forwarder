@@ -28,6 +28,7 @@ class StorageFactory:
         json_content_type: Optional[str] = None,
         event_list_from_field_expander: Optional[ExpandEventListFromField] = None,
         multiline_processor: Optional[ProtocolMultiline] = None,
+        binary_processor_type: Optional[str] = None,
         **kwargs: Any,
     ) -> ProtocolStorage:
         """
@@ -53,6 +54,7 @@ class StorageFactory:
         kwargs["json_content_type"] = json_content_type
         kwargs["multiline_processor"] = multiline_processor
         kwargs["event_list_from_field_expander"] = event_list_from_field_expander
+        kwargs["binary_processor_type"] = binary_processor_type
 
         storage_builder: Callable[..., ProtocolStorage] = storage_definition["class"]
         return storage_builder(**kwargs)

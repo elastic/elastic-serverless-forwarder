@@ -134,11 +134,12 @@ def _handle_s3_sqs_event(
             json_content_type=json_content_type,
             event_list_from_field_expander=event_list_from_field_expander,
             multiline_processor=multiline_processor,
+            binary_processor_type=binary_processor_type,
         )
 
         span = elasticapm.capture_span(f"WAIT FOR OFFSET STARTING AT {last_ending_offset}")
         span.__enter__()
-        events = storage.get_by_lines(range_start=last_ending_offset, binary_processor_type=binary_processor_type)
+        events = storage.get_by_lines(range_start=last_ending_offset)
 
         for log_event, starting_offset, ending_offset, event_expanded_offset in events:
             assert isinstance(log_event, bytes)
@@ -153,14 +154,14 @@ def _handle_s3_sqs_event(
                 try:
                     # Decode the JSON data from the binary processor
                     parsed_data = json.loads(log_event.decode("utf-8"))
-                    
+
                     # For binary processed data, use the parsed data directly but add metadata
                     es_event: dict[str, Any] = parsed_data.copy()
-                    
+
                     # Ensure we have a timestamp
                     if "@timestamp" not in es_event:
                         es_event["@timestamp"] = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-                    
+
                     # Add AWS metadata as nested fields
                     es_event.setdefault("aws", {}).update({
                         "s3": {
@@ -168,25 +169,25 @@ def _handle_s3_sqs_event(
                             "object": {"key": object_key},
                         }
                     })
-                    
+
                     es_event.setdefault("cloud", {}).update({
                         "provider": "aws",
                         "region": aws_region,
                         "account": {"id": account_id},
                     })
-                    
+
                     es_event.setdefault("log", {}).update({
                         "offset": starting_offset,
                         "file": {
                             "path": "https://{0}.s3.{1}.amazonaws.com/{2}".format(bucket_name, aws_region, object_key),
                         },
                     })
-                    
+
                     es_event.setdefault("meta", {}).update({
-                        "event_time": event_time, 
+                        "event_time": event_time,
                         "integration_scope": integration_scope
                     })
-                    
+
                 except json.JSONDecodeError as e:
                     shared_logger.error(
                         "Failed to parse binary processor output as JSON",

@@ -11,8 +11,9 @@ from typing import Any, Iterator, Optional, Union
 from share import (
     ExpandEventListFromField, FeedIterator,
     ProtocolMultiline, json_parser,
-    shared_logger, parse_ipfix_stream
+    shared_logger
 )
+import share.ipfix_parser as ipfix_parser
 
 from .storage import CHUNK_SIZE, ProtocolStorageType, StorageDecoratorCallable, StorageDecoratorIterator, StorageReader
 
@@ -431,7 +432,7 @@ def ipfix_decode(func: StorageDecoratorCallable[ProtocolStorageType]) -> Storage
                 # Use the streaming parser to process IPFIX data
                 shared_logger.debug("Starting IPFIX streaming parse")
 
-                for record in parse_ipfix_stream(binary_data):
+                for record in ipfix_parser.parse_ipfix_stream(binary_data):
 
                     # Convert each IPFIX record to JSON bytes and yield
                     json_bytes = json.dumps(record).encode('utf-8')

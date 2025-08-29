@@ -403,7 +403,7 @@ def process_wlan_fields(
             ecs_event["destination"]["mac"] = wtp_mac
 
 
-@register_processor("ipfix-ecs")
+@register_processor("ipfix_ecs")
 class ECSProcessor(BaseProcessor):
     """
     Processor to convert NetFlow/IPFIX data to ECS (Elastic Common Schema) format.

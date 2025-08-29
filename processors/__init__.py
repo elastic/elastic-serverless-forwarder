@@ -1,2 +1,2 @@
-# Import all processors to register them
 from . import passthrough  # noqa: F401
+from . import ipfix_ecs  # noqa: F401

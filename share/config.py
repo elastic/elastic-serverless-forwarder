@@ -314,7 +314,7 @@ class Input:
     @property
     def type(self) -> str:
         return self._type
-    
+
     @property
     def binary_processor_type(self) -> Optional[str]:
         return self._binary_processor_type
@@ -324,7 +324,6 @@ class Input:
         if value is not None and not isinstance(value, str):
             raise ValueError(f"`binary_processor_type` must be provided as string for input {self.id}")
         self._binary_processor_type = value
-
 
     @type.setter
     def type(self, value: str) -> None:
