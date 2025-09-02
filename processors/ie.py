@@ -185,35 +185,33 @@ def convert(raw_bytes: bytes, field_type: str) -> Any:
                       "signed8", "signed16", "signed32", "signed64",):
         return int.from_bytes(raw_bytes, byteorder='big')
     try:
-        match field_type:
-            case "float32":
-                return struct.unpack("!f", raw_bytes)[0]
-            case "float64":
-                return struct.unpack("!d", raw_bytes)[0]
-            case "boolean":
-                return raw_bytes != b'\x00'
-            case "macAddress":
-                return "-".join(f"{b:02x}" for b in raw_bytes).upper()
-            case "ipv4Address":
-                return str(ipaddress.IPv4Address(raw_bytes))
-            case "ipv6Address":
-                return str(ipaddress.IPv6Address(raw_bytes))
-            case "string" | "octetArray":
-                try:
-                    return raw_bytes.decode("utf-8")
-                except UnicodeDecodeError:
-                    return raw_bytes.hex()
-            case "dateTimeSeconds":
-                return struct.unpack("!I", raw_bytes)[0]
-            case "dateTimeMilliseconds":
-                # truncate in app logic if needed
-                return struct.unpack("!Q", raw_bytes)[0]
-            case "dateTimeMicroseconds":
-                return struct.unpack("!Q", raw_bytes)[0]
-            case "dateTimeNanoseconds":
-                return struct.unpack("!Q", raw_bytes)[0]
-            case _:
-                # Fallback: hex-encode
+        if field_type == "float32":
+            return struct.unpack("!f", raw_bytes)[0]
+        elif field_type == "float64":
+            return struct.unpack("!d", raw_bytes)[0]
+        elif field_type == "boolean":
+            return raw_bytes != b'\x00'
+        elif field_type == "macAddress":
+            return "-".join(f"{b:02x}" for b in raw_bytes).upper()
+        elif field_type == "ipv4Address":
+            return str(ipaddress.IPv4Address(raw_bytes))
+        elif field_type == "ipv6Address":
+            return str(ipaddress.IPv6Address(raw_bytes))
+        elif field_type == "string" or field_type == "octetArray":
+            try:
+                return raw_bytes.decode("utf-8")
+            except UnicodeDecodeError:
                 return raw_bytes.hex()
+        elif field_type == "dateTimeSeconds":
+            return struct.unpack("!I", raw_bytes)[0]
+        elif field_type == "dateTimeMilliseconds":
+            # truncate in app logic if needed
+            return struct.unpack("!Q", raw_bytes)[0]
+        elif field_type == "dateTimeMicroseconds":
+            return struct.unpack("!Q", raw_bytes)[0]
+        elif field_type == "dateTimeNanoseconds":
+            return struct.unpack("!Q", raw_bytes)[0]
+        else:
+            return raw_bytes.hex()
     except struct.error:
         return raw_bytes.hex()

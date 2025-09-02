@@ -188,17 +188,14 @@ def get_ip_locality_combined(
 
 def get_protocol_name(protocol_num: int) -> str:
     """Convert protocol number to name."""
-    match protocol_num:
-        case 1:
-            return "icmp"
-        case 6:
-            return "tcp"
-        case 17:
-            return "udp"
-        case 58:
-            return "ipv6-icmp"
+    protocol_map = {
+        1: "icmp",
+        6: "tcp",
+        17: "udp",
+        58: "ipv6-icmp"
+    }
 
-    return f"unknown ({protocol_num})"
+    return protocol_map.get(protocol_num, f"unknown ({protocol_num})")
 
 
 def extract_ip_from_address(address: str) -> str:
