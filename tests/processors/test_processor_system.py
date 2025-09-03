@@ -8,7 +8,7 @@ Tests for the Processor System used in S3 Binary Processing Flow
 
 from unittest import TestCase
 from unittest.mock import patch
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import pytest
 
@@ -25,7 +25,7 @@ class MockProcessor(BaseProcessor):
         super().__init__()
         self.processed_events = []
 
-    def process(self, event: Dict[str, Any], context: Dict[str, Any] | None = None) -> ProcessorResult:
+    def process(self, event: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> ProcessorResult:
         # Add a test field to track processing
         processed_event = event.copy()
         processed_event['processed_by_mock'] = True

@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from .processor import BaseProcessor, ProcessorResult
 from .registry import ProcessorRegistry
@@ -12,7 +12,7 @@ class ProcessorChain:
     def __init__(self, processors: List[BaseProcessor]) -> None:
         self.processors = processors
 
-    def process(self, event: Dict[str, Any], context: Dict[str, Any] | None = None) -> ProcessorResult:
+    def process(self, event: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> ProcessorResult:
 
         if context is None:
             context = {}
