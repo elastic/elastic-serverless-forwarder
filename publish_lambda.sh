@@ -59,8 +59,8 @@ mkdir -v -p "${PACKAGE_FOLDER}"
 pushd "${CLONED_FOLDER}"
 cp -v requirements.txt "${PACKAGE_FOLDER}/"
 cp -v main_aws.py "${PACKAGE_FOLDER}/"
-find {handlers,share,shippers,storage} -not -name "*__pycache__*" -type d -print0|xargs -t -0 -Idirname mkdir -v -p "${PACKAGE_FOLDER}/dirname"
-find {handlers,share,shippers,storage} -not -name "*__pycache__*" -name "*.py" -exec cp -v '{}' "${PACKAGE_FOLDER}/{}" \;
+find {handlers,share,shippers,storage,processors} -not -name "*__pycache__*" -type d -print0|xargs -t -0 -Idirname mkdir -v -p "${PACKAGE_FOLDER}/dirname"
+find {handlers,share,shippers,storage,processors} -not -name "*__pycache__*" -name "*.py" -exec cp -v '{}' "${PACKAGE_FOLDER}/{}" \;
 cp -v LICENSE.txt "${PACKAGE_FOLDER}/LICENSE.txt"
 cp -v docs/README-AWS.md "${PACKAGE_FOLDER}/README.md"
 
