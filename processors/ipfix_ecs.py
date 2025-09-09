@@ -4,6 +4,7 @@ from typing import Dict, Any, List, Optional
 from .processor import BaseProcessor, ProcessorResult
 from .registry import register_processor
 import share.ecs_helper as ecs_helper
+from share import shared_logger
 import processors.ie as ie
 import re
 
@@ -55,14 +56,12 @@ def export_to_ecs(netflow_packet: Dict[str, Any],
     if flow_timestamp is None:
         flow_timestamp = datetime.now(timezone.utc)
 
-    ts = netflow_packet.get("@timestamp")
+    ts = netflow_packet.get("header", {}).get("export_time")
     if ts is not None:
         dt = datetime.fromtimestamp(ts, timezone.utc)
         ts = dt.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
     else:
         ts = 'NO TIMESTAMP'
-
-    del netflow_packet["@timestamp"]
 
     # Initialize ECS structure
     ecs_event = {
@@ -151,19 +150,27 @@ def process_additional_flags(
 ) -> None:
     """Process additional NetFlow fields."""
     # TCP Control Bits
-    if packet.get("tcpControlBits"):
+    tcp_ctrl_bits = 0
+    try:
+        if isinstance(tcp_ctrl_bits, str):
+            tcp_ctrl_bits = int(tcp_ctrl_bits, 16)
+    except (ValueError, TypeError):
+        shared_logger.warning(
+            f"Invalid tcpControlBits value: {tcp_ctrl_bits}, skipping TCP flags processing")
+
+    if tcp_ctrl_bits:
         tcp_flags = []
-        if packet["tcpControlBits"] & 0x20:
+        if tcp_ctrl_bits & 0x20:
             tcp_flags.append("URG")
-        if packet["tcpControlBits"] & 0x10:
+        if tcp_ctrl_bits & 0x10:
             tcp_flags.append("ACK")
-        if packet["tcpControlBits"] & 0x08:
+        if tcp_ctrl_bits & 0x08:
             tcp_flags.append("PSH")
-        if packet["tcpControlBits"] & 0x04:
+        if tcp_ctrl_bits & 0x04:
             tcp_flags.append("RST")
-        if packet["tcpControlBits"] & 0x02:
+        if tcp_ctrl_bits & 0x02:
             tcp_flags.append("SYN")
-        if packet["tcpControlBits"] & 0x01:
+        if tcp_ctrl_bits & 0x01:
             tcp_flags.append("FIN")
 
         ecs_event["netflow"]["tcp_flags"] = tcp_flags
@@ -424,11 +431,9 @@ class ECSProcessor(BaseProcessor):
             context = {}
 
         # Extract context information
-        exporter_address = context.get("exporter_address")
+        exporter_address = context.get("exporter_address", "10.0.0.1")
         internal_networks = context.get("internal_networks", [])
         flow_timestamp = event.get("flow_timestamp")
-
-        print("event timestamp:", flow_timestamp)
 
         # The event should contain the netflow/ipfix data
         netflow_packet = event.copy()

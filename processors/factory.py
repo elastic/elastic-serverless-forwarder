@@ -17,13 +17,13 @@ class ProcessorChain:
         if context is None:
             context = {}
 
-        result = ProcessorResult()
         for processor in self.processors:
             result = processor.process(event, context)
             if result.is_empty:
                 break
+            event = result.to_dict()
 
-        return result
+        return ProcessorResult(event)
 
 
 class ProcessorFactory:

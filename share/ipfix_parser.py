@@ -7,6 +7,7 @@ from typing import Any, Generator, Optional
 from io import BytesIO
 
 from .logger import logger as shared_logger
+from processors.ie import convert
 
 
 class Message:
@@ -106,23 +107,11 @@ class DataRecord:
         cls, template: TemplateSet, data: bytes, msg_header: dict
     ) -> 'DataRecord':
         """Parse a data record using the provided template."""
-        try:
-            from processors.ie import convert
-        except ImportError:
-            # Fallback for standalone usage
-            def convert(field_type: str, data: bytes) -> Any:
-                if field_type in ["unsigned32", "unsigned64"]:
-                    return int.from_bytes(data, 'big')
-                elif field_type in ["unsigned8", "unsigned16"]:
-                    return int.from_bytes(data, 'big')
-                else:
-                    return data.hex()
 
         record = cls()
         offset = 0
 
         # Add message header info
-        record.set_field("@timestamp", msg_header.get("export_time"))
         record.set_field("header", msg_header)
 
         # Parse fields according to template
@@ -133,7 +122,7 @@ class DataRecord:
             field_data = data[offset:offset + field_length]
 
             try:
-                value = convert(field_type, field_data)
+                value = convert(field_data, field_type)
                 record.set_field(field_name, value)
             except Exception as e:
                 shared_logger.debug(f"Error parsing field {field_name}: {e}")
@@ -339,5 +328,7 @@ def parse_ipfix_stream(data_source: BytesIO) -> Generator[dict[str, Any], None, 
     parser = IPFIXStreamingParser(data_source)
     try:
         yield from parser.parse_records()
+    except Exception as e:
+        shared_logger.error(f"Error in IPFIX parsing: {e}")
     finally:
         parser.close()
