@@ -216,7 +216,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             }
 
             processed_event = process_event(es_event, processor_chain, context)
-            sent_outcome = composite_shipper.send(processed_event.to_msg())
+            sent_outcome = composite_shipper.send(processed_event.to_dict())
             if sent_outcome == EVENT_IS_SENT:
                 sent_events += 1
             elif sent_outcome == EVENT_IS_FILTERED:
@@ -320,7 +320,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             }
 
             processed_event = process_event(es_event, processor_chain, context)
-            sent_outcome = composite_shipper.send(processed_event.to_msg())
+            sent_outcome = composite_shipper.send(processed_event.to_dict())
             if sent_outcome == EVENT_IS_SENT:
                 sent_events += 1
             elif sent_outcome == EVENT_IS_FILTERED:
@@ -531,7 +531,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                     processed_event = process_event(es_event, processor_chain, context)
 
                     timeout, sent_outcome = event_processing(
-                        processing_composing_shipper=composite_shipper, processing_es_event=processed_event.to_msg()
+                        processing_composing_shipper=composite_shipper, processing_es_event=processed_event.to_dict()
                     )
 
                     if sent_outcome == EVENT_IS_SENT:
@@ -577,7 +577,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                     processed_event = process_event(es_event, processor_chain, context)
 
                     timeout, sent_outcome = event_processing(
-                        processing_composing_shipper=composite_shipper, processing_es_event=processed_event.to_msg()
+                        processing_composing_shipper=composite_shipper, processing_es_event=processed_event.to_dict()
                     )
 
                     if sent_outcome == EVENT_IS_SENT:

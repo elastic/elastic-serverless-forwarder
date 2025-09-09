@@ -147,46 +147,12 @@ def _handle_s3_sqs_event(
             if span:
                 span.__exit__(None, None, None)
                 span = None  # type: ignore
+            parsed_data: dict[str, Any] = {}
 
-            # For binary processed files (like IPFIX), the log_event contains JSON data
-            # that should be used directly instead of wrapping in a message field
             if binary_processor_type:
                 try:
                     # Decode the JSON data from the binary processor
                     parsed_data = json.loads(log_event.decode("utf-8"))
-
-                    # For binary processed data, use the parsed data directly but add metadata
-                    es_event: dict[str, Any] = parsed_data.copy()
-
-                    # Ensure we have a timestamp
-                    if "@timestamp" not in es_event:
-                        es_event["@timestamp"] = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-
-                    # Add AWS metadata as nested fields
-                    es_event.setdefault("aws", {}).update({
-                        "s3": {
-                            "bucket": {"name": bucket_name, "arn": bucket_arn},
-                            "object": {"key": object_key},
-                        }
-                    })
-
-                    es_event.setdefault("cloud", {}).update({
-                        "provider": "aws",
-                        "region": aws_region,
-                        "account": {"id": account_id},
-                    })
-
-                    es_event.setdefault("log", {}).update({
-                        "offset": starting_offset,
-                        "file": {
-                            "path": "https://{0}.s3.{1}.amazonaws.com/{2}".format(bucket_name, aws_region, object_key),
-                        },
-                    })
-
-                    es_event.setdefault("meta", {}).update({
-                        "event_time": event_time,
-                        "integration_scope": integration_scope
-                    })
 
                 except json.JSONDecodeError as e:
                     shared_logger.error(
@@ -199,31 +165,34 @@ def _handle_s3_sqs_event(
                         }
                     )
                     continue
-            else:
-                # Standard text file processing
-                es_event: dict[str, Any] = {
-                    "@timestamp": datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
-                    "fields": {
-                        "message": log_event.decode("utf-8"),
-                        "log": {
-                            "offset": starting_offset,
-                            "file": {
-                                "path": "https://{0}.s3.{1}.amazonaws.com/{2}".format(bucket_name, aws_region, object_key),
-                            },
-                        },
-                        "aws": {
-                            "s3": {
-                                "bucket": {"name": bucket_name, "arn": bucket_arn},
-                                "object": {"key": object_key},
-                            }
-                        },
-                        "cloud": {
-                            "provider": "aws",
-                            "region": aws_region,
-                            "account": {"id": account_id},
+
+            timestamp = parsed_data.get("@timestamp", None)
+            if timestamp is None:
+                timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
+            es_event: dict[str, Any] = {
+                "@timestamp":  timestamp,
+                "fields": {
+                    "message": log_event.decode("utf-8"),
+                    "log": {
+                        "offset": starting_offset,
+                        "file": {
+                            "path": "https://{0}.s3.{1}.amazonaws.com/{2}".format(bucket_name, aws_region, object_key),
                         },
                     },
-                    "meta": {"event_time": event_time, "integration_scope": integration_scope},
-                }
+                    "aws": {
+                        "s3": {
+                            "bucket": {"name": bucket_name, "arn": bucket_arn},
+                            "object": {"key": object_key},
+                        }
+                    },
+                    "cloud": {
+                        "provider": "aws",
+                        "region": aws_region,
+                        "account": {"id": account_id},
+                    },
+                },
+                "meta": {"event_time": event_time, "integration_scope": integration_scope},
+            }
 
             yield es_event, ending_offset, event_expanded_offset, s3_record_n

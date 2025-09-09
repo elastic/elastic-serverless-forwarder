@@ -32,14 +32,6 @@ class ProcessorResult:
         else:
             return {str(k): v for k, v in enumerate(self.events)}
 
-    def to_msg(self) -> dict[str, Any]:
-        if self.is_empty:
-            return {"message": ''}
-        elif len(self.events) == 1:
-            return {"message": self.events[0]}
-        else:
-            return {"message": {str(k): v for k, v in enumerate(self.events)}}
-
 
 class BaseProcessor(ABC):
 

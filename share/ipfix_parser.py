@@ -225,10 +225,6 @@ class IPFIXStreamingParser:
 
                 # Add processor metadata
                 record_dict = record.get_data()
-                record_dict["processor"] = {
-                    "type": "ipfix",
-                    "processed_at": record_dict.get("@timestamp")
-                }
 
                 yield record_dict
                 offset += record_size

@@ -1,10 +1,12 @@
+from copy import deepcopy
 from datetime import datetime, timezone, timedelta
+import json
 from typing import Dict, Any, List, Optional
 
 from .processor import BaseProcessor, ProcessorResult
 from .registry import register_processor
 import share.ecs_helper as ecs_helper
-from share import shared_logger
+from share.logger import logger as shared_logger
 import processors.ie as ie
 import re
 
@@ -431,13 +433,31 @@ class ECSProcessor(BaseProcessor):
             context = {}
 
         # Extract context information
+        # TODO: Make exporter_address, internal_networks configurable
         exporter_address = context.get("exporter_address", "10.0.0.1")
         internal_networks = context.get("internal_networks", [])
         flow_timestamp = event.get("flow_timestamp")
 
         # The event should contain the netflow/ipfix data
-        netflow_packet = event.copy()
+        message = event.get("fields", {}).get("message", {})
 
+        netflow_packet = {}
+        try:
+            netflow_packet = json.loads(message) if isinstance(message, str) else message
+            shared_logger.info(
+                "Successfully parsed binary processor output as JSON",
+                extra={
+                    "raw_message": message,
+                }
+            )
+        except json.JSONDecodeError as e:
+            shared_logger.error(
+                "Failed to parse binary processor output as JSON",
+                extra={
+                    "error": str(e),
+                    "raw_message": message,
+                }
+            )
         try:
             # Convert to ECS format
             ecs_event = export_to_ecs(
@@ -447,7 +467,16 @@ class ECSProcessor(BaseProcessor):
                 flow_timestamp=flow_timestamp
             )
 
-            return ProcessorResult(ecs_event)
+            event["fields"]["message"] = json.dumps(ecs_event)
+            shared_logger.info(
+                "Successfully converted NetFlow/IPFIX data to ECS format",
+                extra={
+                    "ecs_event": ecs_event,
+                    "raw_event": event,
+                }
+            )
+
+            return ProcessorResult(event)
 
         except Exception as e:
             # Log error and return empty result
