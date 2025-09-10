@@ -88,7 +88,7 @@ def export_to_ecs(netflow_packet: Dict[str, Any],
     # Add observer information
     if exporter_address:
         observer_ip = ecs_helper.extract_ip_from_address(exporter_address)
-        ecs_event["observer"]["ip"] = [observer_ip]
+        ecs_event["observer"]["ip"] = observer_ip
         ecs_event["related"]["ip"].append(observer_ip)
 
     # Process timing information
