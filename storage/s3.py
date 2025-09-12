@@ -104,14 +104,33 @@ class S3Storage(CommonStorage):
             range_start = 0
 
         if range_start < content_length:
-            file_content.seek(range_start, SEEK_SET)
+            # For IPFIX binary files, always start from the beginning
+            # The IPFIX decorator will handle the correct binary seeking
+            if hasattr(self, 'binary_processor_type') and self.binary_processor_type == "ipfix":
+                file_content.seek(0, SEEK_SET)
+                shared_logger.debug(
+                    f"IPFIX binary file: always reading from start, will seek to {range_start} in decorator"
+                )
+            else:
+                file_content.seek(range_start, SEEK_SET)
+
             for log_event, line_starting_offset, line_ending_offset, _, event_expanded_offset in self._generate(
                 original_range_start, file_content, is_gzipped
             ):
                 assert isinstance(log_event, bytes)
                 yield log_event, line_starting_offset, line_ending_offset, event_expanded_offset
         else:
-            shared_logger.info(f"requested file content from {range_start}, file size {content_length}: skip it")
+            # For IPFIX binary files, the range_start might be equal to content_length
+            # when we've finished processing, but we should still allow the check
+            if (hasattr(self, 'binary_processor_type') and
+                    self.binary_processor_type == "ipfix" and
+                    range_start == content_length):
+                shared_logger.info(
+                    f"IPFIX file: range_start ({range_start}) equals content_length ({content_length}), "
+                    "processing completed"
+                )
+            else:
+                shared_logger.info(f"requested file content from {range_start}, file size {content_length}: skip it")
 
     def get_as_string(self) -> str:
         shared_logger.debug("get_as_string", extra={"bucket_name": self._bucket_name, "object_key": self._object_key})

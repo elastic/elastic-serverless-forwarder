@@ -297,6 +297,173 @@ class IPFIXStreamingParser:
                     extra={"record_count": record_count}
                 )
 
+    def parse_records_with_offsets(
+        self, range_start: int = 0
+    ) -> Generator[tuple[dict[str, Any], int, int], None, None]:
+        """
+        Parse IPFIX records from the stream and yield them with binary file offset information.
+
+        This method is designed for timeout continuation scenarios where we need to track
+        the exact binary file position of each record for proper resumption.
+
+        For IPFIX files, continuation requires templates from earlier messages, so when
+        continuing from an offset > 0, we first collect templates from the beginning.
+
+        Args:
+            range_start: Starting offset in the original binary file
+
+        Yields:
+            tuple: (record_dict, binary_start_offset, binary_end_offset)
+        """
+        record_count = 0
+
+        try:
+            # For continuation, first collect templates from the beginning
+            if range_start > 0:
+                shared_logger.info("IPFIX continuation: collecting templates from beginning")
+                self._collect_templates_from_beginning()
+                # Reset to start parsing from the continuation offset
+                self.file.seek(range_start)
+                self.offset = range_start
+                self.closed = False  # Reset closed flag since we've seeked to new position
+                shared_logger.debug(f"After template collection: seeking to offset {range_start}, closed={self.closed}")
+
+            while not self.closed:
+                # Track message start position in the binary file
+                # When we've seeked to range_start, self.offset tracks position relative to range_start
+                # So the absolute position in the file is just self.offset (no need to add range_start)
+                if range_start > 0:
+                    # In continuation mode, self.offset is already the absolute file position after seeking
+                    message_start_position = self.offset
+                else:
+                    # In normal mode, calculate from range_start + offset
+                    message_start_position = range_start + self.offset
+                
+                shared_logger.debug(
+                    f"Parser loop: offset={self.offset}, range_start={range_start}, "
+                    f"message_start={message_start_position}"
+                )
+                
+                # Parse message header
+                msg_header_obj = self.parse_message_header()
+                if not msg_header_obj:
+                    shared_logger.debug("No message header found, breaking")
+                    break
+
+                msg_header = msg_header_obj.to_dict()
+                bytes_remaining = msg_header_obj.length - 16
+
+                shared_logger.debug(
+                    "Processing IPFIX message at binary position %d: %d bytes remaining",
+                    message_start_position, bytes_remaining
+                )
+
+                # Process all sets in this message
+                sets_in_message = []
+                while bytes_remaining > 0 and not self.closed:
+                    # Parse flowset header
+                    flowset_header = self.parse_flowset_header()
+                    if not flowset_header:
+                        break
+
+                    set_id, set_length = flowset_header
+
+                    # Read the set data
+                    set_data_length = set_length - 4  # Subtract header size
+                    if set_data_length <= 0:
+                        break
+
+                    set_data = self.read(set_data_length)
+                    if len(set_data) < set_data_length:
+                        break
+
+                    bytes_remaining -= set_length
+
+                    if set_id == 2:  # Template Set
+                        self.parse_template_set(set_data)
+                    elif set_id == 3:  # Options Template Set
+                        shared_logger.debug("Skipping Options Template Set")
+                    elif set_id >= 256:  # Data Set
+                        # Store data set for processing after we know the message end position
+                        sets_in_message.append((set_id, set_data, msg_header))
+                    else:
+                        shared_logger.debug(f"Skipping unknown set ID {set_id}")
+
+                # Calculate the position where this message ends in the binary file
+                # This is the position where the next lambda can safely continue from
+                if range_start > 0:
+                    # In continuation mode, self.offset is already the absolute file position
+                    message_end_position = self.offset
+                else:
+                    # In normal mode, calculate from range_start + offset
+                    message_end_position = range_start + self.offset
+                
+                shared_logger.debug(
+                    f"Message spans binary positions {message_start_position} to {message_end_position}"
+                )
+                
+                # Now process all data sets and yield records with correct binary offsets
+                for set_id, set_data, msg_header in sets_in_message:
+                    for record in self.parse_data_set(set_id, set_data, msg_header):
+                        # For IPFIX continuation, the important offset is where this message ends
+                        # because IPFIX files can only be resumed at message boundaries
+                        yield record, message_start_position, message_end_position
+                        record_count += 1
+
+        except Exception as e:
+            shared_logger.error(f"Error in IPFIX parsing with offsets: {e}")
+        finally:
+            if record_count > 0:
+                shared_logger.info(
+                    "IPFIX parser: Successfully processed records with offsets",
+                    extra={"record_count": record_count}
+                )
+
+    def _collect_templates_from_beginning(self) -> None:
+        """Parse from beginning to collect template definitions without yielding records."""
+        shared_logger.debug("Collecting templates from file beginning")
+        self.file.seek(0)
+        self.offset = 0
+        
+        try:
+            while not self.closed:
+                # Parse message header
+                msg_header_obj = self.parse_message_header()
+                if not msg_header_obj:
+                    break
+
+                bytes_remaining = msg_header_obj.length - 16
+
+                # Process all sets in this message, only collecting templates
+                while bytes_remaining > 0 and not self.closed:
+                    # Parse flowset header
+                    flowset_header = self.parse_flowset_header()
+                    if not flowset_header:
+                        break
+
+                    set_id, set_length = flowset_header
+
+                    # Read the set data
+                    set_data_length = set_length - 4  # Subtract header size
+                    if set_data_length <= 0:
+                        break
+
+                    set_data = self.read(set_data_length)
+                    if len(set_data) < set_data_length:
+                        break
+
+                    bytes_remaining -= set_length
+
+                    if set_id == 2:  # Template Set - this is what we need
+                        self.parse_template_set(set_data)
+                        shared_logger.debug(f"Collected template from set {set_id}")
+                    # Skip all other sets - we only need templates
+                    
+        except Exception as e:
+            shared_logger.warning(f"Error collecting templates: {e}")
+        finally:
+            shared_logger.info(f"Template collection complete, found {len(self.templates)} templates")
+
 
 def parse_ipfix_stream(data_source: BytesIO) -> Generator[dict[str, Any], None, None]:
     """
@@ -326,5 +493,34 @@ def parse_ipfix_stream(data_source: BytesIO) -> Generator[dict[str, Any], None, 
         yield from parser.parse_records()
     except Exception as e:
         shared_logger.error(f"Error in IPFIX parsing: {e}")
+    finally:
+        parser.close()
+
+
+def parse_ipfix_stream_with_offsets(
+    data_source: BytesIO, range_start: int = 0
+) -> Generator[tuple[dict[str, Any], int, int], None, None]:
+    """
+    Parse IPFIX data from a stream and yield individual records with binary file offsets.
+
+    This function is specifically designed for offset tracking during Lambda timeouts.
+    It yields both the parsed record and the binary file position information.
+
+    Args:
+        data_source: BytesIO stream containing IPFIX data
+        range_start: Starting offset in the original binary file
+
+    Yields:
+        tuple: (record_dict, binary_start_offset, binary_end_offset)
+            - record_dict: Individual IPFIX record with parsed fields
+            - binary_start_offset: Binary file offset where this record's message started
+            - binary_end_offset: Binary file offset where parsing is currently at
+    """
+    parser = IPFIXStreamingParser(data_source)
+    try:
+        for record in parser.parse_records_with_offsets(range_start):
+            yield record
+    except Exception as e:
+        shared_logger.error(f"Error in IPFIX parsing with offsets: {e}")
     finally:
         parser.close()

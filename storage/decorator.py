@@ -3,7 +3,6 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 import gzip
-import json
 from io import BytesIO
 from typing import Any, Iterator, Optional, Union
 
@@ -31,8 +30,22 @@ def by_lines(func: StorageDecoratorCallable[ProtocolStorageType]) -> StorageDeco
 
         iterator = func(storage, range_start, body, is_gzipped)
 
-        for data, _, _, _, _ in iterator:
+        # Check if this storage uses a binary processor that provides its own offsets
+        binary_processor_type = getattr(storage, 'binary_processor_type', None)
+        preserve_offsets = binary_processor_type == "ipfix"
+
+        for data, starting_offset_from_inner, ending_offset_from_inner, newline_from_inner, \
+                event_offset_from_inner in iterator:
             assert isinstance(data, bytes)
+
+            # For binary processors like IPFIX, preserve the offsets from the inner decorator
+            if (preserve_offsets and starting_offset_from_inner is not None and
+                    ending_offset_from_inner is not None):
+                # The inner decorator (e.g., ipfix_decode) has already provided correct offsets
+                # Just yield the data as-is with the binary offsets
+                yield (data, starting_offset_from_inner, ending_offset_from_inner,
+                       newline_from_inner, event_offset_from_inner)
+                continue
 
             unfinished_line += data
             lines = unfinished_line.decode("utf-8").splitlines()
@@ -267,7 +280,9 @@ def json_collector(
         json_collector_state = JsonCollectorState(storage=storage)
 
         multiline_processor: Optional[ProtocolMultiline] = storage.multiline_processor
-        if storage.json_content_type == "disabled" or multiline_processor:
+        binary_processor_type = getattr(storage, 'binary_processor_type', None)
+
+        if storage.json_content_type == "disabled" or multiline_processor or binary_processor_type:
             iterator = func(storage, range_start, body, is_gzipped)
             for data, starting_offset, ending_offset, newline, _ in iterator:
                 assert isinstance(data, bytes)
@@ -426,26 +441,54 @@ def ipfix_decode(func: StorageDecoratorCallable[ProtocolStorageType]) -> Storage
                 else:
                     binary_data.write(data)
 
-            # Reset stream position for reading
-            binary_data.seek(0)
+            # For IPFIX continuation, we need to handle binary offset correctly
+            # range_start represents the binary file offset where we should continue
+            if range_start > 0:
+                # Check if range_start is within the file bounds
+                file_size = binary_data.getbuffer().nbytes
+                if range_start >= file_size:
+                    shared_logger.info(
+                        f"IPFIX continuation: offset {range_start} >= file size {file_size}, "
+                        "no more data to process"
+                    )
+                    return
+                elif range_start > file_size:
+                    shared_logger.warning(
+                        f"IPFIX continuation: offset {range_start} exceeds file size {file_size}, "
+                        "seeking to end of file"
+                    )
+                    binary_data.seek(file_size)
+                else:
+                    # Seek to the continuation position in the binary data
+                    binary_data.seek(range_start)
+                    shared_logger.info(
+                        f"IPFIX continuation: seeking to binary offset {range_start} "
+                        f"in file of size {file_size}"
+                    )
+            else:
+                # Start from the beginning
+                binary_data.seek(0)
+
             try:
-                # Use the streaming parser to process IPFIX data
-                shared_logger.debug("Starting IPFIX streaming parse")
+                # Use the new offset-aware parsing function that tracks binary file positions
+                # Pass the range_start to the parser so it knows it's in continuation mode
 
-                for record in ipfix_parser.parse_ipfix_stream(binary_data):
-
-                    # Convert each IPFIX record to JSON bytes and yield
-                    json_bytes = json.dumps(record).encode('utf-8')
+                for record, binary_start_offset, binary_end_offset in ipfix_parser.parse_ipfix_stream_with_offsets(
+                    binary_data, range_start
+                ):
+                    # Convert each IPFIX record to JSON bytes and yield with proper binary offsets
+                    from share.json import json_dumper
+                    json_bytes = json_dumper(record).encode('utf-8')
                     # Adding newline to separate records by line
                     json_bytes += b'\n'
 
-                    shared_logger.debug("ipfix_decode decoded record")
-                    yield json_bytes, 0, 0, b"", None
+                    # Yield with the binary file offsets (already adjusted in the parser)
+                    yield json_bytes, binary_start_offset, binary_end_offset, b"", None
 
             except Exception as e:
                 shared_logger.error(
                     "Error processing IPFIX data with streaming parser",
-                    extra={"error": str(e), "data_size": binary_data.getbuffer().nbytes}
+                    extra={"error": str(e), "data_size": binary_data.getbuffer().nbytes, "range_start": range_start}
                 )
                 # Don't re-raise the exception, just log it and continue
                 # This allows the pipeline to continue processing other data
