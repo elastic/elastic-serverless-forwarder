@@ -9,3 +9,4 @@ requests==2.32.3
 urllib3==1.26.20
 typing-extensions==4.13.2
 xxhash==3.5.0
+./backend

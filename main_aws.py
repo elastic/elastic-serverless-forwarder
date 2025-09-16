@@ -8,6 +8,7 @@ from aws_lambda_typing import context as context_
 
 from handlers.aws import lambda_handler
 
+import backend
 
 def handler(lambda_event: dict[str, Any], lambda_context: context_.Context) -> Any:
     """
