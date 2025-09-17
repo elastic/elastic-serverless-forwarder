@@ -12,4 +12,3 @@ while proc.has_more():
     print(f"went through at least once")
     val = proc.next()
     print(f"value is {val}")
-    break

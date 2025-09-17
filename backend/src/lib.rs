@@ -109,6 +109,12 @@ impl Header {
         // read the header or fail
 
         let version = u16::from_be_bytes([binary[0], binary[1]]);
+
+        if version != 10u16 {
+            println!("header version is wrong: wanted 10, got {version}");
+            return Err(ParsingError::Unknown);
+        }
+
         let length = u16::from_be_bytes([binary[2], binary[3]]);
         let export_time = u32::from_be_bytes([binary[4], binary[5], binary[6], binary[7]]);
         let sequence_number = u32::from_be_bytes([binary[8], binary[9], binary[10], binary[11]]);
@@ -128,22 +134,16 @@ impl IpfixProcessor {
         if let State::Reading(r) = &mut self.state {
             let mut buf = [0u8;16];
 
-            let header_count : usize = r.read(&mut buf)?;
-            if header_count != 16 {
-                return Err(ParsingError::Unknown);
-            }
+            let _ = r.read_exact(&mut buf)?;
 
             // parse header
             let header = Header::from(&buf)?;
 
             // now, read the entire length of the message
-            let message_length : usize = header.length.into() - 16;
-            let message = vec![0u8; header.length.into()];
+            let message_length : usize = (header.length as usize) - 16usize;
+            let mut message = vec![0u8; message_length];
 
-            let message_count : usize = r.read(message.as_mut())?;
-            if message_count != header.length.into() {
-                return Err(ParsingError::Unknown);
-            }
+            let _ = r.read_exact(message.as_mut())?;
 
             // loop {
             //   parse flowset header
@@ -151,6 +151,7 @@ impl IpfixProcessor {
             // }
             let mut m = HashMap::new();
             m.insert("header".to_string(), format!("header with length {0}", header.length));
+            m.insert("message".to_string(), format!("message with length {0}", message.len()));
             return Ok(m)
         }
         Ok(HashMap::new())
