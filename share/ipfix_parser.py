@@ -138,6 +138,7 @@ class IPFIXStreamingParser:
 
     def __init__(self, data_source: BytesIO) -> None:
         self.file = data_source
+        # self.parser = backend.IpfixProcessor(data_source)
         self.offset = 0
         self.closed = False
         self.templates: dict[int, TemplateSet] = {}
@@ -244,6 +245,10 @@ class IPFIXStreamingParser:
         """
         record_count = 0
 
+        # while self.parser.has_more():
+        #   yield self.parser.next()
+        #   record_count += 1
+
         try:
             while not self.closed:
                 # Parse message header
@@ -338,12 +343,12 @@ class IPFIXStreamingParser:
                 else:
                     # In normal mode, calculate from range_start + offset
                     message_start_position = range_start + self.offset
-                
+
                 shared_logger.debug(
                     f"Parser loop: offset={self.offset}, range_start={range_start}, "
                     f"message_start={message_start_position}"
                 )
-                
+
                 # Parse message header
                 msg_header_obj = self.parse_message_header()
                 if not msg_header_obj:
@@ -397,11 +402,11 @@ class IPFIXStreamingParser:
                 else:
                     # In normal mode, calculate from range_start + offset
                     message_end_position = range_start + self.offset
-                
+
                 shared_logger.debug(
                     f"Message spans binary positions {message_start_position} to {message_end_position}"
                 )
-                
+
                 # Now process all data sets and yield records with correct binary offsets
                 for set_id, set_data, msg_header in sets_in_message:
                     for record in self.parse_data_set(set_id, set_data, msg_header):
@@ -424,7 +429,7 @@ class IPFIXStreamingParser:
         shared_logger.debug("Collecting templates from file beginning")
         self.file.seek(0)
         self.offset = 0
-        
+
         try:
             while not self.closed:
                 # Parse message header
@@ -458,7 +463,7 @@ class IPFIXStreamingParser:
                         self.parse_template_set(set_data)
                         shared_logger.debug(f"Collected template from set {set_id}")
                     # Skip all other sets - we only need templates
-                    
+
         except Exception as e:
             shared_logger.warning(f"Error collecting templates: {e}")
         finally:

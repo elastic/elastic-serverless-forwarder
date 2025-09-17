@@ -14,20 +14,8 @@ use std::{
 
 type MapString = HashMap<String, String>;
 
-type Result<T> = std::result::Result<T, error::ParsingError>;
-
-/// Formats the sum of two numbers as string.
-#[pyfunction]
-fn sum_as_string(a: usize, b: usize) -> PyResult<String> {
-    Ok((a + b).to_string())
-}
-
-/// A Python module implemented in Rust.
-#[pymodule]
-fn _backend(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(sum_as_string, m)?)?;
-    Ok(())
-}
+use crate::error::ParsingError;
+type Result<T> = std::result::Result<T, ParsingError>;
 
 enum State {
     Pre,
@@ -53,6 +41,10 @@ impl IpfixProcessor {
             file,
             state: State::Pre,
         }
+    }
+
+    fn open(&mut self) -> bool {
+        self.open_ex()
     }
 
     fn has_more(&mut self) -> bool {
@@ -113,35 +105,73 @@ impl Header {
         Self::default()
     }
 
+    fn from(binary: &[u8]) -> Result<Self> {
+        // read the header or fail
+
+        let version = u16::from_be_bytes([binary[0], binary[1]]);
+        let length = u16::from_be_bytes([binary[2], binary[3]]);
+        let export_time = u32::from_be_bytes([binary[4], binary[5], binary[6], binary[7]]);
+        let sequence_number = u32::from_be_bytes([binary[8], binary[9], binary[10], binary[11]]);
+        let observation_domain_id = u32::from_be_bytes([binary[12], binary[13], binary[14], binary[15]]);
+        Ok(Header {
+            version,
+            length,
+            export_time,
+            sequence_number,
+            observation_domain_id,
+        })
+    }
 }
 
 impl IpfixProcessor {
     fn read_next(&mut self) -> Result<MapString> {
-        // parse header
-        // loop {
-        //   parse flowset header
-        //   parse template set or data set
-        // }
+        if let State::Reading(r) = &mut self.state {
+            let mut buf = [0u8;16];
+
+            let header_count : usize = r.read(&mut buf)?;
+            if header_count != 16 {
+                return Err(ParsingError::Unknown);
+            }
+
+            // parse header
+            let header = Header::from(&buf)?;
+
+            // now, read the entire length of the message
+            let message_length : usize = header.length.into() - 16;
+            let message = vec![0u8; header.length.into()];
+
+            let message_count : usize = r.read(message.as_mut())?;
+            if message_count != header.length.into() {
+                return Err(ParsingError::Unknown);
+            }
+
+            // loop {
+            //   parse flowset header
+            //   parse template set or data set
+            // }
+            let mut m = HashMap::new();
+            m.insert("header".to_string(), format!("header with length {0}", header.length));
+            return Ok(m)
+        }
         Ok(HashMap::new())
     }
 
-    fn read_header(&mut self) -> Result<Header> {
-        // read the header or fail
-
-        Ok(Header::new())
-    }
 
     fn read_flowset(&mut self) -> Result<FlowSet> {
         Ok(FlowSet::new())
     }
 
-    fn open(&mut self) -> bool {
-        if let Ok(f) = File::open(&self.file) {
-            let rd = BufReader::new(f);
-            self.state = State::Reading(rd);
-            true
-        } else {
-            false
+    fn open_ex(&mut self) -> bool {
+        match File::open(&self.file) {
+            Ok(f) => {
+                let rd = BufReader::new(f);
+                self.state = State::Reading(rd);
+                true
+            }
+            Err(e) => {
+                println!("failed to open! {e}");
+                false
+            }
         }
     }
 
@@ -152,8 +182,6 @@ impl IpfixProcessor {
             } else {
                 false
             }
-        } else if let State::Pre = &self.state {
-            self.open()
         } else {
             false
         }
@@ -163,3 +191,18 @@ impl IpfixProcessor {
 // Open the ipfix file
 // Read the header and consume the message
 // Return a dict
+
+/// Formats the sum of two numbers as string.
+#[pyfunction]
+fn sum_as_string(a: usize, b: usize) -> PyResult<String> {
+    Ok((a + b).to_string())
+}
+
+/// A Python module implemented in Rust.
+#[pymodule]
+fn _backend(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(sum_as_string, m)?)?;
+    m.add_class::<IpfixProcessor>()?;
+    Ok(())
+}
+
