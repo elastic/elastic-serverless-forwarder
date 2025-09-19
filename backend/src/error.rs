@@ -38,3 +38,5 @@ impl<'py> From<ParsingError> for PyErr {
     }
 
 }
+
+pub type ParsingResult<T> = Result<T, ParsingError>;

@@ -9,7 +9,7 @@ use std::{
 
 use serde::{Serialize, Deserialize};
 
-use convert_case::{Case};
+use convert_case::{Case, Casing};
 use ron;
 
 fn main() {
@@ -26,7 +26,7 @@ fn main() {
 struct Field {
     id: u32,
     name: String,
-    typeT: String,
+    type_t: String,
 }
 
 fn dump_map(pth: &Path) {
@@ -55,15 +55,16 @@ fn dump_map(pth: &Path) {
         writeln!(writer, "{}", line).unwrap();
     }
 
+    // convert the things to snake-case, too
     let mut last_id = 0;
     for field in fields {
         while field.id > last_id + 1 {
             last_id += 1;
-            writeln!(writer, "{0}  => &Element{{name: \"RESERVED_{0}\", typeT: \"octetarray\"}},",
+            let _ = writeln!(writer, "{0}  => &Element{{name: \"RESERVED_{0}\", snake_name: \"reserved_3\", type_t: \"octetarray\"}},",
                 last_id);
         }
-        writeln!(writer, "{0}  => &Element{{name: \"{1}\", typeT: \"{2}\"}},",
-            field.id, field.name, field.typeT);
+        let _ = writeln!(writer, "{0}  => &Element{{name: \"{1}\", snake_name: \"{3}\", type_t: \"{2}\"}},",
+            field.id, field.name, field.type_t, field.name.to_case(Case::Snake));
         last_id += 1;
     }
 

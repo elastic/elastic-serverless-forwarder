@@ -1,19 +1,16 @@
 
 mod error;
 
-use serde::{Serialize, Deserialize};
-
 use pyo3::{
     exceptions::{PyEOFError},
     prelude::*,
-    types::{PyDict},
 };
 
 use std::{
     collections::{HashMap, VecDeque},
     convert::Into,
     fs::File,
-    io::{BufReader, BufRead, Read},
+    io::{BufReader, Read},
     sync::{Arc, Mutex},
 };
 
@@ -79,14 +76,13 @@ impl IpfixProcessor {
         let _ = self.read_next();
         // make sure to read the next one
         match self.records.lock().unwrap().pop_front() {
-            Some(v) => Ok(serde_json::to_string(&v).unwrap()),
+            Some(v) => Ok(String::from("got one!")), //serde_json::to_string(&v).unwrap()),
             None => Err(PyEOFError::new_err("No more records, I reckon")),
         }
     }
 }
 
 // apply serde
-#[derive(Default)]
 struct Header {
     version: u16,
     length: u16,
@@ -120,14 +116,12 @@ impl Field {
     }
 }
 
-#[derive(Default)]
 struct Template {
     id: u16,
     length: u16,
     fields: Vec<Field>,
 }
 
-#[derive(Default)]
 struct OptionsTemplate {
     id: u16,
     length: u16,
@@ -186,7 +180,7 @@ impl OptionsTemplate {
 
         for field in self.fields.iter() {
             let element = field.element.clone();
-            let name = element.Name();
+            let name = element.name();
             let value = element.translate(&buffer[offset..], field.length as usize);
 
             offset += field.length as usize;
@@ -247,7 +241,7 @@ impl Template {
 
         for field in self.fields.iter() {
             let element = field.element.clone();
-            let name = element.Name();
+            let name = element.name();
             let value = element.translate(&buffer[offset..], field.length as usize);
 
             offset += field.length as usize;
@@ -261,10 +255,6 @@ impl Template {
 }
 
 impl Header {
-    fn new() -> Self {
-        Self::default()
-    }
-
     fn from(binary: &[u8]) -> Result<Self> {
         // read the header or fail
 
@@ -323,18 +313,6 @@ impl IpfixProcessor {
         let rd = BufReader::new(f);
         self.state = State::Reading(rd);
         Ok(())
-    }
-
-    fn has_more_ex(&mut self) -> bool {
-        if let State::Reading(r) = &mut self.state {
-            if let Ok(b) = r.fill_buf() {
-                b.len() > 0
-            } else {
-                false
-            }
-        } else {
-            false
-        }
     }
 
     fn store_template(&mut self, t: Template) {

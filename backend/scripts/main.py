@@ -8,4 +8,4 @@ proc = backend.IpfixProcessor(filename)
 
 while proc.has_more():
     value = proc.next()
-    print(value)
+    #print(value)
