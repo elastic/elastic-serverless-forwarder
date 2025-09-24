@@ -204,7 +204,7 @@ A list of outputs (i.e. forwarding targets) for the Elastic Serverless Forwarder
 The type of the forwarding target output. Currently only the following outputs are supported:
 
 * `elasticsearch`
-* [preview] `logstash`
+* {applies_to}`stack: preview` `logstash`
 
 Each type can only be used for a maximum of one output up to and including 1.14.0 version. If {{ls}} is chosen as an output, Elastic Serverless Forwarder expects the [`elastic_serverless_forwarder`](logstash-docs-md://lsr/plugins-inputs-elastic_serverless_forwarder.md) Logstash input to be installed, enabled, and properly configured. For more information about installing Logstash plugins, refer to the [Logstash documentation](logstash://reference/working-with-plugins.md#installing-plugins).
 
