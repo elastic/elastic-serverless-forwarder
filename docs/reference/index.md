@@ -18,7 +18,7 @@ Using Elastic Serverless Forwarder may result in additional charges. To learn ho
 
 ## Overview [aws-serverless-forwarder-overview]
 
-The Elastic Serverless Forwarder can forward AWS data to cloud-hosted, self-managed Elastic environments, or {applies_to}`stack: preview` {{ls}}. It supports the following inputs:
+The Elastic Serverless Forwarder can forward AWS data to cloud-hosted, self-managed Elastic environments, or {applies_to}`product: preview` {{ls}}. It supports the following inputs:
 
 * Amazon S3 (via SQS event notifications)
 * Amazon Kinesis Data Streams
