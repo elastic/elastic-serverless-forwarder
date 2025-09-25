@@ -8,7 +8,7 @@ set -e
 echo "    AWS CLI (https://aws.amazon.com/cli/), SAM (https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html), Docker and Python3.12 with pip3 required"
 echo "    Please, before launching the tool execute \"$ pip3 install ruamel.yaml\""
 
-if [ $# -lt 5 ] || [ $# -gt 6 ]
+if [ $# -lt 5 ] || [ $# -gt 7 ]
 then
     echo "Usage: $0 config-path lambda-name forwarder-tag bucket-name region [custom-role-prefix]"
     echo "    Arguments:"
@@ -21,6 +21,7 @@ then
     echo "    region: region where to publish in"
     echo "    custom-role-prefix: role/policy prefix to add in case customization is needed (optional)"
     echo "                        (please note that the prefix will be added to both role/policy names)"
+    echo "    config-file: path to the SAM configuration file (optional)"
 
     exit 1
 fi
@@ -31,6 +32,7 @@ TAG_NAME="$3"
 BUCKET="$4"
 REGION="$5"
 CUSTOM_ROLE_PREFIX="${6:-}" ## Default value would be of '' will be passed if this variable is NOT set.
+EXPORTER_SAMCONFIG_FILE="${7:-}" ## Default value would be of '' will be passed if this variable is NOT set.
 
 TMPDIR=$(mktemp -d /tmp/publish.XXXXXXXXXX)
 CLONED_FOLDER="${TMPDIR}/sources"
@@ -529,6 +531,33 @@ EOF
 sed -e "s|%codeUri%|${PACKAGE_FOLDER}|g" "${TMPDIR}/publish-before-sed.yaml" > "${TMPDIR}/publish.yaml"
 python "${TMPDIR}/publish.py" "${PUBLISH_CONFIG}" "${TMPDIR}/publish.yaml"
 
+if [ -n "${EXPORTER_SAMCONFIG_FILE}" ]; then
+    # copy in the SAM config file if it was specified on the command line
+    cp "${EXPORTER_SAMCONFIG_FILE}" "${TMPDIR}/"
+fi
+
 sam build --debug --use-container --build-dir "${TMPDIR}/.aws-sam/build/publish" --template-file "${TMPDIR}/publish.yaml" --region "${REGION}"
-sam package --template-file "${TMPDIR}/.aws-sam/build/publish/template.yaml" --output-template-file "${TMPDIR}/.aws-sam/build/publish/packaged.yaml" --s3-bucket "${BUCKET}" --region "${REGION}"
-sam deploy --stack-name "${LAMBDA_NAME}" --capabilities CAPABILITY_NAMED_IAM --template "${TMPDIR}/.aws-sam/build/publish/packaged.yaml" --s3-bucket "${BUCKET}" --region "${REGION}"
+sam package --force-upload --template-file "${TMPDIR}/.aws-sam/build/publish/template.yaml" --output-template-file "${TMPDIR}/.aws-sam/build/publish/packaged.yaml" --s3-bucket "${BUCKET}" --region "${REGION}"
+SAM_DEPLOY_CMD="sam deploy"
+SAM_DEPLOY_CMD="${SAM_DEPLOY_CMD} --stack-name \"${LAMBDA_NAME}\""
+SAM_DEPLOY_CMD="${SAM_DEPLOY_CMD} --capabilities CAPABILITY_NAMED_IAM"
+SAM_DEPLOY_CMD="${SAM_DEPLOY_CMD} --template \"${TMPDIR}/.aws-sam/build/publish/packaged.yaml\""
+SAM_DEPLOY_CMD="${SAM_DEPLOY_CMD} --s3-bucket \"${BUCKET}\""
+SAM_DEPLOY_CMD="${SAM_DEPLOY_CMD} --region \"${REGION}\""
+# Comment or uncomment either of the following two lines to support interactive or headless execution mode
+# This could be controlled by another optional script argument
+#SAM_DEPLOY_CMD="${SAM_DEPLOY_CMD} --confirm-changeset"
+SAM_DEPLOY_CMD="${SAM_DEPLOY_CMD} --no-confirm-changeset"
+# For CI/CD if there is no change it may not be an error
+SAM_DEPLOY_CMD="${SAM_DEPLOY_CMD} --no-fail-on-empty-changeset"
+SAM_DEPLOY_CMD="${SAM_DEPLOY_CMD} --parameter-overrides \"ParameterKey=CUSTOM_ROLE_PREFIX,ParameterValue=${CUSTOM_ROLE_PREFIX}\""
+SAM_DEPLOY_CMD="${SAM_DEPLOY_CMD} --s3-prefix \"${LAMBDA_NAME}/\""
+SAM_DEPLOY_CMD="${SAM_DEPLOY_CMD} --no-fail-on-empty-changeset"
+# Force upload the artifacts to S3 bucket
+# This is useful when the same stack is deployed multiple times via CI/CD pipelines
+SAM_DEPLOY_CMD="${SAM_DEPLOY_CMD} --force-upload"
+if [ -n "${EXPORTER_SAMCONFIG_FILE}" ]; then
+    SAM_DEPLOY_CMD="${SAM_DEPLOY_CMD} --config-file \"${EXPORTER_SAMCONFIG_FILE}\""
+fi
+
+eval "${SAM_DEPLOY_CMD}"

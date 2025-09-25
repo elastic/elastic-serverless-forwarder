@@ -1,3 +1,9 @@
+### v1.21.1 - 2025/08/29
+##### Docs
+* added documentation on a new argument to the publish_lambdas.sh
+##### Features
+* Added a new command line argument to the publish_lambdas.sh to enable use of the --config-file option to support creating tags when deploying sam directly  
+
 ### v1.21.0 - 2025/08/28
 ##### Features
 * Add gzip compression to SQS replay events generated from CloudWatch [887](https://github.com/elastic/elastic-serverless-forwarder/pull/887)

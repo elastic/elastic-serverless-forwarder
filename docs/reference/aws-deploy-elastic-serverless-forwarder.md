@@ -586,6 +586,7 @@ Usage: ./publish_lambda.sh config-path lambda-name forwarder-tag bucket-name reg
     region: region where to publish in
     custom-role-prefix: role/policy prefix to add in case customization is needed (optional)
                         (please note that the prefix will be added to both role/policy naming)
+    config-file: path to a SAM configuration file (optional)
 ```
 
 
