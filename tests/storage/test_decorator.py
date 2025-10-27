@@ -244,3 +244,33 @@ class TestDecorator(TestCase):
         )
 
         assert expected == decorated
+
+    def test_multiline_non_utf(self) -> None:
+        multiline_processor = MultilineFactory.create(multiline_type="count", count_lines=2)
+        storage = DummyStorage(multiline_processor=multiline_processor, json_content_type="single")
+
+        fixtures = BytesIO(
+            b"INFO 2025-10-27T10:00:00Z Starting\nWARN 2025-10-27T10:01:00Z Invalid utf bytes \xff\xfe\xfa\n"
+        )
+        # expects the invalid utf-8 bytes to be replaced with the Unicode replacement character U+FFFD (�)
+        expected = [
+            (
+                b"INFO 2025-10-27T10:00:00Z Starting\n"
+                b"WARN 2025-10-27T10:01:00Z Invalid utf bytes \xef\xbf\xbd\xef\xbf\xbd\xef\xbf\xbd",
+                0,
+                89,
+                b"\n",
+                None,
+            ),
+        ]
+
+        decorated: list[tuple[Union[StorageReader, bytes], int, int, bytes, Optional[int]]] = list(
+            [
+                (data, starting_offset, ending_offset, newline, event_expanded_offset)
+                for data, starting_offset, ending_offset, newline, event_expanded_offset in storage.generate(
+                    0, fixtures, False
+                )
+            ]
+        )
+
+        assert expected == decorated

@@ -28,7 +28,8 @@ def by_lines(func: StorageDecoratorCallable[ProtocolStorageType]) -> StorageDeco
             assert isinstance(data, bytes)
 
             unfinished_line += data
-            lines = unfinished_line.decode("utf-8").splitlines()
+            # parse allowing non utf-8 characters and split by lines
+            lines = unfinished_line.decode("utf-8", errors="replace").splitlines()
 
             if len(lines) == 0:
                 continue
