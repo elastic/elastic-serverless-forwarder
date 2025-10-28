@@ -1,3 +1,7 @@
+### v1.21.1 - 2025/10/28
+##### Features
+* Allow non utf-8 characters using Unicode replacement [1009](https://github.com/elastic/elastic-serverless-forwarder/pull/1009)
+
 ### v1.21.0 - 2025/08/28
 ##### Features
 * Add gzip compression to SQS replay events generated from CloudWatch [887](https://github.com/elastic/elastic-serverless-forwarder/pull/887)
