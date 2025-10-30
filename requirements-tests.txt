@@ -2,7 +2,7 @@ mock==5.2.0
 pytest==8.4.2
 pytest-cov==6.1.1
 pytest-benchmark==5.1.0
-coverage==7.9.1
+coverage==7.11.0
 simplejson==3.19.2
 ujson==5.9.0
 pysimdjson==6.0.2
