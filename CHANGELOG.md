@@ -1,3 +1,7 @@
+### v1.21.2 - 2026/02/13
+##### Bug fixes
+* Bump urllib3 2.x and other core dependencies [1019](https://github.com/elastic/elastic-serverless-forwarder/pull/1019)
+
 ### v1.21.1 - 2025/10/28
 ##### Features
 * Allow non utf-8 characters using Unicode replacement [1009](https://github.com/elastic/elastic-serverless-forwarder/pull/1009)
