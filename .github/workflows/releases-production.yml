@@ -32,7 +32,7 @@ jobs:
       version: ${{ steps.get-version.outputs.version }}
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Get version number
         id: get-version
@@ -54,7 +54,7 @@ jobs:
     steps:
       # See https://docs.aws.amazon.com/lambda/latest/dg/python-package.html#python-package-create-dependencies
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           ref: 'lambda-v${{ needs.get-esf-version.outputs.version }}'
 
@@ -98,7 +98,7 @@ jobs:
       BUCKET_NAME: "elastic-serverless-forwarder"
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           ref: 'lambda-v${{ needs.get-esf-version.outputs.version }}'
 
@@ -107,7 +107,7 @@ jobs:
           aws-account-id: "${{ env.AWS_ACCOUNT_ID }}"
           aws-region: "${{ env.AWS_REGION }}"
 
-      - uses: aws-actions/setup-sam@c71dd89d980e49367c70391e8ada4353f52f2800 # v2
+      - uses: aws-actions/setup-sam@d78e1a4a9656d3b223e59b80676a797f20093133 # v2
         with:
           use-installer: true
           token: ${{ secrets.GITHUB_TOKEN }}
