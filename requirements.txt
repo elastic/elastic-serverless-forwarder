@@ -1,5 +1,5 @@
 elastic-apm==6.25.0
-boto3==1.42.46
+boto3==1.42.49
 ecs_logging==2.3.0
 elasticsearch==7.17.13
 PyYAML==6.0.3
