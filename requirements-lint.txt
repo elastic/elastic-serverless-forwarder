@@ -2,7 +2,7 @@ black==25.9.0
 flake8==7.1.2
 flake8-per-file-ignores==0.7
 isort==7.0.0
-mypy==1.10.1
+mypy==1.19.1
 types-PyYAML==6.0.12.20250915
 types-mock==5.2.0.20250924
 pyflakes==3.2.0
