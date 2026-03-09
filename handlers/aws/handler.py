@@ -26,6 +26,7 @@ from .utils import (
     PAYLOAD_ENCODING_KEY,
     ConfigFileException,
     TriggerTypeException,
+    _valid_trigger_types,
     capture_serverless,
     config_yaml_from_payload,
     config_yaml_from_s3,
@@ -37,6 +38,7 @@ from .utils import (
     get_sqs_client,
     get_trigger_type_and_config_source,
     gzip_base64_decoded,
+    sanitize_for_log,
     wrap_try_except,
 )
 
@@ -55,6 +57,8 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
     try:
         trigger_type, config_source = get_trigger_type_and_config_source(lambda_event)
+        if trigger_type not in _valid_trigger_types:
+            raise Exception("Not supported trigger")
         shared_logger.info("trigger", extra={"type": trigger_type})
     except Exception as e:
         raise TriggerTypeException(e)
@@ -109,8 +113,8 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                     shared_logger.warning(
                         "no shipper for output in replay queue",
                         extra={
-                            "output_destination": event["output_destination"],
-                            "event_input_id": event["event_input_id"],
+                            "output_destination": sanitize_for_log(event["output_destination"]),
+                            "event_input_id": sanitize_for_log(event["event_input_id"]),
                         },
                     )
                     continue
@@ -164,7 +168,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         )
 
         if event_input is None:
-            shared_logger.error("no input defined", extra={"input_id": input_id})
+            shared_logger.error("no input defined", extra={"input_id": sanitize_for_log(input_id)})
             error_events += 1
             _handle_cloudwatch_logs_move(
                 sqs_client=sqs_client,
@@ -260,7 +264,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         event_input = config.get_input_by_id(input_id)
 
         if event_input is None:
-            shared_logger.error("no input defined", extra={"input_id": input_id})
+            shared_logger.error("no input defined", extra={"input_id": sanitize_for_log(input_id)})
             error_events += len(lambda_event["Records"])
 
             for kinesis_record in lambda_event["Records"]:
@@ -449,7 +453,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             if event_input is None:
                 # This could happen if aws_lambda_event_source_mapping is set correctly, but
                 # the id on the config.yaml was writen incorrectly.
-                shared_logger.error("no input defined", extra={"input_id": input_id})
+                shared_logger.error("no input defined", extra={"input_id": sanitize_for_log(input_id)})
                 if trigger_type == "s3-sqs":
                     _handle_s3_sqs_move(
                         sqs_client=sqs_client,

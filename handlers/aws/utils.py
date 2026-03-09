@@ -4,6 +4,7 @@
 import base64
 import gzip
 import os
+import re
 from typing import Any, Callable, Optional
 
 import boto3
@@ -26,12 +27,20 @@ from .exceptions import (
 )
 
 _available_triggers: dict[str, str] = {"aws:s3": "s3-sqs", "aws:sqs": "sqs", "aws:kinesis": "kinesis-data-stream"}
+_valid_trigger_types: frozenset[str] = frozenset(_available_triggers.values()) | {"cloudwatch-logs", "replay-sqs"}
 
 CONFIG_FROM_PAYLOAD: str = "CONFIG_FROM_PAYLOAD"
 CONFIG_FROM_S3FILE: str = "CONFIG_FROM_S3FILE"
 INTEGRATION_SCOPE_GENERIC: str = "generic"
 PAYLOAD_ENCODING_KEY: str = "payloadEncoding"
 GZIP_ENCODING: str = "gzip"
+
+_CONTROL_CHARS_RE = re.compile(r"[\x00-\x1f\x7f]")
+
+
+def sanitize_for_log(value: str) -> str:
+    """Strip control characters to prevent log injection (CWE-117)."""
+    return _CONTROL_CHARS_RE.sub("", value)
 
 
 def get_lambda_region() -> str:
