@@ -248,7 +248,7 @@ EOF
             except Exception:
                 # NOTE: if a line is not valid JSON is not a message sent to stdout,
                 # so we can safely ignore it
-                pass
+                continue
 
         # Using the previous message count allows subsequent calls to this function
         # to properly trigger replay logic.
