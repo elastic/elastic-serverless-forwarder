@@ -87,7 +87,7 @@ class LogstashContainer(DockerContainer):  # type: ignore
         """
         one_day = datetime.timedelta(1, 0, 0)
 
-        priv_key = rsa.generate_private_key(public_exponent=65537, key_size=1024)
+        priv_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 
         x509_cert = x509.CertificateBuilder(
             issuer_name=x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "CA")]),
