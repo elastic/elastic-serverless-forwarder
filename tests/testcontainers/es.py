@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import os
 import ssl
 import time
 from typing import Any
@@ -13,8 +14,8 @@ from OpenSSL import crypto as OpenSSLCrypto
 from testcontainers.core.container import DockerContainer
 from testcontainers.core.waiting_utils import wait_container_is_ready
 
-DEFAULT_USERNAME = "elastic"
-DEFAULT_PASSWORD = "password"
+DEFAULT_USERNAME = os.environ.get("ES_TEST_USERNAME", "elastic")
+DEFAULT_PASSWORD = os.environ.get("ES_TEST_PASSWORD", "password")  # noqa: S105
 
 
 class ElasticsearchContainer(DockerContainer):  # type: ignore
