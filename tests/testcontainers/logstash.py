@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import datetime
+import json
 import os
 import ssl
 import time
@@ -245,7 +246,7 @@ EOF
             try:
                 msg = json_parser(line)
                 messages.append(msg)
-            except Exception:
+            except (json.JSONDecodeError, ValueError):
                 # NOTE: if a line is not valid JSON is not a message sent to stdout,
                 # so we can safely ignore it
                 continue
