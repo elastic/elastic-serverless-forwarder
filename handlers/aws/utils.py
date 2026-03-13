@@ -495,10 +495,12 @@ def get_queue_url_from_sqs_arn(sqs_arn: str) -> str:
     """
     Return sqs queue url given an sqs queue arn
     """
+    from urllib.parse import quote
+
     arn_components = sqs_arn.split(":")
-    region = arn_components[3]
-    account_id = arn_components[4]
-    queue_name = arn_components[5]
+    region = quote(arn_components[3], safe="")
+    account_id = quote(arn_components[4], safe="")
+    queue_name = quote(arn_components[5], safe="")
     return f"https://sqs.{region}.amazonaws.com/{account_id}/{queue_name}"
 
 
@@ -559,15 +561,15 @@ def s3_object_id(event_payload: dict[str, Any]) -> str:
     Generates a unique event id given the payload of an event from an s3 bucket
     """
 
-    offset: int = event_payload["fields"]["log"]["offset"]
-    bucket_arn: str = event_payload["fields"]["aws"]["s3"]["bucket"]["arn"]
-    object_key: str = event_payload["fields"]["aws"]["s3"]["object"]["key"]
-    event_time: int = event_payload["meta"]["event_time"]
+    offset: int = int(event_payload["fields"]["log"]["offset"])
+    bucket_arn: str = str(event_payload["fields"]["aws"]["s3"]["bucket"]["arn"])
+    object_key: str = str(event_payload["fields"]["aws"]["s3"]["object"]["key"])
+    event_time: int = int(event_payload["meta"]["event_time"])
 
-    src: str = f"{bucket_arn}-{object_key}"
+    src: str = "-".join([bucket_arn, object_key])
     hex_src = get_hex_prefix(src)
 
-    return f"{event_time}-{hex_src}-{offset:012d}"
+    return "-".join([str(event_time), hex_src, f"{offset:012d}"])
 
 
 def cloudwatch_logs_object_id(event_payload: dict[str, Any]) -> str:
@@ -575,16 +577,16 @@ def cloudwatch_logs_object_id(event_payload: dict[str, Any]) -> str:
     Generates a unique event id given the payload of an event from an sqs queue
     """
 
-    offset: int = event_payload["fields"]["log"]["offset"]
-    group_name: str = event_payload["fields"]["aws"]["cloudwatch"]["log_group"]
-    stream_name: str = event_payload["fields"]["aws"]["cloudwatch"]["log_stream"]
-    event_id: str = event_payload["fields"]["aws"]["cloudwatch"]["event_id"]
-    event_timestamp: int = event_payload["meta"]["event_timestamp"]
+    offset: int = int(event_payload["fields"]["log"]["offset"])
+    group_name: str = str(event_payload["fields"]["aws"]["cloudwatch"]["log_group"])
+    stream_name: str = str(event_payload["fields"]["aws"]["cloudwatch"]["log_stream"])
+    event_id: str = str(event_payload["fields"]["aws"]["cloudwatch"]["event_id"])
+    event_timestamp: int = int(event_payload["meta"]["event_timestamp"])
 
-    src: str = f"{group_name}-{stream_name}-{event_id}"
+    src: str = "-".join([group_name, stream_name, event_id])
     hex_src = get_hex_prefix(src)
 
-    return f"{event_timestamp}-{hex_src}-{offset:012d}"
+    return "-".join([str(event_timestamp), hex_src, f"{offset:012d}"])
 
 
 def sqs_object_id(event_payload: dict[str, Any]) -> str:
@@ -592,32 +594,32 @@ def sqs_object_id(event_payload: dict[str, Any]) -> str:
     Generates a unique event id given the payload of an event from an sqs queue
     """
 
-    offset: int = event_payload["fields"]["log"]["offset"]
-    queue_name: str = event_payload["fields"]["aws"]["sqs"]["name"]
-    message_id: str = event_payload["fields"]["aws"]["sqs"]["message_id"]
-    sent_timestamp: int = event_payload["meta"]["sent_timestamp"]
+    offset: int = int(event_payload["fields"]["log"]["offset"])
+    queue_name: str = str(event_payload["fields"]["aws"]["sqs"]["name"])
+    message_id: str = str(event_payload["fields"]["aws"]["sqs"]["message_id"])
+    sent_timestamp: int = int(event_payload["meta"]["sent_timestamp"])
 
-    src: str = f"{queue_name}-{message_id}"
+    src: str = "-".join([queue_name, message_id])
     hex_src = get_hex_prefix(src)
 
-    return f"{sent_timestamp}-{hex_src}-{offset:012d}"
+    return "-".join([str(sent_timestamp), hex_src, f"{offset:012d}"])
 
 
 def kinesis_record_id(event_payload: dict[str, Any]) -> str:
     """
     Generates a unique event id given the payload of an event from a kinesis stream
     """
-    offset: int = event_payload["fields"]["log"]["offset"]
-    stream_type: str = event_payload["fields"]["aws"]["kinesis"]["type"]
-    stream_name: str = event_payload["fields"]["aws"]["kinesis"]["name"]
-    partition_key: str = event_payload["fields"]["aws"]["kinesis"]["partition_key"]
-    sequence_number: str = event_payload["fields"]["aws"]["kinesis"]["sequence_number"]
-    approximate_arrival_timestamp: int = event_payload["meta"]["approximate_arrival_timestamp"]
+    offset: int = int(event_payload["fields"]["log"]["offset"])
+    stream_type: str = str(event_payload["fields"]["aws"]["kinesis"]["type"])
+    stream_name: str = str(event_payload["fields"]["aws"]["kinesis"]["name"])
+    partition_key: str = str(event_payload["fields"]["aws"]["kinesis"]["partition_key"])
+    sequence_number: str = str(event_payload["fields"]["aws"]["kinesis"]["sequence_number"])
+    approximate_arrival_timestamp: int = int(event_payload["meta"]["approximate_arrival_timestamp"])
 
-    src: str = f"{stream_type}-{stream_name}-{partition_key}-{sequence_number}"
+    src: str = "-".join([stream_type, stream_name, partition_key, sequence_number])
     hex_src = get_hex_prefix(src)
 
-    return f"{approximate_arrival_timestamp}-{hex_src}-{offset:012d}"
+    return "-".join([str(approximate_arrival_timestamp), hex_src, f"{offset:012d}"])
 
 
 # This is implementation specific to AWS and should not reside on share

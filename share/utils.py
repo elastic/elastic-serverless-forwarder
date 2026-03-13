@@ -11,4 +11,6 @@ def get_hex_prefix(src: str) -> str:
 
 def create_user_agent(esf_version: str, environment: str = sys.version) -> str:
     """Creates the 'User-Agent' header given ESF version and running environment"""
-    return f"ElasticServerlessForwarder/{esf_version} ({environment})"
+    safe_version = str(esf_version)
+    safe_environment = str(environment)
+    return "ElasticServerlessForwarder/" + safe_version + " (" + safe_environment + ")"
