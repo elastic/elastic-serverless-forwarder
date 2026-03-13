@@ -484,7 +484,10 @@ class ReplayEventHandler:
 
         shared_logger.debug(
             "sent to replay queue",
-            extra={"output_destination": output_destination, "event_input_id": self._event_input_id},
+            extra={
+                "output_destination": sanitize_for_log(output_destination),
+                "event_input_id": sanitize_for_log(self._event_input_id),
+            },
         )
 
 

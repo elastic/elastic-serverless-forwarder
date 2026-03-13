@@ -59,7 +59,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         trigger_type, config_source = get_trigger_type_and_config_source(lambda_event)
         if trigger_type not in _valid_trigger_types:
             raise Exception("Not supported trigger")
-        shared_logger.info("trigger", extra={"type": trigger_type})
+        shared_logger.info("trigger", extra={"type": sanitize_for_log(trigger_type)})
     except Exception as e:
         raise TriggerTypeException(e)
 
