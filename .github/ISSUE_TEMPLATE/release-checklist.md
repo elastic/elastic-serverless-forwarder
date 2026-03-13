@@ -15,7 +15,7 @@ Create a single PR with the following changes:
 * [ ] Update version-specific documentation in `docs/reference/` (if needed)
 * [ ] Bump version in `share/version.py` to `X.Y.Z`
 * [ ] Update `CHANGELOG.md` with all changes for this release
-* [ ] Verify linting and tests pass: `make lint && make license && make test`
+* [ ] Verify linting and tests succeed: `make lint && make license && make test`
 
 ## Merge and Deployment
 
