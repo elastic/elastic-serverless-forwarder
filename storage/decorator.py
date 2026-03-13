@@ -377,7 +377,7 @@ def inflate(func: StorageDecoratorCallable[ProtocolStorageType]) -> StorageDecor
         iterator = func(storage, range_start, body, is_gzipped)
         for data, _, _, _, _ in iterator:
             if is_gzipped:
-                gzip_stream = gzip.GzipFile(fileobj=data)  # type:ignore
+                gzip_stream = gzip.GzipFile(fileobj=data)  # type: ignore
                 gzip_stream.seek(range_start)
                 while True:
                     inflated_chunk: bytes = gzip_stream.read(CHUNK_SIZE)

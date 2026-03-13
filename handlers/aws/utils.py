@@ -97,7 +97,7 @@ def capture_serverless(
 
         return wrapper
 
-    return apm_capture_serverless()(func=func)  # type:ignore
+    return apm_capture_serverless()(func=func)  # type: ignore
 
 
 def wrap_try_except(

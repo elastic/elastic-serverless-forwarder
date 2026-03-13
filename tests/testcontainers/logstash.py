@@ -112,8 +112,7 @@ class LogstashContainer(DockerContainer):  # type: ignore
 
         x509_cert, priv_key = self._ssl_certificate_and_private_key(subject_name="localhost")
 
-        self.with_command(
-            f"""bash -c "mkdir /tmp/ssl
+        self.with_command(f"""bash -c "mkdir /tmp/ssl
 cat <<EOF > /tmp/ssl/localhost.crt
 {x509_cert}
 EOF
@@ -125,8 +124,7 @@ EOF
 /opt/logstash/bin/logstash-plugin install logstash-input-elastic_serverless_forwarder
 
 /opt/logstash/bin/logstash"
-"""
-        )
+""")
 
         # NOTE: plain curly brackets must be escaped in this string (double them)
         logstash_config = f"""\
