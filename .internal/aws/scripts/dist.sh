@@ -33,7 +33,8 @@ SAR_AUTHOR_NAME="${6:-Elastic}"
 TMPDIR=$(mktemp -d /tmp/dist.XXXXXXXXXX)
 CODE_URI="${TMPDIR}/sources"
 
-trap "rm -rf ${TMPDIR}" EXIT
+cleanup() { rm -rf "$TMPDIR"; }
+trap cleanup EXIT
 
 aws s3api get-bucket-location --bucket "${BUCKET}" --region "${REGION}" || aws s3api create-bucket --acl private --bucket "${BUCKET}" --region "${REGION}" --create-bucket-configuration LocationConstraint="${REGION}" || aws s3api create-bucket --acl private --bucket "${BUCKET}" --region "${REGION}"
 
