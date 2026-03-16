@@ -250,7 +250,7 @@ class TestLambdaHandlerIntegration(TestCase):
         event, _ = _sqs_get_messages(self.sqs_client, s3_sqs_queue_url, s3_sqs_queue_arn)
 
         ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
-        first_call = handler(event, ctx)  # type:ignore
+        first_call = handler(event, ctx)  # type: ignore
 
         assert first_call == "completed"
 
@@ -432,7 +432,7 @@ class TestLambdaHandlerIntegration(TestCase):
         )
 
         ctx = ContextMock()
-        first_call = handler(events_s3, ctx)  # type:ignore
+        first_call = handler(events_s3, ctx)  # type: ignore
 
         assert first_call == "continuing"
 
@@ -465,7 +465,7 @@ class TestLambdaHandlerIntegration(TestCase):
         assert res["hits"]["hits"][0]["_source"]["message"] == logstash_message[0]["message"]
         assert res["hits"]["hits"][0]["_source"]["tags"] == logstash_message[0]["tags"]
 
-        second_call = handler(events_sqs, ctx)  # type:ignore
+        second_call = handler(events_sqs, ctx)  # type: ignore
 
         assert second_call == "continuing"
 
@@ -494,7 +494,7 @@ class TestLambdaHandlerIntegration(TestCase):
         assert res["hits"]["hits"][1]["_source"]["message"] == logstash_message[1]["message"]
         assert res["hits"]["hits"][1]["_source"]["tags"] == logstash_message[1]["tags"]
 
-        third_call = handler(events_cloudwatch_logs, ctx)  # type:ignore
+        third_call = handler(events_cloudwatch_logs, ctx)  # type: ignore
 
         assert third_call == "continuing"
 
@@ -527,7 +527,7 @@ class TestLambdaHandlerIntegration(TestCase):
         assert res["hits"]["hits"][2]["_source"]["message"] == logstash_message[2]["message"]
         assert res["hits"]["hits"][2]["_source"]["tags"] == logstash_message[2]["tags"]
 
-        fourth_call = handler(events_kinesis, ctx)  # type:ignore
+        fourth_call = handler(events_kinesis, ctx)  # type: ignore
 
         assert fourth_call == "continuing"
 
@@ -565,7 +565,7 @@ class TestLambdaHandlerIntegration(TestCase):
             self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
         )
 
-        fifth_call = handler(continued_events, ctx)  # type:ignore
+        fifth_call = handler(continued_events, ctx)  # type: ignore
 
         assert fifth_call == "continuing"
 
@@ -603,7 +603,7 @@ class TestLambdaHandlerIntegration(TestCase):
         continued_events, _ = _sqs_get_messages(
             self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
         )
-        sixth_call = handler(continued_events, ctx)  # type:ignore
+        sixth_call = handler(continued_events, ctx)  # type: ignore
 
         assert sixth_call == "completed"
 
@@ -730,7 +730,7 @@ class TestLambdaHandlerIntegration(TestCase):
         second_message_id = events_sqs["Records"][1]["messageId"]
 
         ctx = ContextMock()
-        first_call = handler(events_sqs, ctx)  # type:ignore
+        first_call = handler(events_sqs, ctx)  # type: ignore
 
         assert first_call == "continuing"
 
@@ -754,7 +754,7 @@ class TestLambdaHandlerIntegration(TestCase):
         continued_events["Records"][2]["messageAttributes"]["originalEventSourceARN"][
             "stringValue"
         ] += "-not-configured-arn"
-        second_call = handler(continued_events, ctx)  # type:ignore
+        second_call = handler(continued_events, ctx)  # type: ignore
 
         assert second_call == "continuing"
 
@@ -776,7 +776,7 @@ class TestLambdaHandlerIntegration(TestCase):
             self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
         )
 
-        third_call = handler(continued_events, ctx)  # type:ignore
+        third_call = handler(continued_events, ctx)  # type: ignore
 
         assert third_call == "completed"
 
@@ -1004,7 +1004,7 @@ class TestLambdaHandlerIntegration(TestCase):
 
         ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
 
-        first_call = handler(events_s3, ctx)  # type:ignore
+        first_call = handler(events_s3, ctx)  # type: ignore
 
         assert first_call == "completed"
 
@@ -1033,7 +1033,7 @@ class TestLambdaHandlerIntegration(TestCase):
         logstash_message = self.logstash.get_messages(expected=0)
         assert len(logstash_message) == 0
 
-        second_call = handler(events_sqs, ctx)  # type:ignore
+        second_call = handler(events_sqs, ctx)  # type: ignore
 
         assert second_call == "completed"
 
@@ -1058,7 +1058,7 @@ class TestLambdaHandlerIntegration(TestCase):
         logstash_message = self.logstash.get_messages(expected=0)
         assert len(logstash_message) == 0
 
-        third_call = handler(events_cloudwatch_logs, ctx)  # type:ignore
+        third_call = handler(events_cloudwatch_logs, ctx)  # type: ignore
 
         assert third_call == "completed"
 
@@ -1087,7 +1087,7 @@ class TestLambdaHandlerIntegration(TestCase):
         logstash_message = self.logstash.get_messages(expected=0)
         assert len(logstash_message) == 0
 
-        fourth_call = handler(events_kinesis, ctx)  # type:ignore
+        fourth_call = handler(events_kinesis, ctx)  # type: ignore
 
         assert fourth_call == "completed"
 
@@ -1119,7 +1119,7 @@ class TestLambdaHandlerIntegration(TestCase):
 
         replayed_events, _ = _sqs_get_messages(self.sqs_client, os.environ["SQS_REPLAY_URL"], self.sqs_replay_queue_arn)
         with self.assertRaises(ReplayHandlerException):
-            handler(replayed_events, ctx)  # type:ignore
+            handler(replayed_events, ctx)  # type: ignore
 
         self.elasticsearch.refresh(index="logs-generic-default")
 
@@ -1164,7 +1164,7 @@ class TestLambdaHandlerIntegration(TestCase):
         # implicit wait for the message to be back on the queue
         time.sleep(35)
         replayed_events, _ = _sqs_get_messages(self.sqs_client, os.environ["SQS_REPLAY_URL"], self.sqs_replay_queue_arn)
-        fifth_call = handler(replayed_events, ctx)  # type:ignore
+        fifth_call = handler(replayed_events, ctx)  # type: ignore
 
         assert fifth_call == "replayed"
 
@@ -1196,7 +1196,7 @@ class TestLambdaHandlerIntegration(TestCase):
         # implicit wait for the message to be back on the queue
         time.sleep(35)
         replayed_events, _ = _sqs_get_messages(self.sqs_client, os.environ["SQS_REPLAY_URL"], self.sqs_replay_queue_arn)
-        sixth_call = handler(replayed_events, ctx)  # type:ignore
+        sixth_call = handler(replayed_events, ctx)  # type: ignore
 
         assert sixth_call == "replayed"
 
@@ -1222,7 +1222,7 @@ class TestLambdaHandlerIntegration(TestCase):
         # implicit wait for the message to be back on the queue
         time.sleep(35)
         replayed_events, _ = _sqs_get_messages(self.sqs_client, os.environ["SQS_REPLAY_URL"], self.sqs_replay_queue_arn)
-        seventh_call = handler(replayed_events, ctx)  # type:ignore
+        seventh_call = handler(replayed_events, ctx)  # type: ignore
 
         assert seventh_call == "replayed"
 
@@ -1426,7 +1426,7 @@ class TestLambdaHandlerIntegration(TestCase):
         )
 
         ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
-        first_call = handler(events_s3, ctx)  # type:ignore
+        first_call = handler(events_s3, ctx)  # type: ignore
 
         assert first_call == "completed"
 
@@ -1436,7 +1436,7 @@ class TestLambdaHandlerIntegration(TestCase):
         logstash_message = self.logstash.get_messages(expected=0)
         assert len(logstash_message) == 0
 
-        second_call = handler(events_sqs, ctx)  # type:ignore
+        second_call = handler(events_sqs, ctx)  # type: ignore
 
         assert second_call == "completed"
 
@@ -1446,7 +1446,7 @@ class TestLambdaHandlerIntegration(TestCase):
         logstash_message = self.logstash.get_messages(expected=0)
         assert len(logstash_message) == 0
 
-        third_call = handler(events_cloudwatch_logs, ctx)  # type:ignore
+        third_call = handler(events_cloudwatch_logs, ctx)  # type: ignore
 
         assert third_call == "completed"
 
@@ -1456,7 +1456,7 @@ class TestLambdaHandlerIntegration(TestCase):
         logstash_message = self.logstash.get_messages(expected=0)
         assert len(logstash_message) == 0
 
-        fourth_call = handler(events_kinesis, ctx)  # type:ignore
+        fourth_call = handler(events_kinesis, ctx)  # type: ignore
 
         assert fourth_call == "completed"
 
@@ -1573,7 +1573,7 @@ class TestLambdaHandlerIntegration(TestCase):
         )
 
         ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
-        first_call = handler(events_s3, ctx)  # type:ignore
+        first_call = handler(events_s3, ctx)  # type: ignore
 
         assert first_call == "completed"
 
@@ -1583,7 +1583,7 @@ class TestLambdaHandlerIntegration(TestCase):
         logstash_message = self.logstash.get_messages(expected=0)
         assert len(logstash_message) == 0
 
-        second_call = handler(events_sqs, ctx)  # type:ignore
+        second_call = handler(events_sqs, ctx)  # type: ignore
 
         assert second_call == "completed"
 
@@ -1593,7 +1593,7 @@ class TestLambdaHandlerIntegration(TestCase):
         logstash_message = self.logstash.get_messages(expected=0)
         assert len(logstash_message) == 0
 
-        third_call = handler(events_cloudwatch_logs, ctx)  # type:ignore
+        third_call = handler(events_cloudwatch_logs, ctx)  # type: ignore
 
         assert third_call == "completed"
 
@@ -1603,7 +1603,7 @@ class TestLambdaHandlerIntegration(TestCase):
         logstash_message = self.logstash.get_messages(expected=0)
         assert len(logstash_message) == 0
 
-        fourth_call = handler(events_kinesis, ctx)  # type:ignore
+        fourth_call = handler(events_kinesis, ctx)  # type: ignore
 
         assert fourth_call == "completed"
 
@@ -1669,7 +1669,7 @@ class TestLambdaHandlerIntegration(TestCase):
 
         ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
 
-        first_call = handler(events_sqs, ctx)  # type:ignore
+        first_call = handler(events_sqs, ctx)  # type: ignore
 
         assert first_call == "completed"
 
@@ -1758,7 +1758,7 @@ class TestLambdaHandlerIntegration(TestCase):
 
         ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
 
-        first_call = handler(events_sqs, ctx)  # type:ignore
+        first_call = handler(events_sqs, ctx)  # type: ignore
 
         assert first_call == "completed"
 
@@ -1793,10 +1793,8 @@ class TestLambdaHandlerIntegration(TestCase):
         second_expanded_event: str = '"second_expanded_event"'
         third_expanded_event: str = '"third_expanded_event"'
 
-        fixtures = [
-            f"""{{"firstRootField": "firstRootField", "secondRootField":"secondRootField",
-            "aField": [{first_expanded_event},{second_expanded_event},{third_expanded_event}]}}"""
-        ]
+        fixtures = [f"""{{"firstRootField": "firstRootField", "secondRootField":"secondRootField",
+            "aField": [{first_expanded_event},{second_expanded_event},{third_expanded_event}]}}"""]
 
         sqs_queue_name = _time_based_id(suffix="source-sqs")
 
@@ -1841,7 +1839,7 @@ class TestLambdaHandlerIntegration(TestCase):
         message_id = events_sqs["Records"][0]["messageId"]
 
         ctx = ContextMock()
-        first_call = handler(events_sqs, ctx)  # type:ignore
+        first_call = handler(events_sqs, ctx)  # type: ignore
 
         assert first_call == "continuing"
 
@@ -1863,7 +1861,7 @@ class TestLambdaHandlerIntegration(TestCase):
         continued_events, _ = _sqs_get_messages(
             self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
         )
-        second_call = handler(continued_events, ctx)  # type:ignore
+        second_call = handler(continued_events, ctx)  # type: ignore
 
         assert second_call == "completed"
 
@@ -1902,10 +1900,8 @@ class TestLambdaHandlerIntegration(TestCase):
         second_expanded_with_root_fields: dict[str, Any] = json_parser(second_expanded_event)
         second_expanded_with_root_fields["secondRootField"] = "secondRootField"
 
-        fixtures = [
-            f"""{{"firstRootField": "firstRootField", "secondRootField":"secondRootField",
-            "aField": [{first_expanded_event},{{}},{second_expanded_event}]}}"""
-        ]
+        fixtures = [f"""{{"firstRootField": "firstRootField", "secondRootField":"secondRootField",
+            "aField": [{first_expanded_event},{{}},{second_expanded_event}]}}"""]
 
         sqs_queue_name = _time_based_id(suffix="source-sqs")
 
@@ -1951,7 +1947,7 @@ class TestLambdaHandlerIntegration(TestCase):
 
         ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
 
-        first_call = handler(events_sqs, ctx)  # type:ignore
+        first_call = handler(events_sqs, ctx)  # type: ignore
 
         assert first_call == "completed"
 
@@ -1994,10 +1990,8 @@ class TestLambdaHandlerIntegration(TestCase):
         third_expanded_event_with_root_fields: dict[str, Any] = json_parser(third_expanded_event)
         third_expanded_event_with_root_fields["secondRootField"] = "secondRootField"
 
-        fixtures = [
-            f"""{{"firstRootField": "firstRootField", "secondRootField":"secondRootField",
-            "aField": [{first_expanded_event},{second_expanded_event},{third_expanded_event}]}}"""
-        ]
+        fixtures = [f"""{{"firstRootField": "firstRootField", "secondRootField":"secondRootField",
+            "aField": [{first_expanded_event},{second_expanded_event},{third_expanded_event}]}}"""]
 
         sqs_queue_name = _time_based_id(suffix="source-sqs")
 
@@ -2042,7 +2036,7 @@ class TestLambdaHandlerIntegration(TestCase):
         message_id = events_sqs["Records"][0]["messageId"]
 
         ctx = ContextMock()
-        first_call = handler(events_sqs, ctx)  # type:ignore
+        first_call = handler(events_sqs, ctx)  # type: ignore
 
         assert first_call == "continuing"
 
@@ -2064,7 +2058,7 @@ class TestLambdaHandlerIntegration(TestCase):
         continued_events, _ = _sqs_get_messages(
             self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
         )
-        second_call = handler(continued_events, ctx)  # type:ignore
+        second_call = handler(continued_events, ctx)  # type: ignore
 
         assert second_call == "completed"
 
@@ -2107,10 +2101,8 @@ class TestLambdaHandlerIntegration(TestCase):
         third_expanded_event_with_root_fields: dict[str, Any] = json_parser(third_expanded_event)
         third_expanded_event_with_root_fields["secondRootField"] = "secondRootField"
 
-        fixtures = [
-            f"""{{"firstRootField": "firstRootField", "secondRootField":"secondRootField",
-            "aField": [{first_expanded_event},{second_expanded_event},{third_expanded_event}]}}"""
-        ]
+        fixtures = [f"""{{"firstRootField": "firstRootField", "secondRootField":"secondRootField",
+            "aField": [{first_expanded_event},{second_expanded_event},{third_expanded_event}]}}"""]
 
         sqs_queue_name = _time_based_id(suffix="source-sqs")
 
@@ -2155,7 +2147,7 @@ class TestLambdaHandlerIntegration(TestCase):
         message_id = events_sqs["Records"][0]["messageId"]
 
         ctx = ContextMock()
-        first_call = handler(events_sqs, ctx)  # type:ignore
+        first_call = handler(events_sqs, ctx)  # type: ignore
 
         assert first_call == "continuing"
 
@@ -2177,7 +2169,7 @@ class TestLambdaHandlerIntegration(TestCase):
         continued_events, _ = _sqs_get_messages(
             self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
         )
-        second_call = handler(continued_events, ctx)  # type:ignore
+        second_call = handler(continued_events, ctx)  # type: ignore
 
         assert second_call == "completed"
 
@@ -2223,10 +2215,8 @@ class TestLambdaHandlerIntegration(TestCase):
         third_expanded_event_with_root_fields["firstRootField"] = "firstRootField"
         third_expanded_event_with_root_fields["secondRootField"] = "secondRootField"
 
-        fixtures = [
-            f"""{{"firstRootField": "firstRootField", "secondRootField":"secondRootField",
-            "aField": [{first_expanded_event},{second_expanded_event},{third_expanded_event}]}}"""
-        ]
+        fixtures = [f"""{{"firstRootField": "firstRootField", "secondRootField":"secondRootField",
+            "aField": [{first_expanded_event},{second_expanded_event},{third_expanded_event}]}}"""]
 
         sqs_queue_name = _time_based_id(suffix="source-sqs")
 
@@ -2271,7 +2261,7 @@ class TestLambdaHandlerIntegration(TestCase):
         message_id = events_sqs["Records"][0]["messageId"]
 
         ctx = ContextMock()
-        first_call = handler(events_sqs, ctx)  # type:ignore
+        first_call = handler(events_sqs, ctx)  # type: ignore
 
         assert first_call == "continuing"
 
@@ -2293,7 +2283,7 @@ class TestLambdaHandlerIntegration(TestCase):
         continued_events, _ = _sqs_get_messages(
             self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
         )
-        second_call = handler(continued_events, ctx)  # type:ignore
+        second_call = handler(continued_events, ctx)  # type: ignore
 
         assert second_call == "completed"
 
@@ -2378,7 +2368,7 @@ class TestLambdaHandlerIntegration(TestCase):
         message_id = events_sqs["Records"][0]["messageId"]
 
         ctx = ContextMock()
-        first_call = handler(events_sqs, ctx)  # type:ignore
+        first_call = handler(events_sqs, ctx)  # type: ignore
 
         assert first_call == "continuing"
 
@@ -2400,7 +2390,7 @@ class TestLambdaHandlerIntegration(TestCase):
         continued_events, _ = _sqs_get_messages(
             self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
         )
-        second_call = handler(continued_events, ctx)  # type:ignore
+        second_call = handler(continued_events, ctx)  # type: ignore
 
         assert second_call == "completed"
 
@@ -2504,11 +2494,11 @@ class TestLambdaHandlerIntegration(TestCase):
         )
 
         ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
-        first_call = handler(events_cloudwatch_logs, ctx)  # type:ignore
+        first_call = handler(events_cloudwatch_logs, ctx)  # type: ignore
 
         assert first_call == "completed"
 
-        second_call = handler(events_cloudwatch_logs_different, ctx)  # type:ignore
+        second_call = handler(events_cloudwatch_logs_different, ctx)  # type: ignore
 
         assert second_call == "completed"
 
@@ -2597,7 +2587,7 @@ class TestLambdaHandlerIntegration(TestCase):
         )
 
         ctx = ContextMock()
-        first_call = handler(events_cloudwatch_logs, ctx)  # type:ignore
+        first_call = handler(events_cloudwatch_logs, ctx)  # type: ignore
 
         assert first_call == "completed"
 
@@ -2674,7 +2664,7 @@ class TestLambdaHandlerIntegration(TestCase):
         )
 
         ctx = ContextMock()
-        first_call = handler(events_cloudwatch_logs, ctx)  # type:ignore
+        first_call = handler(events_cloudwatch_logs, ctx)  # type: ignore
 
         assert first_call == "continuing"
 
@@ -2697,7 +2687,7 @@ class TestLambdaHandlerIntegration(TestCase):
         continued_events, _ = _sqs_get_messages(
             self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
         )
-        second_call = handler(continued_events, ctx)  # type:ignore
+        second_call = handler(continued_events, ctx)  # type: ignore
 
         assert second_call == "completed"
 
@@ -2788,7 +2778,7 @@ class TestLambdaHandlerIntegration(TestCase):
         )
 
         ctx = ContextMock()
-        first_call = handler(events_cloudwatch_logs, ctx)  # type:ignore
+        first_call = handler(events_cloudwatch_logs, ctx)  # type: ignore
 
         assert first_call == "continuing"
 
@@ -2811,7 +2801,7 @@ class TestLambdaHandlerIntegration(TestCase):
         continued_events, _ = _sqs_get_messages(
             self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
         )
-        second_call = handler(continued_events, ctx)  # type:ignore
+        second_call = handler(continued_events, ctx)  # type: ignore
 
         assert second_call == "completed"
 
@@ -2887,7 +2877,7 @@ class TestLambdaHandlerIntegration(TestCase):
         )
 
         ctx = ContextMock()
-        first_call = handler(events_kinesis, ctx)  # type:ignore
+        first_call = handler(events_kinesis, ctx)  # type: ignore
 
         assert first_call == "completed"
 
@@ -2946,7 +2936,7 @@ class TestLambdaHandlerIntegration(TestCase):
         )
 
         ctx = ContextMock()
-        first_call = handler(events_kinesis, ctx)  # type:ignore
+        first_call = handler(events_kinesis, ctx)  # type: ignore
 
         assert first_call == "continuing"
 
@@ -2973,7 +2963,7 @@ class TestLambdaHandlerIntegration(TestCase):
         continued_events, _ = _sqs_get_messages(
             self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
         )
-        second_call = handler(continued_events, ctx)  # type:ignore
+        second_call = handler(continued_events, ctx)  # type: ignore
 
         assert second_call == "completed"
 
@@ -3058,7 +3048,7 @@ class TestLambdaHandlerIntegration(TestCase):
         )
 
         ctx = ContextMock()
-        first_call = handler(events_kinesis, ctx)  # type:ignore
+        first_call = handler(events_kinesis, ctx)  # type: ignore
 
         assert first_call == "continuing"
 
@@ -3085,7 +3075,7 @@ class TestLambdaHandlerIntegration(TestCase):
         continued_events, _ = _sqs_get_messages(
             self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
         )
-        second_call = handler(continued_events, ctx)  # type:ignore
+        second_call = handler(continued_events, ctx)  # type: ignore
 
         assert second_call == "completed"
 
@@ -3172,7 +3162,7 @@ class TestLambdaHandlerIntegration(TestCase):
         messages_sqs = events_sqs["Records"]
 
         ctx = ContextMock()
-        first_call = handler(events_sqs, ctx)  # type:ignore
+        first_call = handler(events_sqs, ctx)  # type: ignore
 
         assert first_call == "completed"
 
@@ -3238,7 +3228,7 @@ class TestLambdaHandlerIntegration(TestCase):
         message_id = events_sqs["Records"][0]["messageId"]
 
         ctx = ContextMock()
-        first_call = handler(events_sqs, ctx)  # type:ignore
+        first_call = handler(events_sqs, ctx)  # type: ignore
 
         assert first_call == "continuing"
 
@@ -3260,7 +3250,7 @@ class TestLambdaHandlerIntegration(TestCase):
         continued_events, _ = _sqs_get_messages(
             self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
         )
-        second_call = handler(continued_events, ctx)  # type:ignore
+        second_call = handler(continued_events, ctx)  # type: ignore
 
         assert second_call == "completed"
 
@@ -3339,7 +3329,7 @@ class TestLambdaHandlerIntegration(TestCase):
         message_id = events_sqs["Records"][0]["messageId"]
 
         ctx = ContextMock()
-        first_call = handler(events_sqs, ctx)  # type:ignore
+        first_call = handler(events_sqs, ctx)  # type: ignore
 
         assert first_call == "continuing"
 
@@ -3361,7 +3351,7 @@ class TestLambdaHandlerIntegration(TestCase):
         continued_events, _ = _sqs_get_messages(
             self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
         )
-        second_call = handler(continued_events, ctx)  # type:ignore
+        second_call = handler(continued_events, ctx)  # type: ignore
 
         assert second_call == "completed"
 
@@ -3446,7 +3436,7 @@ class TestLambdaHandlerIntegration(TestCase):
         events_s3, _ = _sqs_get_messages(self.sqs_client, s3_sqs_queue_url, s3_sqs_queue_arn)
 
         ctx = ContextMock()
-        first_call = handler(events_s3, ctx)  # type:ignore
+        first_call = handler(events_s3, ctx)  # type: ignore
 
         assert first_call == "continuing"
 
@@ -3472,7 +3462,7 @@ class TestLambdaHandlerIntegration(TestCase):
         continued_events, _ = _sqs_get_messages(
             self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
         )
-        second_call = handler(continued_events, ctx)  # type:ignore
+        second_call = handler(continued_events, ctx)  # type: ignore
 
         assert second_call == "completed"
 
@@ -3579,7 +3569,7 @@ class TestLambdaHandlerIntegration(TestCase):
         events_s3, _ = _sqs_get_messages(self.sqs_client, s3_sqs_queue_url, s3_sqs_queue_arn)
 
         ctx = ContextMock()
-        first_call = handler(events_s3, ctx)  # type:ignore
+        first_call = handler(events_s3, ctx)  # type: ignore
 
         assert first_call == "continuing"
 
@@ -3603,7 +3593,7 @@ class TestLambdaHandlerIntegration(TestCase):
         continued_events, _ = _sqs_get_messages(
             self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
         )
-        second_call = handler(continued_events, ctx)  # type:ignore
+        second_call = handler(continued_events, ctx)  # type: ignore
 
         assert second_call == "continuing"
 
@@ -3629,7 +3619,7 @@ class TestLambdaHandlerIntegration(TestCase):
         continued_events, _ = _sqs_get_messages(
             self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
         )
-        third_call = handler(continued_events, ctx)  # type:ignore
+        third_call = handler(continued_events, ctx)  # type: ignore
 
         assert third_call == "completed"
 
@@ -3722,7 +3712,7 @@ class TestLambdaHandlerIntegration(TestCase):
         event, _ = _sqs_get_messages(self.sqs_client, s3_sqs_queue_url, s3_sqs_queue_arn)
 
         ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
-        first_call = handler(event, ctx)  # type:ignore
+        first_call = handler(event, ctx)  # type: ignore
 
         assert first_call == "completed"
 
@@ -3827,21 +3817,21 @@ class TestLambdaHandlerIntegration(TestCase):
         event, _ = _sqs_get_messages(self.sqs_client, sqs_queue_url, sqs_queue_arn)
         message_id = event["Records"][0]["messageId"]
 
-        first_call = handler(event, ctx)  # type:ignore
+        first_call = handler(event, ctx)  # type: ignore
 
         assert first_call == "continuing"
 
         assert self.elasticsearch.exists(index="logs-generic-default") is False
 
         event, _ = _sqs_get_messages(self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn)
-        second_call = handler(event, ctx)  # type:ignore
+        second_call = handler(event, ctx)  # type: ignore
 
         assert second_call == "continuing"
 
         assert self.elasticsearch.exists(index="logs-generic-default") is False
 
         event, _ = _sqs_get_messages(self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn)
-        third_call = handler(event, ctx)  # type:ignore
+        third_call = handler(event, ctx)  # type: ignore
 
         assert third_call == "completed"
 
@@ -3950,7 +3940,7 @@ class TestLambdaHandlerIntegration(TestCase):
 
         ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
 
-        first_call = handler(event, ctx)  # type:ignore
+        first_call = handler(event, ctx)  # type: ignore
 
         assert first_call == "completed"
 
@@ -4013,17 +4003,17 @@ class TestLambdaHandlerIntegration(TestCase):
         event, _ = _sqs_get_messages(self.sqs_client, sqs_queue_url, sqs_queue_arn)
         message_id = event["Records"][0]["messageId"]
 
-        first_call = handler(event, ctx)  # type:ignore
+        first_call = handler(event, ctx)  # type: ignore
 
         assert first_call == "continuing"
 
         event, _ = _sqs_get_messages(self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn)
-        second_call = handler(event, ctx)  # type:ignore
+        second_call = handler(event, ctx)  # type: ignore
 
         assert second_call == "continuing"
 
         event, _ = _sqs_get_messages(self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn)
-        third_call = handler(event, ctx)  # type:ignore
+        third_call = handler(event, ctx)  # type: ignore
 
         assert third_call == "completed"
 
@@ -4104,17 +4094,17 @@ class TestLambdaHandlerIntegration(TestCase):
         event, _ = _sqs_get_messages(self.sqs_client, sqs_queue_url, sqs_queue_arn)
         message_id = event["Records"][0]["messageId"]
 
-        first_call = handler(event, ctx)  # type:ignore
+        first_call = handler(event, ctx)  # type: ignore
 
         assert first_call == "continuing"
 
         event, _ = _sqs_get_messages(self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn)
-        second_call = handler(event, ctx)  # type:ignore
+        second_call = handler(event, ctx)  # type: ignore
 
         assert second_call == "continuing"
 
         event, _ = _sqs_get_messages(self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn)
-        third_call = handler(event, ctx)  # type:ignore
+        third_call = handler(event, ctx)  # type: ignore
 
         assert third_call == "completed"
 
@@ -4192,12 +4182,12 @@ class TestLambdaHandlerIntegration(TestCase):
         event, _ = _sqs_get_messages(self.sqs_client, sqs_queue_url, sqs_queue_arn)
 
         ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
-        first_call = handler(event, ctx)  # type:ignore
+        first_call = handler(event, ctx)  # type: ignore
 
         assert first_call == "completed"
 
         # Index event a second time to trigger version conflict
-        second_call = handler(event, ctx)  # type:ignore
+        second_call = handler(event, ctx)  # type: ignore
 
         assert second_call == "completed"
 
@@ -4282,7 +4272,7 @@ class TestLambdaHandlerIntegration(TestCase):
         self.elasticsearch.create_data_stream(name=dead_letter_index_name)
 
         ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
-        first_call = handler(event, ctx)  # type:ignore
+        first_call = handler(event, ctx)  # type: ignore
 
         assert first_call == "completed"
 
@@ -4400,7 +4390,7 @@ class TestLambdaHandlerIntegration(TestCase):
         )
 
         ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
-        first_call = handler(event, ctx)  # type:ignore
+        first_call = handler(event, ctx)  # type: ignore
 
         assert first_call == "completed"
 
@@ -4514,7 +4504,7 @@ class TestLambdaHandlerIntegration(TestCase):
         self.elasticsearch.create_data_stream(name=dead_letter_index_name)
 
         ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
-        first_call = handler(event, ctx)  # type:ignore
+        first_call = handler(event, ctx)  # type: ignore
 
         assert first_call == "completed"
 
@@ -4616,7 +4606,7 @@ class TestLambdaHandlerIntegration(TestCase):
         event, _ = _sqs_get_messages(self.sqs_client, sqs_queue_url, sqs_queue_arn)
 
         ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
-        assert handler(event, ctx) == "replayed"  # type:ignore
+        assert handler(event, ctx) == "replayed"  # type: ignore
 
         self.elasticsearch.refresh(index="logs-generic-default")
         assert self.elasticsearch.count(index="logs-generic-default")["count"] == 1
@@ -4641,7 +4631,7 @@ class TestLambdaHandlerIntegration(TestCase):
 
         _sqs_send_messages_with_attribs(self.sqs_client, sqs_queue_url, json_dumper(sqs_replay_message), attribs)
         event, _ = _sqs_get_messages(self.sqs_client, sqs_queue_url, sqs_queue_arn)
-        assert handler(event, ctx) == "replayed"  # type:ignore
+        assert handler(event, ctx) == "replayed"  # type: ignore
 
         self.elasticsearch.refresh(index="logs-generic-default")
         assert self.elasticsearch.count(index="logs-generic-default")["count"] == 2

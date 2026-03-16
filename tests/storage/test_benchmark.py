@@ -49,10 +49,10 @@ def json_parser_pysimdjson(payload: bytes) -> Any:
 
 def json_dumper_pysimdjson(json_object: Any) -> bytes:
     if isinstance(json_object, simdjson.Array):
-        return json_object.mini  # type:ignore
+        return json_object.mini  # type: ignore
 
     if isinstance(json_object, simdjson.Object):
-        return json_object.mini  # type:ignore
+        return json_object.mini  # type: ignore
 
     return ujson.dumps(json_object).encode("utf-8")
 

@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import datetime
+import json
 import os
 import ssl
 import time
@@ -87,7 +88,7 @@ class LogstashContainer(DockerContainer):  # type: ignore
         """
         one_day = datetime.timedelta(1, 0, 0)
 
-        priv_key = rsa.generate_private_key(public_exponent=65537, key_size=1024)
+        priv_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 
         x509_cert = x509.CertificateBuilder(
             issuer_name=x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "CA")]),
@@ -111,8 +112,7 @@ class LogstashContainer(DockerContainer):  # type: ignore
 
         x509_cert, priv_key = self._ssl_certificate_and_private_key(subject_name="localhost")
 
-        self.with_command(
-            f"""bash -c "mkdir /tmp/ssl
+        self.with_command(f"""bash -c "mkdir /tmp/ssl
 cat <<EOF > /tmp/ssl/localhost.crt
 {x509_cert}
 EOF
@@ -124,8 +124,7 @@ EOF
 /opt/logstash/bin/logstash-plugin install logstash-input-elastic_serverless_forwarder
 
 /opt/logstash/bin/logstash"
-"""
-        )
+""")
 
         # NOTE: plain curly brackets must be escaped in this string (double them)
         logstash_config = f"""\
@@ -245,10 +244,10 @@ EOF
             try:
                 msg = json_parser(line)
                 messages.append(msg)
-            except Exception:
+            except (json.JSONDecodeError, ValueError):
                 # NOTE: if a line is not valid JSON is not a message sent to stdout,
                 # so we can safely ignore it
-                pass
+                continue
 
         # Using the previous message count allows subsequent calls to this function
         # to properly trigger replay logic.

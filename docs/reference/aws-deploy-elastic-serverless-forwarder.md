@@ -261,7 +261,7 @@ Whichever SAR deployment method you choose, you must define the following parame
 
 These parameters define the general configuration and behaviour for the forwarder.
 
-* `ElasticServerlessForwarderS3ConfigFile`: Set this value to the location of your `config.yaml` in S3 URL format: `s3://bucket-name/config-file-name`. This will populate the `S3_CONFIG_FILE` environment variable for the forwarder.
+* `ElasticServerlessForwarderS3ConfigFile`: Set this value to the location of your `config.yaml` in S3 URL format: `s3://<YOUR-BUCKET-NAME>/<YOUR-CONFIG-FILE>`. This will populate the `S3_CONFIG_FILE` environment variable for the forwarder.
 * `ElasticServerlessForwarderSSMSecrets`: Add a comma delimited list of AWS SSM Secrets ARNs used in the `config.yml` (if any).
 * `ElasticServerlessForwarderKMSKeys`: Add a comma delimited list of AWS KMS Keys ARNs to be used for decrypting AWS SSM Secrets, Kinesis Data Streams, SQS queue, or S3 buckets (if any).
 
@@ -557,7 +557,7 @@ continuing-queue:
 | `s3-buckets.[]` | List of S3 bucket ARNs that are sources for the S3 SQS Event Notifications (if any). |
 | `subnets.[]` | A list of subnets IDs for the forwarder. Along with `security-groups.[]`, these settings will define the AWS VPC the forwarder will belong to. Leave blank if you don’t want the forwarder to belong to any specific AWS VPC. |
 | `security-groups.[]` | List of security group IDs to attach to the forwarder. Along with `subnets.[]`, these settings will define the AWS VPC the forwarder will belong to. Leave blank if you don’t want to have the forwarder belong to any specific AWS VPC. |
-| `s3-config-file` | Set this value to the location of your forwarder configuration file in S3 URL format: `s3://bucket-name/config-file-name`. This will populate the `S3_CONFIG_FILE` environment variable for the forwarder. |
+| `s3-config-file` | Set this value to the location of your forwarder configuration file in S3 URL format: `s3://<YOUR-BUCKET-NAME>/<YOUR-CONFIG-FILE>`. This will populate the `S3_CONFIG_FILE` environment variable for the forwarder. |
 | `continuing-queue.batch_size` | Set this value above the default (`10`) if you experience ingestion delays in your output **and** `ApproximateNumberOfMessagesVisible` and `ApproximateAgeOfOldestMessage` SQS CloudWatch metrics for the continuing queue keep increasing **and** the average execution time of the forwarder is below 14 minutes. This will increase the number of messages the forwarder will process in a single execution for the continuing queue. |
 | `continuing-queue.batching_window_in_second` | Set this value above the default (`0`) if you experience ingestion delays in your output **and** `ApproximateNumberOfMessagesVisible` and `ApproximateAgeOfOldestMessage` SQS CloudWatch metrics for the continuing queue keep increasing **and** the average execution time of the forwarder is below 14 minutes. This will increase the number of messages the forwarder will process in a single execution for the continuing queue. |
 
