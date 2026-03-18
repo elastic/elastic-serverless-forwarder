@@ -1,3 +1,13 @@
+### v1.21.3 - 2026/03/18
+##### Security
+* Address AWS Inspector code security findings [1033](https://github.com/elastic/elastic-serverless-forwarder/pull/1033)
+* Update pyOpenSSL to 26.0.0 to address CVE-2026-27459 (test dependency only) [1034](https://github.com/elastic/elastic-serverless-forwarder/pull/1034)
+
+#### Dependencies
+* Bump boto3 from 1.42.46 to 1.42.50 [1028](https://github.com/elastic/elastic-serverless-forwarder/pull/1028), [1030](https://github.com/elastic/elastic-serverless-forwarder/pull/1030)
+* Update types-requests requirement from <2.31.0.7 to <2.32.4.20260108 [1027](https://github.com/elastic/elastic-serverless-forwarder/pull/1027)
+* Bump the github-actions group across 1 directory with 4 updates [1026](https://github.com/elastic/elastic-serverless-forwarder/pull/1026)
+
 ### v1.21.2 - 2026/02/13
 ##### Bug fixes
 * Bump urllib3 2.x and other core dependencies [1019](https://github.com/elastic/elastic-serverless-forwarder/pull/1019)
