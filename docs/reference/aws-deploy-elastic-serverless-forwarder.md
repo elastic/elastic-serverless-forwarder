@@ -2,6 +2,9 @@
 navigation_title: "Deploy serverless forwarder"
 mapped_pages:
   - https://www.elastic.co/guide/en/esf/current/aws-deploy-elastic-serverless-forwarder.html
+applies_to:
+  stack: ga
+  serverless: ga
 ---
 
 # Deploy Elastic Serverless Forwarder [aws-deploy-elastic-serverless-forwarder]

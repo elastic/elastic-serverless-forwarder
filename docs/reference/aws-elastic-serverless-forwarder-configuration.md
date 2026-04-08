@@ -2,6 +2,9 @@
 navigation_title: "Configuration options"
 mapped_pages:
   - https://www.elastic.co/guide/en/esf/current/aws-elastic-serverless-forwarder-configuration.html
+applies_to:
+  stack: ga
+  serverless: ga
 ---
 
 # Configuration options for Elastic Serverless Forwarder [aws-elastic-serverless-forwarder-configuration]
