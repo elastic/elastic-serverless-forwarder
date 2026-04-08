@@ -2,6 +2,9 @@
 mapped_pages:
   - https://www.elastic.co/guide/en/esf/current/index.html
   - https://www.elastic.co/guide/en/esf/current/aws-elastic-serverless-forwarder.html
+applies_to:
+  stack: ga
+  serverless: ga
 ---
 
 # Elastic Serverless Forwarder for AWS [aws-elastic-serverless-forwarder]
