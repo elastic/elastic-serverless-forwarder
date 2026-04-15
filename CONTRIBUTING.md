@@ -32,7 +32,16 @@ The process for contributing to any of the Elastic repositories is similar.
 
 1. Please make sure you have signed the [Contributor License Agreement](http://www.elastic.co/contributor-agreement/). We are not asking you to assign copyright to us, but to give us the right to distribute your code without restriction. We ask this of all contributors in order to assure our users of the origin and continuing existence of the code. You only need to sign the CLA once.
 
-2. Install the required dependencies. We have three different dependencies sets respectively for the app, linting and tests. You can install them all together or separately, either in a virtualenv or not, according to your preferences. The `make` targets provided are the following:
+2. Set up a virtual environment and install the required dependencies. We have three different dependencies sets respectively for the app, linting and tests. You can install them all together or separately according to your preferences.
+
+   First, create and activate a virtual environment:
+   ```bash
+   python -m venv venv
+   . venv/bin/activate
+   pip install -r requirements.txt -r requirements-lint.txt -r requirements-tests.txt
+   ```
+
+   Alternatively, you can use the `make` targets (these skip venv creation):
    * `all-requirements`     Install all requirements on the host
    * `requirements`         Install app requirements on the host
    * `requirements-lint`    Install all linting requirements on the host
