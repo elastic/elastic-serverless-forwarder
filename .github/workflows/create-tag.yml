@@ -64,7 +64,7 @@ jobs:
 
       - name: Create tag
         if: env.CREATE_TAG == 'true' # run only in case CREATE_TAG is true
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             github.rest.git.createRef({
