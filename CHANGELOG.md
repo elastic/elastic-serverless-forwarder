@@ -1,3 +1,9 @@
+### v1.21.4 - 2026/05/22
+#### Security
+* Bump pytest to 9.0.3 (CVE-2025-71176)[1042](https://github.com/elastic/elastic-serverless-forwarder/pull/1042)
+* Bump urllib3 to 2.7.0 to address security advisory [1046](https://github.com/elastic/elastic-serverless-forwarder/pull/1046)
+* Bump ujson to 5.12.1 to remediate GHSA-c38f-wx89-p2xg (CVE-2026-44660)[1047](https://github.com/elastic/elastic-serverless-forwarder/pull/1047)
+
 ### v1.21.3 - 2026/03/18
 ##### Security
 * Address AWS Inspector code security findings [1033](https://github.com/elastic/elastic-serverless-forwarder/pull/1033)
