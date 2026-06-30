@@ -1,3 +1,10 @@
+### v1.21.5 - 2026/06/30
+#### Security
+* Bump ujson to 5.13.0 to address CVE-2026-54911 [1050](https://github.com/elastic/elastic-serverless-forwarder/pull/1050)
+
+#### Dependencies
+* Bump the github-actions group across 1 directory with 2 updates [1049](https://github.com/elastic/elastic-serverless-forwarder/pull/1049)
+
 ### v1.21.4 - 2026/05/22
 #### Security
 * Bump pytest to 9.0.3 (CVE-2025-71176)[1042](https://github.com/elastic/elastic-serverless-forwarder/pull/1042)
