@@ -27,6 +27,11 @@ jobs:
   coverage:
     if: ${{ github.event.workflow_run.event == 'pull_request' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      checks: write
+      pull-requests: write
     steps:
       - name: Download artifacts
         run: >
