@@ -48,11 +48,11 @@ class MockContent:
         },
         "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret_not_str_byte": {
             "type": "SecretString",
-            "data": b"i am not a string",  # type:ignore
+            "data": b"i am not a string",  # type: ignore
         },
         "arn:aws:secretsmanager:eu-central-1:123456789:secret:plain_secret_not_str_int": {
             "type": "SecretString",
-            "data": 2021,  # type:ignore
+            "data": 2021,  # type: ignore
         },
         "arn:aws:secretsmanager:eu-central-1:123456789:secret:binary_secret": {
             "type": "SecretBinary",
@@ -90,7 +90,7 @@ class MockContent:
         return None
 
 
-_now = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+_now = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 _dummy_lambda_event: dict[str, Any] = {
     "Records": [
         {
@@ -399,9 +399,11 @@ class TestLambdaHandlerNoop(TestCase):
         with self.subTest("no originalEventSourceARN in messageAttributes"):
             ctx = ContextMock()
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
+            os.environ["SQS_REPLAY_URL"] = "https://sqs.eu-central-1.amazonaws.com/123456789012/replay_queue"
+            os.environ["SQS_CONTINUE_URL"] = "https://sqs.eu-central-1.amazonaws.com/123456789012/continue_queue"
             lambda_event = deepcopy(_dummy_lambda_event)
             del lambda_event["Records"][0]["messageAttributes"]["originalEventSourceARN"]
-            assert handler(lambda_event, ctx) == "completed"  # type:ignore
+            assert handler(lambda_event, ctx) == "completed"  # type: ignore
 
         with self.subTest("no input defined for cloudwatch_logs"):
             ctx = ContextMock()
@@ -413,12 +415,12 @@ class TestLambdaHandlerNoop(TestCase):
                     )
                 }
             }
-            assert handler(lambda_event, ctx) == "completed"  # type:ignore
+            assert handler(lambda_event, ctx) == "completed"  # type: ignore
 
         with self.subTest("output not elasticsearch from payload config"):
             with mock.patch(
                 "handlers.aws.handler.get_shipper_for_replay_event",
-                lambda config, output_type, output_args, event_input_id, replay_handler: None,
+                lambda config, output_destination, output_args, event_input_id, replay_handler: None,
             ):
                 ctx = ContextMock()
                 event = {
@@ -426,13 +428,13 @@ class TestLambdaHandlerNoop(TestCase):
                         {
                             "eventSourceARN": "arn:aws:sqs:eu-central-1:123456789:replay-queue",
                             "receiptHandle": "receiptHandle",
-                            "body": '{"output_type": "output_type", "output_args": {},'
+                            "body": '{"output_destination": "output_destination", "output_args": {},'
                             '"event_input_id": "arn:aws:sqs:eu-central-1:123456789:s3-sqs-queue", '
                             '"event_payload": {"_id": "_id"}}',
                         }
                     ]
                 }
-                assert handler(event, ctx) == "replayed"  # type:ignore
+                assert handler(event, ctx) == "replayed"  # type: ignore
 
         with self.subTest("no input defined for cloudwatch_logs in continuing queue"):
             ctx = ContextMock()
@@ -441,7 +443,7 @@ class TestLambdaHandlerNoop(TestCase):
             lambda_event["Records"][0]["messageAttributes"]["originalEventSourceARN"] = {
                 "stringValue": "arn:aws:logs:eu-central-1:123456789:log-group:test-not-existing-esf-loggroup:*"
             }
-            assert handler(lambda_event, ctx) == "completed"  # type:ignore
+            assert handler(lambda_event, ctx) == "completed"  # type: ignore
 
         with self.subTest("no output type elasticsearch in continuing queue"):
             ctx = ContextMock()
@@ -451,7 +453,7 @@ class TestLambdaHandlerNoop(TestCase):
                 "eventSourceARN"
             ] = "arn:aws:sqs:eu-central-1:123456789:s3-sqs-queue-with-dummy-output"
             del lambda_event["Records"][0]["messageAttributes"]["originalEventSourceARN"]
-            assert handler(lambda_event, ctx) == "completed"  # type:ignore
+            assert handler(lambda_event, ctx) == "completed"  # type: ignore
 
         with self.subTest("no input type for output type elasticsearch in continuing queue"):
             ctx = ContextMock()
@@ -460,21 +462,7 @@ class TestLambdaHandlerNoop(TestCase):
             lambda_event["Records"][0]["eventSource"] = "dummy"
             lambda_event["Records"][0]["eventSourceARN"] = "arn:aws:dummy:eu-central-1:123456789:input"
             del lambda_event["Records"][0]["messageAttributes"]["originalEventSourceARN"]
-            assert handler(lambda_event, ctx) == "completed"  # type:ignore
-
-        with self.subTest("no input defined for kinesis-data-stream"):
-            ctx = ContextMock()
-            os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
-            lambda_event = {
-                "Records": [
-                    {
-                        "eventSource": "aws:kinesis",
-                        "kinesis": {"data": ""},
-                        "eventSourceARN": "arn:aws:kinesis:eu-central-1:123456789:stream/test-esf-kinesis-stream",
-                    }
-                ]
-            }
-            assert handler(lambda_event, ctx) == "completed"  # type:ignore
+            assert handler(lambda_event, ctx) == "completed"  # type: ignore
 
         with self.subTest("body is neither replay queue nor s3-sqs"):
             ctx = ContextMock()
@@ -485,7 +473,7 @@ class TestLambdaHandlerNoop(TestCase):
             lambda_event["Records"][0]["body"] = json_dumper({"Records": [{"key": "value"}]})
             lambda_event["Records"][0]["eventSourceARN"] = "arn:aws:sqs:eu-central-1:123456789:sqs-queue"
             del lambda_event["Records"][0]["messageAttributes"]["originalEventSourceARN"]
-            assert handler(lambda_event, ctx) == "completed"  # type:ignore
+            assert handler(lambda_event, ctx) == "completed"  # type: ignore
 
         with self.subTest("raising cannot find cloudwatch_logs ARN"):
             ctx = ContextMock()
@@ -498,7 +486,7 @@ class TestLambdaHandlerNoop(TestCase):
                 }
             }
 
-            assert handler(lambda_event, ctx) == "completed"  # type:ignore
+            assert handler(lambda_event, ctx) == "completed"  # type: ignore
 
         with self.subTest("raising unexpected exception"):
             ctx = ContextMock()
@@ -508,7 +496,7 @@ class TestLambdaHandlerNoop(TestCase):
 
             lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
 
-            assert handler(lambda_event, ctx) == "exception raised: Exception('raised')"  # type:ignore
+            assert handler(lambda_event, ctx) == "exception raised: Exception('raised')"  # type: ignore
 
         with self.subTest("raising unexpected exception apm client not None"):
             with mock.patch("handlers.aws.utils.get_apm_client", lambda: mock.MagicMock()):
@@ -519,7 +507,7 @@ class TestLambdaHandlerNoop(TestCase):
 
                 lambda_event["Records"][0]["body"] = json_dumper(lambda_event_body)
 
-                assert handler(lambda_event, ctx) == "exception raised: Exception('raised')"  # type:ignore
+                assert handler(lambda_event, ctx) == "exception raised: Exception('raised')"  # type: ignore
 
 
 @pytest.mark.unit
@@ -552,16 +540,18 @@ class TestLambdaHandlerFailure(TestCase):
                     {
                         "eventSourceARN": "arn:aws:sqs:eu-central-1:123456789:replay-queue",
                         "receiptHandle": "receiptHandle",
-                        "body": '{"output_type": "output_type", "output_args": {},'
+                        "body": '{"output_destination": "output_destination", "output_args": {},'
                         '"event_input_id": "arn:aws:dummy:eu-central-1:123456789:input", '
                         '"event_payload": {"_id": "_id"}}',
                     }
                 ]
             }
-            with self.assertRaisesRegex(OutputConfigException, "Cannot load output of type output_type"):
+            with self.assertRaisesRegex(
+                OutputConfigException, "Cannot load output with destination output_destination"
+            ):
                 ctx = ContextMock()
 
-                handler(event, ctx)  # type:ignore
+                handler(event, ctx)  # type: ignore
 
         with self.subTest("input not in config from replay payload body"):
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
@@ -570,7 +560,7 @@ class TestLambdaHandlerFailure(TestCase):
                     {
                         "eventSourceARN": "arn:aws:sqs:eu-central-1:123456789:replay-queue",
                         "receiptHandle": "receiptHandle",
-                        "body": '{"output_type": "output_type", "output_args": {},'
+                        "body": '{"output_destination": "output_destination", "output_args": {},'
                         '"event_input_id": "arn:aws:dummy:eu-central-1:123456789:not-existing-input", '
                         '"event_payload": {"_id": "_id"}}',
                     }
@@ -582,7 +572,7 @@ class TestLambdaHandlerFailure(TestCase):
             ):
                 ctx = ContextMock()
 
-                handler(event, ctx)  # type:ignore
+                handler(event, ctx)  # type: ignore
 
         with self.subTest("empty config"):
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
@@ -590,7 +580,7 @@ class TestLambdaHandlerFailure(TestCase):
                 ctx = ContextMock()
                 _s3_client_mock.config_content = b""
 
-                handler(dummy_event, ctx)  # type:ignore
+                handler(dummy_event, ctx)  # type: ignore
 
         with self.subTest("Invalid s3 uri apm client not None"):
             with mock.patch("handlers.aws.utils.get_apm_client", lambda: mock.MagicMock()):
@@ -598,70 +588,70 @@ class TestLambdaHandlerFailure(TestCase):
                     os.environ["S3_CONFIG_FILE"] = ""
                     ctx = ContextMock()
 
-                    handler(dummy_event, ctx)  # type:ignore
+                    handler(dummy_event, ctx)  # type: ignore
 
         with self.subTest("Invalid s3 uri"):
             with self.assertRaisesRegex(ConfigFileException, "Invalid s3 uri provided: ``"):
                 os.environ["S3_CONFIG_FILE"] = ""
                 ctx = ContextMock()
 
-                handler(dummy_event, ctx)  # type:ignore
+                handler(dummy_event, ctx)  # type: ignore
 
         with self.subTest("Invalid s3 uri no bucket and key"):
             with self.assertRaisesRegex(ConfigFileException, "Invalid s3 uri provided: `s3://`"):
                 os.environ["S3_CONFIG_FILE"] = "s3://"
                 ctx = ContextMock()
 
-                handler(dummy_event, ctx)  # type:ignore
+                handler(dummy_event, ctx)  # type: ignore
 
         with self.subTest("Invalid s3 uri no key"):
             with self.assertRaisesRegex(ConfigFileException, "Invalid s3 uri provided: `s3://bucket`"):
                 os.environ["S3_CONFIG_FILE"] = "s3://bucket"
                 ctx = ContextMock()
 
-                handler(dummy_event, ctx)  # type:ignore
+                handler(dummy_event, ctx)  # type: ignore
 
         with self.subTest("no Records in event"):
             with self.assertRaisesRegex(TriggerTypeException, "Not supported trigger"):
                 ctx = ContextMock()
                 event = {}
 
-                handler(event, ctx)  # type:ignore
+                handler(event, ctx)  # type: ignore
 
         with self.subTest("empty Records in event"):
             with self.assertRaisesRegex(TriggerTypeException, "Not supported trigger"):
                 ctx = ContextMock()
                 event = {"Records": []}
 
-                handler(event, ctx)  # type:ignore
+                handler(event, ctx)  # type: ignore
 
         with self.subTest("no eventSource in Records in event"):
             with self.assertRaisesRegex(TriggerTypeException, "Not supported trigger"):
                 ctx = ContextMock()
                 event = {"Records": [{}]}
 
-                handler(event, ctx)  # type:ignore
+                handler(event, ctx)  # type: ignore
 
         with self.subTest("no valid eventSource in Records in event"):
             with self.assertRaisesRegex(TriggerTypeException, "Not supported trigger"):
                 ctx = ContextMock()
                 event = {"Records": [{"eventSource": "invalid"}]}
 
-                handler(event, ctx)  # type:ignore
+                handler(event, ctx)  # type: ignore
 
         with self.subTest("no eventSource in body Records in event"):
             with self.assertRaisesRegex(TriggerTypeException, "Not supported trigger"):
                 ctx = ContextMock()
                 event = {"Records": [{"body": ""}]}
 
-                handler(event, ctx)  # type:ignore
+                handler(event, ctx)  # type: ignore
 
         with self.subTest("no valid eventSource in body Records in event"):
             with self.assertRaisesRegex(TriggerTypeException, "Not supported trigger"):
                 ctx = ContextMock()
                 event = {"Records": [{"body": "", "eventSource": "invalid"}]}
 
-                handler(event, ctx)  # type:ignore
+                handler(event, ctx)  # type: ignore
 
         with self.subTest("replay event loads config from s3"):
             with self.assertRaisesRegex(ConfigFileException, "Invalid s3 uri provided: `s3://bucket`"):
@@ -669,11 +659,11 @@ class TestLambdaHandlerFailure(TestCase):
                 event = {
                     "Records": [
                         {
-                            "body": '{"output_type": "", "output_args": "", "event_payload": ""}',
+                            "body": '{"output_destination": "", "output_args": "", "event_payload": ""}',
                         }
                     ]
                 }
-                handler(event, ctx)  # type:ignore
+                handler(event, ctx)  # type: ignore
 
         with self.subTest("invalid secretsmanager: arn format too long"):
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
@@ -698,7 +688,7 @@ class TestLambdaHandlerFailure(TestCase):
 
                 event = deepcopy(dummy_event)
 
-                handler(event, ctx)  # type:ignore
+                handler(event, ctx)  # type: ignore
 
         with self.subTest("invalid secretsmanager: empty region"):
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
@@ -723,7 +713,7 @@ class TestLambdaHandlerFailure(TestCase):
 
                 event = deepcopy(dummy_event)
 
-                handler(event, ctx)  # type:ignore
+                handler(event, ctx)  # type: ignore
 
         with self.subTest("invalid secretsmanager: empty secrets manager name"):
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
@@ -749,7 +739,7 @@ class TestLambdaHandlerFailure(TestCase):
 
                 event = deepcopy(dummy_event)
 
-                handler(event, ctx)  # type:ignore
+                handler(event, ctx)  # type: ignore
 
         with self.subTest("invalid secretsmanager: cannot use both plain text and key/value pairs"):
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
@@ -775,7 +765,7 @@ class TestLambdaHandlerFailure(TestCase):
 
                 event = deepcopy(dummy_event)
 
-                handler(event, ctx)  # type:ignore
+                handler(event, ctx)  # type: ignore
 
         with self.subTest("invalid secretsmanager: empty secret key"):
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
@@ -802,7 +792,7 @@ class TestLambdaHandlerFailure(TestCase):
 
                 event = deepcopy(dummy_event)
 
-                handler(event, ctx)  # type:ignore
+                handler(event, ctx)  # type: ignore
 
         with self.subTest("invalid secretsmanager: secret does not exist"):
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
@@ -827,7 +817,7 @@ class TestLambdaHandlerFailure(TestCase):
 
                 event = deepcopy(dummy_event)
 
-                handler(event, ctx)  # type:ignore
+                handler(event, ctx)  # type: ignore
 
         with self.subTest("invalid secretsmanager: empty plain secret value"):
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
@@ -853,7 +843,7 @@ class TestLambdaHandlerFailure(TestCase):
 
                 event = deepcopy(dummy_event)
 
-                handler(event, ctx)  # type:ignore
+                handler(event, ctx)  # type: ignore
 
         with self.subTest("invalid secretsmanager: empty key/value secret value"):
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
@@ -879,7 +869,7 @@ class TestLambdaHandlerFailure(TestCase):
 
                 event = deepcopy(dummy_event)
 
-                handler(event, ctx)  # type:ignore
+                handler(event, ctx)  # type: ignore
 
         with self.subTest("invalid secretsmanager: plain text used as key/value"):
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
@@ -905,7 +895,7 @@ class TestLambdaHandlerFailure(TestCase):
 
                 event = deepcopy(dummy_event)
 
-                handler(event, ctx)  # type:ignore
+                handler(event, ctx)  # type: ignore
 
         with self.subTest("invalid secretsmanager: key does not exist in secret manager"):
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
@@ -931,7 +921,7 @@ class TestLambdaHandlerFailure(TestCase):
 
                 event = deepcopy(dummy_event)
 
-                handler(event, ctx)  # type:ignore
+                handler(event, ctx)  # type: ignore
 
         with self.subTest("invalid secretsmanager: plain text secret not str"):
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
@@ -957,7 +947,7 @@ class TestLambdaHandlerFailure(TestCase):
 
                 event = deepcopy(dummy_event)
 
-                handler(event, ctx)  # type:ignore
+                handler(event, ctx)  # type: ignore
 
         with self.subTest("invalid secretsmanager: json TypeError raised"):
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
@@ -983,7 +973,7 @@ class TestLambdaHandlerFailure(TestCase):
 
                 event = deepcopy(dummy_event)
 
-                handler(event, ctx)  # type:ignore
+                handler(event, ctx)  # type: ignore
 
         with self.subTest("tags not list"):
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
@@ -1007,7 +997,7 @@ class TestLambdaHandlerFailure(TestCase):
 
                 event = deepcopy(dummy_event)
 
-                handler(event, ctx)  # type:ignore
+                handler(event, ctx)  # type: ignore
 
         with self.subTest("each tag must be of type str"):
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
@@ -1036,7 +1026,7 @@ class TestLambdaHandlerFailure(TestCase):
 
                 event = deepcopy(dummy_event)
 
-                handler(event, ctx)  # type:ignore
+                handler(event, ctx)  # type: ignore
 
         with self.subTest("expand_event_list_from_field not str"):
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
@@ -1061,7 +1051,7 @@ class TestLambdaHandlerFailure(TestCase):
 
                 event = deepcopy(dummy_event)
 
-                handler(event, ctx)  # type:ignore
+                handler(event, ctx)  # type: ignore
 
         with self.subTest("root_fields_to_add_to_expanded_event not `all` when string"):
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
@@ -1086,7 +1076,7 @@ class TestLambdaHandlerFailure(TestCase):
 
                 event = deepcopy(dummy_event)
 
-                handler(event, ctx)  # type:ignore
+                handler(event, ctx)  # type: ignore
 
         with self.subTest("root_fields_to_add_to_expanded_event not `all` neither list of strings"):
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
@@ -1111,7 +1101,7 @@ class TestLambdaHandlerFailure(TestCase):
 
                 event = deepcopy(dummy_event)
 
-                handler(event, ctx)  # type:ignore
+                handler(event, ctx)  # type: ignore
 
         with self.subTest("json_content_type not valid"):
             os.environ["S3_CONFIG_FILE"] = "s3://s3_config_file_bucket/s3_config_file_object_key"
@@ -1137,4 +1127,4 @@ class TestLambdaHandlerFailure(TestCase):
 
                 event = deepcopy(dummy_event)
 
-                handler(event, ctx)  # type:ignore
+                handler(event, ctx)  # type: ignore

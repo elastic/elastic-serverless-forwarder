@@ -9,7 +9,7 @@ docker_pip_cache="/tmp/cache/pip"
 
 cd tests
 
-docker build --build-arg UID=$UID --build-arg PYTHON_IMAGE=python:3.9 -t run_tests --file Dockerfile ..
+docker build --build-arg UID=$UID --build-arg PYTHON_IMAGE=python:3.12 -t run_tests --file Dockerfile ..
 docker run \
   --privileged \
   -e LOCAL_USER_ID=$UID \

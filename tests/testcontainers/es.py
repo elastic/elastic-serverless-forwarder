@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import os
 import ssl
 import time
 from typing import Any
@@ -13,8 +14,8 @@ from OpenSSL import crypto as OpenSSLCrypto
 from testcontainers.core.container import DockerContainer
 from testcontainers.core.waiting_utils import wait_container_is_ready
 
-DEFAULT_USERNAME = "elastic"
-DEFAULT_PASSWORD = "password"
+DEFAULT_USERNAME = os.environ.get("ES_TEST_USERNAME", "elastic")
+DEFAULT_PASSWORD = os.environ.get("ES_TEST_PASSWORD", "password")  # noqa: S105
 
 
 class ElasticsearchContainer(DockerContainer):  # type: ignore
@@ -31,7 +32,7 @@ class ElasticsearchContainer(DockerContainer):  # type: ignore
     """
 
     _DEFAULT_IMAGE = "docker.elastic.co/elasticsearch/elasticsearch"
-    _DEFAULT_VERSION = "7.17.9"
+    _DEFAULT_VERSION = "7.17.20"
     _DEFAULT_PORT = 9200
     _DEFAULT_USERNAME = DEFAULT_USERNAME
     _DEFAULT_PASSWORD = DEFAULT_PASSWORD
@@ -209,3 +210,9 @@ class ElasticsearchContainer(DockerContainer):  # type: ignore
             self._index_indices.add(kwargs["index"])
 
         return self.es_client.index(**kwargs)
+
+    def create_data_stream(self, **kwargs: Any) -> dict[str, Any]:
+        if "name" in kwargs:
+            self._index_indices.add(kwargs["name"])
+
+        return self.es_client.indices.create_data_stream(**kwargs)

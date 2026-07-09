@@ -48,6 +48,7 @@ class ShipperFactory:
                 batch_max_actions=output.batch_max_actions,
                 batch_max_bytes=output.batch_max_bytes,
                 ssl_assert_fingerprint=output.ssl_assert_fingerprint,
+                es_dead_letter_index=output.es_dead_letter_index,
             )
 
         if output_type == "logstash":

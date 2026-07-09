@@ -3,12 +3,14 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 
+import datetime
+import os
 import random
 import string
-from datetime import datetime
 from typing import Any
 from unittest import TestCase
 
+import mock
 import pytest
 
 from handlers.aws.utils import (
@@ -66,6 +68,20 @@ def _get_random_digit_string_of_size(size: int) -> str:
     return "".join(random.choices(string.digits, k=size))
 
 
+def _describe_regions(AllRegions: bool) -> dict[str, Any]:
+    return {
+        "Regions": [
+            {
+                "RegionName": "us-west-2",
+            },
+        ]
+    }
+
+
+_ec2_client_mock = mock.MagicMock()
+_ec2_client_mock.describe_regions = _describe_regions
+
+
 @pytest.mark.unit
 class TestGetTriggerTypeAndConfigSource(TestCase):
     def test_get_trigger_type_and_config_source(self) -> None:
@@ -77,13 +93,13 @@ class TestGetTriggerTypeAndConfigSource(TestCase):
             assert get_trigger_type_and_config_source(event=event) == ("cloudwatch-logs", CONFIG_FROM_S3FILE)
 
         with self.subTest("no Records"):
-            with self.assertRaisesRegexp(Exception, "Not supported trigger"):
+            with self.assertRaisesRegex(Exception, "Not supported trigger"):
                 event = {}
 
                 get_trigger_type_and_config_source(event=event)
 
         with self.subTest("len(Records) < 1"):
-            with self.assertRaisesRegexp(Exception, "Not supported trigger"):
+            with self.assertRaisesRegex(Exception, "Not supported trigger"):
                 event = {"Records": []}
 
                 get_trigger_type_and_config_source(event=event)
@@ -92,7 +108,7 @@ class TestGetTriggerTypeAndConfigSource(TestCase):
             event = {
                 "Records": [
                     {
-                        "body": '{"output_type": "output_type", '
+                        "body": '{"output_destination": "output_destination", '
                         '"output_args": "output_args", "event_payload": "event_payload"}'
                     }
                 ]
@@ -216,9 +232,10 @@ class TestGetShipperFromInput(TestCase):
                 "arn:aws:kinesis:eu-central-1:123456789:stream/test-esf-kinesis-stream"
             )
             assert event_input is not None
-            shipper = get_shipper_from_input(event_input=event_input, config_yaml=config_yaml_kinesis)
+            shipper = get_shipper_from_input(event_input=event_input)
             assert len(shipper._shippers) == 1
             assert isinstance(shipper._shippers[0], LogstashShipper)
+            event_input.delete_output_by_destination("logstash_url")
 
         with self.subTest("Logstash shipper from Cloudwatch logs input"):
             config_yaml_cw: str = """
@@ -233,9 +250,82 @@ class TestGetShipperFromInput(TestCase):
             config = parse_config(config_yaml_cw)
             event_input = config.get_input_by_id("arn:aws:logs:eu-central-1:123456789:stream/test-cw-logs")
             assert event_input is not None
-            shipper = get_shipper_from_input(event_input=event_input, config_yaml=config_yaml_cw)
+            shipper = get_shipper_from_input(event_input=event_input)
             assert len(shipper._shippers) == 1
             assert isinstance(shipper._shippers[0], LogstashShipper)
+
+        with self.subTest("Logstash shipper from each input"):
+            config_yaml_cw = """
+                                inputs:
+                                  - type: cloudwatch-logs
+                                    id: arn:aws:logs:eu-central-1:123456789:stream/test-cw-logs
+                                    outputs:
+                                        - type: logstash
+                                          args:
+                                            logstash_url: logstash_url
+                                  - type: kinesis-data-stream
+                                    id: arn:aws:kinesis:eu-central-1:123456789:stream/test-esf-kinesis-stream
+                                    outputs:
+                                        - type: logstash
+                                          args:
+                                            logstash_url: logstash_url
+                            """
+            config = parse_config(config_yaml_cw)
+            event_input_cw = config.get_input_by_id("arn:aws:logs:eu-central-1:123456789:stream/test-cw-logs")
+            assert event_input_cw is not None
+            shipper = get_shipper_from_input(event_input=event_input_cw)
+            assert len(shipper._shippers) == 1
+            assert isinstance(shipper._shippers[0], LogstashShipper)
+
+            event_input_kinesis = config.get_input_by_id(
+                "arn:aws:kinesis:eu-central-1:123456789:stream/test-esf" "-kinesis-stream"
+            )
+            assert event_input_kinesis is not None
+            shipper = get_shipper_from_input(event_input=event_input_kinesis)
+            assert len(shipper._shippers) == 1
+            assert isinstance(shipper._shippers[0], LogstashShipper)
+
+            event_input_cw.delete_output_by_destination("logstash_url")
+            event_input_kinesis.delete_output_by_destination("logstash_url")
+
+        with self.subTest("Two Logstash shippers from Cloudwatch logs input"):
+            config_yaml_cw = """
+                                inputs:
+                                  - type: cloudwatch-logs
+                                    id: arn:aws:logs:eu-central-1:123456789:stream/test-cw-logs
+                                    outputs:
+                                        - type: logstash
+                                          args:
+                                            logstash_url: logstash_url-1
+                                        - type: logstash
+                                          args:
+                                            logstash_url: logstash_url-2
+                            """
+            config = parse_config(config_yaml_cw)
+            event_input = config.get_input_by_id("arn:aws:logs:eu-central-1:123456789:stream/test-cw-logs")
+            assert event_input is not None
+            shipper = get_shipper_from_input(event_input=event_input)
+            assert len(shipper._shippers) == 2
+            assert isinstance(shipper._shippers[0], LogstashShipper)
+            assert isinstance(shipper._shippers[1], LogstashShipper)
+            event_input.delete_output_by_destination("logstash_url-1")
+            event_input.delete_output_by_destination("logstash_url-2")
+
+        with self.subTest("Two outputs with the same logstash_url"):
+            config_yaml_cw = """
+                                inputs:
+                                  - type: cloudwatch-logs
+                                    id: arn:aws:logs:eu-central-1:123456789:stream/test-cw-logs
+                                    outputs:
+                                        - type: logstash
+                                          args:
+                                            logstash_url: logstash_url
+                                        - type: logstash
+                                          args:
+                                            logstash_url: logstash_url
+                            """
+            with self.assertRaisesRegex(ValueError, "logstash_url"):
+                parse_config(config_yaml_cw)
 
 
 @pytest.mark.unit
@@ -244,7 +334,7 @@ class TestRecordId(TestCase):
         stream_name: str = _get_random_string_of_size(MAX_STREAM_NAME_CHARS)
         partition_key: str = _get_random_string_of_size(MAX_PARTITION_KEY_CHARS)
         sequence_number: str = _get_random_digit_string_of_size(MAX_SEQUENCE_NUMBER_DIGITS)
-        approximate_arrival_timestamp: int = int(datetime.utcnow().timestamp() * 1000)
+        approximate_arrival_timestamp: int = int(datetime.datetime.now(datetime.UTC).timestamp() * 1000)
         relevant_fields_for_id: dict[str, Any] = {
             "fields": {
                 "log": {"offset": 1},
@@ -266,7 +356,7 @@ class TestRecordId(TestCase):
         assert _utf8len(generated_id) <= MAX_ES_ID_SIZ_BYTES
 
     def test_s3_id_less_than_512bytes(self) -> None:
-        event_time: int = int(datetime.utcnow().timestamp() * 1000)
+        event_time: int = int(datetime.datetime.now(datetime.UTC).timestamp() * 1000)
         bucket_name: str = _get_random_string_of_size(MAX_BUCKET_NAME_CHARS)
         bucket_arn: str = f"arn:aws:s3:::{bucket_name}"
         object_key: str = _get_random_string_of_size(MAX_OBJECT_KEY_CHARS)
@@ -288,7 +378,7 @@ class TestRecordId(TestCase):
         assert _utf8len(generated_id) <= MAX_ES_ID_SIZ_BYTES
 
     def test_sqs_id_less_than_512bytes(self) -> None:
-        sent_timestamp: int = int(datetime.utcnow().timestamp() * 1000)
+        sent_timestamp: int = int(datetime.datetime.now(datetime.UTC).timestamp() * 1000)
         queue_name: str = _get_random_string_of_size(MAX_QUEUE_NAME_CHARS)
         message_id: str = _get_random_string_of_size(MAX_MESSAGE_ID_CHARS)
 
@@ -311,7 +401,7 @@ class TestRecordId(TestCase):
         assert _utf8len(generated_id) <= MAX_ES_ID_SIZ_BYTES
 
     def test_cloudwatch_id_less_than_512bytes(self) -> None:
-        event_timestamp: int = int(datetime.utcnow().timestamp() * 1000)
+        event_timestamp: int = int(datetime.datetime.now(datetime.UTC).timestamp() * 1000)
         log_group_name: str = _get_random_string_of_size(MAX_CW_LOG_GROUP_NAME_CHARS)
         log_stream_name: str = _get_random_string_of_size(MAX_CW_LOG_STREAM_NAME_CHARS)
         event_id: str = _get_random_string_of_size(MAX_CW_EVENT_ID_CHARS)
@@ -334,3 +424,133 @@ class TestRecordId(TestCase):
 
         generated_id = cloudwatch_logs_object_id(relevant_fields_for_id)
         assert _utf8len(generated_id) <= MAX_ES_ID_SIZ_BYTES
+
+
+@pytest.mark.unit
+class TestGetLambdaRegion(TestCase):
+
+    def test_with_aws_region(self) -> None:
+        from handlers.aws.utils import get_lambda_region
+
+        os.environ["AWS_REGION"] = "us-west-1"
+        os.environ["AWS_DEFAULT_REGION"] = "us-west-2"
+
+        region = get_lambda_region()
+
+        assert region == "us-west-1"
+
+    def test_with_aws_default_region(self) -> None:
+        from handlers.aws.utils import get_lambda_region
+
+        if "AWS_REGION" in os.environ:
+            del os.environ["AWS_REGION"]
+        os.environ["AWS_DEFAULT_REGION"] = "us-west-2"
+
+        region = get_lambda_region()
+
+        assert region == "us-west-2"
+
+    def test_without_variables(self) -> None:
+        from handlers.aws.utils import get_lambda_region
+
+        if "AWS_REGION" in os.environ:
+            del os.environ["AWS_REGION"]
+        if "AWS_DEFAULT_REGION" in os.environ:
+            del os.environ["AWS_DEFAULT_REGION"]
+
+        with pytest.raises(ValueError):
+            get_lambda_region()
+
+
+@pytest.mark.unit
+class TestSummarizeLambdaEvent(TestCase):
+
+    max_records = 42
+
+    def test_with_single_s3_sqs_record(self) -> None:
+        from handlers.aws.utils import summarize_lambda_event
+
+        event = {
+            "Records": [
+                {
+                    "body": '{"Records":[{"awsRegion":"eu-west-1","eventName":"ObjectCreated:Put","eventSource":"aws:s3","eventVersion":"2.1","s3":{"bucket":{"arn":"arn:aws:s3:::mbranca-esf-data","name":"mbranca-esf-data"},"object":{"key":"AWSLogs/627286350134/CloudTrail-Digest/"}}}]}',  # noqa: E501
+                    "eventSource": "aws:sqs",
+                }
+            ]
+        }
+
+        summary = summarize_lambda_event(event=event, max_records=self.max_records)
+
+        assert summary == {
+            "aws:sqs": {
+                "total_records": 1,
+                f"first_{self.max_records}_records": [
+                    {
+                        "bucket": {"arn": "arn:aws:s3:::mbranca-esf-data", "name": "mbranca-esf-data"},
+                        "object": {"key": "AWSLogs/627286350134/CloudTrail-Digest/"},
+                    }
+                ],
+            }
+        }
+
+    def test_with_multiple_s3_sqs_records(self) -> None:
+        from handlers.aws.utils import summarize_lambda_event
+
+        event = {
+            "Records": [
+                {
+                    "body": '{"Records":[{"awsRegion":"eu-west-1","eventName":"ObjectCreated:Put","eventSource":"aws:s3","eventVersion":"2.1","s3":{"bucket":{"arn":"arn:aws:s3:::mbranca-esf-data","name":"mbranca-esf-data"},"object":{"key":"AWSLogs/123456789012/1.log"}}},{"awsRegion":"eu-west-1","eventName":"ObjectCreated:Put","eventSource":"aws:s3","eventVersion":"2.1","s3":{"bucket":{"arn":"arn:aws:s3:::mbranca-esf-data","name":"mbranca-esf-data"},"object":{"key":"AWSLogs/123456789012/2.log"}}}]}',  # noqa: E501
+                    "eventSource": "aws:sqs",
+                }
+            ]
+        }
+
+        with self.subTest("no limits"):
+            summary = summarize_lambda_event(event=event, max_records=self.max_records)
+
+            assert summary == {
+                "aws:sqs": {
+                    "total_records": 2,
+                    f"first_{self.max_records}_records": [
+                        {
+                            "bucket": {"arn": "arn:aws:s3:::mbranca-esf-data", "name": "mbranca-esf-data"},
+                            "object": {"key": "AWSLogs/123456789012/1.log"},
+                        },
+                        {
+                            "bucket": {"arn": "arn:aws:s3:::mbranca-esf-data", "name": "mbranca-esf-data"},
+                            "object": {"key": "AWSLogs/123456789012/2.log"},
+                        },
+                    ],
+                }
+            }
+
+        with self.subTest("with limits"):
+            summary = summarize_lambda_event(event=event, max_records=1)
+
+            assert summary == {
+                "aws:sqs": {
+                    "total_records": 2,
+                    "first_1_records": [
+                        {
+                            "bucket": {"arn": "arn:aws:s3:::mbranca-esf-data", "name": "mbranca-esf-data"},
+                            "object": {"key": "AWSLogs/123456789012/1.log"},
+                        }
+                    ],
+                }
+            }
+
+    def test_with_invalid_s3_sqs_notification(self) -> None:
+        from handlers.aws.utils import summarize_lambda_event
+
+        event = {
+            "Records": [
+                {
+                    "body": "I am not a valid JSON string.",
+                    "eventSource": "aws:sqs",
+                }
+            ]
+        }
+
+        summary = summarize_lambda_event(event)
+
+        assert summary == {"error": "unexpected character: line 1 column 1 (char 0)"}

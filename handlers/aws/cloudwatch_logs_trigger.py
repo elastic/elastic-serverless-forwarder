@@ -10,7 +10,7 @@ from botocore.client import BaseClient as BotoBaseClient
 from share import ExpandEventListFromField, ProtocolMultiline, json_parser, shared_logger
 from storage import ProtocolStorage, StorageFactory
 
-from .utils import get_account_id_from_arn
+from .utils import GZIP_ENCODING, PAYLOAD_ENCODING_KEY, get_account_id_from_arn, gzip_base64_encoded
 
 
 def _from_awslogs_data_to_event(awslogs_data: str) -> Any:
@@ -22,15 +22,16 @@ def _from_awslogs_data_to_event(awslogs_data: str) -> Any:
     return json_parser(cloudwatch_logs_payload_plain)
 
 
-def _handle_cloudwatch_logs_continuation(
+def _handle_cloudwatch_logs_move(
     sqs_client: BotoBaseClient,
-    sqs_continuing_queue: str,
-    last_ending_offset: Optional[int],
-    last_event_expanded_offset: Optional[int],
+    sqs_destination_queue: str,
     cloudwatch_logs_event: dict[str, Any],
-    current_log_event: int,
-    event_input_id: str,
+    input_id: str,
     config_yaml: str,
+    continuing_queue: bool = True,
+    current_log_event: int = 0,
+    last_ending_offset: Optional[int] = None,
+    last_event_expanded_offset: Optional[int] = None,
 ) -> None:
     """
     Handler of the continuation queue for cloudwatch logs inputs
@@ -51,10 +52,11 @@ def _handle_cloudwatch_logs_continuation(
         message_attributes = {
             "config": {"StringValue": config_yaml, "DataType": "String"},
             "originalEventId": {"StringValue": log_event["id"], "DataType": "String"},
-            "originalEventSourceARN": {"StringValue": event_input_id, "DataType": "String"},
+            "originalEventSourceARN": {"StringValue": input_id, "DataType": "String"},
             "originalLogGroup": {"StringValue": log_group_name, "DataType": "String"},
             "originalLogStream": {"StringValue": log_stream_name, "DataType": "String"},
             "originalEventTimestamp": {"StringValue": str(log_event["timestamp"]), "DataType": "Number"},
+            PAYLOAD_ENCODING_KEY: {"StringValue": GZIP_ENCODING, "DataType": "String"},
         }
 
         if last_ending_offset is not None:
@@ -69,22 +71,33 @@ def _handle_cloudwatch_logs_continuation(
                 "DataType": "Number",
             }
 
+        # forward compressed message to sqs queue
         sqs_client.send_message(
-            QueueUrl=sqs_continuing_queue,
-            MessageBody=log_event["message"],
+            QueueUrl=sqs_destination_queue,
+            MessageBody=gzip_base64_encoded(log_event["message"]),
             MessageAttributes=message_attributes,
         )
 
-        shared_logger.debug(
-            "continuing",
-            extra={
-                "sqs_continuing_queue": sqs_continuing_queue,
-                "last_ending_offset": last_ending_offset,
-                "last_event_expanded_offset": last_event_expanded_offset,
-                "event_id": log_event["id"],
-                "event_timestamp": log_event["timestamp"],
-            },
-        )
+        if continuing_queue:
+            shared_logger.debug(
+                "continuing",
+                extra={
+                    "sqs_continuing_queue": sqs_destination_queue,
+                    "last_ending_offset": last_ending_offset,
+                    "last_event_expanded_offset": last_event_expanded_offset,
+                    "event_id": log_event["id"],
+                    "event_timestamp": log_event["timestamp"],
+                },
+            )
+        else:
+            shared_logger.debug(
+                "replaying",
+                extra={
+                    "sqs_replaying_queue": sqs_destination_queue,
+                    "event_id": log_event["id"],
+                    "event_timestamp": log_event["timestamp"],
+                },
+            )
 
 
 def _handle_cloudwatch_logs_event(
@@ -126,7 +139,7 @@ def _handle_cloudwatch_logs_event(
             assert isinstance(log_event, bytes)
 
             es_event: dict[str, Any] = {
-                "@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                "@timestamp": datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
                 "fields": {
                     "message": log_event.decode("utf-8"),
                     "log": {

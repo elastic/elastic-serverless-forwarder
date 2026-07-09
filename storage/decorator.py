@@ -28,7 +28,8 @@ def by_lines(func: StorageDecoratorCallable[ProtocolStorageType]) -> StorageDeco
             assert isinstance(data, bytes)
 
             unfinished_line += data
-            lines = unfinished_line.decode("utf-8").splitlines()
+            # parse allowing non utf-8 characters and split by lines
+            lines = unfinished_line.decode("utf-8", errors="replace").splitlines()
 
             if len(lines) == 0:
                 continue
@@ -88,7 +89,9 @@ def multi_line(func: StorageDecoratorCallable[ProtocolStorageType]) -> StorageDe
             for data, starting_offset, ending_offset, newline, event_expanded_offset in iterator:
                 assert isinstance(data, bytes)
 
-                shared_logger.debug("multi_line skipped", extra={"offset": ending_offset})
+                shared_logger.debug(
+                    "no multi_line processor configured, processing as single line", extra={"offset": ending_offset}
+                )
 
                 yield data, starting_offset, ending_offset, newline, event_expanded_offset
         else:
@@ -374,7 +377,7 @@ def inflate(func: StorageDecoratorCallable[ProtocolStorageType]) -> StorageDecor
         iterator = func(storage, range_start, body, is_gzipped)
         for data, _, _, _, _ in iterator:
             if is_gzipped:
-                gzip_stream = gzip.GzipFile(fileobj=data)  # type:ignore
+                gzip_stream = gzip.GzipFile(fileobj=data)  # type: ignore
                 gzip_stream.seek(range_start)
                 while True:
                     inflated_chunk: bytes = gzip_stream.read(CHUNK_SIZE)

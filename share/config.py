@@ -50,6 +50,7 @@ class ElasticsearchOutput(Output):
         batch_max_actions: int = 500,
         batch_max_bytes: int = 10 * 1024 * 1024,
         ssl_assert_fingerprint: str = "",
+        es_dead_letter_index: str = "",
     ):
         super().__init__(output_type="elasticsearch")
         self.elasticsearch_url = elasticsearch_url
@@ -62,9 +63,7 @@ class ElasticsearchOutput(Output):
         self.batch_max_actions = batch_max_actions
         self.batch_max_bytes = batch_max_bytes
         self.ssl_assert_fingerprint = ssl_assert_fingerprint
-
-        if not self.cloud_id and not self.elasticsearch_url:
-            raise ValueError("One between `elasticsearch_url` or `cloud_id` must be set")
+        self.es_dead_letter_index = es_dead_letter_index
 
         if self.cloud_id and self.elasticsearch_url:
             shared_logger.warning("both `elasticsearch_url` and `cloud_id` set in config: using `elasticsearch_url`")
@@ -184,6 +183,17 @@ class ElasticsearchOutput(Output):
             raise ValueError("`ssl_assert_fingerprint` must be provided as string")
 
         self._ssl_assert_fingerprint = value
+
+    @property
+    def es_dead_letter_index(self) -> str:
+        return self._es_dead_letter_index
+
+    @es_dead_letter_index.setter
+    def es_dead_letter_index(self, value: str) -> None:
+        if not isinstance(value, str):
+            raise ValueError("`es_dead_letter_index` must be provided as string")
+
+        self._es_dead_letter_index = value
 
 
 class LogstashOutput(Output):
@@ -394,40 +404,57 @@ class Input:
 
         self._include_exclude_filter = value
 
-    def get_output_by_type(self, output_type: str) -> Optional[Output]:
+    def get_output_by_destination(self, output_destination: str) -> Optional[Output]:
         """
         Output getter.
-        Returns a specific output given its type
+        Returns a specific output given its destination
         """
 
-        return self._outputs[output_type] if output_type in self._outputs else None
+        return self._outputs[output_destination] if output_destination in self._outputs else None
 
-    def get_output_types(self) -> list[str]:
+    def get_output_destinations(self) -> list[str]:
         """
-        Output types getter.
-        Returns all the defined output types
+        Output destinations getter.
+        Returns all the defined output destinations
         """
 
         return list(self._outputs.keys())
 
-    def delete_output_by_type(self, output_type: str) -> None:
+    def delete_output_by_destination(self, output_destination: str) -> None:
         """
         Output deleter.
         Delete a defined output by its type
         """
 
-        del self._outputs[output_type]
+        del self._outputs[output_destination]
 
     def add_output(self, output_type: str, **kwargs: Any) -> None:
         """
         Output setter.
         Set an output given its type and init kwargs
         """
-        if not isinstance(output_type, str):
-            raise ValueError("`type` must be provided as string")
 
-        if output_type in self._outputs:
-            raise ValueError(f"Duplicated `type` {output_type}")
+        if output_type not in _available_output_types:
+            raise ValueError(f"Type {output_type} is not included in the supported types: {_available_output_types}")
+
+        output_dest = ""
+        if output_type == "elasticsearch":
+            if "cloud_id" not in kwargs and "elasticsearch_url" not in kwargs:
+                raise ValueError("Either `elasticsearch_url` or `cloud_id` must be set")
+            # elasticsearch_url takes precedence over cloud_id
+            if "elasticsearch_url" not in kwargs:
+                output_dest = kwargs["cloud_id"]
+            else:
+                output_dest = kwargs["elasticsearch_url"]
+        elif output_type == "logstash":
+            if "logstash_url" not in kwargs:
+                raise ValueError(f"Output type {output_type} requires logstash_url to be set")
+            output_dest = kwargs["logstash_url"]
+
+        if output_dest in self._outputs:
+            # Since logstash destination can only be set as logstash_url, we do not have to account
+            # for the same url/cloud_id for both types logstash or elasticsearch
+            raise ValueError(f"Duplicated output destination {output_dest} for type {output_type}")
 
         output: Optional[Output] = None
         if output_type == "elasticsearch":
@@ -437,7 +464,7 @@ class Input:
         else:
             output = Output(output_type=output_type)
 
-        self._outputs[output.type] = output
+        self._outputs[output_dest] = output
 
     def get_multiline_processor(self) -> Optional[ProtocolMultiline]:
         return self._multiline_processor

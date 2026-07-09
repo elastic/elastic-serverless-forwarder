@@ -17,7 +17,7 @@ from share.environment import get_environment
 from share.version import version
 from shippers import ElasticsearchShipper, JSONSerializer
 
-_now = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+_now = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
 _dummy_event: dict[str, Any] = {
     "@timestamp": _now,
@@ -511,3 +511,50 @@ class TestJSONSerializer(TestCase):
         with self.subTest("dumps dict"):
             dumped = json_serializer.dumps({"key": "value"})
             assert '{"key":"value"}' == dumped
+
+
+@pytest.mark.unit
+class TestParseError(TestCase):
+
+    def test_parse_error(self) -> None:
+        shipper = ElasticsearchShipper(
+            elasticsearch_url="elasticsearch_url",
+            username="username",
+            password="password",
+            tags=["tag1", "tag2", "tag3"],
+        )
+
+        with self.subTest("fail_processor_exception"):
+            error = shipper._parse_error(
+                {
+                    "status": 500,
+                    "error": {
+                        "type": "fail_processor_exception",
+                        "reason": "Fail message",
+                    },
+                },
+            )
+
+            assert error["error"]["type"] == "fail_processor_exception"
+            assert error["error"]["message"] == "Fail message"
+            assert error["http"]["response"]["status_code"] == 500
+
+        with self.subTest("connection_error"):
+            error = shipper._parse_error(
+                {
+                    "status": "N/A",
+                    "error": "whatever",
+                    "exception": elasticsearch.exceptions.ConnectionError("Connection error"),
+                }
+            )
+
+            assert error["error"]["type"] == "<class 'elasticsearch.exceptions.ConnectionError'>"
+            assert error["error"]["message"] == "whatever"
+            assert "http" not in error
+
+        with self.subTest("unknown_error"):
+            error = shipper._parse_error({})
+
+            assert error["error"]["type"] == "unknown"
+            assert error["error"]["message"] == "Unknown error"
+            assert "http" not in error

@@ -1,8 +1,99 @@
+### v1.21.5 - 2026/06/30
+#### Security
+* Bump ujson to 5.13.0 to address CVE-2026-54911 [1050](https://github.com/elastic/elastic-serverless-forwarder/pull/1050)
+
+### v1.21.4 - 2026/05/22
+#### Security
+* Bump pytest to 9.0.3 (CVE-2025-71176)[1042](https://github.com/elastic/elastic-serverless-forwarder/pull/1042)
+* Bump urllib3 to 2.7.0 to address security advisory [1046](https://github.com/elastic/elastic-serverless-forwarder/pull/1046)
+* Bump ujson to 5.12.1 to remediate GHSA-c38f-wx89-p2xg (CVE-2026-44660)[1047](https://github.com/elastic/elastic-serverless-forwarder/pull/1047)
+
+### v1.21.3 - 2026/03/18
+##### Security
+* Address AWS Inspector code security findings [1033](https://github.com/elastic/elastic-serverless-forwarder/pull/1033)
+* Update pyOpenSSL to 26.0.0 to address CVE-2026-27459 (test dependency only) [1034](https://github.com/elastic/elastic-serverless-forwarder/pull/1034)
+
+#### Dependencies
+* Bump boto3 from 1.42.46 to 1.42.50 [1028](https://github.com/elastic/elastic-serverless-forwarder/pull/1028), [1030](https://github.com/elastic/elastic-serverless-forwarder/pull/1030)
+* Update types-requests requirement from <2.31.0.7 to <2.32.4.20260108 [1027](https://github.com/elastic/elastic-serverless-forwarder/pull/1027)
+* Bump the github-actions group across 1 directory with 4 updates [1026](https://github.com/elastic/elastic-serverless-forwarder/pull/1026)
+
+### v1.21.2 - 2026/02/13
+##### Bug fixes
+* Bump urllib3 2.x and other core dependencies [1019](https://github.com/elastic/elastic-serverless-forwarder/pull/1019)
+
+### v1.21.1 - 2025/10/28
+##### Features
+* Allow non utf-8 characters using Unicode replacement [1009](https://github.com/elastic/elastic-serverless-forwarder/pull/1009)
+
+### v1.21.0 - 2025/08/28
+##### Features
+* Add gzip compression to SQS replay events generated from CloudWatch [887](https://github.com/elastic/elastic-serverless-forwarder/pull/887)
+
+### v1.20.1 - 2025/05/23
+##### Docs
+* Fix 404 link in README-AWS.md [903](https://github.com/elastic/elastic-serverless-forwarder/pull/903)
+* Add note about Python 3.12 for Terraform users [901](https://github.com/elastic/elastic-serverless-forwarder/pull/901)
+
+### v1.20.0 - 2025/05/22
+##### Features
+* Use Python runtime 3.12 [874](https://github.com/elastic/elastic-serverless-forwarder/pull/874)
+
+Note for Terraform users: to deploy ESF 1.20.0+ from Terraform, you need to pull the latest version of the [`esf-terraform`](https://github.com/elastic/terraform-elastic-esf) repository, or use at least the repository version [v1.1.0](https://github.com/elastic/terraform-elastic-esf/releases/tag/v1.1.0).
+
+##### Bug fixes
+* logstash shipper does not clear event buffer after sending data [880](https://github.com/elastic/elastic-serverless-forwarder/pull/880)
+
+### v1.19.0 - 2024/12/13
+##### Features
+* s3-sqs input: log a lambda event summary in case of errors [860](https://github.com/elastic/elastic-serverless-forwarder/pull/860).
+
+### v1.18.0 - 2024/10/08
+##### Features
+* Dead letter index (DLI): do not send retryable errors to the DLI [793](https://github.com/elastic/elastic-serverless-forwarder/pull/793).
+##### Bug fixes
+* Dead letter index (DLI): align the `error` field in documents to the ECS format; the field now provides `error.message` and `error.type` [793](https://github.com/elastic/elastic-serverless-forwarder/pull/793).
+
+### v1.17.2 - 2024/09/24
+##### Bug fixes
+* Remove call to EC2:DescribeRegions API in the cloudwatch-logs input [811](https://github.com/elastic/elastic-serverless-forwarder/pull/811).
+
+### v1.17.1 - 2024/09/23
+##### Bug fixes
+* Cache EC2:DescribeRegions API response to avoid throttling and improve performance [803](https://github.com/elastic/elastic-serverless-forwarder/pull/803).
+
+### v1.17.0 - 2024/07/10
+##### Features
+* Add dead letter index for ES outputs [733](https://github.com/elastic/elastic-serverless-forwarder/pull/733).
+
+### v1.16.0 - 2024/07/09
+##### Features
+* Prevent duplicate _id events from reaching the replay queue [729](https://github.com/elastic/elastic-serverless-forwarder/pull/729).
+
+### v1.15.0 - 2024/05/29
+##### Features
+* Enable multiple outputs for each input [725](https://github.com/elastic/elastic-serverless-forwarder/pull/725).
+
+### v1.14.0 - 2024/05/07
+##### Bug fixes
+* Report misconfigured input ids as an error instead of warning, and place those messages in the replaying queue [#711](https://github.com/elastic/elastic-serverless-forwarder/pull/711).
+
+### v1.13.1 - 2024/03/07
+##### Features
+* Add documentation and optimise performance for `root_fields_to_add_to_expanded_event` [#642](https://github.com/elastic/elastic-serverless-forwarder/pull/642)
+
+### v1.13.0 - 2024/02/23
+##### Features
+* Go beyond 4096b limit on CF Parameter for event triggers on SAR deployment [#627](https://github.com/elastic/elastic-serverless-forwarder/pull/627)
+
+### v1.12.0 - 2024/02/13
+##### Features
+* Add outputs for Lambda function ARN and IAM Role ARN [#552](https://github.com/elastic/elastic-serverless-forwarder/pull/552)
+
 ### v1.11.0 - 2023/12/08
 ##### Features
 * Add user agent with information about ESF version and host environment: [#537](https://github.com/elastic/elastic-serverless-forwarder/pull/537)
 * Remove calls to `sqs.DeleteMessage` and refactor storage decorators: [#544](https://github.com/elastic/elastic-serverless-forwarder/pull/544)
-* Add outputs for Lambda function ARN and IAM Role ARN [#552](https://github.com/elastic/elastic-serverless-forwarder/pull/552)
 ##### Bug fixes
 * Fix regression when both `json_content_type: single` and `expand_event_list_from_field` are set: [#553](https://github.com/elastic/elastic-serverless-forwarder/pull/553)
 

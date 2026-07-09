@@ -15,7 +15,7 @@ from requests import PreparedRequest
 
 from shippers.logstash import _EVENT_SENT, _MAX_RETRIES, LogstashShipper
 
-_now = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+_now = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
 _dummy_event: dict[str, Any] = {
     "@timestamp": _now,
@@ -133,7 +133,7 @@ class TestLogstashShipper(TestCase):
             logstash_shipper.set_replay_handler(replay_handler)
             event = deepcopy(_dummy_event)
             assert logstash_shipper.send(event) == _EVENT_SENT
-            replay_handler.assert_called_once_with("logstash", {}, event)
+            replay_handler.assert_called_once_with(url, {}, event)
         with self.subTest("Exceeds max retries, replay handler not set"):
             for i in range(_MAX_RETRIES):
                 responses.put(url=url, status=429)
@@ -150,7 +150,7 @@ class TestLogstashShipper(TestCase):
             logstash_shipper.set_replay_handler(replay_handler)
             event = deepcopy(_dummy_event)
             assert logstash_shipper.send(event) == _EVENT_SENT
-            replay_handler.assert_called_once_with("logstash", {}, event)
+            replay_handler.assert_called_once_with(url, {}, event)
 
     @responses.activate
     def test_flush(self) -> None:
@@ -162,4 +162,23 @@ class TestLogstashShipper(TestCase):
         logstash_shipper.send(event)
         assert logstash_shipper._events_batch == [event]
         logstash_shipper.flush()
+        assert logstash_shipper._events_batch == []
+
+    @responses.activate
+    def test_buffer_handling_at_capacity(self) -> None:
+        url = "http://logstash_url"
+        responses.put(url=url, status=200)
+        responses.put(url=url, status=200)
+        responses.put(url=url, status=200)
+
+        logstash_shipper = LogstashShipper(logstash_url=url, max_batch_size=2)
+        event = deepcopy(_dummy_event)
+
+        logstash_shipper.send(event)  # this should not trigger the send
+        assert logstash_shipper._events_batch == [event]
+        logstash_shipper.send(event)  # this should trigger the send and empty the buffer
+        assert logstash_shipper._events_batch == []
+        logstash_shipper.send(event)  # this should not trigger the send
+        assert logstash_shipper._events_batch == [event]
+        logstash_shipper.flush()  # this should trigger the send and empty the buffer
         assert logstash_shipper._events_batch == []

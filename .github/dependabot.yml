@@ -11,3 +11,16 @@ updates:
       interval: "daily"
     ignore:
       - dependency-name: "elasticsearch"
+
+  - package-ecosystem: "github-actions"
+    directories:
+      - "/"
+      - "/.github/actions/*"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "22:00"
+    groups:
+      github-actions:
+        patterns:
+          - "*"

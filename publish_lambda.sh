@@ -5,7 +5,7 @@
 
 set -e
 
-echo "    AWS CLI (https://aws.amazon.com/cli/), SAM (https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html), Docker and Python3.9 with pip3 required"
+echo "    AWS CLI (https://aws.amazon.com/cli/), SAM (https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html), Docker and Python3.12 with pip3 required"
 echo "    Please, before launching the tool execute \"$ pip3 install ruamel.yaml\""
 
 if [ $# -lt 5 ] || [ $# -gt 6 ]
@@ -42,7 +42,7 @@ trap 'rm -rf ${TMPDIR}' EXIT
 aws s3api get-bucket-location --bucket "${BUCKET}" --region "${REGION}" || aws s3api create-bucket --acl private --bucket "${BUCKET}" --region "${REGION}" --create-bucket-configuration LocationConstraint="${REGION}"
 
 # Check if region is in AWS GovCloud and create bucket arn
-if [[ ${REGION} == *"$gov"* ]]; then
+if [[ ${REGION} == *"gov"* ]]; then
   BUCKET_ARN="arn:aws-us-gov:s3:::${BUCKET}"
   AWS_OR_AWS_GOV="aws-us-gov"
 else
@@ -111,7 +111,7 @@ Resources:
       Timeout: 900
       MemorySize: 512
       CodeUri: %codeUri%
-      Runtime: python3.9
+      Runtime: python3.12
       Architectures:
         - x86_64
       Handler: main_aws.handler

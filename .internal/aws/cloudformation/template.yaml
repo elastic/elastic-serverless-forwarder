@@ -22,18 +22,34 @@ Parameters:
     Type: CommaDelimitedList
     Default: ""
     Description: Comma delimited list of Direct SQS queues ARNs to set as event triggers for the Lambda
+  ElasticServerlessForwarderSQSEvents2:
+    Type: CommaDelimitedList
+    Default: ""
+    Description: Comma delimited list of Direct SQS queues ARNs to set as event triggers for the Lambda, if limit is reached on ElasticServerlessForwarderSQSEvents
   ElasticServerlessForwarderS3SQSEvents:
     Type: CommaDelimitedList
     Default: ""
     Description: Comma delimited list of S3 SQS Event Notifications ARNs to set as event triggers for the Lambda
+  ElasticServerlessForwarderS3SQSEvents2:
+    Type: CommaDelimitedList
+    Default: ""
+    Description: Comma delimited list of S3 SQS Event Notifications ARNs to set as event triggers for the Lambda, if limit is reached on ElasticServerlessForwarderS3SQSEvents
   ElasticServerlessForwarderKinesisEvents:
     Type: CommaDelimitedList
     Default: ""
     Description: Comma delimited list of Kinesis Data Stream ARNs to set as event triggers for the Lambda
+  ElasticServerlessForwarderKinesisEvents2:
+    Type: CommaDelimitedList
+    Default: ""
+    Description: Comma delimited list of Kinesis Data Stream ARNs to set as event triggers for the Lambda, if limit is reached on ElasticServerlessForwarderKinesisEvents
   ElasticServerlessForwarderCloudWatchLogsEvents:
     Type: CommaDelimitedList
     Default: ""
     Description: Comma delimited list of Cloudwatch Logs Log Groups ARNs to set subscription filters on the Lambda for
+  ElasticServerlessForwarderCloudWatchLogsEvents2:
+    Type: CommaDelimitedList
+    Default: ""
+    Description: Comma delimited list of Cloudwatch Logs Log Groups ARNs to set subscription filters on the Lambda for, if limit is reached on ElasticServerlessForwarderCloudWatchLogsEvents
   ElasticServerlessForwarderS3Buckets:
     Type: CommaDelimitedList
     Default: ""
@@ -64,9 +80,13 @@ Resources:
         ElasticServerlessForwarderSSMSecrets: !Join [",", !Ref ElasticServerlessForwarderSSMSecrets]
         ElasticServerlessForwarderKMSKeys: !Join [",", !Ref ElasticServerlessForwarderKMSKeys]
         ElasticServerlessForwarderSQSEvents: !Join [",", !Ref ElasticServerlessForwarderSQSEvents]
+        ElasticServerlessForwarderSQSEvents2: !Join [",", !Ref ElasticServerlessForwarderSQSEvents2]
         ElasticServerlessForwarderS3SQSEvents: !Join [",", !Ref ElasticServerlessForwarderS3SQSEvents]
+        ElasticServerlessForwarderS3SQSEvents2: !Join [",", !Ref ElasticServerlessForwarderS3SQSEvents2]
         ElasticServerlessForwarderKinesisEvents: !Join [",", !Ref ElasticServerlessForwarderKinesisEvents]
+        ElasticServerlessForwarderKinesisEvents2: !Join [",", !Ref ElasticServerlessForwarderKinesisEvents2]
         ElasticServerlessForwarderCloudWatchLogsEvents: !Join [",", !Ref ElasticServerlessForwarderCloudWatchLogsEvents]
+        ElasticServerlessForwarderCloudWatchLogsEvents2: !Join [",", !Ref ElasticServerlessForwarderCloudWatchLogsEvents2]
         ElasticServerlessForwarderS3Buckets: !Join [",", !Ref ElasticServerlessForwarderS3Buckets]
         ElasticServerlessForwarderSecurityGroups: !Join [",", !Ref ElasticServerlessForwarderSecurityGroups]
         ElasticServerlessForwarderSubnets: !Join [",", !Ref ElasticServerlessForwarderSubnets]
@@ -84,9 +104,13 @@ Metadata:
           default: Elastic Serverless Forwarder Events options
         Parameters:
           - ElasticServerlessForwarderSQSEvents
+          - ElasticServerlessForwarderSQSEvents2
           - ElasticServerlessForwarderS3SQSEvents
+          - ElasticServerlessForwarderS3SQSEvents2
           - ElasticServerlessForwarderKinesisEvents
+          - ElasticServerlessForwarderKinesisEvents2
           - ElasticServerlessForwarderCloudWatchLogsEvents
+          - ElasticServerlessForwarderCloudWatchLogsEvents2
       - Label:
           default: Elastic Serverless Forwarder S3 Buckets Permissions options
         Parameters:
@@ -105,12 +129,20 @@ Metadata:
         default: "AWS KMS Keys"
       ElasticServerlessForwarderCloudWatchLogsEvents:
         default: "Cloudwatch Logs subscription filters"
+      ElasticServerlessForwarderCloudWatchLogsEvents2:
+        default: "Cloudwatch Logs subscription filters, if limit is reached on ElasticServerlessForwarderCloudWatchLogsEvents"
       ElasticServerlessForwarderKinesisEvents:
         default: "Kinesis Data Stream event triggers"
+      ElasticServerlessForwarderKinesisEvents2:
+        default: "Kinesis Data Stream event triggers, if limit is reached on ElasticServerlessForwarderKinesisEvents"
       ElasticServerlessForwarderS3SQSEvents:
         default: "S3 SQS Event Notifications event triggers"
+      ElasticServerlessForwarderS3SQSEvents2:
+        default: "S3 SQS Event Notifications event triggers, if limit is reached on ElasticServerlessForwarderS3SQSEvents"
       ElasticServerlessForwarderSQSEvents:
         default: "Direct SQS queues event triggers"
+      ElasticServerlessForwarderSQSEvents2:
+        default: "Direct SQS queues event triggers, if limit is reached on ElasticServerlessForwarderSQSEvents"
       ElasticServerlessForwarderS3Buckets:
         default: "S3 buckets of S3 SQS Event Notifications"
       ElasticServerlessForwarderSecurityGroups:

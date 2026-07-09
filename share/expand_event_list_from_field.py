@@ -42,29 +42,30 @@ class ExpandEventListFromField:
                 offset_skew = self._last_event_expanded_offset + 1
                 events_list = events_list[offset_skew:]
 
+            # Let's compute the root_fields_to_add_to_expanded_event only once per events to expand
+            root_fields_to_add_to_expanded_event: dict[str, Any] = {}
+            if self._root_fields_to_add_to_expanded_event == "all":
+                root_fields_to_add_to_expanded_event = deepcopy(json_object)
+                del root_fields_to_add_to_expanded_event[self._field_to_expand_event_list_from]
+            # we want to add only a list of root fields
+            elif isinstance(self._root_fields_to_add_to_expanded_event, list):
+                for root_field_to_add_to_expanded_event in self._root_fields_to_add_to_expanded_event:
+                    if root_field_to_add_to_expanded_event in json_object:
+                        root_fields_to_add_to_expanded_event[root_field_to_add_to_expanded_event] = json_object[
+                            root_field_to_add_to_expanded_event
+                        ]
+                    else:
+                        shared_logger.debug(
+                            f"`{root_field_to_add_to_expanded_event}` field specified in "
+                            f"`root_fields_to_add_to_expanded_event` parameter is not present at root level"
+                            f" to expanded event not present at root level"
+                        )
+
             for event_n, event in enumerate(events_list):
                 if self._root_fields_to_add_to_expanded_event:
-                    root_fields_to_add_to_expanded_event: dict[str, Any] = {}
                     # we can and want to add the root fields only in case the event is a not empty json object
                     if isinstance(event, dict) and len(event) > 0:
                         # we want to add all the root fields
-                        if self._root_fields_to_add_to_expanded_event == "all":
-                            root_fields_to_add_to_expanded_event = deepcopy(json_object)
-                            del root_fields_to_add_to_expanded_event[self._field_to_expand_event_list_from]
-                        else:
-                            # we want to add only a list of root fields
-                            assert isinstance(self._root_fields_to_add_to_expanded_event, list)
-                            for root_field_to_add_to_expanded_event in self._root_fields_to_add_to_expanded_event:
-                                if root_field_to_add_to_expanded_event in json_object:
-                                    root_fields_to_add_to_expanded_event[root_field_to_add_to_expanded_event] = (
-                                        json_object[root_field_to_add_to_expanded_event]
-                                    )
-                                else:
-                                    shared_logger.debug(
-                                        f"`{root_field_to_add_to_expanded_event}` field to be added"
-                                        f" to expanded event not present at root level"
-                                    )
-
                         event.update(root_fields_to_add_to_expanded_event)
                     else:
                         shared_logger.debug("root fields to be added on a non json object event")

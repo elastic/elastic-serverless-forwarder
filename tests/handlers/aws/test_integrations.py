@@ -16,6 +16,7 @@ from botocore.client import BaseClient as BotoBaseClient
 from testcontainers.localstack import LocalStackContainer
 
 from handlers.aws.exceptions import ReplayHandlerException
+from handlers.aws.utils import GZIP_ENCODING, PAYLOAD_ENCODING_KEY, gzip_base64_decoded, gzip_base64_encoded
 from main_aws import handler
 from share import get_hex_prefix, json_dumper, json_parser
 from tests.testcontainers.es import ElasticsearchContainer
@@ -39,6 +40,7 @@ from .utils import (
     _sqs_create_queue,
     _sqs_get_messages,
     _sqs_send_messages,
+    _sqs_send_messages_with_attribs,
     _sqs_send_s3_notifications,
     _time_based_id,
 )
@@ -78,6 +80,8 @@ class TestLambdaHandlerIntegration(TestCase):
         lsc.with_services("ec2", "kinesis", "logs", "s3", "sqs", "secretsmanager")
 
         cls.localstack = lsc.start()
+
+        os.environ["AWS_REGION"] = _AWS_REGION
 
         session = boto3.Session(region_name=_AWS_REGION)
         cls.aws_session = session
@@ -246,7 +250,7 @@ class TestLambdaHandlerIntegration(TestCase):
         event, _ = _sqs_get_messages(self.sqs_client, s3_sqs_queue_url, s3_sqs_queue_arn)
 
         ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
-        first_call = handler(event, ctx)  # type:ignore
+        first_call = handler(event, ctx)  # type: ignore
 
         assert first_call == "completed"
 
@@ -428,7 +432,7 @@ class TestLambdaHandlerIntegration(TestCase):
         )
 
         ctx = ContextMock()
-        first_call = handler(events_s3, ctx)  # type:ignore
+        first_call = handler(events_s3, ctx)  # type: ignore
 
         assert first_call == "continuing"
 
@@ -461,7 +465,7 @@ class TestLambdaHandlerIntegration(TestCase):
         assert res["hits"]["hits"][0]["_source"]["message"] == logstash_message[0]["message"]
         assert res["hits"]["hits"][0]["_source"]["tags"] == logstash_message[0]["tags"]
 
-        second_call = handler(events_sqs, ctx)  # type:ignore
+        second_call = handler(events_sqs, ctx)  # type: ignore
 
         assert second_call == "continuing"
 
@@ -490,7 +494,7 @@ class TestLambdaHandlerIntegration(TestCase):
         assert res["hits"]["hits"][1]["_source"]["message"] == logstash_message[1]["message"]
         assert res["hits"]["hits"][1]["_source"]["tags"] == logstash_message[1]["tags"]
 
-        third_call = handler(events_cloudwatch_logs, ctx)  # type:ignore
+        third_call = handler(events_cloudwatch_logs, ctx)  # type: ignore
 
         assert third_call == "continuing"
 
@@ -523,7 +527,7 @@ class TestLambdaHandlerIntegration(TestCase):
         assert res["hits"]["hits"][2]["_source"]["message"] == logstash_message[2]["message"]
         assert res["hits"]["hits"][2]["_source"]["tags"] == logstash_message[2]["tags"]
 
-        fourth_call = handler(events_kinesis, ctx)  # type:ignore
+        fourth_call = handler(events_kinesis, ctx)  # type: ignore
 
         assert fourth_call == "continuing"
 
@@ -561,7 +565,7 @@ class TestLambdaHandlerIntegration(TestCase):
             self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
         )
 
-        fifth_call = handler(continued_events, ctx)  # type:ignore
+        fifth_call = handler(continued_events, ctx)  # type: ignore
 
         assert fifth_call == "continuing"
 
@@ -599,7 +603,7 @@ class TestLambdaHandlerIntegration(TestCase):
         continued_events, _ = _sqs_get_messages(
             self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
         )
-        sixth_call = handler(continued_events, ctx)  # type:ignore
+        sixth_call = handler(continued_events, ctx)  # type: ignore
 
         assert sixth_call == "completed"
 
@@ -726,7 +730,7 @@ class TestLambdaHandlerIntegration(TestCase):
         second_message_id = events_sqs["Records"][1]["messageId"]
 
         ctx = ContextMock()
-        first_call = handler(events_sqs, ctx)  # type:ignore
+        first_call = handler(events_sqs, ctx)  # type: ignore
 
         assert first_call == "continuing"
 
@@ -750,7 +754,7 @@ class TestLambdaHandlerIntegration(TestCase):
         continued_events["Records"][2]["messageAttributes"]["originalEventSourceARN"][
             "stringValue"
         ] += "-not-configured-arn"
-        second_call = handler(continued_events, ctx)  # type:ignore
+        second_call = handler(continued_events, ctx)  # type: ignore
 
         assert second_call == "continuing"
 
@@ -772,7 +776,7 @@ class TestLambdaHandlerIntegration(TestCase):
             self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
         )
 
-        third_call = handler(continued_events, ctx)  # type:ignore
+        third_call = handler(continued_events, ctx)  # type: ignore
 
         assert third_call == "completed"
 
@@ -956,66 +960,57 @@ class TestLambdaHandlerIntegration(TestCase):
         hash_kinesis_record = get_hex_prefix(f"stream-{kinesis_stream_name}-PartitionKey-{sequence_number}")
         prefix_kinesis = f"{int(float(event_timestamps_kinesis_records[0]) * 1000)}-{hash_kinesis_record}"
 
-        # Create an expected id for s3-sqs so that es.send will fail
-        self.elasticsearch.index(
-            index="logs-generic-default",
-            op_type="create",
-            id=f"{prefix_s3_first}-000000000000",
-            document={"@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
-        )
+        # Create pipeline to reject documents
+        processors = {
+            "processors": [
+                {
+                    "fail": {
+                        "message": "test_replay_fail_pipeline_s3",
+                        "if": f'ctx["_id"] == "{prefix_s3_first}-000000000000"',
+                    }
+                },
+                {
+                    "fail": {
+                        "message": "test_replay_fail_pipeline_sqs",
+                        "if": f'ctx["_id"] == "{prefix_sqs}-000000000000"',
+                    }
+                },
+                {
+                    "fail": {
+                        "message": "test_replay_fail_pipeline_cloudwatch",
+                        "if": f'ctx["_id"] == "{prefix_cloudwatch_logs}-000000000000"',
+                    }
+                },
+                {
+                    "fail": {
+                        "message": "test_replay_fail_pipeline_kinesis",
+                        "if": f'ctx["_id"] == "{prefix_kinesis}-000000000000"',
+                    }
+                },
+            ]
+        }
 
-        # Create an expected id for sqs so that es.send will fail
-        self.elasticsearch.index(
-            index="logs-generic-default",
-            op_type="create",
-            id=f"{prefix_sqs}-000000000000",
-            document={"@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
-        )
+        self.elasticsearch.put_pipeline(id="test_replay_fail_pipeline", body=processors)
 
-        # Create an expected id for cloudwatch-logs so that es.send will fail
-        self.elasticsearch.index(
-            index="logs-generic-default",
-            op_type="create",
-            id=f"{prefix_cloudwatch_logs}-000000000000",
-            document={"@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
-        )
-
-        # Create an expected id for kinesis-data-stream so that es.send will fail
-        self.elasticsearch.index(
-            index="logs-generic-default",
-            op_type="create",
-            id=f"{prefix_kinesis}-000000000000",
-            document={"@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
+        self.elasticsearch.create_data_stream(name="logs-generic-default")
+        self.elasticsearch.put_settings(
+            index="logs-generic-default", body={"index.default_pipeline": "test_replay_fail_pipeline"}
         )
 
         self.elasticsearch.refresh(index="logs-generic-default")
 
         res = self.elasticsearch.search(index="logs-generic-default")
-        assert res["hits"]["total"] == {"value": 4, "relation": "eq"}
+        assert res["hits"]["total"] == {"value": 0, "relation": "eq"}
 
         ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
 
-        first_call = handler(events_s3, ctx)  # type:ignore
+        first_call = handler(events_s3, ctx)  # type: ignore
 
         assert first_call == "completed"
 
         self.elasticsearch.refresh(index="logs-generic-default")
         res = self.elasticsearch.search(
             index="logs-generic-default",
-            query={
-                "bool": {
-                    "must_not": {
-                        "ids": {
-                            "values": [
-                                f"{prefix_s3_first}-000000000000",
-                                f"{prefix_sqs}-000000000000",
-                                f"{prefix_cloudwatch_logs}-000000000000",
-                                f"{prefix_kinesis}-000000000000",
-                            ]
-                        }
-                    }
-                }
-            },
             sort="_seq_no",
         )
 
@@ -1038,27 +1033,13 @@ class TestLambdaHandlerIntegration(TestCase):
         logstash_message = self.logstash.get_messages(expected=0)
         assert len(logstash_message) == 0
 
-        second_call = handler(events_sqs, ctx)  # type:ignore
+        second_call = handler(events_sqs, ctx)  # type: ignore
 
         assert second_call == "completed"
 
         self.elasticsearch.refresh(index="logs-generic-default")
         res = self.elasticsearch.search(
             index="logs-generic-default",
-            query={
-                "bool": {
-                    "must_not": {
-                        "ids": {
-                            "values": [
-                                f"{prefix_s3_first}-000000000000",
-                                f"{prefix_sqs}-000000000000",
-                                f"{prefix_cloudwatch_logs}-000000000000",
-                                f"{prefix_kinesis}-000000000000",
-                            ]
-                        }
-                    }
-                }
-            },
             sort="_seq_no",
         )
 
@@ -1077,27 +1058,13 @@ class TestLambdaHandlerIntegration(TestCase):
         logstash_message = self.logstash.get_messages(expected=0)
         assert len(logstash_message) == 0
 
-        third_call = handler(events_cloudwatch_logs, ctx)  # type:ignore
+        third_call = handler(events_cloudwatch_logs, ctx)  # type: ignore
 
         assert third_call == "completed"
 
         self.elasticsearch.refresh(index="logs-generic-default")
         res = self.elasticsearch.search(
             index="logs-generic-default",
-            query={
-                "bool": {
-                    "must_not": {
-                        "ids": {
-                            "values": [
-                                f"{prefix_s3_first}-000000000000",
-                                f"{prefix_sqs}-000000000000",
-                                f"{prefix_cloudwatch_logs}-000000000000",
-                                f"{prefix_kinesis}-000000000000",
-                            ]
-                        }
-                    }
-                }
-            },
             sort="_seq_no",
         )
 
@@ -1120,27 +1087,13 @@ class TestLambdaHandlerIntegration(TestCase):
         logstash_message = self.logstash.get_messages(expected=0)
         assert len(logstash_message) == 0
 
-        fourth_call = handler(events_kinesis, ctx)  # type:ignore
+        fourth_call = handler(events_kinesis, ctx)  # type: ignore
 
         assert fourth_call == "completed"
 
         self.elasticsearch.refresh(index="logs-generic-default")
         res = self.elasticsearch.search(
             index="logs-generic-default",
-            query={
-                "bool": {
-                    "must_not": {
-                        "ids": {
-                            "values": [
-                                f"{prefix_s3_first}-000000000000",
-                                f"{prefix_sqs}-000000000000",
-                                f"{prefix_cloudwatch_logs}-000000000000",
-                                f"{prefix_kinesis}-000000000000",
-                            ]
-                        }
-                    }
-                }
-            },
             sort="_seq_no",
         )
 
@@ -1166,32 +1119,14 @@ class TestLambdaHandlerIntegration(TestCase):
 
         replayed_events, _ = _sqs_get_messages(self.sqs_client, os.environ["SQS_REPLAY_URL"], self.sqs_replay_queue_arn)
         with self.assertRaises(ReplayHandlerException):
-            handler(replayed_events, ctx)  # type:ignore
+            handler(replayed_events, ctx)  # type: ignore
 
         self.elasticsearch.refresh(index="logs-generic-default")
 
-        # Remove the expected id for s3-sqs so that it can be replayed
-        self.elasticsearch.delete_by_query(
-            index="logs-generic-default", body={"query": {"ids": {"values": [f"{prefix_s3_first}-000000000000"]}}}
-        )
+        # Remove pipeline processors
+        processors = {"processors": []}
 
-        # Remove the expected id for sqs so that it can be replayed
-        self.elasticsearch.delete_by_query(
-            index="logs-generic-default", body={"query": {"ids": {"values": [f"{prefix_sqs}-000000000000"]}}}
-        )
-
-        # Remove the expected id for cloudwatch logs so that it can be replayed
-        self.elasticsearch.delete_by_query(
-            index="logs-generic-default",
-            body={"query": {"ids": {"values": [f"{prefix_cloudwatch_logs}-000000000000"]}}},
-        )
-
-        # Remove the expected id for kinesis data stream so that it can be replayed
-        self.elasticsearch.delete_by_query(
-            index="logs-generic-default",
-            body={"query": {"ids": {"values": [f"{prefix_kinesis}-000000000000"]}}},
-        )
-
+        self.elasticsearch.put_pipeline(id="test_replay_fail_pipeline", body=processors)
         self.elasticsearch.refresh(index="logs-generic-default")
 
         # let's update the config file so that logstash won't fail anymore
@@ -1229,7 +1164,7 @@ class TestLambdaHandlerIntegration(TestCase):
         # implicit wait for the message to be back on the queue
         time.sleep(35)
         replayed_events, _ = _sqs_get_messages(self.sqs_client, os.environ["SQS_REPLAY_URL"], self.sqs_replay_queue_arn)
-        fifth_call = handler(replayed_events, ctx)  # type:ignore
+        fifth_call = handler(replayed_events, ctx)  # type: ignore
 
         assert fifth_call == "replayed"
 
@@ -1261,7 +1196,7 @@ class TestLambdaHandlerIntegration(TestCase):
         # implicit wait for the message to be back on the queue
         time.sleep(35)
         replayed_events, _ = _sqs_get_messages(self.sqs_client, os.environ["SQS_REPLAY_URL"], self.sqs_replay_queue_arn)
-        sixth_call = handler(replayed_events, ctx)  # type:ignore
+        sixth_call = handler(replayed_events, ctx)  # type: ignore
 
         assert sixth_call == "replayed"
 
@@ -1287,7 +1222,7 @@ class TestLambdaHandlerIntegration(TestCase):
         # implicit wait for the message to be back on the queue
         time.sleep(35)
         replayed_events, _ = _sqs_get_messages(self.sqs_client, os.environ["SQS_REPLAY_URL"], self.sqs_replay_queue_arn)
-        seventh_call = handler(replayed_events, ctx)  # type:ignore
+        seventh_call = handler(replayed_events, ctx)  # type: ignore
 
         assert seventh_call == "replayed"
 
@@ -1491,7 +1426,7 @@ class TestLambdaHandlerIntegration(TestCase):
         )
 
         ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
-        first_call = handler(events_s3, ctx)  # type:ignore
+        first_call = handler(events_s3, ctx)  # type: ignore
 
         assert first_call == "completed"
 
@@ -1501,7 +1436,7 @@ class TestLambdaHandlerIntegration(TestCase):
         logstash_message = self.logstash.get_messages(expected=0)
         assert len(logstash_message) == 0
 
-        second_call = handler(events_sqs, ctx)  # type:ignore
+        second_call = handler(events_sqs, ctx)  # type: ignore
 
         assert second_call == "completed"
 
@@ -1511,7 +1446,7 @@ class TestLambdaHandlerIntegration(TestCase):
         logstash_message = self.logstash.get_messages(expected=0)
         assert len(logstash_message) == 0
 
-        third_call = handler(events_cloudwatch_logs, ctx)  # type:ignore
+        third_call = handler(events_cloudwatch_logs, ctx)  # type: ignore
 
         assert third_call == "completed"
 
@@ -1521,7 +1456,7 @@ class TestLambdaHandlerIntegration(TestCase):
         logstash_message = self.logstash.get_messages(expected=0)
         assert len(logstash_message) == 0
 
-        fourth_call = handler(events_kinesis, ctx)  # type:ignore
+        fourth_call = handler(events_kinesis, ctx)  # type: ignore
 
         assert fourth_call == "completed"
 
@@ -1638,7 +1573,7 @@ class TestLambdaHandlerIntegration(TestCase):
         )
 
         ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
-        first_call = handler(events_s3, ctx)  # type:ignore
+        first_call = handler(events_s3, ctx)  # type: ignore
 
         assert first_call == "completed"
 
@@ -1648,7 +1583,7 @@ class TestLambdaHandlerIntegration(TestCase):
         logstash_message = self.logstash.get_messages(expected=0)
         assert len(logstash_message) == 0
 
-        second_call = handler(events_sqs, ctx)  # type:ignore
+        second_call = handler(events_sqs, ctx)  # type: ignore
 
         assert second_call == "completed"
 
@@ -1658,7 +1593,7 @@ class TestLambdaHandlerIntegration(TestCase):
         logstash_message = self.logstash.get_messages(expected=0)
         assert len(logstash_message) == 0
 
-        third_call = handler(events_cloudwatch_logs, ctx)  # type:ignore
+        third_call = handler(events_cloudwatch_logs, ctx)  # type: ignore
 
         assert third_call == "completed"
 
@@ -1668,7 +1603,7 @@ class TestLambdaHandlerIntegration(TestCase):
         logstash_message = self.logstash.get_messages(expected=0)
         assert len(logstash_message) == 0
 
-        fourth_call = handler(events_kinesis, ctx)  # type:ignore
+        fourth_call = handler(events_kinesis, ctx)  # type: ignore
 
         assert fourth_call == "completed"
 
@@ -1734,7 +1669,7 @@ class TestLambdaHandlerIntegration(TestCase):
 
         ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
 
-        first_call = handler(events_sqs, ctx)  # type:ignore
+        first_call = handler(events_sqs, ctx)  # type: ignore
 
         assert first_call == "completed"
 
@@ -1823,7 +1758,7 @@ class TestLambdaHandlerIntegration(TestCase):
 
         ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
 
-        first_call = handler(events_sqs, ctx)  # type:ignore
+        first_call = handler(events_sqs, ctx)  # type: ignore
 
         assert first_call == "completed"
 
@@ -1858,10 +1793,8 @@ class TestLambdaHandlerIntegration(TestCase):
         second_expanded_event: str = '"second_expanded_event"'
         third_expanded_event: str = '"third_expanded_event"'
 
-        fixtures = [
-            f"""{{"firstRootField": "firstRootField", "secondRootField":"secondRootField",
-            "aField": [{first_expanded_event},{second_expanded_event},{third_expanded_event}]}}"""
-        ]
+        fixtures = [f"""{{"firstRootField": "firstRootField", "secondRootField":"secondRootField",
+            "aField": [{first_expanded_event},{second_expanded_event},{third_expanded_event}]}}"""]
 
         sqs_queue_name = _time_based_id(suffix="source-sqs")
 
@@ -1906,7 +1839,7 @@ class TestLambdaHandlerIntegration(TestCase):
         message_id = events_sqs["Records"][0]["messageId"]
 
         ctx = ContextMock()
-        first_call = handler(events_sqs, ctx)  # type:ignore
+        first_call = handler(events_sqs, ctx)  # type: ignore
 
         assert first_call == "continuing"
 
@@ -1928,7 +1861,7 @@ class TestLambdaHandlerIntegration(TestCase):
         continued_events, _ = _sqs_get_messages(
             self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
         )
-        second_call = handler(continued_events, ctx)  # type:ignore
+        second_call = handler(continued_events, ctx)  # type: ignore
 
         assert second_call == "completed"
 
@@ -1967,10 +1900,8 @@ class TestLambdaHandlerIntegration(TestCase):
         second_expanded_with_root_fields: dict[str, Any] = json_parser(second_expanded_event)
         second_expanded_with_root_fields["secondRootField"] = "secondRootField"
 
-        fixtures = [
-            f"""{{"firstRootField": "firstRootField", "secondRootField":"secondRootField",
-            "aField": [{first_expanded_event},{{}},{second_expanded_event}]}}"""
-        ]
+        fixtures = [f"""{{"firstRootField": "firstRootField", "secondRootField":"secondRootField",
+            "aField": [{first_expanded_event},{{}},{second_expanded_event}]}}"""]
 
         sqs_queue_name = _time_based_id(suffix="source-sqs")
 
@@ -2016,7 +1947,7 @@ class TestLambdaHandlerIntegration(TestCase):
 
         ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
 
-        first_call = handler(events_sqs, ctx)  # type:ignore
+        first_call = handler(events_sqs, ctx)  # type: ignore
 
         assert first_call == "completed"
 
@@ -2059,10 +1990,8 @@ class TestLambdaHandlerIntegration(TestCase):
         third_expanded_event_with_root_fields: dict[str, Any] = json_parser(third_expanded_event)
         third_expanded_event_with_root_fields["secondRootField"] = "secondRootField"
 
-        fixtures = [
-            f"""{{"firstRootField": "firstRootField", "secondRootField":"secondRootField",
-            "aField": [{first_expanded_event},{second_expanded_event},{third_expanded_event}]}}"""
-        ]
+        fixtures = [f"""{{"firstRootField": "firstRootField", "secondRootField":"secondRootField",
+            "aField": [{first_expanded_event},{second_expanded_event},{third_expanded_event}]}}"""]
 
         sqs_queue_name = _time_based_id(suffix="source-sqs")
 
@@ -2107,7 +2036,7 @@ class TestLambdaHandlerIntegration(TestCase):
         message_id = events_sqs["Records"][0]["messageId"]
 
         ctx = ContextMock()
-        first_call = handler(events_sqs, ctx)  # type:ignore
+        first_call = handler(events_sqs, ctx)  # type: ignore
 
         assert first_call == "continuing"
 
@@ -2129,7 +2058,7 @@ class TestLambdaHandlerIntegration(TestCase):
         continued_events, _ = _sqs_get_messages(
             self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
         )
-        second_call = handler(continued_events, ctx)  # type:ignore
+        second_call = handler(continued_events, ctx)  # type: ignore
 
         assert second_call == "completed"
 
@@ -2172,10 +2101,8 @@ class TestLambdaHandlerIntegration(TestCase):
         third_expanded_event_with_root_fields: dict[str, Any] = json_parser(third_expanded_event)
         third_expanded_event_with_root_fields["secondRootField"] = "secondRootField"
 
-        fixtures = [
-            f"""{{"firstRootField": "firstRootField", "secondRootField":"secondRootField",
-            "aField": [{first_expanded_event},{second_expanded_event},{third_expanded_event}]}}"""
-        ]
+        fixtures = [f"""{{"firstRootField": "firstRootField", "secondRootField":"secondRootField",
+            "aField": [{first_expanded_event},{second_expanded_event},{third_expanded_event}]}}"""]
 
         sqs_queue_name = _time_based_id(suffix="source-sqs")
 
@@ -2220,7 +2147,7 @@ class TestLambdaHandlerIntegration(TestCase):
         message_id = events_sqs["Records"][0]["messageId"]
 
         ctx = ContextMock()
-        first_call = handler(events_sqs, ctx)  # type:ignore
+        first_call = handler(events_sqs, ctx)  # type: ignore
 
         assert first_call == "continuing"
 
@@ -2242,7 +2169,7 @@ class TestLambdaHandlerIntegration(TestCase):
         continued_events, _ = _sqs_get_messages(
             self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
         )
-        second_call = handler(continued_events, ctx)  # type:ignore
+        second_call = handler(continued_events, ctx)  # type: ignore
 
         assert second_call == "completed"
 
@@ -2288,10 +2215,8 @@ class TestLambdaHandlerIntegration(TestCase):
         third_expanded_event_with_root_fields["firstRootField"] = "firstRootField"
         third_expanded_event_with_root_fields["secondRootField"] = "secondRootField"
 
-        fixtures = [
-            f"""{{"firstRootField": "firstRootField", "secondRootField":"secondRootField",
-            "aField": [{first_expanded_event},{second_expanded_event},{third_expanded_event}]}}"""
-        ]
+        fixtures = [f"""{{"firstRootField": "firstRootField", "secondRootField":"secondRootField",
+            "aField": [{first_expanded_event},{second_expanded_event},{third_expanded_event}]}}"""]
 
         sqs_queue_name = _time_based_id(suffix="source-sqs")
 
@@ -2336,7 +2261,7 @@ class TestLambdaHandlerIntegration(TestCase):
         message_id = events_sqs["Records"][0]["messageId"]
 
         ctx = ContextMock()
-        first_call = handler(events_sqs, ctx)  # type:ignore
+        first_call = handler(events_sqs, ctx)  # type: ignore
 
         assert first_call == "continuing"
 
@@ -2358,7 +2283,7 @@ class TestLambdaHandlerIntegration(TestCase):
         continued_events, _ = _sqs_get_messages(
             self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
         )
-        second_call = handler(continued_events, ctx)  # type:ignore
+        second_call = handler(continued_events, ctx)  # type: ignore
 
         assert second_call == "completed"
 
@@ -2443,7 +2368,7 @@ class TestLambdaHandlerIntegration(TestCase):
         message_id = events_sqs["Records"][0]["messageId"]
 
         ctx = ContextMock()
-        first_call = handler(events_sqs, ctx)  # type:ignore
+        first_call = handler(events_sqs, ctx)  # type: ignore
 
         assert first_call == "continuing"
 
@@ -2465,7 +2390,7 @@ class TestLambdaHandlerIntegration(TestCase):
         continued_events, _ = _sqs_get_messages(
             self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
         )
-        second_call = handler(continued_events, ctx)  # type:ignore
+        second_call = handler(continued_events, ctx)  # type: ignore
 
         assert second_call == "completed"
 
@@ -2569,11 +2494,11 @@ class TestLambdaHandlerIntegration(TestCase):
         )
 
         ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
-        first_call = handler(events_cloudwatch_logs, ctx)  # type:ignore
+        first_call = handler(events_cloudwatch_logs, ctx)  # type: ignore
 
         assert first_call == "completed"
 
-        second_call = handler(events_cloudwatch_logs_different, ctx)  # type:ignore
+        second_call = handler(events_cloudwatch_logs_different, ctx)  # type: ignore
 
         assert second_call == "completed"
 
@@ -2601,6 +2526,82 @@ class TestLambdaHandlerIntegration(TestCase):
         assert logstash_message[1]["cloud"]["region"] == "us-east-1"
         assert logstash_message[1]["cloud"]["account"]["id"] == "000000000000"
         assert logstash_message[1]["tags"] == ["forwarded", "tag1", "tag2", "tag3"]
+
+    def test_cloudwatch_logs_no_input_defined(self) -> None:
+        assert isinstance(self.logstash, LogstashContainer)
+        assert isinstance(self.localstack, LocalStackContainer)
+
+        fixtures = [
+            _load_file_fixture("cloudwatch-log-1.json"),
+            _load_file_fixture("cloudwatch-log-2.json"),
+            _load_file_fixture("cloudwatch-log-3.json"),
+        ]
+
+        cloudwatch_group_name = _time_based_id(suffix="source-group")
+        cloudwatch_group = _logs_create_cloudwatch_logs_group(self.logs_client, group_name=cloudwatch_group_name)
+
+        cloudwatch_stream_name = _time_based_id(suffix="source-stream")
+        _logs_create_cloudwatch_logs_stream(
+            self.logs_client, group_name=cloudwatch_group_name, stream_name=cloudwatch_stream_name
+        )
+
+        _logs_upload_event_to_cloudwatch_logs(
+            self.logs_client,
+            group_name=cloudwatch_group_name,
+            stream_name=cloudwatch_stream_name,
+            messages_body=fixtures,
+        )
+
+        cloudwatch_group_arn = cloudwatch_group["arn"]
+        cloudwatch_group_name = cloudwatch_group_name
+        cloudwatch_stream_name = cloudwatch_stream_name
+
+        config_yaml: str = f"""
+            inputs:
+              - type: "cloudwatch-logs"
+                id: "misconfigured-cloudwatch-logs"
+                tags: {self.default_tags}
+                outputs:
+                  - type: "logstash"
+                    args:
+                      logstash_url: "{self.logstash.get_url()}"
+                      ssl_assert_fingerprint: {self.logstash.ssl_assert_fingerprint}
+                      username: "{self.logstash.logstash_user}"
+                      password: "{self.logstash.logstash_password}"
+        """
+
+        config_file_path = "config.yaml"
+        config_bucket_name = _time_based_id(suffix="config-bucket")
+        _s3_upload_content_to_bucket(
+            client=self.s3_client,
+            content=config_yaml.encode("utf-8"),
+            content_type="text/plain",
+            bucket_name=config_bucket_name,
+            key=config_file_path,
+        )
+
+        os.environ["S3_CONFIG_FILE"] = f"s3://{config_bucket_name}/{config_file_path}"
+
+        events_cloudwatch_logs, event_ids_cloudwatch_logs, _ = _logs_retrieve_event_from_cloudwatch_logs(
+            self.logs_client, cloudwatch_group_name, cloudwatch_stream_name
+        )
+
+        ctx = ContextMock()
+        first_call = handler(events_cloudwatch_logs, ctx)  # type: ignore
+
+        assert first_call == "completed"
+
+        replayed_events, _ = _sqs_get_messages(self.sqs_client, os.environ["SQS_REPLAY_URL"], self.sqs_replay_queue_arn)
+        replayed_messages = replayed_events["Records"]
+
+        assert len(replayed_messages) == 3
+
+        arn_components = cloudwatch_group_arn.split(":")
+        arn_components[3] = "%AWS_REGION%"
+        cloudwatch_group_arn = ":".join(arn_components)
+
+        for message in replayed_messages:
+            assert message["messageAttributes"]["originalEventSourceARN"]["stringValue"] == cloudwatch_group_arn
 
     def test_cloudwatch_logs_last_ending_offset_reset(self) -> None:
         assert isinstance(self.logstash, LogstashContainer)
@@ -2663,7 +2664,7 @@ class TestLambdaHandlerIntegration(TestCase):
         )
 
         ctx = ContextMock()
-        first_call = handler(events_cloudwatch_logs, ctx)  # type:ignore
+        first_call = handler(events_cloudwatch_logs, ctx)  # type: ignore
 
         assert first_call == "continuing"
 
@@ -2686,7 +2687,7 @@ class TestLambdaHandlerIntegration(TestCase):
         continued_events, _ = _sqs_get_messages(
             self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
         )
-        second_call = handler(continued_events, ctx)  # type:ignore
+        second_call = handler(continued_events, ctx)  # type: ignore
 
         assert second_call == "completed"
 
@@ -2777,7 +2778,7 @@ class TestLambdaHandlerIntegration(TestCase):
         )
 
         ctx = ContextMock()
-        first_call = handler(events_cloudwatch_logs, ctx)  # type:ignore
+        first_call = handler(events_cloudwatch_logs, ctx)  # type: ignore
 
         assert first_call == "continuing"
 
@@ -2800,7 +2801,7 @@ class TestLambdaHandlerIntegration(TestCase):
         continued_events, _ = _sqs_get_messages(
             self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
         )
-        second_call = handler(continued_events, ctx)  # type:ignore
+        second_call = handler(continued_events, ctx)  # type: ignore
 
         assert second_call == "completed"
 
@@ -2828,6 +2829,65 @@ class TestLambdaHandlerIntegration(TestCase):
         assert logstash_message[2]["cloud"]["region"] == "us-east-1"
         assert logstash_message[2]["cloud"]["account"]["id"] == "000000000000"
         assert logstash_message[2]["tags"] == ["forwarded", "tag1", "tag2", "tag3"]
+
+    def test_kinesis_data_stream_no_input_defined(self) -> None:
+        assert isinstance(self.logstash, LogstashContainer)
+        assert isinstance(self.localstack, LocalStackContainer)
+
+        fixtures = [
+            _load_file_fixture("cloudwatch-log-1.json"),
+            _load_file_fixture("cloudwatch-log-2.json"),
+            _load_file_fixture("cloudwatch-log-3.json"),
+        ]
+
+        kinesis_stream_name = _time_based_id(suffix="source-kinesis")
+        kinesis_stream = _kinesis_create_stream(self.kinesis_client, kinesis_stream_name)
+        kinesis_stream_arn = kinesis_stream["StreamDescription"]["StreamARN"]
+
+        _kinesis_put_records(self.kinesis_client, kinesis_stream_name, fixtures)
+
+        config_yaml: str = f"""
+            inputs:
+              - type: "kinesis-data-stream"
+                id: "misconfigured-id"
+                tags: {self.default_tags}
+                outputs:
+                  - type: "logstash"
+                    args:
+                      logstash_url: "{self.logstash.get_url()}"
+                      ssl_assert_fingerprint: {self.logstash.ssl_assert_fingerprint}
+                      username: "{self.logstash.logstash_user}"
+                      password: "{self.logstash.logstash_password}"
+        """
+
+        config_file_path = "config.yaml"
+        config_bucket_name = _time_based_id(suffix="config-bucket")
+        _s3_upload_content_to_bucket(
+            client=self.s3_client,
+            content=config_yaml.encode("utf-8"),
+            content_type="text/plain",
+            bucket_name=config_bucket_name,
+            key=config_file_path,
+        )
+
+        os.environ["S3_CONFIG_FILE"] = f"s3://{config_bucket_name}/{config_file_path}"
+
+        events_kinesis, _ = _kinesis_retrieve_event_from_kinesis_stream(
+            self.kinesis_client, kinesis_stream_name, kinesis_stream_arn
+        )
+
+        ctx = ContextMock()
+        first_call = handler(events_kinesis, ctx)  # type: ignore
+
+        assert first_call == "completed"
+
+        replayed_events, _ = _sqs_get_messages(self.sqs_client, os.environ["SQS_REPLAY_URL"], self.sqs_replay_queue_arn)
+        replayed_messages = replayed_events["Records"]
+
+        assert len(replayed_messages) == 3
+
+        for message in replayed_messages:
+            assert kinesis_stream_arn == message["messageAttributes"]["originalEventSourceARN"]["stringValue"]
 
     def test_kinesis_data_stream_last_ending_offset_reset(self) -> None:
         assert isinstance(self.logstash, LogstashContainer)
@@ -2876,7 +2936,7 @@ class TestLambdaHandlerIntegration(TestCase):
         )
 
         ctx = ContextMock()
-        first_call = handler(events_kinesis, ctx)  # type:ignore
+        first_call = handler(events_kinesis, ctx)  # type: ignore
 
         assert first_call == "continuing"
 
@@ -2903,7 +2963,7 @@ class TestLambdaHandlerIntegration(TestCase):
         continued_events, _ = _sqs_get_messages(
             self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
         )
-        second_call = handler(continued_events, ctx)  # type:ignore
+        second_call = handler(continued_events, ctx)  # type: ignore
 
         assert second_call == "completed"
 
@@ -2988,7 +3048,7 @@ class TestLambdaHandlerIntegration(TestCase):
         )
 
         ctx = ContextMock()
-        first_call = handler(events_kinesis, ctx)  # type:ignore
+        first_call = handler(events_kinesis, ctx)  # type: ignore
 
         assert first_call == "continuing"
 
@@ -3015,7 +3075,7 @@ class TestLambdaHandlerIntegration(TestCase):
         continued_events, _ = _sqs_get_messages(
             self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
         )
-        second_call = handler(continued_events, ctx)  # type:ignore
+        second_call = handler(continued_events, ctx)  # type: ignore
 
         assert second_call == "completed"
 
@@ -3051,6 +3111,71 @@ class TestLambdaHandlerIntegration(TestCase):
         assert logstash_message[2]["cloud"]["region"] == "us-east-1"
         assert logstash_message[2]["cloud"]["account"]["id"] == "000000000000"
         assert logstash_message[2]["tags"] == ["forwarded", "tag1", "tag2", "tag3"]
+
+    def test_sqs_no_input_defined(self) -> None:
+        assert isinstance(self.logstash, LogstashContainer)
+        assert isinstance(self.localstack, LocalStackContainer)
+
+        fixtures = [
+            _load_file_fixture("cloudwatch-log-1.json"),
+            _load_file_fixture("cloudwatch-log-2.json"),
+            _load_file_fixture("cloudwatch-log-3.json"),
+        ]
+
+        sqs_queue_name = _time_based_id(suffix="source-sqs")
+
+        sqs_queue = _sqs_create_queue(self.sqs_client, sqs_queue_name, self.localstack.get_url())
+
+        sqs_queue_arn = sqs_queue["QueueArn"]
+        sqs_queue_url = sqs_queue["QueueUrl"]
+
+        for fixture in fixtures:
+            _sqs_send_messages(self.sqs_client, sqs_queue_url, fixture)
+
+        config_yaml: str = f"""
+            inputs:
+              - type: "sqs"
+                id: "misconfigured-id"
+                tags: {self.default_tags}
+                outputs:
+                  - type: "logstash"
+                    args:
+                      logstash_url: "{self.logstash.get_url()}"
+                      ssl_assert_fingerprint: {self.logstash.ssl_assert_fingerprint}
+                      username: "{self.logstash.logstash_user}"
+                      password: "{self.logstash.logstash_password}"
+        """
+
+        config_file_path = "config.yaml"
+        config_bucket_name = _time_based_id(suffix="config-bucket")
+        _s3_upload_content_to_bucket(
+            client=self.s3_client,
+            content=config_yaml.encode("utf-8"),
+            content_type="text/plain",
+            bucket_name=config_bucket_name,
+            key=config_file_path,
+        )
+
+        os.environ["S3_CONFIG_FILE"] = f"s3://{config_bucket_name}/{config_file_path}"
+
+        events_sqs, _ = _sqs_get_messages(self.sqs_client, sqs_queue_url, sqs_queue_arn)
+        messages_sqs = events_sqs["Records"]
+
+        ctx = ContextMock()
+        first_call = handler(events_sqs, ctx)  # type: ignore
+
+        assert first_call == "completed"
+
+        replayed_events, _ = _sqs_get_messages(self.sqs_client, os.environ["SQS_REPLAY_URL"], self.sqs_replay_queue_arn)
+        replayed_messages = replayed_events["Records"]
+
+        assert len(messages_sqs) == 3
+        assert len(replayed_messages) == 3
+        for i, message in enumerate(replayed_messages):
+            assert (
+                messages_sqs[i]["eventSourceARN"]
+                == message["messageAttributes"]["originalEventSourceARN"]["stringValue"]
+            )
 
     def test_sqs_last_ending_offset_reset(self) -> None:
         assert isinstance(self.logstash, LogstashContainer)
@@ -3103,7 +3228,7 @@ class TestLambdaHandlerIntegration(TestCase):
         message_id = events_sqs["Records"][0]["messageId"]
 
         ctx = ContextMock()
-        first_call = handler(events_sqs, ctx)  # type:ignore
+        first_call = handler(events_sqs, ctx)  # type: ignore
 
         assert first_call == "continuing"
 
@@ -3125,7 +3250,7 @@ class TestLambdaHandlerIntegration(TestCase):
         continued_events, _ = _sqs_get_messages(
             self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
         )
-        second_call = handler(continued_events, ctx)  # type:ignore
+        second_call = handler(continued_events, ctx)  # type: ignore
 
         assert second_call == "completed"
 
@@ -3204,7 +3329,7 @@ class TestLambdaHandlerIntegration(TestCase):
         message_id = events_sqs["Records"][0]["messageId"]
 
         ctx = ContextMock()
-        first_call = handler(events_sqs, ctx)  # type:ignore
+        first_call = handler(events_sqs, ctx)  # type: ignore
 
         assert first_call == "continuing"
 
@@ -3226,7 +3351,7 @@ class TestLambdaHandlerIntegration(TestCase):
         continued_events, _ = _sqs_get_messages(
             self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
         )
-        second_call = handler(continued_events, ctx)  # type:ignore
+        second_call = handler(continued_events, ctx)  # type: ignore
 
         assert second_call == "completed"
 
@@ -3311,7 +3436,7 @@ class TestLambdaHandlerIntegration(TestCase):
         events_s3, _ = _sqs_get_messages(self.sqs_client, s3_sqs_queue_url, s3_sqs_queue_arn)
 
         ctx = ContextMock()
-        first_call = handler(events_s3, ctx)  # type:ignore
+        first_call = handler(events_s3, ctx)  # type: ignore
 
         assert first_call == "continuing"
 
@@ -3337,7 +3462,7 @@ class TestLambdaHandlerIntegration(TestCase):
         continued_events, _ = _sqs_get_messages(
             self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
         )
-        second_call = handler(continued_events, ctx)  # type:ignore
+        second_call = handler(continued_events, ctx)  # type: ignore
 
         assert second_call == "completed"
 
@@ -3444,7 +3569,7 @@ class TestLambdaHandlerIntegration(TestCase):
         events_s3, _ = _sqs_get_messages(self.sqs_client, s3_sqs_queue_url, s3_sqs_queue_arn)
 
         ctx = ContextMock()
-        first_call = handler(events_s3, ctx)  # type:ignore
+        first_call = handler(events_s3, ctx)  # type: ignore
 
         assert first_call == "continuing"
 
@@ -3468,7 +3593,7 @@ class TestLambdaHandlerIntegration(TestCase):
         continued_events, _ = _sqs_get_messages(
             self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
         )
-        second_call = handler(continued_events, ctx)  # type:ignore
+        second_call = handler(continued_events, ctx)  # type: ignore
 
         assert second_call == "continuing"
 
@@ -3494,7 +3619,7 @@ class TestLambdaHandlerIntegration(TestCase):
         continued_events, _ = _sqs_get_messages(
             self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn
         )
-        third_call = handler(continued_events, ctx)  # type:ignore
+        third_call = handler(continued_events, ctx)  # type: ignore
 
         assert third_call == "completed"
 
@@ -3587,7 +3712,7 @@ class TestLambdaHandlerIntegration(TestCase):
         event, _ = _sqs_get_messages(self.sqs_client, s3_sqs_queue_url, s3_sqs_queue_arn)
 
         ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
-        first_call = handler(event, ctx)  # type:ignore
+        first_call = handler(event, ctx)  # type: ignore
 
         assert first_call == "completed"
 
@@ -3692,21 +3817,21 @@ class TestLambdaHandlerIntegration(TestCase):
         event, _ = _sqs_get_messages(self.sqs_client, sqs_queue_url, sqs_queue_arn)
         message_id = event["Records"][0]["messageId"]
 
-        first_call = handler(event, ctx)  # type:ignore
+        first_call = handler(event, ctx)  # type: ignore
 
         assert first_call == "continuing"
 
         assert self.elasticsearch.exists(index="logs-generic-default") is False
 
         event, _ = _sqs_get_messages(self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn)
-        second_call = handler(event, ctx)  # type:ignore
+        second_call = handler(event, ctx)  # type: ignore
 
         assert second_call == "continuing"
 
         assert self.elasticsearch.exists(index="logs-generic-default") is False
 
         event, _ = _sqs_get_messages(self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn)
-        third_call = handler(event, ctx)  # type:ignore
+        third_call = handler(event, ctx)  # type: ignore
 
         assert third_call == "completed"
 
@@ -3717,6 +3842,9 @@ class TestLambdaHandlerIntegration(TestCase):
 
         first_body: dict[str, Any] = json_parser(events["Records"][0]["body"])
         second_body: dict[str, Any] = json_parser(events["Records"][1]["body"])
+
+        first_body["event_payload"] = gzip_base64_decoded(first_body["event_payload"])
+        second_body["event_payload"] = gzip_base64_decoded(second_body["event_payload"])
 
         assert first_body["event_payload"]["message"] == fixtures[0].rstrip("\n")
         assert first_body["event_payload"]["log"]["offset"] == 0
@@ -3756,7 +3884,7 @@ class TestLambdaHandlerIntegration(TestCase):
             index="logs-generic-default",
             op_type="create",
             id=fingerprint,
-            document={"@timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
+            document={"@timestamp": datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
         )
 
         processors = {
@@ -3812,7 +3940,7 @@ class TestLambdaHandlerIntegration(TestCase):
 
         ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
 
-        first_call = handler(event, ctx)  # type:ignore
+        first_call = handler(event, ctx)  # type: ignore
 
         assert first_call == "completed"
 
@@ -3875,17 +4003,17 @@ class TestLambdaHandlerIntegration(TestCase):
         event, _ = _sqs_get_messages(self.sqs_client, sqs_queue_url, sqs_queue_arn)
         message_id = event["Records"][0]["messageId"]
 
-        first_call = handler(event, ctx)  # type:ignore
+        first_call = handler(event, ctx)  # type: ignore
 
         assert first_call == "continuing"
 
         event, _ = _sqs_get_messages(self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn)
-        second_call = handler(event, ctx)  # type:ignore
+        second_call = handler(event, ctx)  # type: ignore
 
         assert second_call == "continuing"
 
         event, _ = _sqs_get_messages(self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn)
-        third_call = handler(event, ctx)  # type:ignore
+        third_call = handler(event, ctx)  # type: ignore
 
         assert third_call == "completed"
 
@@ -3894,6 +4022,9 @@ class TestLambdaHandlerIntegration(TestCase):
 
         first_body: dict[str, Any] = json_parser(events["Records"][0]["body"])
         second_body: dict[str, Any] = json_parser(events["Records"][1]["body"])
+
+        first_body["event_payload"] = gzip_base64_decoded(first_body["event_payload"])
+        second_body["event_payload"] = gzip_base64_decoded(second_body["event_payload"])
 
         assert first_body["event_payload"]["message"] == fixtures[0].rstrip("\n")
         assert first_body["event_payload"]["log"]["offset"] == 0
@@ -3963,17 +4094,17 @@ class TestLambdaHandlerIntegration(TestCase):
         event, _ = _sqs_get_messages(self.sqs_client, sqs_queue_url, sqs_queue_arn)
         message_id = event["Records"][0]["messageId"]
 
-        first_call = handler(event, ctx)  # type:ignore
+        first_call = handler(event, ctx)  # type: ignore
 
         assert first_call == "continuing"
 
         event, _ = _sqs_get_messages(self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn)
-        second_call = handler(event, ctx)  # type:ignore
+        second_call = handler(event, ctx)  # type: ignore
 
         assert second_call == "continuing"
 
         event, _ = _sqs_get_messages(self.sqs_client, os.environ["SQS_CONTINUE_URL"], self.sqs_continue_queue_arn)
-        third_call = handler(event, ctx)  # type:ignore
+        third_call = handler(event, ctx)  # type: ignore
 
         assert third_call == "completed"
 
@@ -3982,6 +4113,9 @@ class TestLambdaHandlerIntegration(TestCase):
 
         first_body: dict[str, Any] = json_parser(events["Records"][0]["body"])
         second_body: dict[str, Any] = json_parser(events["Records"][1]["body"])
+
+        first_body["event_payload"] = gzip_base64_decoded(first_body["event_payload"])
+        second_body["event_payload"] = gzip_base64_decoded(second_body["event_payload"])
 
         assert first_body["event_payload"]["message"] == fixtures[0].rstrip("\n")
         assert first_body["event_payload"]["log"]["offset"] == 0
@@ -4002,3 +4136,502 @@ class TestLambdaHandlerIntegration(TestCase):
         assert second_body["event_payload"]["cloud"]["region"] == "us-east-1"
         assert second_body["event_payload"]["cloud"]["account"]["id"] == "000000000000"
         assert second_body["event_payload"]["tags"] == ["forwarded", "tag1", "tag2", "tag3"]
+
+    def test_es_version_conflict_exception(self) -> None:
+        assert isinstance(self.elasticsearch, ElasticsearchContainer)
+        assert isinstance(self.localstack, LocalStackContainer)
+
+        sqs_queue_name = _time_based_id(suffix="source-sqs")
+        sqs_queue = _sqs_create_queue(self.sqs_client, sqs_queue_name, self.localstack.get_url())
+
+        sqs_queue_arn = sqs_queue["QueueArn"]
+        sqs_queue_url = sqs_queue["QueueUrl"]
+
+        config_yaml: str = f"""
+            inputs:
+              - type: sqs
+                id: "{sqs_queue_arn}"
+                tags: {self.default_tags}
+                outputs:
+                  - type: "elasticsearch"
+                    args:
+                      elasticsearch_url: "{self.elasticsearch.get_url()}"
+                      ssl_assert_fingerprint: {self.elasticsearch.ssl_assert_fingerprint}
+                      username: "{self.secret_arn}:username"
+                      password: "{self.secret_arn}:password"
+        """
+
+        config_file_path = "config.yaml"
+        config_bucket_name = _time_based_id(suffix="config-bucket")
+        _s3_upload_content_to_bucket(
+            client=self.s3_client,
+            content=config_yaml.encode("utf-8"),
+            content_type="text/plain",
+            bucket_name=config_bucket_name,
+            key=config_file_path,
+        )
+
+        os.environ["S3_CONFIG_FILE"] = f"s3://{config_bucket_name}/{config_file_path}"
+
+        fixtures = [
+            _load_file_fixture("cloudwatch-log-1.json"),
+        ]
+
+        _sqs_send_messages(self.sqs_client, sqs_queue_url, "".join(fixtures))
+
+        event, _ = _sqs_get_messages(self.sqs_client, sqs_queue_url, sqs_queue_arn)
+
+        ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
+        first_call = handler(event, ctx)  # type: ignore
+
+        assert first_call == "completed"
+
+        # Index event a second time to trigger version conflict
+        second_call = handler(event, ctx)  # type: ignore
+
+        assert second_call == "completed"
+
+        self.elasticsearch.refresh(index="logs-generic-default")
+
+        assert self.elasticsearch.count(index="logs-generic-default")["count"] == 1
+
+        # Test no duplicate events end in the replay queue
+        events, _ = _sqs_get_messages(self.sqs_client, os.environ["SQS_REPLAY_URL"], self.sqs_replay_queue_arn)
+        assert len(events["Records"]) == 0
+
+    def test_es_dead_letter_index(self) -> None:
+        assert isinstance(self.elasticsearch, ElasticsearchContainer)
+        assert isinstance(self.localstack, LocalStackContainer)
+
+        sqs_queue_name = _time_based_id(suffix="source-sqs")
+        sqs_queue = _sqs_create_queue(self.sqs_client, sqs_queue_name, self.localstack.get_url())
+
+        dead_letter_index_name = "logs-generic-default-dli"
+
+        sqs_queue_arn = sqs_queue["QueueArn"]
+        sqs_queue_url = sqs_queue["QueueUrl"]
+        sqs_queue_url_path = sqs_queue["QueueUrlPath"]
+
+        config_yaml: str = f"""
+            inputs:
+              - type: sqs
+                id: "{sqs_queue_arn}"
+                tags: {self.default_tags}
+                outputs:
+                  - type: "elasticsearch"
+                    args:
+                      elasticsearch_url: "{self.elasticsearch.get_url()}"
+                      es_dead_letter_index: "{dead_letter_index_name}"
+                      ssl_assert_fingerprint: {self.elasticsearch.ssl_assert_fingerprint}
+                      username: "{self.secret_arn}:username"
+                      password: "{self.secret_arn}:password"
+        """
+
+        config_file_path = "config.yaml"
+        config_bucket_name = _time_based_id(suffix="config-bucket")
+        _s3_upload_content_to_bucket(
+            client=self.s3_client,
+            content=config_yaml.encode("utf-8"),
+            content_type="text/plain",
+            bucket_name=config_bucket_name,
+            key=config_file_path,
+        )
+
+        os.environ["S3_CONFIG_FILE"] = f"s3://{config_bucket_name}/{config_file_path}"
+
+        fixtures = [
+            _load_file_fixture("cloudwatch-log-1.json"),
+        ]
+
+        _sqs_send_messages(self.sqs_client, sqs_queue_url, "".join(fixtures))
+
+        event, _ = _sqs_get_messages(self.sqs_client, sqs_queue_url, sqs_queue_arn)
+        message_id = event["Records"][0]["messageId"]
+
+        # Create pipeline to reject documents
+        processors = {
+            "processors": [
+                {
+                    "fail": {
+                        "message": "test_es_non_indexable_dead_letter_index fail message",
+                    }
+                },
+            ]
+        }
+
+        self.elasticsearch.put_pipeline(id="test_es_non_indexable_dead_letter_index_fail_pipeline", body=processors)
+
+        self.elasticsearch.create_data_stream(name="logs-generic-default")
+        self.elasticsearch.put_settings(
+            index="logs-generic-default",
+            body={"index.default_pipeline": "test_es_non_indexable_dead_letter_index_fail_pipeline"},
+        )
+
+        self.elasticsearch.refresh(index="logs-generic-default")
+
+        self.elasticsearch.create_data_stream(name=dead_letter_index_name)
+
+        ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
+        first_call = handler(event, ctx)  # type: ignore
+
+        assert first_call == "completed"
+
+        # Test document has been rejected from target index
+        self.elasticsearch.refresh(index="logs-generic-default")
+
+        assert self.elasticsearch.count(index="logs-generic-default")["count"] == 0
+
+        # Test document has been redirected to dli
+        assert self.elasticsearch.exists(index=dead_letter_index_name) is True
+
+        self.elasticsearch.refresh(index=dead_letter_index_name)
+
+        assert self.elasticsearch.count(index=dead_letter_index_name)["count"] == 1
+
+        res = self.elasticsearch.search(index=dead_letter_index_name, sort="_seq_no")
+
+        assert res["hits"]["total"] == {"value": 1, "relation": "eq"}
+
+        assert (
+            res["hits"]["hits"][0]["_source"]["error"]["message"]
+            == "test_es_non_indexable_dead_letter_index fail message"
+        )
+        assert res["hits"]["hits"][0]["_source"]["error"]["type"] == "fail_processor_exception"
+        assert res["hits"]["hits"][0]["_source"]["http"]["response"]["status_code"] == 500
+        dead_letter_message = json_parser(res["hits"]["hits"][0]["_source"]["message"])
+        assert dead_letter_message["log"]["offset"] == 0
+        assert dead_letter_message["log"]["file"]["path"] == sqs_queue_url_path
+        assert dead_letter_message["aws"]["sqs"]["name"] == sqs_queue_name
+        assert dead_letter_message["aws"]["sqs"]["message_id"] == message_id
+        assert dead_letter_message["cloud"]["provider"] == "aws"
+        assert dead_letter_message["cloud"]["region"] == "us-east-1"
+        assert dead_letter_message["cloud"]["account"]["id"] == "000000000000"
+        assert dead_letter_message["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
+
+        # Test event does not go into the replay queue
+        events, _ = _sqs_get_messages(self.sqs_client, os.environ["SQS_REPLAY_URL"], self.sqs_replay_queue_arn)
+
+        assert len(events["Records"]) == 0
+
+    def test_es_non_indexable_dead_letter_index(self) -> None:
+        assert isinstance(self.elasticsearch, ElasticsearchContainer)
+        assert isinstance(self.localstack, LocalStackContainer)
+
+        sqs_queue_name = _time_based_id(suffix="source-sqs")
+        sqs_queue = _sqs_create_queue(self.sqs_client, sqs_queue_name, self.localstack.get_url())
+
+        dead_letter_index_name = "logs-generic-default-dli"
+
+        sqs_queue_arn = sqs_queue["QueueArn"]
+        sqs_queue_url = sqs_queue["QueueUrl"]
+        sqs_queue_url_path = sqs_queue["QueueUrlPath"]
+
+        config_yaml: str = f"""
+            inputs:
+              - type: sqs
+                id: "{sqs_queue_arn}"
+                tags: {self.default_tags}
+                outputs:
+                  - type: "elasticsearch"
+                    args:
+                      elasticsearch_url: "{self.elasticsearch.get_url()}"
+                      es_dead_letter_index: "{dead_letter_index_name}"
+                      ssl_assert_fingerprint: {self.elasticsearch.ssl_assert_fingerprint}
+                      username: "{self.secret_arn}:username"
+                      password: "{self.secret_arn}:password"
+        """
+
+        config_file_path = "config.yaml"
+        config_bucket_name = _time_based_id(suffix="config-bucket")
+        _s3_upload_content_to_bucket(
+            client=self.s3_client,
+            content=config_yaml.encode("utf-8"),
+            content_type="text/plain",
+            bucket_name=config_bucket_name,
+            key=config_file_path,
+        )
+
+        os.environ["S3_CONFIG_FILE"] = f"s3://{config_bucket_name}/{config_file_path}"
+
+        fixtures = [
+            _load_file_fixture("cloudwatch-log-1.json"),
+        ]
+
+        _sqs_send_messages(self.sqs_client, sqs_queue_url, "".join(fixtures))
+
+        event, _ = _sqs_get_messages(self.sqs_client, sqs_queue_url, sqs_queue_arn)
+        message_id = event["Records"][0]["messageId"]
+
+        # Create pipeline to reject documents
+        processors = {
+            "processors": [
+                {
+                    "fail": {
+                        "message": "test_es_non_indexable_dead_letter_index",
+                    }
+                },
+            ]
+        }
+
+        self.elasticsearch.put_pipeline(id="test_es_non_indexable_dead_letter_index_fail_pipeline", body=processors)
+
+        self.elasticsearch.create_data_stream(name="logs-generic-default")
+        self.elasticsearch.put_settings(
+            index="logs-generic-default",
+            body={"index.default_pipeline": "test_es_non_indexable_dead_letter_index_fail_pipeline"},
+        )
+
+        self.elasticsearch.refresh(index="logs-generic-default")
+
+        self.elasticsearch.create_data_stream(name=dead_letter_index_name)
+        self.elasticsearch.put_settings(
+            index=dead_letter_index_name,
+            body={"index.default_pipeline": "test_es_non_indexable_dead_letter_index_fail_pipeline"},
+        )
+
+        ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
+        first_call = handler(event, ctx)  # type: ignore
+
+        assert first_call == "completed"
+
+        # Test document has been rejected from target index
+        self.elasticsearch.refresh(index="logs-generic-default")
+
+        assert self.elasticsearch.count(index="logs-generic-default")["count"] == 0
+
+        # Test event does not go into the dead letter queue
+        assert self.elasticsearch.exists(index=dead_letter_index_name) is True
+
+        self.elasticsearch.refresh(index=dead_letter_index_name)
+
+        assert self.elasticsearch.count(index=dead_letter_index_name)["count"] == 0
+
+        # Test event has been redirected into the replay queue
+        events, _ = _sqs_get_messages(self.sqs_client, os.environ["SQS_REPLAY_URL"], self.sqs_replay_queue_arn)
+        assert len(events["Records"]) == 1
+
+        first_body: dict[str, Any] = json_parser(events["Records"][0]["body"])
+        first_body["event_payload"] = gzip_base64_decoded(first_body["event_payload"])
+
+        assert first_body["event_payload"]["message"] == fixtures[0].rstrip("\n")
+        assert first_body["event_payload"]["log"]["offset"] == 0
+        assert first_body["event_payload"]["log"]["file"]["path"] == sqs_queue_url_path
+        assert first_body["event_payload"]["aws"]["sqs"]["name"] == sqs_queue_name
+        assert first_body["event_payload"]["aws"]["sqs"]["message_id"] == message_id
+        assert first_body["event_payload"]["cloud"]["provider"] == "aws"
+        assert first_body["event_payload"]["cloud"]["region"] == "us-east-1"
+        assert first_body["event_payload"]["cloud"]["account"]["id"] == "000000000000"
+        assert first_body["event_payload"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
+
+    def test_es_dead_letter_index_with_retryable_errors(self) -> None:
+        """
+        Test that retryable errors are not redirected to the dead letter index (DLI).
+        """
+        assert isinstance(self.elasticsearch, ElasticsearchContainer)
+        assert isinstance(self.localstack, LocalStackContainer)
+
+        sqs_queue_name = _time_based_id(suffix="source-sqs")
+        sqs_queue = _sqs_create_queue(self.sqs_client, sqs_queue_name, self.localstack.get_url())
+
+        dead_letter_index_name = "logs-generic-default-dli"
+
+        sqs_queue_arn = sqs_queue["QueueArn"]
+        sqs_queue_url = sqs_queue["QueueUrl"]
+        sqs_queue_url_path = sqs_queue["QueueUrlPath"]
+
+        config_yaml: str = f"""
+            inputs:
+              - type: sqs
+                id: "{sqs_queue_arn}"
+                tags: {self.default_tags}
+                outputs:
+                  - type: "elasticsearch"
+                    args:
+                      # This IP address is non-routable and
+                      # will always result in a connection failure.
+                      elasticsearch_url: "0.0.0.0:9200"
+                      es_dead_letter_index: "{dead_letter_index_name}"
+                      ssl_assert_fingerprint: {self.elasticsearch.ssl_assert_fingerprint}
+                      username: "{self.secret_arn}:username"
+                      password: "{self.secret_arn}:password"
+        """
+
+        config_file_path = "config.yaml"
+        config_bucket_name = _time_based_id(suffix="config-bucket")
+        _s3_upload_content_to_bucket(
+            client=self.s3_client,
+            content=config_yaml.encode("utf-8"),
+            content_type="text/plain",
+            bucket_name=config_bucket_name,
+            key=config_file_path,
+        )
+
+        os.environ["S3_CONFIG_FILE"] = f"s3://{config_bucket_name}/{config_file_path}"
+
+        fixtures = [
+            _load_file_fixture("cloudwatch-log-1.json"),
+        ]
+
+        _sqs_send_messages(self.sqs_client, sqs_queue_url, "".join(fixtures))
+
+        event, _ = _sqs_get_messages(self.sqs_client, sqs_queue_url, sqs_queue_arn)
+        message_id = event["Records"][0]["messageId"]
+
+        # Create pipeline to reject documents
+        processors = {
+            "processors": [
+                {
+                    "fail": {
+                        "message": "test_es_dead_letter_index_with_retryable_errors fail message",
+                    }
+                },
+            ]
+        }
+
+        self.elasticsearch.put_pipeline(
+            id="test_es_dead_letter_index_with_retryable_errors_fail_pipeline",
+            body=processors,
+        )
+
+        self.elasticsearch.create_data_stream(name="logs-generic-default")
+        self.elasticsearch.put_settings(
+            index="logs-generic-default",
+            body={"index.default_pipeline": "test_es_dead_letter_index_with_retryable_errors_fail_pipeline"},
+        )
+
+        self.elasticsearch.refresh(index="logs-generic-default")
+
+        self.elasticsearch.create_data_stream(name=dead_letter_index_name)
+
+        ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
+        first_call = handler(event, ctx)  # type: ignore
+
+        assert first_call == "completed"
+
+        # Test document has been rejected from target index
+        self.elasticsearch.refresh(index="logs-generic-default")
+
+        assert self.elasticsearch.count(index="logs-generic-default")["count"] == 0
+
+        # Test event does not go into the dead letter queue
+        assert self.elasticsearch.exists(index=dead_letter_index_name) is True
+
+        self.elasticsearch.refresh(index=dead_letter_index_name)
+
+        assert self.elasticsearch.count(index=dead_letter_index_name)["count"] == 0
+
+        # Test event has been redirected into the replay queue
+        events, _ = _sqs_get_messages(self.sqs_client, os.environ["SQS_REPLAY_URL"], self.sqs_replay_queue_arn)
+        assert len(events["Records"]) == 1
+
+        first_body: dict[str, Any] = json_parser(events["Records"][0]["body"])
+        first_body["event_payload"] = gzip_base64_decoded(first_body["event_payload"])
+
+        assert first_body["event_payload"]["message"] == fixtures[0].rstrip("\n")
+        assert first_body["event_payload"]["log"]["offset"] == 0
+        assert first_body["event_payload"]["log"]["file"]["path"] == sqs_queue_url_path
+        assert first_body["event_payload"]["aws"]["sqs"]["name"] == sqs_queue_name
+        assert first_body["event_payload"]["aws"]["sqs"]["message_id"] == message_id
+        assert first_body["event_payload"]["cloud"]["provider"] == "aws"
+        assert first_body["event_payload"]["cloud"]["region"] == "us-east-1"
+        assert first_body["event_payload"]["cloud"]["account"]["id"] == "000000000000"
+        assert first_body["event_payload"]["tags"] == ["forwarded", "generic", "tag1", "tag2", "tag3"]
+
+    def test_sqs_replay(self) -> None:
+        """
+        This test validate parsing of compressed and uncompressed messages through SQS replay path
+        """
+        assert isinstance(self.elasticsearch, ElasticsearchContainer)
+        assert isinstance(self.localstack, LocalStackContainer)
+
+        # setup configurations
+        cloudwatch_group_name = _time_based_id(suffix="source-group")
+        cloudwatch_group_arn = f"arn:aws:logs:us-east-1:123456789:log-group:{cloudwatch_group_name}"
+
+        config_yaml: str = f"""
+            inputs:
+              - type: "cloudwatch-logs"
+                id: "{cloudwatch_group_arn}"
+                tags: {self.default_tags}
+                outputs:
+                  - type: "elasticsearch"
+                    args:
+                      elasticsearch_url: "{self.elasticsearch.get_url()}"
+                      ssl_assert_fingerprint: {self.elasticsearch.ssl_assert_fingerprint}
+                      username: "{self.secret_arn}:username"
+                      password: "{self.secret_arn}:password"
+            """
+
+        config_file_path = "config.yaml"
+        config_bucket_name = _time_based_id(suffix="config-bucket")
+        _s3_upload_content_to_bucket(
+            client=self.s3_client,
+            content=config_yaml.encode("utf-8"),
+            content_type="text/plain",
+            bucket_name=config_bucket_name,
+            key=config_file_path,
+        )
+
+        os.environ["S3_CONFIG_FILE"] = f"s3://{config_bucket_name}/{config_file_path}"
+
+        # Create a SQS queue
+        sqs_queue_name = _time_based_id(suffix="source-sqs")
+        sqs_queue = _sqs_create_queue(self.sqs_client, sqs_queue_name, self.localstack.get_url())
+        sqs_queue_url = sqs_queue["QueueUrl"]
+        sqs_queue_arn = sqs_queue["QueueArn"]
+
+        # Generic reusable event
+        failed_event = {
+            "_op_type": "create",
+            "_index": "logs-generic-default",
+            "_id": _time_based_id(suffix="record"),
+            "@timestamp": datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+            "tags": ["forwarded", "esf-cloudwatch"],
+            "data_stream": {"type": "logs", "dataset": "generic", "namespace": "default"},
+            "event": {"dataset": "generic"},
+            "message": "Some message from CloudWatch input",
+            "aws": {"cloudwatch": {"log_group": "CloudTrail/test", "log_stream": "data", "event_id": "eventID"}},
+            "cloud": {"provider": "aws", "region": "us-east-1", "account": {"id": "123456789"}},
+        }
+
+        # First - Replay an uncompressed message
+        sqs_replay_message = {
+            "output_destination": self.elasticsearch.get_url(),
+            "output_args": {"es_datastream_name": "logs-generic-default"},
+            "event_payload": failed_event,
+            "event_input_id": cloudwatch_group_arn,
+        }
+
+        _sqs_send_messages(self.sqs_client, sqs_queue_url, json_dumper(sqs_replay_message))
+        event, _ = _sqs_get_messages(self.sqs_client, sqs_queue_url, sqs_queue_arn)
+
+        ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
+        assert handler(event, ctx) == "replayed"  # type: ignore
+
+        self.elasticsearch.refresh(index="logs-generic-default")
+        assert self.elasticsearch.count(index="logs-generic-default")["count"] == 1
+
+        # Second - Replay a compressed message
+
+        # Update generic message with fresh id & timestamp
+        failed_event["_id"] = _time_based_id(suffix="record")
+        failed_event["@timestamp"] = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
+        sqs_replay_message = {
+            "output_destination": self.elasticsearch.get_url(),
+            "output_args": {"es_datastream_name": "logs-generic-default"},
+            "event_payload": gzip_base64_encoded(json_dumper(failed_event)),
+            "event_input_id": cloudwatch_group_arn,
+        }
+
+        # Set event payload encoding hint
+        attribs = {
+            PAYLOAD_ENCODING_KEY: {"StringValue": GZIP_ENCODING, "DataType": "String"},
+        }
+
+        _sqs_send_messages_with_attribs(self.sqs_client, sqs_queue_url, json_dumper(sqs_replay_message), attribs)
+        event, _ = _sqs_get_messages(self.sqs_client, sqs_queue_url, sqs_queue_arn)
+        assert handler(event, ctx) == "replayed"  # type: ignore
+
+        self.elasticsearch.refresh(index="logs-generic-default")
+        assert self.elasticsearch.count(index="logs-generic-default")["count"] == 2

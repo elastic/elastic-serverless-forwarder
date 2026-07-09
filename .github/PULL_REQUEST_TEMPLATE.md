@@ -33,7 +33,7 @@ List here all the items you have verified BEFORE sending this PR. Please DO NOT 
 - [ ] I have made corresponding changes to the documentation
 - [ ] I have made corresponding change to the default configuration files
 - [ ] I have added tests that prove my fix is effective or that my feature works
-- [ ] I have added an entry in `CHANGELOG.md`
+- [ ] I have added an entry in `CHANGELOG.md` and updated `share/version.py`, if my change requires a new release.
 
 ## Author's Checklist
 

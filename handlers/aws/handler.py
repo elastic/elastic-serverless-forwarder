@@ -1,7 +1,6 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
-
 import os
 from typing import Any, Callable, Optional
 
@@ -13,27 +12,33 @@ from shippers import EVENT_IS_FILTERED, EVENT_IS_SENT, CompositeShipper
 
 from .cloudwatch_logs_trigger import (
     _from_awslogs_data_to_event,
-    _handle_cloudwatch_logs_continuation,
     _handle_cloudwatch_logs_event,
+    _handle_cloudwatch_logs_move,
 )
-from .kinesis_trigger import _handle_kinesis_continuation, _handle_kinesis_record
+from .kinesis_trigger import _handle_kinesis_move, _handle_kinesis_record
 from .replay_trigger import ReplayedEventReplayHandler, get_shipper_for_replay_event
-from .s3_sqs_trigger import _handle_s3_sqs_continuation, _handle_s3_sqs_event
-from .sqs_trigger import _handle_sqs_continuation, _handle_sqs_event
+from .s3_sqs_trigger import _handle_s3_sqs_event, _handle_s3_sqs_move
+from .sqs_trigger import _handle_sqs_event, handle_sqs_move
 from .utils import (
     CONFIG_FROM_PAYLOAD,
+    GZIP_ENCODING,
     INTEGRATION_SCOPE_GENERIC,
+    PAYLOAD_ENCODING_KEY,
     ConfigFileException,
     TriggerTypeException,
+    _valid_trigger_types,
     capture_serverless,
     config_yaml_from_payload,
     config_yaml_from_s3,
     expand_event_list_from_field_resolver,
     get_continuing_original_input_type,
     get_input_from_log_group_subscription_data,
+    get_lambda_region,
     get_shipper_from_input,
     get_sqs_client,
     get_trigger_type_and_config_source,
+    gzip_base64_decoded,
+    sanitize_for_log,
     wrap_try_except,
 )
 
@@ -48,12 +53,13 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
     AWS Lambda handler in handler.aws package
     Parses the config and acts as front controller for inputs
     """
-
     shared_logger.debug("lambda triggered", extra={"invoked_function_arn": lambda_context.invoked_function_arn})
 
     try:
         trigger_type, config_source = get_trigger_type_and_config_source(lambda_event)
-        shared_logger.info("trigger", extra={"type": trigger_type})
+        if trigger_type not in _valid_trigger_types:
+            raise Exception("Not supported trigger")
+        shared_logger.info("trigger", extra={"type": sanitize_for_log(trigger_type)})
     except Exception as e:
         raise TriggerTypeException(e)
 
@@ -85,13 +91,19 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         shipper_cache: dict[str, CompositeShipper] = {}
         for replay_record in lambda_event["Records"]:
             event = json_parser(replay_record["body"])
+
+            if "messageAttributes" in replay_record and PAYLOAD_ENCODING_KEY in replay_record["messageAttributes"]:
+                if replay_record["messageAttributes"][PAYLOAD_ENCODING_KEY]["stringValue"] == GZIP_ENCODING:
+                    event["event_payload"] = gzip_base64_decoded(event["event_payload"])
+
             input_id = event["event_input_id"]
-            output_type = event["output_type"]
-            shipper_id = input_id + output_type
+            output_destination = event["output_destination"]
+            shipper_id = input_id + output_destination
+
             if shipper_id not in shipper_cache:
                 shipper = get_shipper_for_replay_event(
                     config=config,
-                    output_type=output_type,
+                    output_destination=output_destination,
                     output_args=event["output_args"],
                     event_input_id=input_id,
                     replay_handler=replay_handler,
@@ -100,7 +112,10 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 if shipper is None:
                     shared_logger.warning(
                         "no shipper for output in replay queue",
-                        extra={"output_type": event["output_type"], "event_input_id": event["event_input_id"]},
+                        extra={
+                            "output_destination": sanitize_for_log(event["output_destination"]),
+                            "event_input_id": sanitize_for_log(event["event_input_id"]),
+                        },
                     )
                     continue
 
@@ -111,7 +126,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             assert isinstance(shipper, CompositeShipper)
 
             shipper.send(event["event_payload"])
-            event_uniq_id: str = event["event_payload"]["_id"] + output_type
+            event_uniq_id: str = event["event_payload"]["_id"] + output_destination
             replay_handler.add_event_with_receipt_handle(
                 event_uniq_id=event_uniq_id, receipt_handle=replay_record["receiptHandle"]
             )
@@ -130,26 +145,52 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
     sent_events: int = 0
     empty_events: int = 0
     skipped_events: int = 0
+    error_events: int = 0
+
+    sqs_replaying_queue = os.environ["SQS_REPLAY_URL"]
+    sqs_continuing_queue = os.environ["SQS_CONTINUE_URL"]
 
     if trigger_type == "cloudwatch-logs":
         cloudwatch_logs_event = _from_awslogs_data_to_event(lambda_event["awslogs"]["data"])
 
         shared_logger.info("trigger", extra={"size": len(cloudwatch_logs_event["logEvents"])})
 
+        lambda_region = get_lambda_region()
+
         input_id, event_input = get_input_from_log_group_subscription_data(
             config,
             cloudwatch_logs_event["owner"],
             cloudwatch_logs_event["logGroup"],
             cloudwatch_logs_event["logStream"],
+            # As of today, the cloudwatch trigger is always in
+            # the same region as the lambda function.
+            lambda_region,
         )
 
         if event_input is None:
-            shared_logger.warning("no input defined", extra={"input_type": trigger_type, "input_id": input_id})
-
+            shared_logger.error("no input defined", extra={"input_id": sanitize_for_log(input_id)})
+            error_events += 1
+            _handle_cloudwatch_logs_move(
+                sqs_client=sqs_client,
+                sqs_destination_queue=sqs_replaying_queue,
+                cloudwatch_logs_event=cloudwatch_logs_event,
+                input_id=input_id,
+                config_yaml=config_yaml,
+                continuing_queue=False,
+            )
+            shared_logger.info(
+                "lambda is going to shutdown",
+                extra={
+                    "error_events": error_events,
+                    "sent_events": sent_events,
+                    "empty_events": empty_events,
+                    "skipped_events": skipped_events,
+                },
+            )
             return "completed"
 
         aws_region = input_id.split(":")[3]
-        composite_shipper = get_shipper_from_input(event_input=event_input, config_yaml=config_yaml)
+        composite_shipper = get_shipper_from_input(event_input=event_input)
 
         event_list_from_field_expander = ExpandEventListFromField(
             event_input.expand_event_list_from_field,
@@ -180,8 +221,6 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 empty_events += 1
 
             if lambda_context is not None and lambda_context.get_remaining_time_in_millis() < _completion_grace_period:
-                sqs_continuing_queue = os.environ["SQS_CONTINUE_URL"]
-
                 shared_logger.info(
                     "lambda is going to shutdown, continuing on dedicated sqs queue",
                     extra={
@@ -194,14 +233,14 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
                 composite_shipper.flush()
 
-                _handle_cloudwatch_logs_continuation(
+                _handle_cloudwatch_logs_move(
                     sqs_client=sqs_client,
-                    sqs_continuing_queue=sqs_continuing_queue,
+                    sqs_destination_queue=sqs_continuing_queue,
                     last_ending_offset=last_ending_offset,
                     last_event_expanded_offset=last_event_expanded_offset,
                     cloudwatch_logs_event=cloudwatch_logs_event,
                     current_log_event=current_log_event_n,
-                    event_input_id=input_id,
+                    input_id=input_id,
                     config_yaml=config_yaml,
                 )
 
@@ -210,7 +249,12 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         composite_shipper.flush()
         shared_logger.info(
             "lambda processed all the events",
-            extra={"sent_event": sent_events, "empty_events": empty_events, "skipped_events": skipped_events},
+            extra={
+                "sent_events": sent_events,
+                "empty_events": empty_events,
+                "skipped_events": skipped_events,
+                "error_events": error_events,
+            },
         )
 
     if trigger_type == "kinesis-data-stream":
@@ -218,12 +262,33 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
         input_id = lambda_event["Records"][0]["eventSourceARN"]
         event_input = config.get_input_by_id(input_id)
-        if event_input is None:
-            shared_logger.warning("no input defined", extra={"input_id": input_id})
 
+        if event_input is None:
+            shared_logger.error("no input defined", extra={"input_id": sanitize_for_log(input_id)})
+            error_events += len(lambda_event["Records"])
+
+            for kinesis_record in lambda_event["Records"]:
+                _handle_kinesis_move(
+                    sqs_client=sqs_client,
+                    sqs_destination_queue=sqs_replaying_queue,
+                    kinesis_record=kinesis_record,
+                    event_input_id=input_id,
+                    config_yaml=config_yaml,
+                    continuing_queue=False,
+                )
+
+            shared_logger.info(
+                "lambda is going to shutdown",
+                extra={
+                    "sent_events": sent_events,
+                    "empty_events": empty_events,
+                    "skipped_events": skipped_events,
+                    "error_events": error_events,
+                },
+            )
             return "completed"
 
-        composite_shipper = get_shipper_from_input(event_input=event_input, config_yaml=config_yaml)
+        composite_shipper = get_shipper_from_input(event_input=event_input)
 
         event_list_from_field_expander = ExpandEventListFromField(
             event_input.expand_event_list_from_field,
@@ -253,8 +318,6 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 empty_events += 1
 
             if lambda_context is not None and lambda_context.get_remaining_time_in_millis() < _completion_grace_period:
-                sqs_continuing_queue = os.environ["SQS_CONTINUE_URL"]
-
                 shared_logger.info(
                     "lambda is going to shutdown, continuing on dedicated sqs queue",
                     extra={
@@ -262,6 +325,7 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                         "sent_events": sent_events,
                         "empty_events": empty_events,
                         "skipped_events": skipped_events,
+                        "error_events": error_events,
                     },
                 )
 
@@ -275,9 +339,9 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                         continuing_last_ending_offset = None
                         continuing_last_event_expanded_offset = None
 
-                    _handle_kinesis_continuation(
+                    _handle_kinesis_move(
                         sqs_client=sqs_client,
-                        sqs_continuing_queue=sqs_continuing_queue,
+                        sqs_destination_queue=sqs_continuing_queue,
                         last_ending_offset=continuing_last_ending_offset,
                         last_event_expanded_offset=continuing_last_event_expanded_offset,
                         kinesis_record=kinesis_record,
@@ -290,7 +354,12 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         composite_shipper.flush()
         shared_logger.info(
             "lambda processed all the events",
-            extra={"sent_event": sent_events, "empty_events": empty_events, "skipped_events": skipped_events},
+            extra={
+                "sent_events": sent_events,
+                "empty_events": empty_events,
+                "skipped_events": skipped_events,
+                "error_events": error_events,
+            },
         )
 
     if trigger_type == "s3-sqs" or trigger_type == "sqs":
@@ -318,12 +387,10 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
             timeout_config_yaml: str,
             timeout_current_s3_record: int = 0,
         ) -> None:
-            timeout_sqs_continuing_queue = os.environ["SQS_CONTINUE_URL"]
-
             shared_logger.info(
                 "lambda is going to shutdown, continuing on dedicated sqs queue",
                 extra={
-                    "sqs_queue": timeout_sqs_continuing_queue,
+                    "sqs_queue": sqs_continuing_queue,
                     "sent_events": timeout_sent_events,
                     "empty_events": timeout_empty_events,
                     "skipped_events": timeout_skipped_events,
@@ -349,24 +416,24 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                     continue
 
                 if timeout_input.type == "s3-sqs":
-                    _handle_s3_sqs_continuation(
+                    _handle_s3_sqs_move(
                         sqs_client=sqs_client,
-                        sqs_continuing_queue=timeout_sqs_continuing_queue,
+                        sqs_destination_queue=sqs_continuing_queue,
                         last_ending_offset=timeout_last_ending_offset,
                         last_event_expanded_offset=timeout_last_event_expanded_offset,
                         sqs_record=timeout_sqs_record,
                         current_s3_record=timeout_current_s3_record,
-                        event_input_id=timeout_input_id,
+                        input_id=timeout_input_id,
                         config_yaml=timeout_config_yaml,
                     )
                 else:
-                    _handle_sqs_continuation(
+                    handle_sqs_move(
                         sqs_client=sqs_client,
-                        sqs_continuing_queue=timeout_sqs_continuing_queue,
+                        sqs_destination_queue=sqs_continuing_queue,
                         last_ending_offset=timeout_last_ending_offset,
                         last_event_expanded_offset=timeout_last_event_expanded_offset,
                         sqs_record=timeout_sqs_record,
-                        event_input_id=timeout_input_id,
+                        input_id=timeout_input_id,
                         config_yaml=timeout_config_yaml,
                     )
 
@@ -382,15 +449,36 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
                 input_id = sqs_record["messageAttributes"]["originalEventSourceARN"]["stringValue"]
 
             event_input = config.get_input_by_id(input_id)
+
             if event_input is None:
-                shared_logger.warning("no input defined", extra={"input_id": input_id})
+                # This could happen if aws_lambda_event_source_mapping is set correctly, but
+                # the id on the config.yaml was writen incorrectly.
+                shared_logger.error("no input defined", extra={"input_id": sanitize_for_log(input_id)})
+                if trigger_type == "s3-sqs":
+                    _handle_s3_sqs_move(
+                        sqs_client=sqs_client,
+                        sqs_destination_queue=sqs_replaying_queue,
+                        sqs_record=sqs_record,
+                        input_id=input_id,
+                        config_yaml=config_yaml,
+                        continuing_queue=False,
+                    )
+                elif trigger_type == "sqs":
+                    handle_sqs_move(
+                        sqs_client=sqs_client,
+                        sqs_destination_queue=sqs_replaying_queue,
+                        sqs_record=sqs_record,
+                        input_id=input_id,
+                        config_yaml=config_yaml,
+                        continuing_queue=False,
+                    )
+                error_events += 1
                 continue
 
             if input_id in composite_shipper_cache:
                 composite_shipper = composite_shipper_cache[input_id]
             else:
-                composite_shipper = get_shipper_from_input(event_input=event_input, config_yaml=config_yaml)
-
+                composite_shipper = get_shipper_from_input(event_input=event_input)
                 composite_shipper_cache[event_input.id] = composite_shipper
 
             continuing_event_expanded_offset: Optional[int] = None
@@ -493,7 +581,12 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
 
         shared_logger.info(
             "lambda processed all the events",
-            extra={"sent_events": sent_events, "empty_events": empty_events, "skipped_events": skipped_events},
+            extra={
+                "sent_events": sent_events,
+                "empty_events": empty_events,
+                "skipped_events": skipped_events,
+                "error_events": error_events,
+            },
         )
 
     return "completed"

@@ -1,7 +1,10 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
+import base64
+import gzip
 import os
+import re
 from typing import Any, Callable, Optional
 
 import boto3
@@ -24,11 +27,41 @@ from .exceptions import (
 )
 
 _available_triggers: dict[str, str] = {"aws:s3": "s3-sqs", "aws:sqs": "sqs", "aws:kinesis": "kinesis-data-stream"}
+_valid_trigger_types: frozenset[str] = frozenset(_available_triggers.values()) | {"cloudwatch-logs", "replay-sqs"}
 
 CONFIG_FROM_PAYLOAD: str = "CONFIG_FROM_PAYLOAD"
 CONFIG_FROM_S3FILE: str = "CONFIG_FROM_S3FILE"
-
 INTEGRATION_SCOPE_GENERIC: str = "generic"
+PAYLOAD_ENCODING_KEY: str = "payloadEncoding"
+GZIP_ENCODING: str = "gzip"
+
+_CONTROL_CHARS_RE = re.compile(r"[\x00-\x1f\x7f]")
+
+
+def sanitize_for_log(value: str) -> str:
+    """Strip control characters to prevent log injection (CWE-117)."""
+    return _CONTROL_CHARS_RE.sub("", value)
+
+
+def get_lambda_region() -> str:
+    """
+    Get the AWS region where the Lambda function is running.
+
+    Returns the value of the `AWS_REGION` environment variable. If the
+    `AWS_REGION` variable is not set, it returns the value of the
+    `AWS_DEFAULT_REGION` variable.
+
+    If neither variable is set, it raises a `ValueError`.
+
+    Returns:
+        str: The AWS region.
+    """
+    region = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
+
+    if region is None:
+        raise ValueError("AWS region not found in environment variables.")
+
+    return region
 
 
 def get_sqs_client() -> BotoBaseClient:
@@ -48,7 +81,7 @@ def get_ec2_client() -> BotoBaseClient:
 
 
 def capture_serverless(
-    func: Callable[[dict[str, Any], context_.Context], str]
+    func: Callable[[dict[str, Any], context_.Context], str],
 ) -> Callable[[dict[str, Any], context_.Context], str]:
     """
     Decorator with logic regarding when to inject apm_capture_serverless
@@ -64,11 +97,11 @@ def capture_serverless(
 
         return wrapper
 
-    return apm_capture_serverless()(func=func)  # type:ignore
+    return apm_capture_serverless()(func=func)  # type: ignore
 
 
 def wrap_try_except(
-    func: Callable[[dict[str, Any], context_.Context], str]
+    func: Callable[[dict[str, Any], context_.Context], str],
 ) -> Callable[[dict[str, Any], context_.Context], str]:
     """
     Decorator to catch every exception and capture them by apm client if set
@@ -91,7 +124,7 @@ def wrap_try_except(
             ReplayHandlerException,
         ) as e:
             if apm_client:
-                apm_client.capture_exception()
+                apm_client.capture_exception()  # type: ignore
 
             shared_logger.exception("exception raised", exc_info=e)
 
@@ -102,13 +135,96 @@ def wrap_try_except(
         # it should not prevent all other events to be ingested.
         except Exception as e:
             if apm_client:
-                apm_client.capture_exception()
+                apm_client.capture_exception()  # type: ignore
 
-            shared_logger.exception("exception raised", exc_info=e)
+            shared_logger.exception(
+                "exception raised",
+                exc_info=e,
+                extra={
+                    "summary": summarize_lambda_event(lambda_event, max_records=20),
+                },
+            )
 
             return f"exception raised: {e.__repr__()}"
 
     return wrapper
+
+
+def summarize_lambda_event(event: dict[str, Any], max_records: int = 10) -> dict[str, Any]:
+    """
+    Summarize the lambda event to include only the most relevant information.
+    """
+    summary: dict[str, Any] = {}
+
+    try:
+        first_records_key = f"first_{max_records}_records"
+        records = event.get("Records", [])
+
+        for record in records:
+            event_source = record.get("eventSource", "unknown")
+
+            if event_source == "aws:sqs":
+                aws_sqs_summary = summary.get(
+                    "aws:sqs",
+                    # if `aws:sqs` key does not exist yet,
+                    # we initialize the summary.
+                    {
+                        "total_records": 0,
+                        first_records_key: [],
+                    },
+                )
+
+                # We keep track of the total number of notifications in the
+                # lambda event, so users know if the summary is incomplete.
+                notifications = json_parser(record["body"])
+
+                # So users know if we included only a
+                # subset of the records.
+                aws_sqs_summary["total_records"] += len(notifications["Records"])
+
+                for r in notifications["Records"]:
+                    # we only include the s3 object key in the summary.
+                    #
+                    # Here is an example of a notification record:
+                    #
+                    # {
+                    #   "Records": [
+                    #     {
+                    #       "awsRegion": "eu-west-1",
+                    #       "eventName": "ObjectCreated:Put",
+                    #       "eventSource": "aws:s3",
+                    #       "eventVersion": "2.1",
+                    #       "s3": {
+                    #         "bucket": {
+                    #           "arn": "arn:aws:s3:::mbranca-esf-data",
+                    #           "name": "mbranca-esf-data"
+                    #         },
+                    #         "object": {
+                    #           "key": "AWSLogs/1234567890/CloudTrail-Digest/"
+                    #         }
+                    #       }
+                    #     }
+                    #   ]
+                    # }
+
+                    # We stop adding records to the summary once we reach
+                    # the `max_records` limit.
+                    if len(aws_sqs_summary[first_records_key]) == max_records:
+                        break
+
+                    # Add the s3 object key to the summary.
+                    aws_sqs_summary[first_records_key].append(r.get("s3"))
+
+                # Update the summary with the new information.
+                summary["aws:sqs"] = aws_sqs_summary
+
+    except Exception as exc:
+        shared_logger.exception("error summarizing lambda event", exc_info=exc)
+        # We add an error message to the summary so users know if the summary
+        # is incomplete.
+        summary["error"] = str(exc)
+
+    return summary
 
 
 def discover_integration_scope(s3_object_key: str) -> str:
@@ -134,28 +250,26 @@ def discover_integration_scope(s3_object_key: str) -> str:
             return INTEGRATION_SCOPE_GENERIC
 
 
-def get_shipper_from_input(event_input: Input, config_yaml: str) -> CompositeShipper:
+def get_shipper_from_input(event_input: Input) -> CompositeShipper:
     composite_shipper: CompositeShipper = CompositeShipper()
 
-    for output_type in event_input.get_output_types():
-        if output_type == "elasticsearch":
+    for output_destination in event_input.get_output_destinations():
+        output: Optional[Output] = event_input.get_output_by_destination(output_destination)
+        assert output is not None
+
+        if output.type == "elasticsearch":
             shared_logger.debug("setting ElasticSearch shipper")
-            elasticsearch_output: Optional[Output] = event_input.get_output_by_type("elasticsearch")
-            assert elasticsearch_output is not None
 
             elasticsearch_shipper: ProtocolShipper = ShipperFactory.create_from_output(
-                output_type="elasticsearch", output=elasticsearch_output
+                output_type="elasticsearch", output=output
             )
+
             composite_shipper.add_shipper(shipper=elasticsearch_shipper)
 
-        if output_type == "logstash":
+        if output.type == "logstash":
             shared_logger.debug("setting Logstash shipper")
-            logstash_output: Optional[Output] = event_input.get_output_by_type("logstash")
-            assert logstash_output is not None
 
-            logstash_shipper: ProtocolShipper = ShipperFactory.create_from_output(
-                output_type="logstash", output=logstash_output
-            )
+            logstash_shipper: ProtocolShipper = ShipperFactory.create_from_output(output_type="logstash", output=output)
 
             composite_shipper.add_shipper(shipper=logstash_shipper)
 
@@ -300,7 +414,7 @@ def get_trigger_type_and_config_source(event: dict[str, Any]) -> tuple[str, str]
             body = json_parser(event_body)
             if (
                 isinstance(body, dict)
-                and "output_type" in event_body
+                and "output_destination" in event_body
                 and "output_args" in event_body
                 and "event_payload" in event_body
             ):
@@ -348,22 +462,32 @@ class ReplayEventHandler:
     def __init__(self, event_input: Input):
         self._event_input_id: str = event_input.id
 
-    def replay_handler(self, output_type: str, output_args: dict[str, Any], event_payload: dict[str, Any]) -> None:
+    def replay_handler(
+        self, output_destination: str, output_args: dict[str, Any], event_payload: dict[str, Any]
+    ) -> None:
         sqs_replay_queue = os.environ["SQS_REPLAY_URL"]
 
         sqs_client = get_sqs_client()
 
+        # generate message with compressed event_payload to avoid sqs message size overflow
         message_payload: dict[str, Any] = {
-            "output_type": output_type,
+            "output_destination": output_destination,
             "output_args": output_args,
-            "event_payload": event_payload,
+            "event_payload": gzip_base64_encoded(json_dumper(event_payload)),
             "event_input_id": self._event_input_id,
         }
 
-        sqs_client.send_message(QueueUrl=sqs_replay_queue, MessageBody=json_dumper(message_payload))
+        message_attributes = {PAYLOAD_ENCODING_KEY: {"StringValue": GZIP_ENCODING, "DataType": "String"}}
+        sqs_client.send_message(
+            QueueUrl=sqs_replay_queue, MessageBody=json_dumper(message_payload), MessageAttributes=message_attributes
+        )
 
         shared_logger.debug(
-            "sent to replay queue", extra={"output_type": output_type, "event_input_id": self._event_input_id}
+            "sent to replay queue",
+            extra={
+                "output_destination": sanitize_for_log(output_destination),
+                "event_input_id": sanitize_for_log(self._event_input_id),
+            },
         )
 
 
@@ -371,10 +495,12 @@ def get_queue_url_from_sqs_arn(sqs_arn: str) -> str:
     """
     Return sqs queue url given an sqs queue arn
     """
+    from urllib.parse import quote
+
     arn_components = sqs_arn.split(":")
-    region = arn_components[3]
-    account_id = arn_components[4]
-    queue_name = arn_components[5]
+    region = quote(arn_components[3], safe="")
+    account_id = quote(arn_components[4], safe="")
+    queue_name = quote(arn_components[5], safe="")
     return f"https://sqs.{region}.amazonaws.com/{account_id}/{queue_name}"
 
 
@@ -385,40 +511,35 @@ def get_account_id_from_arn(lambda_arn: str) -> str:
 
 
 def get_input_from_log_group_subscription_data(
-    config: Config, account_id: str, log_group_name: str, log_stream_name: str
+    config: Config, account_id: str, log_group_name: str, log_stream_name: str, region: str
 ) -> tuple[str, Optional[Input]]:
     """
-    This function is not less resilient than the previous get_log_group_arn_and_region_from_log_group_name()
-    We avoid to call the describe_log_streams on the logs' client, since we have no way to apply the proper
-    throttling because we'd need to know the number of concurrent lambda running at the time of the call.
-    In order to not hardcode the list of regions we rely on ec2 DescribeRegions - as much weird as it is - that I found
-    no information about having any kind of throttling. We add IAM permissions for it in deployment.
+    Look up for the input in the configuration using the information
+    from the log event.
+
+    It looks for the log stream arn, if not found it looks for the
+    log group arn.
     """
-    all_regions = get_ec2_client().describe_regions(AllRegions=True)
-    assert "Regions" in all_regions
-    for region_data in all_regions["Regions"]:
-        region = region_data["RegionName"]
+    partition = "aws"
+    if "gov" in region:
+        partition = "aws-us-gov"
 
-        aws_or_gov = "aws"
-        if "gov" in region:
-            aws_or_gov = "aws-us-gov"
+    log_stream_arn = (
+        f"arn:{partition}:logs:{region}:{account_id}:log-group:{log_group_name}:log-stream:{log_stream_name}"
+    )
+    event_input = config.get_input_by_id(log_stream_arn)
 
-        log_stream_arn = (
-            f"arn:{aws_or_gov}:logs:{region}:{account_id}:log-group:{log_group_name}:log-stream:{log_stream_name}"
-        )
-        event_input = config.get_input_by_id(log_stream_arn)
+    if event_input is not None:
+        return log_stream_arn, event_input
 
-        if event_input is not None:
-            return log_stream_arn, event_input
+    log_group_arn_components = log_stream_arn.split(":")
+    log_group_arn = f"{':'.join(log_group_arn_components[:-2])}:*"
+    event_input = config.get_input_by_id(log_group_arn)
 
-        log_group_arn_components = log_stream_arn.split(":")
-        log_group_arn = f"{':'.join(log_group_arn_components[:-2])}:*"
-        event_input = config.get_input_by_id(log_group_arn)
+    if event_input is not None:
+        return log_group_arn, event_input
 
-        if event_input is not None:
-            return log_group_arn, event_input
-
-    return "", None
+    return f"arn:aws:logs:%AWS_REGION%:{account_id}:log-group:{log_group_name}:*", None
 
 
 def delete_sqs_record(sqs_arn: str, receipt_handle: str) -> None:
@@ -440,15 +561,15 @@ def s3_object_id(event_payload: dict[str, Any]) -> str:
     Generates a unique event id given the payload of an event from an s3 bucket
     """
 
-    offset: int = event_payload["fields"]["log"]["offset"]
-    bucket_arn: str = event_payload["fields"]["aws"]["s3"]["bucket"]["arn"]
-    object_key: str = event_payload["fields"]["aws"]["s3"]["object"]["key"]
-    event_time: int = event_payload["meta"]["event_time"]
+    offset: int = int(event_payload["fields"]["log"]["offset"])
+    bucket_arn: str = str(event_payload["fields"]["aws"]["s3"]["bucket"]["arn"])
+    object_key: str = str(event_payload["fields"]["aws"]["s3"]["object"]["key"])
+    event_time: int = int(event_payload["meta"]["event_time"])
 
-    src: str = f"{bucket_arn}-{object_key}"
+    src: str = "-".join([bucket_arn, object_key])
     hex_src = get_hex_prefix(src)
 
-    return f"{event_time}-{hex_src}-{offset:012d}"
+    return "-".join([str(event_time), hex_src, f"{offset:012d}"])
 
 
 def cloudwatch_logs_object_id(event_payload: dict[str, Any]) -> str:
@@ -456,16 +577,16 @@ def cloudwatch_logs_object_id(event_payload: dict[str, Any]) -> str:
     Generates a unique event id given the payload of an event from an sqs queue
     """
 
-    offset: int = event_payload["fields"]["log"]["offset"]
-    group_name: str = event_payload["fields"]["aws"]["cloudwatch"]["log_group"]
-    stream_name: str = event_payload["fields"]["aws"]["cloudwatch"]["log_stream"]
-    event_id: str = event_payload["fields"]["aws"]["cloudwatch"]["event_id"]
-    event_timestamp: int = event_payload["meta"]["event_timestamp"]
+    offset: int = int(event_payload["fields"]["log"]["offset"])
+    group_name: str = str(event_payload["fields"]["aws"]["cloudwatch"]["log_group"])
+    stream_name: str = str(event_payload["fields"]["aws"]["cloudwatch"]["log_stream"])
+    event_id: str = str(event_payload["fields"]["aws"]["cloudwatch"]["event_id"])
+    event_timestamp: int = int(event_payload["meta"]["event_timestamp"])
 
-    src: str = f"{group_name}-{stream_name}-{event_id}"
+    src: str = "-".join([group_name, stream_name, event_id])
     hex_src = get_hex_prefix(src)
 
-    return f"{event_timestamp}-{hex_src}-{offset:012d}"
+    return "-".join([str(event_timestamp), hex_src, f"{offset:012d}"])
 
 
 def sqs_object_id(event_payload: dict[str, Any]) -> str:
@@ -473,32 +594,32 @@ def sqs_object_id(event_payload: dict[str, Any]) -> str:
     Generates a unique event id given the payload of an event from an sqs queue
     """
 
-    offset: int = event_payload["fields"]["log"]["offset"]
-    queue_name: str = event_payload["fields"]["aws"]["sqs"]["name"]
-    message_id: str = event_payload["fields"]["aws"]["sqs"]["message_id"]
-    sent_timestamp: int = event_payload["meta"]["sent_timestamp"]
+    offset: int = int(event_payload["fields"]["log"]["offset"])
+    queue_name: str = str(event_payload["fields"]["aws"]["sqs"]["name"])
+    message_id: str = str(event_payload["fields"]["aws"]["sqs"]["message_id"])
+    sent_timestamp: int = int(event_payload["meta"]["sent_timestamp"])
 
-    src: str = f"{queue_name}-{message_id}"
+    src: str = "-".join([queue_name, message_id])
     hex_src = get_hex_prefix(src)
 
-    return f"{sent_timestamp}-{hex_src}-{offset:012d}"
+    return "-".join([str(sent_timestamp), hex_src, f"{offset:012d}"])
 
 
 def kinesis_record_id(event_payload: dict[str, Any]) -> str:
     """
     Generates a unique event id given the payload of an event from a kinesis stream
     """
-    offset: int = event_payload["fields"]["log"]["offset"]
-    stream_type: str = event_payload["fields"]["aws"]["kinesis"]["type"]
-    stream_name: str = event_payload["fields"]["aws"]["kinesis"]["name"]
-    partition_key: str = event_payload["fields"]["aws"]["kinesis"]["partition_key"]
-    sequence_number: str = event_payload["fields"]["aws"]["kinesis"]["sequence_number"]
-    approximate_arrival_timestamp: int = event_payload["meta"]["approximate_arrival_timestamp"]
+    offset: int = int(event_payload["fields"]["log"]["offset"])
+    stream_type: str = str(event_payload["fields"]["aws"]["kinesis"]["type"])
+    stream_name: str = str(event_payload["fields"]["aws"]["kinesis"]["name"])
+    partition_key: str = str(event_payload["fields"]["aws"]["kinesis"]["partition_key"])
+    sequence_number: str = str(event_payload["fields"]["aws"]["kinesis"]["sequence_number"])
+    approximate_arrival_timestamp: int = int(event_payload["meta"]["approximate_arrival_timestamp"])
 
-    src: str = f"{stream_type}-{stream_name}-{partition_key}-{sequence_number}"
+    src: str = "-".join([stream_type, stream_name, partition_key, sequence_number])
     hex_src = get_hex_prefix(src)
 
-    return f"{approximate_arrival_timestamp}-{hex_src}-{offset:012d}"
+    return "-".join([str(approximate_arrival_timestamp), hex_src, f"{offset:012d}"])
 
 
 # This is implementation specific to AWS and should not reside on share
@@ -510,3 +631,14 @@ def expand_event_list_from_field_resolver(integration_scope: str, field_to_expan
         field_to_expand_event_list_from = "Records"
 
     return field_to_expand_event_list_from
+
+
+def gzip_base64_decoded(message: str) -> Any:
+    decoded = base64.b64decode(message, validate=True)
+    return json_parser(gzip.decompress(decoded).decode("utf-8"))
+
+
+def gzip_base64_encoded(message: str) -> str:
+    event_bytes = message.encode("utf-8")
+    compressed = gzip.compress(event_bytes)
+    return base64.b64encode(compressed).decode("utf-8")

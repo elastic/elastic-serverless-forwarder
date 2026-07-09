@@ -1,0 +1,8 @@
+project: 'Elastic Serverless Forwarder for AWS reference'
+toc:
+  - file: index.md
+  - file: aws-deploy-elastic-serverless-forwarder.md
+  - file: aws-elastic-serverless-forwarder-configuration.md
+  # - file: aws-serverless-troubleshooting.md
+  # - file: deploy-elastic-serverless-forwarder.md
+  # - file: configuration-options-for-elastic-serverless-forwarder.md
