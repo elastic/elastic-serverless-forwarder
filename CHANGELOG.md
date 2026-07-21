@@ -1,3 +1,7 @@
+### v1.21.6 - 2026/07/21
+#### Features
+* Add AWS-compatible log level field [1054](https://github.com/elastic/elastic-serverless-forwarder/pull/1054)
+
 ### v1.21.5 - 2026/06/30
 #### Security
 * Bump ujson to 5.13.0 to address CVE-2026-54911 [1050](https://github.com/elastic/elastic-serverless-forwarder/pull/1050)
