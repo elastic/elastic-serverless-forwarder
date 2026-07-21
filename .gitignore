@@ -26,6 +26,7 @@ coverage
 .cache
 /testdb.sql
 venv
+.venv
 benchmarks/result*
 coverage.xml
 tests/elastic-serverless-forwarder-junit.xml
