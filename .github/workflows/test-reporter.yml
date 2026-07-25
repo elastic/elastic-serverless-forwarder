@@ -11,8 +11,6 @@ on:
 permissions:
   contents: read
   actions: read
-  checks: write
-  pull-requests: write
 
 jobs:
   report:
@@ -29,6 +27,11 @@ jobs:
   coverage:
     if: ${{ github.event.workflow_run.event == 'pull_request' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      checks: write
+      pull-requests: write
     steps:
       - uses: actions/download-artifact@v8
         with:
