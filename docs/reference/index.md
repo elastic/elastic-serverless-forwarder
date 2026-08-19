@@ -69,6 +69,8 @@ The forwarder can ingest logs contained in the payload of a Kinesis Data Stream 
 
 You can set up separate Kinesis Data Streams for each type of log. The `es_datastream_name` parameter in the config file is mandatory. If this value is set to an {{es}} data stream, the type of log must be correctly defined with configuration parameters. A single configuration file can have many input sections, pointing to different data streams that match specific log types.
 
+Records written with aggregation enabled, either by the Kinesis Producer Library or by a producer using the same aggregated record format, such as the `kinesis` output of `aws-for-fluent-bit` with `aggregation true`, carry more than one user record each. The forwarder expands those records and sends every user record it finds as its own event. Records written without aggregation are ingested unchanged, and no configuration is required in either case.
+
 
 ### Amazon CloudWatch Logs subscription filters [aws-serverless-forwarder-inputs-cloudwatch]
 
