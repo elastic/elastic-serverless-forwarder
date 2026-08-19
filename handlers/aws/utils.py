@@ -616,7 +616,16 @@ def kinesis_record_id(event_payload: dict[str, Any]) -> str:
     sequence_number: str = str(event_payload["fields"]["aws"]["kinesis"]["sequence_number"])
     approximate_arrival_timestamp: int = int(event_payload["meta"]["approximate_arrival_timestamp"])
 
-    src: str = "-".join([stream_type, stream_name, partition_key, sequence_number])
+    src_components: list[str] = [stream_type, stream_name, partition_key, sequence_number]
+
+    # the user records of an aggregated record share the partition key and the sequence number of the
+    # record they were aggregated in, and each of them starts at offset zero: the sub sequence number
+    # is what keeps their ids unique. It is absent for records that were not aggregated, whose ids are
+    # therefore left untouched.
+    if "subsequence_number" in event_payload["fields"]["aws"]["kinesis"]:
+        src_components.append(str(event_payload["fields"]["aws"]["kinesis"]["subsequence_number"]))
+
+    src: str = "-".join(src_components)
     hex_src = get_hex_prefix(src)
 
     return "-".join([str(approximate_arrival_timestamp), hex_src, f"{offset:012d}"])

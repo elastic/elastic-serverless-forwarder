@@ -221,6 +221,13 @@ def _handle_sqs_event(
                     "sequence_number": sequence_number,
                 }
             }
+            # present only when the record this message came from was a user record of an aggregated
+            # record: it keeps the id of the event the same as the one generated before continuing
+            if "originalSubsequenceNumber" in payload:
+                es_event["fields"]["aws"]["kinesis"]["subsequence_number"] = int(
+                    payload["originalSubsequenceNumber"]["stringValue"]
+                )
+
             es_event["meta"]["approximate_arrival_timestamp"] = approximate_arrival_timestamp
 
         yield es_event, ending_offset, event_expanded_offset

@@ -355,6 +355,52 @@ class TestRecordId(TestCase):
         generated_id = kinesis_record_id(relevant_fields_for_id)
         assert _utf8len(generated_id) <= MAX_ES_ID_SIZ_BYTES
 
+    def test_kinesis_id_is_unchanged_without_a_sub_sequence_number(self) -> None:
+        relevant_fields_for_id: dict[str, Any] = {
+            "fields": {
+                "log": {"offset": 0},
+                "aws": {
+                    "kinesis": {
+                        "type": "stream",
+                        "name": "test-esf-kinesis-stream",
+                        "partition_key": "partition-key",
+                        "sequence_number": "4956816737333",
+                    }
+                },
+            },
+            "meta": {"approximate_arrival_timestamp": 1618434587036},
+        }
+
+        assert kinesis_record_id(relevant_fields_for_id) == (
+            "1618434587036-622f9217553d471be801dd27e2dac45bfb7252b532a25bc380dcef1bd881f6a0"
+            "386f93fd33c53813a550c283cc6966c7-000000000000"
+        )
+
+    def test_kinesis_id_differs_per_sub_sequence_number(self) -> None:
+        # the user records of an aggregated record share the partition key and the sequence number of
+        # the record they were aggregated in, and each of them starts at offset zero, so the sub
+        # sequence number is the only thing that tells their ids apart
+        def relevant_fields_for_id(subsequence_number: int) -> dict[str, Any]:
+            return {
+                "fields": {
+                    "log": {"offset": 0},
+                    "aws": {
+                        "kinesis": {
+                            "type": "stream",
+                            "name": "test-esf-kinesis-stream",
+                            "partition_key": "partition-key",
+                            "sequence_number": "4956816737333",
+                            "subsequence_number": subsequence_number,
+                        }
+                    },
+                },
+                "meta": {"approximate_arrival_timestamp": 1618434587036},
+            }
+
+        generated_ids = {kinesis_record_id(relevant_fields_for_id(n)) for n in range(3)}
+
+        assert len(generated_ids) == 3
+
     def test_s3_id_less_than_512bytes(self) -> None:
         event_time: int = int(datetime.datetime.now(datetime.UTC).timestamp() * 1000)
         bucket_name: str = _get_random_string_of_size(MAX_BUCKET_NAME_CHARS)
