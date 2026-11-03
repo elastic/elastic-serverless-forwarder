@@ -155,7 +155,7 @@ EOF
             }}
             """
 
-        self.with_env("LOG_LEVEL", os.environ.get("LOGSTASH_LOG_LEVEL", "fatal"))
+        self.with_env("LOG_LEVEL", os.environ.get("LOGSTASH_LOG_LEVEL", "info"))
         # `logstash-plugin install` runs with a 1G heap cap by default and runs out of memory while resolving the
         # dependencies of logstash-input-elastic_serverless_forwarder: the container then never starts Logstash.
         self.with_env("LS_JAVA_OPTS", "-Xmx2g")
