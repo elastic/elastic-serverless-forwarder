@@ -199,10 +199,19 @@ EOF
         assert len(self.ssl_assert_fingerprint) > 0
 
         url = self.get_api_url()
-        response = requests.get(f"{url}/?pretty", timeout=1)
-        response.raise_for_status()
+        while True:
+            try:
+                response = requests.get(f"{url}/?pretty", timeout=1)
+                if response.ok:
+                    break
+                last_error = f"API returned HTTP {response.status_code}: {response.text[:500]}"
+            except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout) as e:
+                last_error = f"API request failed: {e!r}"
 
-    def _raise_if_not_starting(self, deadline: float) -> None:
+            self._raise_if_not_starting(deadline, last_error)
+            time.sleep(1)
+
+    def _raise_if_not_starting(self, deadline: float, last_error: str = "") -> None:
         """
         Fail with the container logs instead of waiting forever if the container exited or the deadline passed.
         """
@@ -211,13 +220,14 @@ EOF
         if wrapped.status != "running":
             reason = f"container is {wrapped.status}"
         elif time.monotonic() > deadline:
-            reason = f"port {self.port} not open after {self._STARTUP_TIMEOUT_SECONDS}s"
+            reason = f"not ready after {self._STARTUP_TIMEOUT_SECONDS}s"
         else:
             return
 
         stdout, stderr = self.get_logs()
         logs = (stdout + stderr).decode("utf-8", errors="replace")[-5000:]
-        raise RuntimeError(f"Logstash did not start: {reason}. Last container logs:\n{logs}")
+        detail = f" Last error: {last_error}." if last_error else ""
+        raise RuntimeError(f"Logstash did not start: {reason}.{detail} Last container logs:\n{logs}")
 
     def reset(self) -> None:
         self._last_reset_message_count = self._previous_message_count
