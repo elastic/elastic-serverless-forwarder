@@ -19,6 +19,7 @@ import time
 from copy import deepcopy
 from typing import Any, Union
 
+from aws_kinesis_agg.aggregator import RecordAggregator
 from botocore.client import BaseClient as BotoBaseClient
 
 from handlers.aws.utils import get_queue_url_from_sqs_arn
@@ -170,6 +171,28 @@ def _kinesis_put_records(client: BotoBaseClient, stream_name: str, records_data:
     client.put_records(Records=records, StreamName=stream_name)
 
 
+def _kinesis_put_aggregated_record(client: BotoBaseClient, stream_name: str, records_data: list[str]) -> None:
+    """
+    Put the given payloads in the stream as the user records of a single KPL aggregated record, the way
+    a producer with aggregation enabled sends them.
+    """
+    aggregator = RecordAggregator()
+    for n, data in enumerate(records_data):
+        aggregator.add_user_record(f"PartitionKey{n}", data)
+
+    partition_key, _, aggregated_data = aggregator.clear_and_get().get_contents()
+
+    client.put_records(
+        Records=[
+            {
+                "PartitionKey": partition_key,
+                "Data": base64.b64encode(aggregated_data).decode("utf-8"),
+            }
+        ],
+        StreamName=stream_name,
+    )
+
+
 def _kinesis_retrieve_event_from_kinesis_stream(
     client: BotoBaseClient, stream_name: str, stream_arn: str
 ) -> tuple[dict[str, Any], list[int]]:
@@ -210,6 +233,9 @@ def _kinesis_retrieve_event_from_kinesis_stream(
             kinesis_record[camel_case_key] = new_value
 
         kinesis_record["approximateArrivalTimestamp"] = kinesis_record["approximateArrivalTimestamp"].timestamp()
+
+        # get_records does not return it, while lambda always delivers it as part of a kinesis record
+        kinesis_record["kinesisSchemaVersion"] = "1.0"
 
         new_records.append(
             {

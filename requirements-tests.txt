@@ -12,3 +12,9 @@ responses==0.25.7
 types-requests<2.32.4.20260108
 testcontainers==3.7.1
 pyOpenSSL==26.0.0
+# Reference implementation of the KPL aggregated record format. It builds the aggregated records
+# the deaggregation tests run against, so the format we accept is not defined by the same code
+# that reads it. `six` is pinned too because aws-kinesis-agg imports it without declaring it.
+aws-kinesis-agg==1.2.3
+protobuf==7.35.1
+six==1.17.0

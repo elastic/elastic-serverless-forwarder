@@ -53,6 +53,14 @@ def _handle_kinesis_move(
         },
     }
 
+    # forwarded so that the events of a user record keep the same id once the record is processed from
+    # the continuing queue: only the user records of an aggregated record carry it
+    if "subSequenceNumber" in kinesis_record["kinesis"]:
+        message_attributes["originalSubsequenceNumber"] = {
+            "StringValue": str(kinesis_record["kinesis"]["subSequenceNumber"]),
+            "DataType": "Number",
+        }
+
     if last_ending_offset is not None:
         message_attributes["originalLastEndingOffset"] = {"StringValue": str(last_ending_offset), "DataType": "Number"}
 
@@ -155,5 +163,12 @@ def _handle_kinesis_record(
                     ),
                 },
             }
+
+            # only the user records of an aggregated record carry a sub sequence number: leaving it out
+            # otherwise keeps the event, and the id generated from it, as it was before deaggregation
+            if "subSequenceNumber" in kinesis_record["kinesis"]:
+                es_event["fields"]["aws"]["kinesis"]["subsequence_number"] = kinesis_record["kinesis"][
+                    "subSequenceNumber"
+                ]
 
             yield es_event, ending_offset, event_expanded_offset, kinesis_record_n

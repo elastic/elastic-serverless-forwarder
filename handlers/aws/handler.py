@@ -15,6 +15,7 @@ from .cloudwatch_logs_trigger import (
     _handle_cloudwatch_logs_event,
     _handle_cloudwatch_logs_move,
 )
+from .kinesis_deaggregation import deaggregate_kinesis_records
 from .kinesis_trigger import _handle_kinesis_move, _handle_kinesis_record
 from .replay_trigger import ReplayedEventReplayHandler, get_shipper_for_replay_event
 from .s3_sqs_trigger import _handle_s3_sqs_event, _handle_s3_sqs_move
@@ -258,7 +259,16 @@ def lambda_handler(lambda_event: dict[str, Any], lambda_context: context_.Contex
         )
 
     if trigger_type == "kinesis-data-stream":
-        shared_logger.info("trigger", extra={"size": len(lambda_event["Records"])})
+        # a record sent with aggregation enabled carries more than one user record. Expanding them
+        # before anything else lets the rest of the flow, the continuing queue included, work on a
+        # single user record at a time, as every user record is shaped like a record lambda delivers.
+        kinesis_records_n = len(lambda_event["Records"])
+        lambda_event["Records"] = deaggregate_kinesis_records(lambda_event["Records"])
+
+        shared_logger.info(
+            "trigger",
+            extra={"size": len(lambda_event["Records"]), "kinesis_records": kinesis_records_n},
+        )
 
         input_id = lambda_event["Records"][0]["eventSourceARN"]
         event_input = config.get_input_by_id(input_id)

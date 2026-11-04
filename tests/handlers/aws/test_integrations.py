@@ -28,6 +28,7 @@ from .utils import (
     ContextMock,
     _create_secrets,
     _kinesis_create_stream,
+    _kinesis_put_aggregated_record,
     _kinesis_put_records,
     _kinesis_retrieve_event_from_kinesis_stream,
     _load_file_fixture,
@@ -2888,6 +2889,78 @@ class TestLambdaHandlerIntegration(TestCase):
 
         for message in replayed_messages:
             assert kinesis_stream_arn == message["messageAttributes"]["originalEventSourceARN"]["stringValue"]
+
+    def test_kinesis_data_stream_aggregated_record(self) -> None:
+        # only elasticsearch is used as output: it is where the _id of an event decides whether the
+        # event is indexed or dropped as a duplicate
+        assert isinstance(self.elasticsearch, ElasticsearchContainer)
+        assert isinstance(self.localstack, LocalStackContainer)
+
+        # every user record of an aggregated record carries the partition key and the sequence number of
+        # the record it was aggregated in, and each of them starts at offset zero: without the sub
+        # sequence number telling them apart they would all be given the same _id and only one of them
+        # would make it into the datastream
+        fixtures = [json_dumper({"message": f"line{n}"}) for n in range(10)]
+
+        kinesis_stream_name = _time_based_id(suffix="source-kinesis")
+        kinesis_stream = _kinesis_create_stream(self.kinesis_client, kinesis_stream_name)
+        kinesis_stream_arn = kinesis_stream["StreamDescription"]["StreamARN"]
+
+        _kinesis_put_aggregated_record(self.kinesis_client, kinesis_stream_name, fixtures)
+
+        config_yaml: str = f"""
+            inputs:
+              - type: "kinesis-data-stream"
+                id: "{kinesis_stream_arn}"
+                tags: {self.default_tags}
+                outputs:
+                  - type: "elasticsearch"
+                    args:
+                      elasticsearch_url: "{self.elasticsearch.get_url()}"
+                      ssl_assert_fingerprint: {self.elasticsearch.ssl_assert_fingerprint}
+                      username: "{self.secret_arn}:username"
+                      password: "{self.secret_arn}:password"
+        """
+
+        config_file_path = "config.yaml"
+        config_bucket_name = _time_based_id(suffix="config-bucket")
+        _s3_upload_content_to_bucket(
+            client=self.s3_client,
+            content=config_yaml.encode("utf-8"),
+            content_type="text/plain",
+            bucket_name=config_bucket_name,
+            key=config_file_path,
+        )
+
+        os.environ["S3_CONFIG_FILE"] = f"s3://{config_bucket_name}/{config_file_path}"
+
+        events_kinesis, _ = _kinesis_retrieve_event_from_kinesis_stream(
+            self.kinesis_client, kinesis_stream_name, kinesis_stream_arn
+        )
+
+        # the aggregated record reaches the lambda as a single kinesis record
+        assert len(events_kinesis["Records"]) == 1
+
+        ctx = ContextMock(remaining_time_in_millis=_OVER_COMPLETION_GRACE_PERIOD_2m)
+        first_call = handler(events_kinesis, ctx)  # type: ignore
+
+        assert first_call == "completed"
+
+        self.elasticsearch.refresh(index="logs-generic-default")
+        assert self.elasticsearch.count(index="logs-generic-default")["count"] == len(fixtures)
+
+        res = self.elasticsearch.search(index="logs-generic-default", size=len(fixtures), sort="_seq_no")
+
+        assert sorted(hit["_source"]["message"] for hit in res["hits"]["hits"]) == sorted(fixtures)
+
+        # every user record keeps the sequence number of the aggregated record and is told apart by its
+        # own sub sequence number
+        assert {hit["_source"]["aws"]["kinesis"]["sequence_number"] for hit in res["hits"]["hits"]} == {
+            events_kinesis["Records"][0]["kinesis"]["sequenceNumber"]
+        }
+        assert sorted(hit["_source"]["aws"]["kinesis"]["subsequence_number"] for hit in res["hits"]["hits"]) == list(
+            range(len(fixtures))
+        )
 
     def test_kinesis_data_stream_last_ending_offset_reset(self) -> None:
         assert isinstance(self.logstash, LogstashContainer)

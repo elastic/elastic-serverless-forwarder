@@ -1,3 +1,7 @@
+### v1.21.7 - 2026/08/19
+##### Features
+* Support KPL aggregated records on kinesis data stream inputs [1057](https://github.com/elastic/elastic-serverless-forwarder/pull/1057)
+
 ### v1.21.6 - 2026/07/21
 #### Features
 * Add AWS-compatible log level field [1054](https://github.com/elastic/elastic-serverless-forwarder/pull/1054)
