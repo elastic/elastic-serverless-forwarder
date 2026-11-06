@@ -113,6 +113,9 @@ class LogstashContainer(DockerContainer):  # type: ignore
 
         x509_cert, priv_key = self._ssl_certificate_and_private_key(subject_name="localhost")
 
+        # JRuby's TCP_INFO lookup can fail on Linux x86 as well as ARM, making Puma return empty HTTP 500s.
+        # Extend the image's existing ARM workaround until the bundled JRuby includes the getsockopt fix:
+        # https://github.com/jruby/jruby/pull/8362
         self.with_command(f"""bash -c "mkdir /tmp/ssl
 cat <<EOF > /tmp/ssl/localhost.crt
 {x509_cert}
@@ -123,6 +126,8 @@ cat <<EOF > /tmp/ssl/localhost.pkcs8.key
 EOF
 
 /opt/logstash/bin/logstash-plugin install logstash-input-elastic_serverless_forwarder
+
+sed -i 's/ && ENV_JAVA.*aarch64.*$//' /usr/share/logstash/logstash-core/lib/logstash/patches/puma.rb
 
 /opt/logstash/bin/logstash"
 """)
