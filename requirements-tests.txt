@@ -2,13 +2,13 @@ mock==5.2.0
 pytest==9.0.3
 pytest-cov==6.1.1
 pytest-benchmark==5.1.0
-coverage==7.9.1
+coverage==7.17.0
 simplejson==3.19.2
 ujson==5.13.0
 pysimdjson==6.0.2
 python-rapidjson==1.14
 cysimdjson==23.8
-responses==0.25.7
+responses==0.26.3
 types-requests<2.32.4.20260108
 testcontainers==3.7.1
-pyOpenSSL==26.0.0
+pyOpenSSL==26.4.0
