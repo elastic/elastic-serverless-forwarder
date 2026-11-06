@@ -1,3 +1,17 @@
+### v1.21.7 - 2026/11/06
+#### Security
+* Pin certifi to 2026.10.19 to remove trust in the emSign root associated with compromised intermediate CA keys (GHSA-6q48-6c7w-9gw2) [1060](https://github.com/elastic/elastic-serverless-forwarder/pull/1060)
+* Bump urllib3 to 2.8.0 to address CVE-2026-97687, CVE-2026-97688, and CVE-2026-97689 [1060](https://github.com/elastic/elastic-serverless-forwarder/pull/1060)
+* Bump black to 26.10.1 to address CVE-2026-114134 affecting its bundled GitHub Action (development dependency only) [1060](https://github.com/elastic/elastic-serverless-forwarder/pull/1060)
+
+#### Dependencies
+* Update runtime, lint, and test dependencies [1060](https://github.com/elastic/elastic-serverless-forwarder/pull/1060)
+
+#### CI
+* Fix Logstash integration-test startup failures and hangs [1063](https://github.com/elastic/elastic-serverless-forwarder/pull/1063)
+* Bump actions/setup-python in the github-actions group [1056](https://github.com/elastic/elastic-serverless-forwarder/pull/1056)
+* Add explicit permissions to workflows [1053](https://github.com/elastic/elastic-serverless-forwarder/pull/1053)
+
 ### v1.21.6 - 2026/07/21
 #### Features
 * Add AWS-compatible log level field [1054](https://github.com/elastic/elastic-serverless-forwarder/pull/1054)
