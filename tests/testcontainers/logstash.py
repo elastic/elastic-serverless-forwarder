@@ -44,6 +44,7 @@ class LogstashContainer(DockerContainer):  # type: ignore
     _DEFAULT_API_PORT = 9600
     _DEFAULT_USERNAME = "USERNAME"
     _DEFAULT_PASSWORD = "PASSWORD"
+    _STARTUP_TIMEOUT_SECONDS = 300
 
     def __init__(
         self,
@@ -112,6 +113,9 @@ class LogstashContainer(DockerContainer):  # type: ignore
 
         x509_cert, priv_key = self._ssl_certificate_and_private_key(subject_name="localhost")
 
+        # JRuby's TCP_INFO lookup can fail on Linux x86 as well as ARM, making Puma return empty HTTP 500s.
+        # Extend the image's existing ARM workaround until the bundled JRuby includes the getsockopt fix:
+        # https://github.com/jruby/jruby/pull/8362
         self.with_command(f"""bash -c "mkdir /tmp/ssl
 cat <<EOF > /tmp/ssl/localhost.crt
 {x509_cert}
@@ -122,6 +126,8 @@ cat <<EOF > /tmp/ssl/localhost.pkcs8.key
 EOF
 
 /opt/logstash/bin/logstash-plugin install logstash-input-elastic_serverless_forwarder
+
+sed -i 's/ && ENV_JAVA.*aarch64.*$//' /usr/share/logstash/logstash-core/lib/logstash/patches/puma.rb
 
 /opt/logstash/bin/logstash"
 """)
@@ -155,6 +161,9 @@ EOF
             """
 
         self.with_env("LOG_LEVEL", os.environ.get("LOGSTASH_LOG_LEVEL", "fatal"))
+        # `logstash-plugin install` runs with a 1G heap cap by default and runs out of memory while resolving the
+        # dependencies of logstash-input-elastic_serverless_forwarder: the container then never starts Logstash.
+        self.with_env("LS_JAVA_OPTS", "-Xmx2g")
         self.with_env("PIPELINE_WORKERS", "1")
         # By design and by default, Logstash does not guarantee event order. The following setting ensures that
         # events are processed in the order they are received.
@@ -178,6 +187,7 @@ EOF
         self.host = self.get_container_host_ip()
         self.exposed_port = int(self.get_exposed_port(self.port))
 
+        deadline = time.monotonic() + self._STARTUP_TIMEOUT_SECONDS
         while True:
             try:
                 pem_server_certificate: str = ssl.get_server_certificate((self.host, self.exposed_port))
@@ -185,6 +195,7 @@ EOF
                     OpenSSLCrypto.FILETYPE_PEM, pem_server_certificate.encode("utf-8")
                 )
             except Exception:
+                self._raise_if_not_starting(deadline)
                 time.sleep(1)
             else:
                 self.ssl_assert_fingerprint = str(openssl_certificate.digest("sha256").decode())
@@ -193,8 +204,35 @@ EOF
         assert len(self.ssl_assert_fingerprint) > 0
 
         url = self.get_api_url()
-        response = requests.get(f"{url}/?pretty", timeout=1)
-        response.raise_for_status()
+        while True:
+            try:
+                response = requests.get(f"{url}/?pretty", timeout=1)
+                if response.ok:
+                    break
+                last_error = f"API returned HTTP {response.status_code}: {response.text[:500]}"
+            except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout) as e:
+                last_error = f"API request failed: {e!r}"
+
+            self._raise_if_not_starting(deadline, last_error)
+            time.sleep(1)
+
+    def _raise_if_not_starting(self, deadline: float, last_error: str = "") -> None:
+        """
+        Fail with the container logs instead of waiting forever if the container exited or the deadline passed.
+        """
+        wrapped = self.get_wrapped_container()
+        wrapped.reload()
+        if wrapped.status != "running":
+            reason = f"container is {wrapped.status}"
+        elif time.monotonic() > deadline:
+            reason = f"not ready after {self._STARTUP_TIMEOUT_SECONDS}s"
+        else:
+            return
+
+        stdout, stderr = self.get_logs()
+        logs = (stdout + stderr).decode("utf-8", errors="replace")[-5000:]
+        detail = f" Last error: {last_error}." if last_error else ""
+        raise RuntimeError(f"Logstash did not start: {reason}.{detail} Last container logs:\n{logs}")
 
     def reset(self) -> None:
         self._last_reset_message_count = self._previous_message_count
