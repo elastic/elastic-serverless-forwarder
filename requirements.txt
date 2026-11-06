@@ -1,5 +1,6 @@
 elastic-apm==6.26.2
 boto3==1.43.123
+certifi==2026.10.19
 ecs_logging==2.3.0
 elasticsearch==7.17.13
 PyYAML==6.0.3
